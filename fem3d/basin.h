@@ -1,5 +1,5 @@
 
-c include file if basin (BAS) is read
+! include file if basin (BAS) is read
 
         !integer nkn,nel,nrz,nrq,nrb,nbc,ngr,mbw
         !common /nkonst/ nkn,nel,nrz,nrq,nrb,nbc,ngr,mbw

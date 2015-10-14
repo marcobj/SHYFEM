@@ -64,8 +64,8 @@ export NELDIM = 22000
 ##############################################
 
 #FORTRAN_COMPILER = GNU_G77
-FORTRAN_COMPILER = GNU_GFORTRAN
-#FORTRAN_COMPILER = INTEL
+#FORTRAN_COMPILER = GNU_GFORTRAN
+FORTRAN_COMPILER = INTEL
 #FORTRAN_COMPILER = PORTLAND
 #FORTRAN_COMPILER = IBM
 
@@ -266,14 +266,14 @@ endif
 #PROFILE = true
 PROFILE = false
 
-DEBUG = true
-#DEBUG = false
+#DEBUG = true
+DEBUG = false
 
 OPTIMIZE = true
 #OPTIMIZE = false
 
-WARNING = true
-#WARNING = false
+#WARNING = true
+WARNING = false
 
 ##############################################
 #
