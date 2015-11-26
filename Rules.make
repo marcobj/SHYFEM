@@ -35,7 +35,7 @@
 
 export MBWDIM = 300
 export NGRDIM = 12
-export NLVDIM = 1
+export NLVDIM = 8
 
 export NKNDIM = 11000
 export NELDIM = 22000
