@@ -76,12 +76,12 @@ export NBDYDIM = 100000
 
 #FORTRAN_COMPILER = GNU_G77
 FORTRAN_COMPILER = GNU_GFORTRAN
-#FORTRAN_COMPILER = INTEL
+FORTRAN_COMPILER = INTEL
 #FORTRAN_COMPILER = PORTLAND
 #FORTRAN_COMPILER = IBM
 
 C_COMPILER = GNU_GCC
-#C_COMPILER = INTEL
+C_COMPILER = INTEL
 #C_COMPILER = IBM
 
 ##############################################
@@ -110,8 +110,8 @@ C_COMPILER = GNU_GCC
 #
 ##############################################
 
-PARALLEL=false
-#PARALLEL=true
+#PARALLEL=false
+PARALLEL=true
 
 ##############################################
 # Solver for matrix solution
@@ -134,8 +134,9 @@ PARALLEL=false
 ##############################################
 
 #SOLVER=GAUSS
-SOLVER=SPARSKIT
+#SOLVER=SPARSKIT
 #SOLVER=PARDISO
+SOLVER=PARALUTION
 
 ##############################################
 # NetCDF library
@@ -252,6 +253,13 @@ ifneq ($(FORTRAN_COMPILER),INTEL)
   endif
 endif
 
+ifeq ($(SOLVER),PARALUTION)
+  ifneq ($(PARALLEL),true)
+     RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
+     RULES_MAKE_MESSAGE = "Paralution solver needs PARALLEL=true"
+  endif
+endif
+
 ifeq ($(C_COMPILER),INTEL)
   ifneq ($(FORTRAN_COMPILER),INTEL)
     RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
@@ -286,7 +294,7 @@ OPTIMIZE = true
 #OPTIMIZE = false
 
 WARNING = true
-#WARNING = false
+WARNING = false
 
 ##############################################
 #
@@ -576,6 +584,7 @@ ifeq ($(C_COMPILER),GNU_GCC)
   CC     = gcc
   CFLAGS = -O -Wall -pedantic
   CFLAGS = -O -Wall -pedantic -std=gnu99  #no warnings for c++ style comments
+  CFLAGS = -O3 
   LCFLAGS = -O 
   CINFOFLAGS = -v
 endif
@@ -584,6 +593,7 @@ ifeq ($(C_COMPILER),INTEL)
   CC     = icc
   CFLAGS = -O -g -traceback -check-uninit
   CFLAGS = -O -g -traceback
+  CFLAGS = -O3 -g -traceback
   LCFLAGS = -O 
   CINFOFLAGS = -v
 endif

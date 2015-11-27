@@ -1,0 +1,37 @@
+To install correctly with Cuda and Opencl install also:
+nvidia-cuda-toolkit
+
+then:
+
+Unpack
+$ tar zxvf paralution-x.y.z.tar.gz
+
+Compile
+$ cd paralution-x.y.x
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make
+
+If you have problem with the "make" because the gcc is too new, install an old version of gcc and g++
+and then use them as default with update-alternatives. Here an example that sets vers 4.6 as default:
+
+root$ VER=4.6 ; PRIO=60
+root$ update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-$VER $PRIO --slave /usr/bin/g++ g++ /usr/bin/g++-$VER
+root$ update-alternatives --install /usr/bin/cpp cpp-bin /usr/bin/cpp-$VER $PRIO
+
+root$ VER=4.9 ; PRIO=40
+root$ update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-$VER $PRIO --slave /usr/bin/g++ g++ /usr/bin/g++-$VER
+root$ update-alternatives --install /usr/bin/cpp cpp-bin /usr/bin/cpp-$VER $PRIO
+
+to check:
+root$ update-alternatives --list gcc
+root$ update-alternatives --list cpp-bin
+
+To select manually version 4.9 of gcc, g++ and cpp, do:
+root$ update-alternatives --config gcc
+root$ update-alternatives --config cpp-bin
+
+Restore distro compiler settings (here: back to v4.6):
+root$ update-alternatives --auto gcc
+root$ update-alternatives --auto cpp-bin

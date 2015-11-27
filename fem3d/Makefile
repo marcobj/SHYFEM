@@ -23,6 +23,7 @@ LIBFEM     = fem
 LIBGOTM    = gotm
 LIBNETCDF  = netcdff
 LIBERSEM   = bfm
+LIBPARA = paralution
 
 LIBFFEM    = $(DIRLIB)/lib$(LIBFEM).a
 
@@ -49,6 +50,19 @@ ifeq ($(SOLVER),SPARSKIT)
   SOLVER_FILES = simsys_spk.o subspk.o subcoo.o nonhydro_spk.o \
 		spk_ilut.o spk_iters.o spk_itaux.o \
 		spk_itpack.o spk_matvec.o spk_blas1_mod.o
+endif
+LIBF_PARA =
+LIBG_PARA =
+DIRLIB_PARA =
+PFLAGS =
+ifeq ($(SOLVER),PARALUTION)
+  PFLAGS = -lstdc++
+  DIRLIB_PARA = $(FEMDIR)/paralution/build/lib
+  PARAINC = $(FEMDIR)/paralution/build/inc
+  LIBG_PARA = -L$(DIRLIB_PARA) -l$(LIBPARA)
+  LIBF_PARA = $(DIRLIB_PARA)/lib$(LIBPARA).so
+  SOLVER_FILES = subcoo.o simsys_para.o subpara.o \
+		paralution_fortran.o
 endif
 
 #ifneq ("$(wildcard /usr/lib/libnetcdff.a","")
@@ -107,8 +121,8 @@ endif
 
 #------------------------------------------------------------
 
-LIBGS      = $(LIBLS) $(LIBG_NETCDF) $(LIBG_GOTM) $(LIBG_ERSEM) $(LIBG_MKL)
-LIBFS      = $(LIBF_NETCDF) $(LIBF_GOTM) $(LIBF_ERSEM)
+LIBGS      = $(LIBLS) $(LIBG_NETCDF) $(LIBG_GOTM) $(LIBG_ERSEM) $(LIBG_MKL) $(LIBG_PARA)
+LIBFS      = $(LIBF_NETCDF) $(LIBF_GOTM) $(LIBF_ERSEM) $(LIBF_PARA)
 INCLUDE    = $(INCL_NETCDF)
 
 #------------------------------------------------------------
@@ -207,7 +221,6 @@ HTOBJS = \
 	subtidef.o subres.o subuti.o \
 	sublin.o subvola.o subgeo.o debug.o \
 	submod.o subele.o \
-	$(SOLVER_FILES) \
 	$(QFLUX) \
 	$(MUD_FILES) $(GOTM_OBJ) \
 	subbndo.o subbnds.o \
@@ -232,6 +245,7 @@ HTOBJS = \
 	$(ECOLOGICAL_OBJ) \
 	$(NETCDF_OBJ) $(PARALLEL_OBJ) \
 	$(GRDOBJS) \
+	$(SOLVER_FILES) \
 	subxi.o subshy.o subshyutil.o subbit10.o
 
 # objects for pre-processor shypre
@@ -394,7 +408,7 @@ bedload:  bedload.o $(NEWOBJS) $(HTOBJS) $(LIBFS)
 	$(LINKER) -o $@ $(LFLAGS) $@.o $(NEWOBJS) $(HTOBJS) $(LIBGS)
 
 shyfem:  shyfem.o $(NEWOBJS) $(HTOBJS) $(LIBFS)
-	$(LINKER) -o $@ $(LFLAGS) $@.o $(NEWOBJS) $(HTOBJS) $(LIBGS)
+	$(LINKER) -o $@ $(LFLAGS) $(PFLAGS) $@.o $(NEWOBJS) $(HTOBJS) $(LIBGS)
 
 shypre:  shypre.o $(VPOBJS)
 	$(LINKER) -o $@ $(LFLAGS) $@.o $(VPOBJS)
@@ -584,6 +598,12 @@ intp:	intp.o $(INTPOBJS)
 
 gotm3d.o: gotm3d.f gotmturb.i
 	$(F77) -c $(FFLAGS_NOOPT) gotm3d.f
+
+#------------------------------------------------
+
+# paralution solver rules
+paralution_fortran.o: $(FEMDIR)/paralution/src/plug-ins/paralution_fortran.cpp
+	$(CC) $(CFLAGS) -fopenmp -I$(PARAINC) -c $(FEMDIR)/paralution/src/plug-ins/paralution_fortran.cpp
 
 #------------------------------------------------
 

@@ -145,7 +145,10 @@ cleanlocal:
 clean: cleanlocal
 	$(FEMBIN)/recursivemake $@ $(SUBDIRS)
 
-cleanall: cleanlocal cleanregress
+cleanpara:
+	rm -fr $(FEMDIR)/paralution/build
+
+cleanall: cleanlocal cleanregress cleanpara
 	$(FEMBIN)/recursivemake $@ $(SUBDIRS)
 
 cleandist: cleanall
