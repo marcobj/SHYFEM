@@ -111,7 +111,7 @@ C_COMPILER = GNU_GCC
 ##############################################
 
 PARALLEL=false
-PARALLEL=true
+#PARALLEL=true
 
 ##############################################
 # Solver for matrix solution
@@ -136,7 +136,7 @@ PARALLEL=true
 #SOLVER=GAUSS
 SOLVER=SPARSKIT
 #SOLVER=PARDISO
-SOLVER=PARALUTION
+#SOLVER=PARALUTION
 
 ##############################################
 # NetCDF library
