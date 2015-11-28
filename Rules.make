@@ -76,12 +76,12 @@ export NBDYDIM = 100000
 
 #FORTRAN_COMPILER = GNU_G77
 FORTRAN_COMPILER = GNU_GFORTRAN
-FORTRAN_COMPILER = INTEL
+#FORTRAN_COMPILER = INTEL
 #FORTRAN_COMPILER = PORTLAND
 #FORTRAN_COMPILER = IBM
 
 C_COMPILER = GNU_GCC
-C_COMPILER = INTEL
+#C_COMPILER = INTEL
 #C_COMPILER = IBM
 
 ##############################################
@@ -110,8 +110,8 @@ C_COMPILER = INTEL
 #
 ##############################################
 
-#PARALLEL=false
-PARALLEL=true
+PARALLEL=false
+#PARALLEL=true
 
 ##############################################
 # Solver for matrix solution
@@ -134,9 +134,9 @@ PARALLEL=true
 ##############################################
 
 #SOLVER=GAUSS
-#SOLVER=SPARSKIT
+SOLVER=SPARSKIT
 #SOLVER=PARDISO
-SOLVER=PARALUTION
+#SOLVER=PARALUTION
 
 ##############################################
 # NetCDF library
@@ -294,7 +294,7 @@ OPTIMIZE = true
 #OPTIMIZE = false
 
 WARNING = true
-WARNING = false
+#WARNING = false
 
 ##############################################
 #

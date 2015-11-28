@@ -23,7 +23,6 @@ LIBFEM     = fem
 LIBGOTM    = gotm
 LIBNETCDF  = netcdff
 LIBERSEM   = bfm
-LIBPARA = paralution
 
 LIBFFEM    = $(DIRLIB)/lib$(LIBFEM).a
 
@@ -51,16 +50,18 @@ ifeq ($(SOLVER),SPARSKIT)
 		spk_ilut.o spk_iters.o spk_itaux.o \
 		spk_itpack.o spk_matvec.o spk_blas1_mod.o
 endif
-LIBF_PARA =
 LIBG_PARA =
-DIRLIB_PARA =
 PFLAGS =
 ifeq ($(SOLVER),PARALUTION)
+  LIBPARA = paralution
   PFLAGS = -lstdc++
+  #PFLAGS = -lstdc++ -lcudart -lcusparse -lcublas -lOpenCL -L/usr/local/cuda/lib64
   DIRLIB_PARA = $(FEMDIR)/paralution/build/lib
   PARAINC = $(FEMDIR)/paralution/build/inc
-  LIBG_PARA = -L$(DIRLIB_PARA) -l$(LIBPARA)
-  LIBF_PARA = $(DIRLIB_PARA)/lib$(LIBPARA).so
+  # dynamic
+  #LIBG_PARA = -L$(DIRLIB_PARA) -l$(LIBPARA)
+  # static
+  LIBG_PARA = $(DIRLIB_PARA)/lib$(LIBPARA).so
   SOLVER_FILES = subcoo.o simsys_para.o subpara.o \
 		paralution_fortran.o
 endif
@@ -122,7 +123,7 @@ endif
 #------------------------------------------------------------
 
 LIBGS      = $(LIBLS) $(LIBG_NETCDF) $(LIBG_GOTM) $(LIBG_ERSEM) $(LIBG_MKL) $(LIBG_PARA)
-LIBFS      = $(LIBF_NETCDF) $(LIBF_GOTM) $(LIBF_ERSEM) $(LIBF_PARA)
+LIBFS      = $(LIBF_NETCDF) $(LIBF_GOTM) $(LIBF_ERSEM)
 INCLUDE    = $(INCL_NETCDF)
 
 #------------------------------------------------------------
@@ -221,6 +222,7 @@ HTOBJS = \
 	subtidef.o subres.o subuti.o \
 	sublin.o subvola.o subgeo.o debug.o \
 	submod.o subele.o \
+	$(SOLVER_FILES) \
 	$(QFLUX) \
 	$(MUD_FILES) $(GOTM_OBJ) \
 	subbndo.o subbnds.o \
@@ -245,7 +247,6 @@ HTOBJS = \
 	$(ECOLOGICAL_OBJ) \
 	$(NETCDF_OBJ) $(PARALLEL_OBJ) \
 	$(GRDOBJS) \
-	$(SOLVER_FILES) \
 	subxi.o subshy.o subshyutil.o subbit10.o
 
 # objects for pre-processor shypre

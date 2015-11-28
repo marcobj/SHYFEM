@@ -3,7 +3,7 @@
 !
 ! revision log :
 !
-! 27.11.2015    mbj     First version
+! 28.11.2015    mbj     First version
 !
 !*************************************************************************
 
@@ -11,22 +11,19 @@
 
 ! Initialize vector and matrix      
 
-	use mod_system
-	use basin
+      use mod_system
+      use basin
 
       implicit none
       include 'param.h'
 
-      integer n
-
       integer icall_coo
       data icall_coo /0/
       save icall_coo
-
-      do n=1,nkn
-         rvec(n) = 0.
-         raux(n) = 0.
-      end do
+      
+      rvec = 0.
+      raux = 0.
+      coo = 0.
 
       if (icall_coo.eq.0) then		! only first time
 	 write(6,*) 'SOLVER: Paralution'
@@ -36,9 +33,6 @@
          icall_coo=1
       end if
 
-      do n=1,nnzero
-         coo(n) = 0.
-      end do
 
       end
 
@@ -80,35 +74,53 @@
  real(kind=C_DOUBLE), allocatable, target :: rval(:)
  real(kind=C_DOUBLE), allocatable, target :: rhs(:), x(:)
 
+ !Paralution parameters
+ character(len=80) :: Solver,Op_mat_form,Prec,Prec_mat_form
+
  n = nin
  m = n	!n row and col are the same
  nnz = nnzero
 
- allocate( rhs(n), x(n) )
- allocate( rows(nnz), cols(nnz) )
- allocate( rval(nnz) )
+ !if( .not. allocated(x) ) then
+   allocate( rhs(n), x(n) )
+   allocate( rows(nnz), cols(nnz) )
+   allocate( rval(nnz) )
+ !end if
+
  rhs = rvec
- x = raux
+ x = 0._C_DOUBLE
  rows = icoo
  cols = jcoo
  rval = coo
+
+! Solver (CG,BiCGStab,GMRES,Fixed-Point)
+  !Solver = 'GMRES'	!default
+  Solver = 'BiCGStab'
+! Operation matrix format(DENSE,CSR,MCSR,COO,DIA,ELL,HYB)
+  !Op_mat_form = 'HYB'	!default
+  Op_mat_form = 'COO'
+! Preconditioner (None,Jacobi,MultiColoredGS,MultiColoredSGS,ILU,MultiColoredILU)
+  !Prec = 'MultiColoredILU'	!default
+  Prec = 'ILU'
+! Preconditioner matrix format (DENSE,CSR,MCSR,COO,DIA,ELL,HYB)
+  !Prec_mat_form = 'ELL'	!default
+  Prec_mat_form = 'COO'
 
   ! Run paralution C function for COO matrices
   ! Doing a GMRES with MultiColored ILU(1,2) preconditioner
   ! Check paralution documentation for a detailed argument explanation
   call paralution_fortran_solve_coo( n, m, nnz,                                          &
-  &                                  'CG' // C_NULL_CHAR,                                &
-  &                                  'CSR' // C_NULL_CHAR,                               &
-  &                                  'MultiColoredILU' // C_NULL_CHAR,                   &
-  &                                  'CSR' // C_NULL_CHAR,                               &
+  &                                  trim(Solver) // C_NULL_CHAR,                        &
+  &                                  trim(Op_mat_form) // C_NULL_CHAR,                   &
+  &                                  trim(Prec) // C_NULL_CHAR,                          &
+  &                                  trim(Prec_mat_form) // C_NULL_CHAR,                 &
   &                                  C_LOC(rows), C_LOC(cols), C_LOC(rval), C_LOC(rhs),  &
-  &                                  1e-15_C_DOUBLE, 1e-8_C_DOUBLE, 1e+8_C_DOUBLE, 5000, &
+  &                                  1e-8_C_DOUBLE, 1e-8_C_DOUBLE, 1e+8_C_DOUBLE, 1000,  &
   &                                  30, 0, 1, C_LOC(x), iter, resnorm, ierr )
 
  rvec = x
 
  deallocate( rows, cols, rval, rhs, x )
-
 
  end subroutine para_solve_system
 

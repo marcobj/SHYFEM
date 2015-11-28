@@ -181,7 +181,7 @@ void paralution_fortran_solve_coo(int n, int m, int nnz, char *solver, char *mfo
 {
 
   paralution::init_paralution();
-  paralution::info_paralution();
+  //paralution::info_paralution();
 
   paralution::LocalVector<double> paralution_x;
   paralution::LocalVector<double> paralution_rhs;
@@ -245,7 +245,7 @@ void paralution_fortran_solve_csr(int n, int m, int nnz, char *solver, char *mfo
 {
 
   paralution::init_paralution();
-  paralution::info_paralution();
+  //paralution::info_paralution();
 
   paralution::LocalVector<double> paralution_x;
   paralution::LocalVector<double> paralution_rhs;

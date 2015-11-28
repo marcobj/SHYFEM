@@ -1,20 +1,19 @@
-To install correctly with Cuda and Opencl install also:
+***************
+INSTALLATION:
+
+To install with the Cuda and Opencl support install also:
 nvidia-cuda-toolkit
 
-then:
+then go into paralution folder and do:
 
-Unpack
-$ tar zxvf paralution-x.y.z.tar.gz
-
-Compile
-$ cd paralution-x.y.x
 $ mkdir build
 $ cd build
 $ cmake ..
 $ make
 
-If you have problem with the "make" because the gcc is too new, install an old version of gcc and g++
-and then use them as default with update-alternatives. Here an example that sets vers 4.6 as default:
+If you have problem with the compilation because cuda does not support the new versions of gcc,
+install an old version of gcc and g++ and use them as default with update-alternatives. 
+Here an example that sets vers 4.6 as default:
 
 root$ VER=4.6 ; PRIO=60
 root$ update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-$VER $PRIO --slave /usr/bin/g++ g++ /usr/bin/g++-$VER
@@ -35,3 +34,24 @@ root$ update-alternatives --config cpp-bin
 Restore distro compiler settings (here: back to v4.6):
 root$ update-alternatives --auto gcc
 root$ update-alternatives --auto cpp-bin
+
+
+*************
+NOTES:
+
+Before running shyfem update your LD_LIBRARY_PATH. Eg.:
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/shyfem/paralution/build/lib
+
+If you just download paralution, enable the option:
+#define OBJ_TRACKING_OFF
+in src/utils/def.hpp
+
+If you run with GPU support, check the compilation options in the Makefile.
+
+
+*************
+TODO:
+- shared library bug;
+- Disable the sdtout log. Maybe in src/utils/log.hpp
+- Optimise: maybe the preconditioner needs just one call. Maybe the arrays do not need to be
+  copied before the call. Maybe the csr solve routine is faster.
