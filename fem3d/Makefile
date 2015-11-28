@@ -9,7 +9,7 @@ DIR	= fem3d
 FEMDIR = ..
 DIRLIB = $(FEMDIR)/femlib
 F77    = gfortran
-FFLAGS =  -O
+FFLAGS =  -O3
 LINKER = $(F77)
 #------------------------------------------------------------
 

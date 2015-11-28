@@ -38,7 +38,7 @@
 
 !*************************************************************************
 
- subroutine para_solve_system(nin)
+ subroutine para_solve_system(nin,xguess)
 
 ! Solver routine with Paralution iterative methods.
 
@@ -48,6 +48,7 @@
  implicit none
 
  integer, intent(in) :: nin
+ real, intent(in) :: xguess(nin)
 
  interface
    subroutine paralution_fortran_solve_coo( n, m, nnz, solver, mformat, preconditioner, pformat,    &
@@ -88,7 +89,8 @@
  !end if
 
  rhs = rvec
- x = 0._C_DOUBLE
+ !x = 0._C_DOUBLE
+ x = xguess
  rows = icoo
  cols = jcoo
  rval = coo

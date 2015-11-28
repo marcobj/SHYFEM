@@ -76,6 +76,11 @@ ifeq ($(ECOLOGICAL),ERSEM)
   FEMEXTRA += femersem/src
 endif
 
+PARA =
+ifeq ($(SOLVER),PARALUTION)
+  PARA = paralution_solver
+endif
+
 FEMDIRS   = $(FEMLIBS) $(FEMEXTRA) $(FEMC) $(FEMPROG) $(FEMUTIL)
 
 .IGNORE: clean
@@ -90,13 +95,16 @@ default:
 	@echo '   run "make help" for more information'
 	@echo '   if you are new to shyfem run "make first_time"'
 
-all: fem doc
+all: $(PARA) fem doc
 
 fem: checkv directories links
 	$(FEMBIN)/recursivemake $@ $(FEMDIRS)
 	@femcheck/check_compilation.sh -quiet
 
 docs: doc
+
+paralution_solver: psolver
+
 doc:
 	cd femdoc; make doc
 
@@ -128,6 +136,11 @@ links:
 	@#[ ! -d ./femregress ] && -ln -sf femdummy femregress
 	if test ! -d ./femregress; then ln -s femdummy femregress; fi
 
+psolver:
+	@echo "Compiling Paralution Solver"
+	-mkdir -p paralution/build
+	cd paralution/build; rm -fr *; cmake ..; make
+
 #---------------------------------------------------------------
 # cleaning
 #---------------------------------------------------------------
@@ -141,14 +154,17 @@ cleanlocal:
 	-rm -f errout.dat a.out plot.ps
 	-rm -f .memory
 	-rm -f CHECKLOG
-
-clean: cleanlocal
-	$(FEMBIN)/recursivemake $@ $(SUBDIRS)
+	-rm -f tags
 
 cleanpara:
 	rm -fr $(FEMDIR)/paralution/build
 
-cleanall: cleanlocal cleanregress cleanpara
+clean_paralution_solver: cleanpara
+
+clean: cleanlocal
+	$(FEMBIN)/recursivemake $@ $(SUBDIRS)
+
+cleanall: cleanlocal cleanregress clean_paralution_solver
 	$(FEMBIN)/recursivemake $@ $(SUBDIRS)
 
 cleandist: cleanall

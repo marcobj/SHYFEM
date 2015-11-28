@@ -111,7 +111,7 @@ C_COMPILER = GNU_GCC
 ##############################################
 
 PARALLEL=false
-#PARALLEL=true
+PARALLEL=true
 
 ##############################################
 # Solver for matrix solution
@@ -136,7 +136,7 @@ PARALLEL=false
 #SOLVER=GAUSS
 SOLVER=SPARSKIT
 #SOLVER=PARDISO
-#SOLVER=PARALUTION
+SOLVER=PARALUTION
 
 ##############################################
 # NetCDF library
@@ -350,8 +350,8 @@ endif
 
 FGNU_OPT   = 
 ifeq ($(OPTIMIZE),true)
-  FGNU_OPT   = -O3
   FGNU_OPT   = -O
+  FGNU_OPT   = -O3
 endif
 
 FGNU_OMP   =
@@ -586,6 +586,7 @@ ifeq ($(C_COMPILER),GNU_GCC)
   CFLAGS = -O -Wall -pedantic -std=gnu99  #no warnings for c++ style comments
   CFLAGS = -O3 
   LCFLAGS = -O 
+  LCFLAGS = -O3
   CINFOFLAGS = -v
 endif
 
@@ -595,6 +596,7 @@ ifeq ($(C_COMPILER),INTEL)
   CFLAGS = -O -g -traceback
   CFLAGS = -O3 -g -traceback
   LCFLAGS = -O 
+  LCFLAGS = -O3
   CINFOFLAGS = -v
 endif
 

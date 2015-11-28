@@ -1,15 +1,12 @@
 ***************
 INSTALLATION:
 
-To install with the Cuda and Opencl support install also:
+Set PARALUTION as solver and PARALLEL true in the Rules.make and then:
+make cleanall
+make all
+
+To install with the Cuda and Opencl support, install in your OS also:
 nvidia-cuda-toolkit
-
-then go into paralution folder and do:
-
-$ mkdir build
-$ cd build
-$ cmake ..
-$ make
 
 If you have problem with the compilation because cuda does not support the new versions of gcc,
 install an old version of gcc and g++ and use them as default with update-alternatives. 
@@ -39,19 +36,20 @@ root$ update-alternatives --auto cpp-bin
 *************
 NOTES:
 
-Before running shyfem update your LD_LIBRARY_PATH. Eg.:
+Before running shyfem export the library path LD_LIBRARY_PATH. Eg.:
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/shyfem/paralution/build/lib
 
 If you just download paralution, enable the option:
 #define OBJ_TRACKING_OFF
 in src/utils/def.hpp
 
-If you run with GPU support, check the compilation options in the Makefile.
+If you run with GPU support, check the compilation options in the fem3d/Makefile.
 
 
 *************
 TODO:
-- shared library bug;
+- libparalution.so is a shared library and its path must be passed to the
+bash before executing shyfem. Eg: LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/shyfem/paralution/build/lib . A more clever solution must be found;
 - Disable the sdtout log. Maybe in src/utils/log.hpp
-- Optimise: maybe the preconditioner needs just one call. Maybe the arrays do not need to be
-  copied before the call. Maybe the csr solve routine is faster.
+- Optimise: Maybe the arrays do not need to be
+  copied before the call. Maybe the csr solve routine is faster. Is first guess working?
