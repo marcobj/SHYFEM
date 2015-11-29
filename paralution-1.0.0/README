@@ -51,5 +51,6 @@ TODO:
 - libparalution.so is a shared library and its path must be passed to the
 bash before executing shyfem. Eg: LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/shyfem/paralution/build/lib . A more clever solution must be found;
 - Disable the sdtout log. Maybe in src/utils/log.hpp
-- Optimise: Maybe the arrays do not need to be
-  copied before the call. Maybe the csr solve routine is faster. Is first guess working?
+- Optimise: Maybe the arrays do not need to be copied before the call. Maybe the csr solve routine is faster.
+  Is first guess working? Look at the web-page: https://www.paralution.com/forums/topic/using-solver-iteratively/
+  for some advices for the use in a fem model
