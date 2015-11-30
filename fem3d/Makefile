@@ -54,14 +54,16 @@ LIBG_PARA =
 PFLAGS =
 ifeq ($(SOLVER),PARALUTION)
   LIBPARA = paralution
-  PFLAGS = -lstdc++
-  #PFLAGS = -lstdc++ -lcudart -lcusparse -lcublas -lOpenCL -L/usr/local/cuda/lib64
-  DIRLIB_PARA = $(FEMDIR)/paralution/build/lib
-  PARAINC = $(FEMDIR)/paralution/build/inc
+  ifeq ($(GPU),NONE)
+    PLFLAGS = -lstdc++
+  else
+    PLFLAGS = -lstdc++ -lcudart -lcusparse -lcublas -lOpenCL -L/usr/lib/x86_64-linux-gnu
+  endif
+  PARAINC = $(FEMDIR)/paralution/src
   # dynamic
-  #LIBG_PARA = -L$(DIRLIB_PARA) -l$(LIBPARA)
+  #LIBG_PARA = -L$(DIRLIB) -l$(LIBPARA)
   # static
-  LIBG_PARA = $(DIRLIB_PARA)/lib$(LIBPARA).so
+  LIBG_PARA = $(DIRLIB)/lib$(LIBPARA).a
   SOLVER_FILES = subcoo.o simsys_para.o subpara.o \
 		paralution_fortran.o
 endif
@@ -409,7 +411,7 @@ bedload:  bedload.o $(NEWOBJS) $(HTOBJS) $(LIBFS)
 	$(LINKER) -o $@ $(LFLAGS) $@.o $(NEWOBJS) $(HTOBJS) $(LIBGS)
 
 shyfem:  shyfem.o $(NEWOBJS) $(HTOBJS) $(LIBFS)
-	$(LINKER) -o $@ $(LFLAGS) $(PFLAGS) $@.o $(NEWOBJS) $(HTOBJS) $(LIBGS)
+	$(LINKER) -o $@ $(LFLAGS) $(PLFLAGS) $@.o $(NEWOBJS) $(HTOBJS) $(LIBGS)
 
 shypre:  shypre.o $(VPOBJS)
 	$(LINKER) -o $@ $(LFLAGS) $@.o $(VPOBJS)

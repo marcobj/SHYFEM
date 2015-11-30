@@ -138,8 +138,8 @@ links:
 
 psolver:
 	@echo "Compiling Paralution Solver"
-	-mkdir -p paralution/build
-	cd paralution/build; rm -fr *; cmake ..; make
+	cd paralution/src; make clean; make lib
+	mv -f paralution/src/libparalution.so $(DIRLIB)
 
 #---------------------------------------------------------------
 # cleaning
@@ -156,15 +156,11 @@ cleanlocal:
 	-rm -f CHECKLOG
 	-rm -f tags
 
-cleanpara:
-	rm -fr $(FEMDIR)/paralution/build
-
-clean_paralution_solver: cleanpara
 
 clean: cleanlocal
 	$(FEMBIN)/recursivemake $@ $(SUBDIRS)
 
-cleanall: cleanlocal cleanregress clean_paralution_solver
+cleanall: cleanlocal cleanregress
 	$(FEMBIN)/recursivemake $@ $(SUBDIRS)
 
 cleandist: cleanall

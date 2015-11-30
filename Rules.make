@@ -111,7 +111,7 @@ C_COMPILER = GNU_GCC
 ##############################################
 
 PARALLEL=false
-#PARALLEL=true
+PARALLEL=true
 
 ##############################################
 # Solver for matrix solution
@@ -137,6 +137,21 @@ PARALLEL=false
 SOLVER=SPARSKIT
 #SOLVER=PARDISO
 #SOLVER=PARALUTION
+
+##############################################
+# GPU support
+##############################################
+# This option works only with Paralution solver.
+# You need a GPU card and to set Paralution as
+# solver.
+# Install nvidia-cuda-toolkit if you want to
+# use CUDA
+##############################################
+
+GPU=NONE
+#GPU=CUDA
+#GPU=OpenCL
+#GPU=MIC
 
 ##############################################
 # NetCDF library
@@ -288,13 +303,13 @@ endif
 PROFILE = false
 
 DEBUG = true
-#DEBUG = false
+DEBUG = false
 
 OPTIMIZE = true
 #OPTIMIZE = false
 
 WARNING = true
-#WARNING = false
+WARNING = false
 
 ##############################################
 #
@@ -553,7 +568,7 @@ endif
 
 FINTEL_OPT   = 
 ifeq ($(OPTIMIZE),true)
-  FINTEL_OPT   = -O 
+  FINTEL_OPT   = -O3
   #FINTEL_OPT   = -O -mcmodel=medium
   #FINTEL_OPT   = -O -mcmodel=large
 endif

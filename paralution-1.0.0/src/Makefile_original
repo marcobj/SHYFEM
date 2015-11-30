@@ -26,60 +26,74 @@
 #
 # *************************************************************************
 
-include ../../Rules.make
 
-# C++ compiler
-ifeq ($(C_COMPILER),GNU_GCC)
-  OPENMPFLAG = -fopenmp
-  C = gcc
-  CC = g++
-  CFLAGS =-O3 -Wall -fopenmp -fPIC
-  # For debug mode
-  #CFLAGS =-ggdb -Wall -fPIC
-endif
 
-ifeq ($(C_COMPILER),INTEL)
-  OPENMPFLAG = -openmp
-  C = icc
-  CC = icc
-  CFLAGS =-O3 -Wall -openmp -fPIC
-  #IC_MKL =-mkl
-endif
+# PARALUTION version 1.0.0 
+
+
+# ------------------------------------------------------
+# Compilers
+# ------------------------------------------------------
+
+# OpenMP flag for gcc
+OPENMPFLAG = -fopenmp
+
+# OpenMP flag for icc
+#OPENMPFLAG = -openmp
+
+# gcc compiler
+GC = gcc
+GCC = g++
+GCFLAGS =-O3 -Wall -fopenmp -fPIC
+# For debug mode
+#GCFLAGS =-ggdb -Wall -fPIC
+
+# intel compiler
+ICC = icc
+ICFLAGS =-O3 -Wall -openmp -fPIC
+#IC_MKL =-mkl
 
 # NVIDIA CUDA compiler
-NC = /usr/bin/nvcc
-NCC = /usr/bin/nvcc
+NC = /usr/local/cuda/bin/nvcc
+NCC = /usr/local/cuda/bin/nvcc
 NCFLAGS =-O3 -arch sm_20 -Xcompiler -fpic
 # For debug mode
 #NCFLAGS =-arch sm_20 -G -g -Xcompiler -fpic
 
+# Uncomment for Intel Compiler
+#CC = $(ICC)
+#C = $(ICC)
+#CFLAGS = $(ICFLAGS)
+
 # For systems with cross 32-64bit lib support
 # (this is mostly for MacOS)
-# please add -m64 to CFLAGS and CFLAGS
+# please add -m64 to NCFLAGS and GCFLAGS
 
-ifeq ($(GPU),CUDA)
-  # CUDA GPU support 
-  SUPPORT_CUDA =-DSUPPORT_CUDA
-  LCUDA=-lcudart -lcublas -lcusparse -L/usr/lib/x86_64-linux-gnu
-  CUDA_OBJ = base/gpu/backend_gpu.o base/gpu/gpu_allocate_free.o base/gpu/gpu_matrix_bcsr.o base/gpu/gpu_matrix_coo.o base/gpu/gpu_matrix_csr.o base/gpu/gpu_matrix_dense.o base/gpu/gpu_matrix_dia.o base/gpu/gpu_matrix_ell.o base/gpu/gpu_matrix_hyb.o base/gpu/gpu_matrix_mcsr.o base/gpu/gpu_vector.o
-endif
 
-ifeq ($(GPU),OpenCL)
-  # OpenCL support
-  SUPPORT_OCL =-DSUPPORT_OCL
-  LOCL=-lOpenCL
-  OCL_OBJ =  base/ocl/backend_ocl.o base/ocl/ocl_allocate_free.o base/ocl/ocl_matrix_bcsr.o base/ocl/ocl_matrix_coo.o  base/ocl/ocl_matrix_csr.o base/ocl/ocl_matrix_dense.o base/ocl/ocl_matrix_dia.o base/ocl/ocl_matrix_ell.o base/ocl/ocl_matrix_hyb.o base/ocl/ocl_matrix_mcsr.o base/ocl/ocl_vector.o
-endif
+# Uncomment for GCC
+CC = $(GCC)
+C = $(GC)
+CFLAGS = $(GCFLAGS)
 
-ifeq ($(GPU),MIC)
-  # MIC/Intel Xeon Phi support
-  SUPPORT_MIC =-DSUPPORT_MIC
-  MIC_CC = icc
-  #MIC_FLAGS = -O3 -Wall -openmp -vec-report3 -offload-option,mic,compiler,"-z defs"
-  MIC_FLAGS = -O3 -Wall -openmp -offload-option,mic,compiler,"-z defs" -fPIC
-  LMIC= -offload-option,mic,compiler,"-z defs"
-  MIC_OBJ = base/mic/mic_allocate_free.o  base/mic/backend_mic.o base/mic/mic_vector.o  base/mic/mic_matrix_csr.o base/mic/mic_matrix_coo.o base/mic/mic_matrix_dense.o base/mic/mic_matrix_mcsr.o base/mic/mic_matrix_bcsr.o base/mic/mic_matrix_dia.o base/mic/mic_matrix_ell.o base/mic/mic_matrix_hyb.o
-endif
+# Uncomment for CUDA GPU support 
+#SUPPORT_CUDA =-DSUPPORT_CUDA
+#LCUDA=-lcudart -lcublas -lcusparse -L/usr/local/cuda/lib64
+#CUDA_OBJ = base/gpu/backend_gpu.o base/gpu/gpu_allocate_free.o base/gpu/gpu_matrix_bcsr.o base/gpu/gpu_matrix_coo.o base/gpu/gpu_matrix_csr.o base/gpu/gpu_matrix_dense.o base/gpu/gpu_matrix_dia.o base/gpu/gpu_matrix_ell.o base/gpu/gpu_matrix_hyb.o base/gpu/gpu_matrix_mcsr.o base/gpu/gpu_vector.o
+
+
+# Uncomment for OpenCL support
+#SUPPORT_OCL =-DSUPPORT_OCL
+#LOCL=-lOpenCL
+#OCL_OBJ =  base/ocl/backend_ocl.o base/ocl/ocl_allocate_free.o base/ocl/ocl_matrix_bcsr.o base/ocl/ocl_matrix_coo.o  base/ocl/ocl_matrix_csr.o base/ocl/ocl_matrix_dense.o base/ocl/ocl_matrix_dia.o base/ocl/ocl_matrix_ell.o base/ocl/ocl_matrix_hyb.o base/ocl/ocl_matrix_mcsr.o base/ocl/ocl_vector.o
+
+
+# Uncomment for MIC/Intel Xeon Phi support
+#SUPPORT_MIC =-DSUPPORT_MIC
+#MIC_CC = icc
+##MIC_FLAGS = -O3 -Wall -openmp -vec-report3 -offload-option,mic,compiler,"-z defs"
+#MIC_FLAGS = -O3 -Wall -openmp -offload-option,mic,compiler,"-z defs" -fPIC
+#LMIC= -offload-option,mic,compiler,"-z defs"
+#MIC_OBJ = base/mic/mic_allocate_free.o  base/mic/backend_mic.o base/mic/mic_vector.o  base/mic/mic_matrix_csr.o base/mic/mic_matrix_coo.o base/mic/mic_matrix_dense.o base/mic/mic_matrix_mcsr.o base/mic/mic_matrix_bcsr.o base/mic/mic_matrix_dia.o base/mic/mic_matrix_ell.o base/mic/mic_matrix_hyb.o
 
 
 #  ------------------------------------------------------
@@ -96,7 +110,7 @@ endif
 SUPPORT_LIB =$(SUPPORT_MKL) $(SUPPORT_CUDA) $(SUPPORT_OCL) $(SUPPORT_MIC)
 LFLAGS=$(OPENMPFLAG) $(LCUDA) $(IC_MKL) $(LOCL) $(LMIC)
 
-PARALUTION_LIB =libparalution.a
+PARALUTION_LIB =libparalution.so
 PARALUTION_INC =-I.
 
 
@@ -121,27 +135,18 @@ install: all
 all: 	lib amg as-precond assembly2 assembly async benchmark bicgstab block-precond cg-amg cg cmk complex direct dpcg fixed-point gmres idr me-preconditioner mixed-precision power-method simple-spmv sira sp-precond stencil tns
 
 
-fem: lib
-
 lib: 	$(OBJ)
 # For "ar"
 # For MIC use "xair"; for everything else use "ar"
 #	xiar -qoffload-build rcs $(PARALUTION_LIB) $(OBJ)
 #	ar rcs $(PARALUTION_LIB) $(OBJ)
-ifeq ($(GPU),MIC)
-	xiar -qoffload-build rcs $(PARALUTION_LIB) $(OBJ)
-else
-	ar rcs $(PARALUTION_LIB) $(OBJ)
-endif
 #
 # For ".so"
-#	$(CC) -shared -Wl,-soname,$(PARALUTION_LIB) -o  $(PARALUTION_LIB) $(OBJ) -lc
+	$(CC) -shared -Wl,-soname,$(PARALUTION_LIB) -o  $(PARALUTION_LIB) $(OBJ) -lc
 
 
 clean: 
-	rm -rf *.a *.o examples/*.o examples/amg examples/as-precond examples/assembly2 examples/assembly examples/async examples/benchmark examples/bicgstab examples/block-precond examples/cg-amg examples/cg examples/cmk examples/complex examples/direct examples/dpcg examples/fixed-point examples/gmres examples/idr examples/me-preconditioner examples/mixed-precision examples/power-method examples/simple-spmv examples/sira examples/sp-precond examples/stencil examples/tns tmp/*.o base/*.o base/host/*.o base/gpu/*.o base/ocl/*.o base/mic/*.o solvers/direct/*.o solvers/krylov/*.o solvers/multigrid/*.o solvers/*.o solvers/eigenvalue/*.o solvers/preconditioners/*.o solvers/deflation/*.o utils/*.o *.mtx *.vec *.dat examples/*.mtx examples/*.vec examples/*.dat ../thirdparty/matrix-market/*.o ../build/* libparalution.a $(PARALUTION_LIB)
-
-cleanall: clean
+	rm -rf *.a *.o examples/*.o examples/amg examples/as-precond examples/assembly2 examples/assembly examples/async examples/benchmark examples/bicgstab examples/block-precond examples/cg-amg examples/cg examples/cmk examples/complex examples/direct examples/dpcg examples/fixed-point examples/gmres examples/idr examples/me-preconditioner examples/mixed-precision examples/power-method examples/simple-spmv examples/sira examples/sp-precond examples/stencil examples/tns tmp/*.o base/*.o base/host/*.o base/gpu/*.o base/ocl/*.o base/mic/*.o solvers/direct/*.o solvers/krylov/*.o solvers/multigrid/*.o solvers/*.o solvers/eigenvalue/*.o solvers/preconditioners/*.o solvers/deflation/*.o utils/*.o *.mtx *.vec *.dat examples/*.mtx examples/*.vec examples/*.dat ../thirdparty/matrix-market/*.o ../build/* libparalution.so $(PARALUTION_LIB)
 
 #
 # general

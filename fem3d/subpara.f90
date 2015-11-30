@@ -78,15 +78,19 @@
  !Paralution parameters
  character(len=80) :: Solver,Op_mat_form,Prec,Prec_mat_form
 
+ ! number of calls
+ integer, save :: ncalls
+ data ncalls /0/
+
  n = nin
  m = n	!n row and col are the same
  nnz = nnzero
 
- !if( .not. allocated(x) ) then
+ if( .not. allocated(x) ) then
    allocate( rhs(n), x(n) )
    allocate( rows(nnz), cols(nnz) )
    allocate( rval(nnz) )
- !end if
+ end if
 
  rhs = rvec
  !x = 0._C_DOUBLE
@@ -96,33 +100,37 @@
  rval = coo
 
 ! Solver (CG,BiCGStab,GMRES,Fixed-Point)
-  !Solver = 'GMRES'	!default
-  Solver = 'BiCGStab'
+ !Solver = 'GMRES'	!default
+ Solver = 'BiCGStab'
 ! Operation matrix format(DENSE,CSR,MCSR,COO,DIA,ELL,HYB)
-  !Op_mat_form = 'HYB'	!default
-  Op_mat_form = 'COO'
+ Op_mat_form = 'HYB'	!default
+ !Op_mat_form = 'COO'
 ! Preconditioner (None,Jacobi,MultiColoredGS,MultiColoredSGS,ILU,MultiColoredILU)
-  !Prec = 'MultiColoredILU'	!default
-  Prec = 'ILU'
+ !Prec = 'MultiColoredILU'	!default
+ Prec = 'None'
+ if( ncalls.eq.0 ) Prec = 'ILU'
 ! Preconditioner matrix format (DENSE,CSR,MCSR,COO,DIA,ELL,HYB)
-  !Prec_mat_form = 'ELL'	!default
-  Prec_mat_form = 'COO'
+ !Prec_mat_form = 'ELL'	!default
+ Prec_mat_form = 'COO'
 
-  ! Run paralution C function for COO matrices
-  ! Doing a GMRES with MultiColored ILU(1,2) preconditioner
-  ! Check paralution documentation for a detailed argument explanation
-  call paralution_fortran_solve_coo( n, m, nnz,                                          &
-  &                                  trim(Solver) // C_NULL_CHAR,                        &
-  &                                  trim(Op_mat_form) // C_NULL_CHAR,                   &
-  &                                  trim(Prec) // C_NULL_CHAR,                          &
-  &                                  trim(Prec_mat_form) // C_NULL_CHAR,                 &
-  &                                  C_LOC(rows), C_LOC(cols), C_LOC(rval), C_LOC(rhs),  &
-  &                                  1e-8_C_DOUBLE, 1e-8_C_DOUBLE, 1e+8_C_DOUBLE, 1000,  &
-  &                                  30, 0, 1, C_LOC(x), iter, resnorm, ierr )
+ 
+ ! Run paralution C function for COO matrices
+ ! Doing a GMRES with MultiColored ILU(1,2) preconditioner
+ ! Check paralution documentation for a detailed argument explanation
+ call paralution_fortran_solve_coo( n, m, nnz,                                          &
+ &                                  trim(Solver) // C_NULL_CHAR,                        &
+ &                                  trim(Op_mat_form) // C_NULL_CHAR,                   &
+ &                                  trim(Prec) // C_NULL_CHAR,                          &
+ &                                  trim(Prec_mat_form) // C_NULL_CHAR,                 &
+ &                                  C_LOC(rows), C_LOC(cols), C_LOC(rval), C_LOC(rhs),  &
+ &                                  1e-8_C_DOUBLE, 1e-8_C_DOUBLE, 1e+8_C_DOUBLE, 1000,  &
+ &                                  30, 0, 1, C_LOC(x), iter, resnorm, ierr )
 
  rvec = x
 
- deallocate( rows, cols, rval, rhs, x )
+ !deallocate( rows, cols, rval, rhs, x )
+
+ ncalls = ncalls + 1
 
  end subroutine para_solve_system
 
