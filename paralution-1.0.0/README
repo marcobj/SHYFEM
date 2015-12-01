@@ -35,14 +35,10 @@ root$ update-alternatives --auto cpp-bin
 
 *************
 NOTES:
-
-If you just download paralution, enable the option:
-#define OBJ_TRACKING_OFF
-in src/utils/def.hpp
+This solver version has some modifications. Compare to the original one to see the differences:
+https://github.com/feelpp/paralution
 
 *************
 TODO:
-- Disable the sdtout log. Maybe in src/utils/log.hpp
-- Optimise: Maybe the arrays do not need to be copied before the call. Maybe the csr solve routine is faster.
-  Is first guess working? Look at the web-page: https://www.paralution.com/forums/topic/using-solver-iteratively/
-  for some advices for the use in a fem model
+- Optimisations: Maybe the arrays do not need to be copied before the call. Maybe the csr solve routine is faster.
+  Look at: https://www.paralution.com/forums/topic/using-solver-iteratively/
