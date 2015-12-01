@@ -111,7 +111,7 @@ C_COMPILER = GNU_GCC
 ##############################################
 
 PARALLEL=false
-PARALLEL=true
+#PARALLEL=true
 
 ##############################################
 # Solver for matrix solution
@@ -145,7 +145,8 @@ SOLVER=SPARSKIT
 # You need a GPU card and to set Paralution as
 # solver.
 # Install nvidia-cuda-toolkit if you want to
-# use CUDA
+# use CUDA.
+# To use opencl install opencl-dev ocl-icd-opencl-dev
 ##############################################
 
 GPU=NONE
@@ -303,13 +304,13 @@ endif
 PROFILE = false
 
 DEBUG = true
-DEBUG = false
+#DEBUG = false
 
 OPTIMIZE = true
 #OPTIMIZE = false
 
 WARNING = true
-WARNING = false
+#WARNING = false
 
 ##############################################
 #

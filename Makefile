@@ -76,9 +76,9 @@ ifeq ($(ECOLOGICAL),ERSEM)
   FEMEXTRA += femersem/src
 endif
 
-PARA =
 ifeq ($(SOLVER),PARALUTION)
-  PARA = paralution_solver
+  SUBDIRS += paralution/src
+  FEMEXTRA += paralution/src
 endif
 
 FEMDIRS   = $(FEMLIBS) $(FEMEXTRA) $(FEMC) $(FEMPROG) $(FEMUTIL)
@@ -95,7 +95,7 @@ default:
 	@echo '   run "make help" for more information'
 	@echo '   if you are new to shyfem run "make first_time"'
 
-all: $(PARA) fem doc
+all: fem doc
 
 fem: checkv directories links
 	$(FEMBIN)/recursivemake $@ $(FEMDIRS)
@@ -139,7 +139,7 @@ links:
 psolver:
 	@echo "Compiling Paralution Solver"
 	cd paralution/src; make clean; make lib
-	mv -f paralution/src/libparalution.so $(DIRLIB)
+	mv -f paralution/src/libparalution.a $(DIRLIB)
 
 #---------------------------------------------------------------
 # cleaning

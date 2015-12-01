@@ -67,7 +67,7 @@ endif
 ifeq ($(GPU),OpenCL)
   # OpenCL support
   SUPPORT_OCL =-DSUPPORT_OCL
-  LOCL=-lOpenCL
+  LOCL=-lOpenCL -L/usr/lib/x86_64-linux-gnu
   OCL_OBJ =  base/ocl/backend_ocl.o base/ocl/ocl_allocate_free.o base/ocl/ocl_matrix_bcsr.o base/ocl/ocl_matrix_coo.o  base/ocl/ocl_matrix_csr.o base/ocl/ocl_matrix_dense.o base/ocl/ocl_matrix_dia.o base/ocl/ocl_matrix_ell.o base/ocl/ocl_matrix_hyb.o base/ocl/ocl_matrix_mcsr.o base/ocl/ocl_vector.o
 endif
 
@@ -96,7 +96,8 @@ endif
 SUPPORT_LIB =$(SUPPORT_MKL) $(SUPPORT_CUDA) $(SUPPORT_OCL) $(SUPPORT_MIC)
 LFLAGS=$(OPENMPFLAG) $(LCUDA) $(IC_MKL) $(LOCL) $(LMIC)
 
-PARALUTION_LIB =libparalution.a
+#PARALUTION_LIB =libparalution.a
+PARALUTION_LIB =../../femlib/libparalution.a
 PARALUTION_INC =-I.
 
 

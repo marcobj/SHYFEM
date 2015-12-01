@@ -139,10 +139,6 @@
 
 extern "C" 
 {
-  void paralution_init();
-
-  void paralution_close();
-
   void paralution_fortran_solve_coo(int, int, int, char*, char*, char*, char*, const int*, const int*,
                                     const double*, const double*, double, double, double, int, int,
                                     int, int, double*, int&, double&, int&);
@@ -172,21 +168,6 @@ enum _precond_type{
 };
 
 
-
-// void paralution_init();
-
-void paralution_init()
-{
-  paralution::init_paralution();
-  paralution::info_paralution();
-}
-
-void paralution_close()
-{
-  paralution::stop_paralution();
-}
-
-
 void paralution_fortran_solve(char*, char*, char*, char*, double, double, double, int, int, int, int,
                               paralution::LocalMatrix<double>*, paralution::LocalVector<double>*,
                               paralution::LocalVector<double>*, int&, double&, int&);
@@ -198,6 +179,9 @@ void paralution_fortran_solve_coo(int n, int m, int nnz, char *solver, char *mfo
                                   const double *fortran_rhs, double atol, double rtol, double div, int maxiter,
                                   int basis, int p, int q, double *fortran_x, int &iter, double &resnorm, int &err)
 {
+
+  paralution::init_paralution();
+  paralution::info_paralution();
 
   paralution::LocalVector<double> paralution_x;
   paralution::LocalVector<double> paralution_rhs;
@@ -248,6 +232,7 @@ void paralution_fortran_solve_coo(int n, int m, int nnz, char *solver, char *mfo
 
   delete [] in_x;
 
+  paralution::stop_paralution();
 
 }
 
@@ -311,6 +296,8 @@ void paralution_fortran_solve_csr(int n, int m, int nnz, char *solver, char *mfo
     fortran_x[i] = in_x[i];
 
   delete [] in_x;
+
+  paralution::stop_paralution();
 
 }
 

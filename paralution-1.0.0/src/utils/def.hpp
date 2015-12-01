@@ -35,7 +35,7 @@
 #define PARALUTION_UTILS_DEF_HPP_
 
 // Uncomment to define verbose level
-#define VERBOSE_LEVEL 1
+//#define VERBOSE_LEVEL 2
 
 
 // Uncomment for debug mode

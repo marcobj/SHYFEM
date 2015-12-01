@@ -56,8 +56,12 @@ ifeq ($(SOLVER),PARALUTION)
   LIBPARA = paralution
   ifeq ($(GPU),NONE)
     PLFLAGS = -lstdc++
-  else
-    PLFLAGS = -lstdc++ -lcudart -lcusparse -lcublas -lOpenCL -L/usr/lib/x86_64-linux-gnu
+  endif
+  ifeq ($(GPU),CUDA)
+    PLFLAGS = -lstdc++ -lcudart -lcusparse -lcublas -L/usr/lib/x86_64-linux-gnu
+  endif
+  ifeq ($(GPU),OpenCL)
+    PLFLAGS = -lstdc++ -lOpenCL -L/usr/lib/x86_64-linux-gnu
   endif
   PARAINC = $(FEMDIR)/paralution/src
   # dynamic

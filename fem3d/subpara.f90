@@ -13,6 +13,7 @@
 
       use mod_system
       use basin
+      use, intrinsic :: ISO_C_BINDING, only : C_INT, C_PTR, C_DOUBLE, C_CHAR, C_NULL_CHAR, C_LOC
 
       implicit none
       include 'param.h'
@@ -20,6 +21,12 @@
       integer icall_coo
       data icall_coo /0/
       save icall_coo
+
+      interface
+        subroutine paralution_init() BIND(C)
+           use, intrinsic :: ISO_C_BINDING, only : C_INT, C_PTR, C_DOUBLE, C_CHAR
+        end subroutine
+      end interface
       
       rvec = 0.
       raux = 0.
@@ -30,6 +37,7 @@
          call coo_init(nel,nkn,mbw,nen3v,csrdim,nnzero,ijp,icoo,jcoo)
          print*, 'coo-matrix initialisation...'
          print*, 'Number of non-zeros: ',nnzero
+         call paralution_init()
          icall_coo=1
       end if
 
@@ -101,17 +109,15 @@
 
 ! Solver (CG,BiCGStab,GMRES,Fixed-Point)
  !Solver = 'GMRES'	!default
- Solver = 'BiCGStab'
+ Solver = 'BiCGStab'	!fastest
 ! Operation matrix format(DENSE,CSR,MCSR,COO,DIA,ELL,HYB)
- Op_mat_form = 'HYB'	!default
- !Op_mat_form = 'COO'
+ Op_mat_form = 'COO'	!fastest
 ! Preconditioner (None,Jacobi,MultiColoredGS,MultiColoredSGS,ILU,MultiColoredILU)
- !Prec = 'MultiColoredILU'	!default
- Prec = 'None'
- if( ncalls.eq.0 ) Prec = 'ILU'
+ Prec = 'ILU'	! fastest
+ !if( ncalls.eq.0 ) Prec = 'ILU'
 ! Preconditioner matrix format (DENSE,CSR,MCSR,COO,DIA,ELL,HYB)
+ Prec_mat_form = 'MCSR'
  !Prec_mat_form = 'ELL'	!default
- Prec_mat_form = 'COO'
 
  
  ! Run paralution C function for COO matrices
