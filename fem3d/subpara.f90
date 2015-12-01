@@ -108,17 +108,15 @@
  rval = coo
 
 ! Solver (CG,BiCGStab,GMRES,Fixed-Point)
- !Solver = 'GMRES'	!default
  Solver = 'BiCGStab'	!fastest
 ! Operation matrix format(DENSE,CSR,MCSR,COO,DIA,ELL,HYB)
- Op_mat_form = 'COO'	!fastest
+ Op_mat_form = 'MCSR'	!fastest
 ! Preconditioner (None,Jacobi,MultiColoredGS,MultiColoredSGS,ILU,MultiColoredILU)
  Prec = 'ILU'	! fastest
  !if( ncalls.eq.0 ) Prec = 'ILU'
 ! Preconditioner matrix format (DENSE,CSR,MCSR,COO,DIA,ELL,HYB)
  Prec_mat_form = 'MCSR'
- !Prec_mat_form = 'ELL'	!default
-
+ 
  
  ! Run paralution C function for COO matrices
  ! Doing a GMRES with MultiColored ILU(1,2) preconditioner
@@ -130,7 +128,7 @@
  &                                  trim(Prec_mat_form) // C_NULL_CHAR,                 &
  &                                  C_LOC(rows), C_LOC(cols), C_LOC(rval), C_LOC(rhs),  &
  &                                  1e-8_C_DOUBLE, 1e-8_C_DOUBLE, 1e+8_C_DOUBLE, 1000,  &
- &                                  30, 0, 1, C_LOC(x), iter, resnorm, ierr )
+ &                                  10, 0, 1, C_LOC(x), iter, resnorm, ierr )
 
  rvec = x
 
