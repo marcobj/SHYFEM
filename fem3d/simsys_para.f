@@ -50,7 +50,8 @@ c******************************************************************
 
         include 'param.h'
 
-	call para_solve_system(n,z)
+	!call para_solve_system_coo(n,z)
+	call para_solve_system_csr(n,z)
 
 	end
 

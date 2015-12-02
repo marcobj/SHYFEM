@@ -69,9 +69,9 @@ void _paralution_close_log_file(void);
 
 // LOG INFO
 #define LOG_INFO(stream) {}
-// #define LOG_INFO(stream) {            \ //
-//    LOG_STREAM << stream << std::endl; \ //
-// } //
+//#define LOG_INFO(stream) {		\//
+//   LOG_STREAM << stream << std::endl;	\//
+//}//
 
 
 // LOG ERROR

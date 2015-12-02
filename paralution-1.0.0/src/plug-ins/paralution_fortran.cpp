@@ -173,8 +173,6 @@ enum _precond_type{
 
 
 
-// void paralution_init();
-
 void paralution_init()
 {
   paralution::init_paralution();
@@ -233,7 +231,7 @@ void paralution_fortran_solve_coo(int n, int m, int nnz, char *solver, char *mfo
   }
 
   // Allocate paralution data structures
-  paralution_mat.SetDataPtrCOO(&row, &col, &val, "Imported Fortran COO Matrix", nnz, n, m);
+   paralution_mat.SetDataPtrCOO(&row, &col, &val, "Imported Fortran COO Matrix", nnz, n, m);
   paralution_mat.ConvertToCSR();
   paralution_mat.info();
 
