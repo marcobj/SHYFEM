@@ -256,10 +256,6 @@ void paralution_fortran_solve_csr(int n, int m, int nnz, char *solver, char *mfo
                                   const double *fortran_rhs, double atol, double rtol, double div, int maxiter,
                                   int basis, int p, int q, double *fortran_x, int &iter, double &resnorm, int &err)
 {
-
-  paralution::init_paralution();
-  paralution::info_paralution();
-
   paralution::LocalVector<double> paralution_x;
   paralution::LocalVector<double> paralution_rhs;
   paralution::LocalMatrix<double> paralution_mat;
