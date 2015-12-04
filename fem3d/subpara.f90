@@ -86,10 +86,6 @@
  !Paralution parameters
  character(len=80) :: Solver,Op_mat_form,Prec,Prec_mat_form
 
- ! number of calls
- integer, save :: ncalls
- data ncalls /0/
-
  n = nin
  m = n	!n row and col are the same
  nnz = nnzero
@@ -114,7 +110,6 @@
 ! Preconditioner (None,Jacobi,MultiColoredGS,MultiColoredSGS,ILU,MultiColoredILU)
  Prec = 'Jacobi'
  !Prec = 'ILU'	!much slower with big matrices
- !if( ncalls.eq.0 ) Prec = 'ILU'
 ! Preconditioner matrix format (DENSE,CSR,MCSR,COO,DIA,ELL,HYB)
  Prec_mat_form = 'MCSR'
  
@@ -132,8 +127,6 @@
  rvec = x
 
  !deallocate( rows, cols, rval, rhs, x )
-
- ncalls = ncalls + 1
 
  end subroutine para_solve_system_coo
 
@@ -182,10 +175,6 @@
 
  integer, allocatable :: iwork(:)
 
- ! number of calls
- integer, save :: ncalls
- data ncalls /0/
-
  n = nin
  m = n	!n row and col are the same
  nnz = nnzero
@@ -211,11 +200,9 @@
  Op_mat_form = 'MCSR'	!fastest
 ! Preconditioner (None,Jacobi,MultiColoredGS,MultiColoredSGS,ILU,MultiColoredILU)
  Prec = 'Jacobi'
- !Prec = 'ILU'	!much slower with big matrices
- !if( ncalls.eq.0 ) Prec = 'ILU'
+ !Prec = 'MultiColoredILU'	!much slower with big matrices
 ! Preconditioner matrix format (DENSE,CSR,MCSR,COO,DIA,ELL,HYB)
  Prec_mat_form = 'MCSR'
- 
  
  ! Run paralution C function for CSR matrices
  call paralution_fortran_solve_csr( n, m, nnz,                                          &
@@ -231,8 +218,4 @@
 
  !deallocate( rows, cols, rval, rhs, x , iwork)
 
- ncalls = ncalls + 1
-
  end subroutine para_solve_system_csr
-
-

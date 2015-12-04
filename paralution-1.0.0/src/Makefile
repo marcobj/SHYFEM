@@ -47,8 +47,8 @@ ifeq ($(C_COMPILER),INTEL)
 endif
 
 # NVIDIA CUDA compiler
-NC = /usr/bin/nvcc
-NCC = /usr/bin/nvcc
+NC = nvcc
+NCC = nvcc
 NCFLAGS =-O3 -arch sm_20 -Xcompiler -fpic
 # For debug mode
 #NCFLAGS =-arch sm_20 -G -g -Xcompiler -fpic
