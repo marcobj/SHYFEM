@@ -33,7 +33,7 @@ ifeq ($(C_COMPILER),GNU_GCC)
   OPENMPFLAG = -fopenmp
   C = gcc
   CC = g++
-  CFLAGS =-O3 -Wall -fopenmp -fPIC
+  CFLAGS =-O3 -fopenmp -fPIC
   # For debug mode
   #CFLAGS =-ggdb -Wall -fPIC
 endif
@@ -42,14 +42,15 @@ ifeq ($(C_COMPILER),INTEL)
   OPENMPFLAG = -openmp
   C = icc
   CC = icc
-  CFLAGS =-O3 -Wall -openmp -fPIC
+  CFLAGS = -O3 -openmp -fPIC
   #IC_MKL =-mkl
 endif
 
 # NVIDIA CUDA compiler
 NC = nvcc
 NCC = nvcc
-NCFLAGS =-O3 -arch sm_20 -Xcompiler -fpic
+
+NCFLAGS = -O3 -arch=sm_52 -Xcompiler -fpic
 # For debug mode
 #NCFLAGS =-arch sm_20 -G -g -Xcompiler -fpic
 
@@ -57,22 +58,21 @@ NCFLAGS =-O3 -arch sm_20 -Xcompiler -fpic
 # (this is mostly for MacOS)
 # please add -m64 to CFLAGS and CFLAGS
 
+# CUDA GPU support 
 ifeq ($(GPU),CUDA)
-  # CUDA GPU support 
   SUPPORT_CUDA =-DSUPPORT_CUDA
-  LCUDA=-lcudart -lcublas -lcusparse -L/usr/lib/x86_64-linux-gnu
   CUDA_OBJ = base/gpu/backend_gpu.o base/gpu/gpu_allocate_free.o base/gpu/gpu_matrix_bcsr.o base/gpu/gpu_matrix_coo.o base/gpu/gpu_matrix_csr.o base/gpu/gpu_matrix_dense.o base/gpu/gpu_matrix_dia.o base/gpu/gpu_matrix_ell.o base/gpu/gpu_matrix_hyb.o base/gpu/gpu_matrix_mcsr.o base/gpu/gpu_vector.o
 endif
 
+# OpenCL support
 ifeq ($(GPU),OpenCL)
-  # OpenCL support
   SUPPORT_OCL =-DSUPPORT_OCL
   LOCL=-lOpenCL -L/usr/lib/x86_64-linux-gnu
   OCL_OBJ =  base/ocl/backend_ocl.o base/ocl/ocl_allocate_free.o base/ocl/ocl_matrix_bcsr.o base/ocl/ocl_matrix_coo.o  base/ocl/ocl_matrix_csr.o base/ocl/ocl_matrix_dense.o base/ocl/ocl_matrix_dia.o base/ocl/ocl_matrix_ell.o base/ocl/ocl_matrix_hyb.o base/ocl/ocl_matrix_mcsr.o base/ocl/ocl_vector.o
 endif
 
+# MIC/Intel Xeon Phi support
 ifeq ($(GPU),MIC)
-  # MIC/Intel Xeon Phi support
   SUPPORT_MIC =-DSUPPORT_MIC
   MIC_CC = icc
   #MIC_FLAGS = -O3 -Wall -openmp -vec-report3 -offload-option,mic,compiler,"-z defs"
@@ -94,7 +94,7 @@ endif
 # ----------------------------------------------------------------------------------------
 
 SUPPORT_LIB =$(SUPPORT_MKL) $(SUPPORT_CUDA) $(SUPPORT_OCL) $(SUPPORT_MIC)
-LFLAGS=$(OPENMPFLAG) $(LCUDA) $(IC_MKL) $(LOCL) $(LMIC)
+LFLAGS=$(OPENMPFLAG) $(LIBCUDA) $(IC_MKL) $(LOCL) $(LMIC)
 
 #PARALUTION_LIB =libparalution.a
 PARALUTION_LIB =../../femlib/libparalution.a

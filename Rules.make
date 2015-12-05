@@ -244,6 +244,13 @@ MODDIR  = $(DIRLIB)/mod
 
 LIBX = -L/usr/X11R6/lib -L/usr/X11/lib -L/usr/lib/X11  -lX11
 
+# If CUDA is installed from the OS repositories
+LIBCUDA = -lcudart -lcusparse -lcublas -L/usr/lib/x86_64-linux-gnu
+# If CUDA is installed with the official package
+#LIBCUDA = -lcudart -lcusparse -lcublas -L/usr/local/cuda/targets/x86_64-linux/lib
+
+LIBOPENCL = -lOpenCL -L/usr/lib/x86_64-linux-gnu
+
 ##############################################
 # check compatibility of options
 ##############################################
