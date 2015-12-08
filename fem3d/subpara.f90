@@ -181,9 +181,9 @@
 
  if( .not. allocated(x) ) then
    allocate( rhs(n), x(n) )
-   allocate( rows(nnz), cols(nnz) )
+   allocate( rows(n+1), cols(nnz) )
    allocate( rval(nnz) )
-   allocate(iwork(2*csrdim))
+   allocate(iwork(max(n+1,2*nnz)))
  end if
 
 ! convert from coo to csr

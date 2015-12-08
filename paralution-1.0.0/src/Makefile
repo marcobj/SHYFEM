@@ -28,35 +28,16 @@
 
 include ../../Rules.make
 
-# C++ compiler
-ifeq ($(C_COMPILER),GNU_GCC)
-  OPENMPFLAG = -fopenmp
-  C = gcc
-  CC = g++
-  CFLAGS =-O3 -fopenmp -fPIC
-  # For debug mode
-  #CFLAGS =-ggdb -Wall -fPIC
-endif
-
-ifeq ($(C_COMPILER),INTEL)
-  OPENMPFLAG = -openmp
-  C = icc
-  CC = icc
-  CFLAGS = -O3 -openmp -fPIC
-  #IC_MKL =-mkl
-endif
-
-# NVIDIA CUDA compiler
-NC = nvcc
-NCC = nvcc
-
-NCFLAGS = -O3 -arch=sm_52 -Xcompiler -fpic
+#CFLAGS =-O3 -fopenmp -fPIC
 # For debug mode
-#NCFLAGS =-arch sm_20 -G -g -Xcompiler -fpic
+#CFLAGS =-ggdb -Wall -fPIC
+#IC_MKL =-mkl
 
 # For systems with cross 32-64bit lib support
 # (this is mostly for MacOS)
 # please add -m64 to CFLAGS and CFLAGS
+
+OMPFLAGS = -fopenmp
 
 # CUDA GPU support 
 ifeq ($(GPU),CUDA)
@@ -136,7 +117,7 @@ else
 endif
 #
 # For ".so"
-#	$(CC) -shared -Wl,-soname,$(PARALUTION_LIB) -o  $(PARALUTION_LIB) $(OBJ) -lc
+#	$(CCP) -shared -Wl,-soname,$(PARALUTION_LIB) -o  $(PARALUTION_LIB) $(OBJ) -lc
 
 
 clean: 
@@ -148,196 +129,196 @@ cleanall: clean
 # general
 #
 base/base_paralution.o: base/base_paralution.cpp base/base_paralution.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/base_paralution.cpp -o base/base_paralution.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/base_paralution.cpp -o base/base_paralution.o
 
 base/operator.o: base/operator.cpp base/operator.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/operator.cpp -o base/operator.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/operator.cpp -o base/operator.o
 
 base/vector.o: base/vector.cpp base/vector.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/vector.cpp -o base/vector.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/vector.cpp -o base/vector.o
 
 
 base/local_matrix.o: base/local_matrix.cpp base/local_matrix.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/local_matrix.cpp -o base/local_matrix.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/local_matrix.cpp -o base/local_matrix.o
 
 base/global_matrix.o: base/global_matrix.cpp base/global_matrix.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/global_matrix.cpp -o base/global_matrix.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/global_matrix.cpp -o base/global_matrix.o
 
 
 base/local_vector.o: base/local_vector.cpp base/local_vector.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/local_vector.cpp -o base/local_vector.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/local_vector.cpp -o base/local_vector.o
 
 base/global_vector.o: base/global_vector.cpp base/global_vector.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/global_vector.cpp -o base/global_vector.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/global_vector.cpp -o base/global_vector.o
 
 base/base_matrix.o: base/base_matrix.cpp base/base_matrix.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/base_matrix.cpp -o base/base_matrix.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/base_matrix.cpp -o base/base_matrix.o
 
 
 # 
 # host 
 #
 base/host/host_matrix_csr.o: base/host/host_matrix_csr.cpp base/host/host_matrix_csr.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_csr.cpp -o base/host/host_matrix_csr.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_csr.cpp -o base/host/host_matrix_csr.o
 
 base/host/host_matrix_mcsr.o: base/host/host_matrix_mcsr.cpp base/host/host_matrix_mcsr.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_mcsr.cpp -o base/host/host_matrix_mcsr.o 
+	$(CCP) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_mcsr.cpp -o base/host/host_matrix_mcsr.o 
 
 base/host/host_matrix_bcsr.o: base/host/host_matrix_bcsr.cpp base/host/host_matrix_bcsr.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_bcsr.cpp -o base/host/host_matrix_bcsr.o 
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_bcsr.cpp -o base/host/host_matrix_bcsr.o 
 
 base/host/host_matrix_coo.o: base/host/host_matrix_coo.cpp base/host/host_matrix_coo.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_coo.cpp -o base/host/host_matrix_coo.o 
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_coo.cpp -o base/host/host_matrix_coo.o 
 
 base/host/host_matrix_dia.o: base/host/host_matrix_dia.cpp base/host/host_matrix_dia.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_dia.cpp -o base/host/host_matrix_dia.o 
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_dia.cpp -o base/host/host_matrix_dia.o 
 
 base/host/host_matrix_ell.o: base/host/host_matrix_ell.cpp base/host/host_matrix_ell.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_ell.cpp -o base/host/host_matrix_ell.o 
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_ell.cpp -o base/host/host_matrix_ell.o 
 
 base/host/host_matrix_hyb.o: base/host/host_matrix_hyb.cpp base/host/host_matrix_hyb.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_hyb.cpp -o base/host/host_matrix_hyb.o 
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_hyb.cpp -o base/host/host_matrix_hyb.o 
 
 base/host/host_matrix_dense.o: base/host/host_matrix_dense.cpp base/host/host_matrix_dense.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_dense.cpp -o base/host/host_matrix_dense.o 
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/host/host_matrix_dense.cpp -o base/host/host_matrix_dense.o 
 
 base/host/host_vector.o: base/host/host_vector.cpp base/host/host_vector.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_vector.cpp -o base/host/host_vector.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/host/host_vector.cpp -o base/host/host_vector.o
 
 base/host/host_conversion.o: base/host/host_conversion.cpp base/host/host_conversion.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_conversion.cpp -o base/host/host_conversion.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/host/host_conversion.cpp -o base/host/host_conversion.o
 
 base/host/host_affinity.o: base/host/host_affinity.cpp base/host/host_affinity.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_affinity.cpp -o base/host/host_affinity.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/host/host_affinity.cpp -o base/host/host_affinity.o
 
 base/host/host_io.o: base/host/host_io.cpp base/host/host_io.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_io.cpp -o base/host/host_io.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/host/host_io.cpp -o base/host/host_io.o
 
 base/host/host_stencil_laplace2d.o: base/host/host_stencil_laplace2d.cpp base/host/host_stencil_laplace2d.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/host/host_stencil_laplace2d.cpp -o base/host/host_stencil_laplace2d.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/host/host_stencil_laplace2d.cpp -o base/host/host_stencil_laplace2d.o
 
 base/base_vector.o: base/base_vector.cpp base/base_vector.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/base_vector.cpp -o base/base_vector.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/base_vector.cpp -o base/base_vector.o
 
 base/backend_manager.o: base/backend_manager.cpp base/backend_manager.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/backend_manager.cpp -o base/backend_manager.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/backend_manager.cpp -o base/backend_manager.o
 
 base/base_stencil.o: base/base_stencil.cpp base/base_stencil.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/base_stencil.cpp -o base/base_stencil.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/base_stencil.cpp -o base/base_stencil.o
 
 base/local_stencil.o: base/local_stencil.cpp base/local_stencil.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/local_stencil.cpp -o base/local_stencil.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/local_stencil.cpp -o base/local_stencil.o
 
 #
 # third party
 #
 ../thirdparty/matrix-market/mmio.o: ../thirdparty/matrix-market/mmio.c ../thirdparty/matrix-market/mmio.h	
-	$(C) $(CFLAGS) -c ../thirdparty/matrix-market/mmio.c -o ../thirdparty/matrix-market/mmio.o
+	$(CC) $(CFLAGS) $(OMPFLAGS) -c ../thirdparty/matrix-market/mmio.c -o ../thirdparty/matrix-market/mmio.o
 
 #
 # solver
 #
 solvers/krylov/cg.o: solvers/krylov/cg.cpp solvers/krylov/cg.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/krylov/cg.cpp -o solvers/krylov/cg.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/krylov/cg.cpp -o solvers/krylov/cg.o
 
 solvers/krylov/cr.o: solvers/krylov/cr.cpp solvers/krylov/cr.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/krylov/cr.cpp -o solvers/krylov/cr.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/krylov/cr.cpp -o solvers/krylov/cr.o
 
 solvers/krylov/gmres.o: solvers/krylov/gmres.cpp solvers/krylov/gmres.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/krylov/gmres.cpp -o solvers/krylov/gmres.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/krylov/gmres.cpp -o solvers/krylov/gmres.o
 
 solvers/krylov/fgmres.o: solvers/krylov/fgmres.cpp solvers/krylov/fgmres.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/krylov/fgmres.cpp -o solvers/krylov/fgmres.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/krylov/fgmres.cpp -o solvers/krylov/fgmres.o
 
 solvers/krylov/bicgstab.o: solvers/krylov/bicgstab.cpp solvers/krylov/bicgstab.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/krylov/bicgstab.cpp -o solvers/krylov/bicgstab.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/krylov/bicgstab.cpp -o solvers/krylov/bicgstab.o
 
 solvers/krylov/idr.o: solvers/krylov/idr.cpp solvers/krylov/idr.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/krylov/idr.cpp -o solvers/krylov/idr.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/krylov/idr.cpp -o solvers/krylov/idr.o
 
 solvers/deflation/dpcg.o: solvers/deflation/dpcg.cpp solvers/deflation/dpcg.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/deflation/dpcg.cpp -o solvers/deflation/dpcg.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/deflation/dpcg.cpp -o solvers/deflation/dpcg.o
 
 solvers/eigenvalue/ampe_sira.o: solvers/eigenvalue/ampe_sira.cpp solvers/eigenvalue/ampe_sira.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/eigenvalue/ampe_sira.cpp -o solvers/eigenvalue/ampe_sira.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/eigenvalue/ampe_sira.cpp -o solvers/eigenvalue/ampe_sira.o
 
 solvers/eigenvalue/cg_hn.o: solvers/eigenvalue/cg_hn.cpp solvers/eigenvalue/cg_hn.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/eigenvalue/cg_hn.cpp -o solvers/eigenvalue/cg_hn.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/eigenvalue/cg_hn.cpp -o solvers/eigenvalue/cg_hn.o
 
 solvers/solver.o: solvers/solver.cpp solvers/solver.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/solver.cpp -o solvers/solver.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/solver.cpp -o solvers/solver.o
 
 solvers/multigrid/multigrid.o: solvers/multigrid/multigrid.cpp solvers/multigrid/multigrid.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/multigrid/multigrid.cpp -o solvers/multigrid/multigrid.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/multigrid/multigrid.cpp -o solvers/multigrid/multigrid.o
 
 solvers/multigrid/base_multigrid.o: solvers/multigrid/base_multigrid.cpp solvers/multigrid/base_multigrid.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/multigrid/base_multigrid.cpp -o solvers/multigrid/base_multigrid.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/multigrid/base_multigrid.cpp -o solvers/multigrid/base_multigrid.o
 
 solvers/multigrid/amg.o: solvers/multigrid/amg.cpp solvers/multigrid/amg.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/multigrid/amg.cpp -o solvers/multigrid/amg.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/multigrid/amg.cpp -o solvers/multigrid/amg.o
 
 solvers/multigrid/base_amg.o: solvers/multigrid/base_amg.cpp solvers/multigrid/base_amg.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/multigrid/base_amg.cpp -o solvers/multigrid/base_amg.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/multigrid/base_amg.cpp -o solvers/multigrid/base_amg.o
 
 solvers/chebyshev.o: solvers/chebyshev.cpp solvers/chebyshev.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/chebyshev.cpp -o solvers/chebyshev.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/chebyshev.cpp -o solvers/chebyshev.o
 
 solvers/preconditioners/preconditioner.o: solvers/preconditioners/preconditioner.cpp solvers/preconditioners/preconditioner.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner.cpp -o solvers/preconditioners/preconditioner.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner.cpp -o solvers/preconditioners/preconditioner.o
 
 solvers/preconditioners/preconditioner_multielimination.o: solvers/preconditioners/preconditioner_multielimination.cpp solvers/preconditioners/preconditioner_multielimination.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_multielimination.cpp -o solvers/preconditioners/preconditioner_multielimination.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_multielimination.cpp -o solvers/preconditioners/preconditioner_multielimination.o
 
 solvers/preconditioners/preconditioner_multicolored.o: solvers/preconditioners/preconditioner_multicolored.cpp solvers/preconditioners/preconditioner_multicolored.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_multicolored.cpp -o solvers/preconditioners/preconditioner_multicolored.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_multicolored.cpp -o solvers/preconditioners/preconditioner_multicolored.o
 
 solvers/preconditioners/preconditioner_multicolored_gs.o: solvers/preconditioners/preconditioner_multicolored_gs.cpp solvers/preconditioners/preconditioner_multicolored_gs.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_multicolored_gs.cpp -o solvers/preconditioners/preconditioner_multicolored_gs.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_multicolored_gs.cpp -o solvers/preconditioners/preconditioner_multicolored_gs.o
 
 solvers/preconditioners/preconditioner_multicolored_ilu.o: solvers/preconditioners/preconditioner_multicolored_ilu.cpp solvers/preconditioners/preconditioner_multicolored_ilu.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_multicolored_ilu.cpp -o solvers/preconditioners/preconditioner_multicolored_ilu.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_multicolored_ilu.cpp -o solvers/preconditioners/preconditioner_multicolored_ilu.o
 
 solvers/preconditioners/preconditioner_saddlepoint.o: solvers/preconditioners/preconditioner_saddlepoint.cpp solvers/preconditioners/preconditioner_saddlepoint.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_saddlepoint.cpp -o solvers/preconditioners/preconditioner_saddlepoint.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_saddlepoint.cpp -o solvers/preconditioners/preconditioner_saddlepoint.o
 
 solvers/preconditioners/preconditioner_blockprecond.o: solvers/preconditioners/preconditioner_blockprecond.cpp solvers/preconditioners/preconditioner_blockprecond.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_blockprecond.cpp -o solvers/preconditioners/preconditioner_blockprecond.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_blockprecond.cpp -o solvers/preconditioners/preconditioner_blockprecond.o
 
 solvers/preconditioners/preconditioner_as.o: solvers/preconditioners/preconditioner_as.cpp solvers/preconditioners/preconditioner_as.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_as.cpp -o solvers/preconditioners/preconditioner_as.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_as.cpp -o solvers/preconditioners/preconditioner_as.o
 
 solvers/preconditioners/preconditioner_ai.o: solvers/preconditioners/preconditioner_ai.cpp solvers/preconditioners/preconditioner_ai.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_ai.cpp -o solvers/preconditioners/preconditioner_ai.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/preconditioners/preconditioner_ai.cpp -o solvers/preconditioners/preconditioner_ai.o
 
 solvers/iter_ctrl.o: solvers/iter_ctrl.cpp solvers/iter_ctrl.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/iter_ctrl.cpp -o solvers/iter_ctrl.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/iter_ctrl.cpp -o solvers/iter_ctrl.o
 
 solvers/mixed_precision.o: solvers/mixed_precision.cpp solvers/mixed_precision.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/mixed_precision.cpp -o solvers/mixed_precision.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/mixed_precision.cpp -o solvers/mixed_precision.o
 
 solvers/direct/inversion.o: solvers/direct/inversion.cpp solvers/direct/inversion.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/direct/inversion.cpp -o solvers/direct/inversion.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/direct/inversion.cpp -o solvers/direct/inversion.o
 
 solvers/direct/lu.o: solvers/direct/lu.cpp solvers/direct/lu.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/direct/lu.cpp -o solvers/direct/lu.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/direct/lu.cpp -o solvers/direct/lu.o
 
 solvers/direct/qr.o: solvers/direct/qr.cpp solvers/direct/qr.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c solvers/direct/qr.cpp -o solvers/direct/qr.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c solvers/direct/qr.cpp -o solvers/direct/qr.o
 
 #
 # utils
 #
 utils/allocate_free.o: utils/allocate_free.cpp utils/allocate_free.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c utils/allocate_free.cpp -o utils/allocate_free.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c utils/allocate_free.cpp -o utils/allocate_free.o
 
 utils/math_functions.o: utils/math_functions.cpp utils/math_functions.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c utils/math_functions.cpp -o utils/math_functions.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c utils/math_functions.cpp -o utils/math_functions.o
 
 utils/time_functions.o: utils/time_functions.cpp utils/time_functions.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c utils/time_functions.cpp -o utils/time_functions.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c utils/time_functions.cpp -o utils/time_functions.o
 
 utils/log.o: utils/log.cpp utils/log.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c utils/log.cpp -o utils/log.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c utils/log.cpp -o utils/log.o
 
 #
 # cuda
@@ -380,40 +361,40 @@ base/gpu/gpu_matrix_hyb.o: base/gpu/gpu_matrix_hyb.cu base/gpu/gpu_matrix_hyb.hp
 # OpenCL
 #
 base/ocl/ocl_allocate_free.o: base/ocl/ocl_allocate_free.cpp base/ocl/ocl_allocate_free.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_allocate_free.cpp -o base/ocl/ocl_allocate_free.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_allocate_free.cpp -o base/ocl/ocl_allocate_free.o
 
 base/ocl/backend_ocl.o: base/ocl/backend_ocl.cpp base/ocl/backend_ocl.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/ocl/backend_ocl.cpp -o base/ocl/backend_ocl.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/ocl/backend_ocl.cpp -o base/ocl/backend_ocl.o
 
 base/ocl/ocl_vector.o: base/ocl/ocl_vector.cpp base/ocl/ocl_vector.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_vector.cpp -o base/ocl/ocl_vector.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_vector.cpp -o base/ocl/ocl_vector.o
 
 base/ocl/ocl_matrix_csr.o: base/ocl/ocl_matrix_csr.cpp base/ocl/ocl_matrix_csr.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_csr.cpp -o base/ocl/ocl_matrix_csr.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_csr.cpp -o base/ocl/ocl_matrix_csr.o
 
 base/ocl/ocl_matrix_dense.o: base/ocl/ocl_matrix_dense.cpp base/ocl/ocl_matrix_dense.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_dense.cpp -o base/ocl/ocl_matrix_dense.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_dense.cpp -o base/ocl/ocl_matrix_dense.o
 
 base/ocl/ocl_matrix_mcsr.o: base/ocl/ocl_matrix_mcsr.cpp base/ocl/ocl_matrix_mcsr.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_mcsr.cpp -o base/ocl/ocl_matrix_mcsr.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_mcsr.cpp -o base/ocl/ocl_matrix_mcsr.o
 
 base/ocl/ocl_matrix_ell.o: base/ocl/ocl_matrix_ell.cpp base/ocl/ocl_matrix_ell.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_ell.cpp -o base/ocl/ocl_matrix_ell.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_ell.cpp -o base/ocl/ocl_matrix_ell.o
 
 base/ocl/ocl_matrix_dia.o: base/ocl/ocl_matrix_dia.cpp base/ocl/ocl_matrix_dia.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_dia.cpp -o base/ocl/ocl_matrix_dia.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_dia.cpp -o base/ocl/ocl_matrix_dia.o
 
 base/ocl/ocl_matrix_bcsr.o: base/ocl/ocl_matrix_bcsr.cpp base/ocl/ocl_matrix_bcsr.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_bcsr.cpp -o base/ocl/ocl_matrix_bcsr.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_bcsr.cpp -o base/ocl/ocl_matrix_bcsr.o
 
 base/ocl/ocl_matrix_coo.o: base/ocl/ocl_matrix_coo.cpp base/ocl/ocl_matrix_coo.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_coo.cpp -o base/ocl/ocl_matrix_coo.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_coo.cpp -o base/ocl/ocl_matrix_coo.o
 
 base/ocl/ocl_matrix_hyb.o: base/ocl/ocl_matrix_hyb.cpp base/ocl/ocl_matrix_hyb.hpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_hyb.cpp -o base/ocl/ocl_matrix_hyb.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) -c base/ocl/ocl_matrix_hyb.cpp -o base/ocl/ocl_matrix_hyb.o
 
 utils/ocl_check_hw: utils/ocl_check_hw.cpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) utils/ocl_check_hw.cpp -o utils/ocl_check_hw $(LFLAGS)
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) utils/ocl_check_hw.cpp -o utils/ocl_check_hw $(LFLAGS)
 	utils/ocl_check_hw
 
 #
@@ -456,152 +437,152 @@ base/mic/mic_matrix_hyb.o: base/mic/mic_matrix_hyb.cpp base/mic/mic_matrix_hyb.h
 # examples
 #
 examples/amg.o: examples/amg.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/amg.cpp -o examples/amg.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/amg.cpp -o examples/amg.o
 
 amg: examples/amg.o
-	$(CC) -o examples/amg examples/amg.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/amg examples/amg.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/cg-amg.o: examples/cg-amg.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/cg-amg.cpp -o examples/cg-amg.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/cg-amg.cpp -o examples/cg-amg.o
 
 cg-amg: examples/cg-amg.o
-	$(CC) -o examples/cg-amg examples/cg-amg.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/cg-amg examples/cg-amg.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/cg.o: examples/cg.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/cg.cpp -o examples/cg.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/cg.cpp -o examples/cg.o
 
 cg: examples/cg.o
-	$(CC) -o examples/cg examples/cg.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/cg examples/cg.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/gmres.o: examples/gmres.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/gmres.cpp -o examples/gmres.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/gmres.cpp -o examples/gmres.o
 
 gmres: examples/gmres.o
-	$(CC) -o examples/gmres examples/gmres.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/gmres examples/gmres.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/sp-precond.o: examples/sp-precond.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/sp-precond.cpp -o examples/sp-precond.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/sp-precond.cpp -o examples/sp-precond.o
 
 sp-precond: examples/sp-precond.o
-	$(CC) -o examples/sp-precond examples/sp-precond.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/sp-precond examples/sp-precond.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/assembly.o: examples/assembly.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/assembly.cpp -o examples/assembly.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/assembly.cpp -o examples/assembly.o
 
 assembly: examples/assembly.o
-	$(CC) -o examples/assembly examples/assembly.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/assembly examples/assembly.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/assembly2.o: examples/assembly2.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/assembly2.cpp -o examples/assembly2.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/assembly2.cpp -o examples/assembly2.o
 
 assembly2: examples/assembly2.o
-	$(CC) -o examples/assembly2 examples/assembly2.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/assembly2 examples/assembly2.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/as-precond.o: examples/as-precond.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/as-precond.cpp -o examples/as-precond.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/as-precond.cpp -o examples/as-precond.o
 
 as-precond: examples/as-precond.o
-	$(CC) -o examples/as-precond examples/as-precond.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/as-precond examples/as-precond.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/direct.o: examples/direct.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/direct.cpp -o examples/direct.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/direct.cpp -o examples/direct.o
 
 direct: examples/direct.o
-	$(CC) -o examples/direct examples/direct.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/direct examples/direct.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/block-precond.o: examples/block-precond.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/block-precond.cpp -o examples/block-precond.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/block-precond.cpp -o examples/block-precond.o
 
 block-precond: examples/block-precond.o
-	$(CC) -o examples/block-precond examples/block-precond.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/block-precond examples/block-precond.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/idr.o: examples/idr.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/idr.cpp -o examples/idr.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/idr.cpp -o examples/idr.o
 
 idr: examples/idr.o
-	$(CC) -o examples/idr examples/idr.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/idr examples/idr.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/dpcg.o: examples/dpcg.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/dpcg.cpp -o examples/dpcg.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/dpcg.cpp -o examples/dpcg.o
 
 dpcg: examples/dpcg.o
-	$(CC) -o examples/dpcg examples/dpcg.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/dpcg examples/dpcg.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/bicgstab.o: examples/bicgstab.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/bicgstab.cpp -o examples/bicgstab.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/bicgstab.cpp -o examples/bicgstab.o
 
 bicgstab: examples/bicgstab.o
-	$(CC) -o examples/bicgstab examples/bicgstab.o $(PARALUTION_LIB) $(LFLAGS) 
+	$(CCP) -o examples/bicgstab examples/bicgstab.o $(PARALUTION_LIB) $(LFLAGS) 
 
 examples/fixed-point.o: examples/fixed-point.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/fixed-point.cpp -o examples/fixed-point.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/fixed-point.cpp -o examples/fixed-point.o
 
 fixed-point: examples/fixed-point.o
-	$(CC) -o examples/fixed-point examples/fixed-point.o $(PARALUTION_LIB) $(LFLAGS) 
+	$(CCP) -o examples/fixed-point examples/fixed-point.o $(PARALUTION_LIB) $(LFLAGS) 
 
 examples/benchmark.o: examples/benchmark.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/benchmark.cpp -o examples/benchmark.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/benchmark.cpp -o examples/benchmark.o
 
 benchmark: examples/benchmark.o
-	$(CC) -o examples/benchmark examples/benchmark.o $(PARALUTION_LIB) $(LFLAGS) 
+	$(CCP) -o examples/benchmark examples/benchmark.o $(PARALUTION_LIB) $(LFLAGS) 
 
 examples/power-method.o: examples/power-method.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/power-method.cpp -o examples/power-method.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/power-method.cpp -o examples/power-method.o
 
 power-method: examples/power-method.o
-	$(CC) -o examples/power-method examples/power-method.o $(PARALUTION_LIB) $(LFLAGS) 
+	$(CCP) -o examples/power-method examples/power-method.o $(PARALUTION_LIB) $(LFLAGS) 
 
 examples/simple-spmv.o: examples/simple-spmv.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/simple-spmv.cpp -o examples/simple-spmv.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/simple-spmv.cpp -o examples/simple-spmv.o
 
 simple-spmv: examples/simple-spmv.o
-	$(CC) -o examples/simple-spmv examples/simple-spmv.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/simple-spmv examples/simple-spmv.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/me-preconditioner.o: examples/me-preconditioner.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/me-preconditioner.cpp -o examples/me-preconditioner.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/me-preconditioner.cpp -o examples/me-preconditioner.o
 
 me-preconditioner: examples/me-preconditioner.o
-	$(CC) -o examples/me-preconditioner examples/me-preconditioner.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/me-preconditioner examples/me-preconditioner.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/mixed-precision.o: examples/mixed-precision.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/mixed-precision.cpp -o examples/mixed-precision.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/mixed-precision.cpp -o examples/mixed-precision.o
 
 mixed-precision: examples/mixed-precision.o
-	$(CC) -o examples/mixed-precision examples/mixed-precision.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/mixed-precision examples/mixed-precision.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/async.o: examples/async.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/async.cpp -o examples/async.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/async.cpp -o examples/async.o
 
 async: examples/async.o
-	$(CC) -o examples/async examples/async.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/async examples/async.o $(PARALUTION_LIB) $(LFLAGS)
 
 
 examples/cmk.o: examples/cmk.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/cmk.cpp -o examples/cmk.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/cmk.cpp -o examples/cmk.o
 
 cmk: examples/cmk.o
-	$(CC) -o examples/cmk examples/cmk.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/cmk examples/cmk.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/complex.o: examples/complex.cpp
-	$(CC) $(CFLAGS) $(SUPPORT_LIB) $(PARALUTION_INC) -c examples/complex.cpp -o examples/complex.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(SUPPORT_LIB) $(PARALUTION_INC) -c examples/complex.cpp -o examples/complex.o
 
 complex: examples/complex.o
-	$(CC) -o examples/complex examples/complex.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/complex examples/complex.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/sira.o: examples/sira.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/sira.cpp -o examples/sira.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/sira.cpp -o examples/sira.o
 
 sira: examples/sira.o
-	$(CC) -o examples/sira examples/sira.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/sira examples/sira.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/stencil.o: examples/stencil.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/stencil.cpp -o examples/stencil.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/stencil.cpp -o examples/stencil.o
 
 stencil: examples/stencil.o
-	$(CC) -o examples/stencil examples/stencil.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/stencil examples/stencil.o $(PARALUTION_LIB) $(LFLAGS)
 
 examples/tns.o: examples/tns.cpp
-	$(CC) $(CFLAGS) $(PARALUTION_INC) -c examples/tns.cpp -o examples/tns.o
+	$(CCP) $(CFLAGS) $(OMPFLAGS) $(PARALUTION_INC) -c examples/tns.cpp -o examples/tns.o
 
 tns: examples/tns.o
-	$(CC) -o examples/tns examples/tns.o $(PARALUTION_LIB) $(LFLAGS)
+	$(CCP) -o examples/tns examples/tns.o $(PARALUTION_LIB) $(LFLAGS)

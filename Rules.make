@@ -111,7 +111,7 @@ C_COMPILER = GNU_GCC
 ##############################################
 
 PARALLEL=false
-#PARALLEL=true
+PARALLEL=true
 
 ##############################################
 # Solver for matrix solution
@@ -317,7 +317,7 @@ OPTIMIZE = true
 #OPTIMIZE = false
 
 WARNING = true
-#WARNING = false
+WARNING = false
 
 ##############################################
 #
@@ -605,6 +605,7 @@ endif
 
 ifeq ($(C_COMPILER),GNU_GCC)
   CC     = gcc
+  CCP     = g++
   CFLAGS = -O -Wall -pedantic
   CFLAGS = -O -Wall -pedantic -std=gnu99  #no warnings for c++ style comments
   CFLAGS = -O3 
@@ -615,6 +616,7 @@ endif
 
 ifeq ($(C_COMPILER),INTEL)
   CC     = icc
+  CCP     = icc
   CFLAGS = -O -g -traceback -check-uninit
   CFLAGS = -O -g -traceback
   CFLAGS = -O3 -g -traceback
@@ -630,6 +632,21 @@ ifeq ($(C_COMPILER),IBM)
   LCFLAGS = -O 
   CINFOFLAGS = -v
 endif
+
+##############################################
+#
+# CUDA compiler
+#
+##############################################
+
+NC = nvcc
+NCC = nvcc
+
+# Check the GPU arch
+NCFLAGS = -O3 -arch=sm_52 -Xcompiler -fpic
+# For debug mode
+#NCFLAGS =-arch sm_20 -G -g -Xcompiler -fpic
+
 
 ##############################################
 #
