@@ -8,6 +8,7 @@ c******************************************************************
         subroutine system_initialize
 
 	use mod_system
+        use levels
 	use basin, only : nkn,nel,ngr,mbw
 
         implicit none
@@ -19,7 +20,7 @@ c******************************************************************
         write(6,*) 'using Paralution routines'
         write(6,*) '----------------------------------------'
 
-        call mod_system_init(nkn,nel,mbw)
+        call mod_system_init(nkn,nel,ngr,mbw,nlv)
 
         end
 
@@ -50,20 +51,20 @@ c******************************************************************
 
         include 'param.h'
 
-	!call para_solve_system_coo(n,z)
-	call para_solve_system_csr(n,z)
+	!call para_solve_system_coo(n2zero,n,z)
+	call para_solve_system_csr(n2zero,n,z)
 
 	end
 
 c******************************************************************
 
-	subroutine system_assemble(n,m,kn,mass,rhs)
+	subroutine system_assemble(ie,n,m,kn,mass,rhs)
 
 	use mod_system
 
 	implicit none
 
-	integer n,m
+	integer ie,n,m
 	integer kn(3)
 	real mass(3,3)
 	real rhs(3)
@@ -77,8 +78,10 @@ c******************************************************************
 
         do i=1,3
           do j=1,3
-            kk=loccoo(kn(i),kn(j),n,m)
-            if(kk.gt.0) coo(kk) = coo(kk) + mass(i,j)
+            !kk=loccoo(kn(i),kn(j),n,m)		!COOGGU	
+            !if(kk.gt.0) coo(kk) = coo(kk) + mass(i,j)
+            kk=ijp_ie(i,j,ie)			!COOGGU
+            if(kk.gt.0) c2coo(kk) = c2coo(kk) + mass(i,j)
           end do
           rvec(kn(i)) = rvec(kn(i)) + rhs(i)
         end do

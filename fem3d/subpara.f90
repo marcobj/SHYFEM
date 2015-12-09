@@ -16,11 +16,8 @@
       use, intrinsic :: ISO_C_BINDING, only : C_INT, C_PTR, C_DOUBLE, C_CHAR, C_NULL_CHAR, C_LOC
 
       implicit none
-      include 'param.h'
-
-      integer icall_coo
-      data icall_coo /0/
-      save icall_coo
+      
+      integer, save :: icall_coo = 0
 
       interface
         subroutine paralution_init() BIND(C)
@@ -28,25 +25,36 @@
         end subroutine
       end interface
       
-      rvec = 0.
-      raux = 0.
-      coo = 0.
-
       if (icall_coo.eq.0) then		! only first time
-	 write(6,*) 'SOLVER: Paralution'
-         call coo_init(nel,nkn,mbw,nen3v,csrdim,nnzero,ijp,icoo,jcoo)
-         print*, 'coo-matrix initialisation...'
-         print*, 'Number of non-zeros: ',nnzero
+
+         call coo_init_new
+
+         if( n2zero > n2max ) then
+           stop 'error stop para_init_system: non zero 2d max'
+         end if
+         if( n3zero > n3max ) then
+           stop 'error stop para_init_system: non zero 3d max'
+         end if
+
          call paralution_init()
+
+	 write(6,*) 'SOLVER: Paralution'
+         print*, 'coo-matrix initialisation...'
+         print*, 'Number of non-zeros: ',n2zero,n2max
+
          icall_coo=1
       end if
 
+      rvec = 0.
+      raux = 0.
+      c2coo = 0.
+      c3coo = 0.
 
       end
 
 !*************************************************************************
 
- subroutine para_solve_system_coo(nin,xguess)
+ subroutine para_solve_system_coo(nnz,nin,xguess)
 
 ! Solver routine with Paralution iterative methods.
 
@@ -55,7 +63,7 @@
 
  implicit none
 
- integer, intent(in) :: nin
+ integer, intent(in) :: nnz,nin
  real, intent(in) :: xguess(nin)
 
  interface
@@ -76,7 +84,7 @@
     end subroutine paralution_fortran_solve_coo
  end interface
 
- integer(kind=C_INT)   :: n, m, nnz, iter, ierr
+ integer(kind=C_INT)   :: n, m, iter, ierr
  real(kind=C_DOUBLE)   :: resnorm
 
  integer(kind=C_INT), allocatable, target :: rows(:), cols(:)
@@ -88,7 +96,6 @@
 
  n = nin
  m = n	!n row and col are the same
- nnz = nnzero
 
  if( .not. allocated(x) ) then
    allocate( rhs(n), x(n) )
@@ -99,9 +106,9 @@
  rhs = rvec
  !x = 0._C_DOUBLE
  x = xguess
- rows = icoo
- cols = jcoo
- rval = coo
+ rows = i2coo
+ cols = j2coo
+ rval = c2coo
 
 ! Solver (CG,BiCGStab,GMRES,Fixed-Point)
  Solver = 'BiCGStab'	!fastest
@@ -133,7 +140,7 @@
 
 !*************************************************************************
 
- subroutine para_solve_system_csr(nin,xguess)
+ subroutine para_solve_system_csr(nnz,nin,xguess)
 
 ! Solver routine with Paralution iterative methods.
 
@@ -142,7 +149,7 @@
 
  implicit none
 
- integer, intent(in) :: nin
+ integer, intent(in) :: nnz, nin
  real, intent(in) :: xguess(nin)
 
  interface
@@ -163,7 +170,7 @@
     end subroutine paralution_fortran_solve_csr
  end interface
 
- integer(kind=C_INT)   :: n, m, nnz, iter, ierr
+ integer(kind=C_INT)   :: n, m, iter, ierr
  real(kind=C_DOUBLE)   :: resnorm
 
  integer(kind=C_INT), allocatable, target :: rows(:), cols(:)
@@ -177,7 +184,6 @@
 
  n = nin
  m = n	!n row and col are the same
- nnz = nnzero
 
  if( .not. allocated(x) ) then
    allocate( rhs(n), x(n) )
@@ -187,7 +193,7 @@
  end if
 
 ! convert from coo to csr
- call coocsr(n,nnz,coo,icoo,jcoo,rval,cols,rows)
+ call coocsr(n,nnz,c2coo,i2coo,j2coo,rval,cols,rows)
  call csort (n,rval,cols,rows,iwork,.true.)
 
  rhs = rvec

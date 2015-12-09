@@ -229,7 +229,7 @@ c-----------------------------------------------------------
 
 	call check_point('checking ht 1')
 
-	call poisson_init
+	!call poisson_init
 
 c-----------------------------------------------------------
 c initialize barene data structures
@@ -326,7 +326,7 @@ c        call bclevvar_ini       	!chao debora
 
 	call system_initialize		!matrix inversion routines
 
-	call poisson_2d
+	!call poisson_2d
 
 	call offline(2)
 	call offline(1)
