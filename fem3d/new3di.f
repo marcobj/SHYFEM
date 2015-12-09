@@ -563,7 +563,7 @@ c	------------------------------------------------------
 c	in hia(i,j),hik(i),i,j=1,3 is system
 c	------------------------------------------------------
 
-	  call system_assemble(nkn,mbw,kn,hia,hik)
+	  call system_assemble(ie,nkn,mbw,kn,hia,hik)
 
 	end do
 
@@ -584,7 +584,7 @@ c******************************************************************
 	subroutine hydro_transports
 
 	use basin, only : nkn,nel,ngr,mbw
-	use omp_lib
+!$	use omp_lib
 
 	implicit none
 
