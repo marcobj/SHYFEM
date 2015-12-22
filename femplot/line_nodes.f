@@ -140,6 +140,8 @@ c****************************************************************
 
 c computes distance of kp from line given by k1,k2
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
@@ -156,7 +158,6 @@ c (xs,ys) = (x1,y1) + t * (xa,ya)
 	real x1,y1,x2,y2,xp,yp
 	real xa,ya,xs,ys
 
-	include 'basin.h'
 
 	x1 = xgv(k1)
 	y1 = ygv(k1)
@@ -185,6 +186,8 @@ c****************************************************************
 
 c finds closest node to coordinate (x0,y0)
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
@@ -192,7 +195,6 @@ c finds closest node to coordinate (x0,y0)
 	real x0,y0		!coordinates of point
 	integer kc		!closest node to point (return)
 
-	include 'basin.h'
 
 	integer k
 	real dist,distc
@@ -216,13 +218,14 @@ c****************************************************************
 
 c writes node info for node k
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
 
 	integer k
 
-	include 'basin.h'
 
 	write(6,*) 'node = ',k,xgv(k),ygv(k)
 
@@ -236,34 +239,34 @@ c****************************************************************
 
 	subroutine line_points_test
 
+	use mod_geom
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ndim
 	parameter (ndim=500)
 
-	include 'geom.h'
-
-	character*80 basin
+	character*80 basfil
 	integer nodes(ndim)
 	integer n,nb,nl
+	integer nlkdi
 	real x(ndim), y(ndim)
+
+	integer iapini
 
 	call shyfem_copyright('line_nodes - find node along line')
 
 	call read_line(ndim,nl,x,y)
 
-	call read_memory_basin(basin)
-	if( basin .eq. ' ' ) stop
+	if( iapini(1,0,0,0) .le. 0 ) stop
 
-	nb = 1
-	open(nb,file=basin,status='old',form='unformatted')
-	call sp13rr(nb,nkndim,neldim)
-	close(nb)
+	call mod_geom_init(nkn,nel,ngr)
 
-        call mklenk(nlkdim,nkn,nel,nen3v,ilinkv,lenkv)
+	nlkdi = 3*nel + 2*nkn
+        call mklenk(nlkdi,nkn,nel,nen3v,ilinkv,lenkv)
         call mklink(nkn,ilinkv,lenkv,linkv)
 
 	call find_line_nodes(nl,x,y,ndim,n,nodes)
@@ -308,10 +311,11 @@ c****************************************************************
 
 	subroutine write_line(n,nodes)
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer n
 	integer nodes(n)

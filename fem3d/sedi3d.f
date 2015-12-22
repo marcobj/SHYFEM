@@ -83,6 +83,11 @@ c
 
       subroutine sedi(it,dt)
 
+	use mod_depth
+	use mod_diff_visc_fric
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
       implicit none
 
       integer it			!time in seconds
@@ -95,16 +100,10 @@ c
 ! fem variables
 ! -------------------------------------------------------------
 
-	include 'nbasin.h'
 
-	include 'diff_visc_fric.h'
       real sedkpar,difmol
 
-	include 'depth.h'
-	include 'aux_array.h'
-	include 'levels.h'
 
-	include 'nlevel.h'
 
 ! -------------------------------------------------------------
 ! local sediment variables
@@ -130,6 +129,7 @@ c
       real wsink(0:nlvdim,nkndim,nsdim)	!settling velocity for suspended sediment
       real gdx(nkndim),gdy(nkndim)	!slope gradients
       real tao(nkndim)                  !wave-current shear stress
+	real v1v(nkn)
       double precision riph(nkndim)     !ripple height [m]
       double precision ripl(nkndim)     !ripple length [m]
       double precision timedr		!Duration of call to Sedtrans (s)
@@ -150,8 +150,6 @@ c
 
       integer itanf,nvar
       double precision dtime0,dtime
-
-	include 'bound_names.h'
 
       double precision hzoff
       real salref,temref		!salinity [psu] and temperature [C]
@@ -471,8 +469,6 @@ c
 
 c DOCS  START   P_sediment
 c
-c DOCS  COMPULS         Parameters in the sedtr section
-c 
 c The following parameters activate the sediment transport module 
 c and define the sediment grainsize classes to the simulated.
 !c |sedtr|	Sediment transport module section name.
@@ -733,7 +729,7 @@ c DOCS  END
 
   35    continue
         write(6,*) 'Dimension error for nsdim'
-        write(6,*) 'nrbdim  :',nsdim
+        write(6,*) 'nsdim  :',nsdim
         write(6,*) 'nscls :',nrs
         stop 'error stop : readsed'
 
@@ -985,12 +981,13 @@ c DOCS  END
 
         subroutine inibed(gs,nscls,nbed,thick,gskm,percbd,bedn)
 
+	use basin
+
         implicit none
 
         include 'param.h'
         include 'sed_param.h'
 
-	include 'basin.h'
 
         real sedpa(7)	                        !sediment parameter vector
         common /sedpa/sedpa
@@ -1021,6 +1018,7 @@ c DOCS  END
 
         save /sedpa/
 
+	is = 0
         npi = int(sedpa(5))
 
 !       -------------------------------------------------------------------
@@ -1355,11 +1353,16 @@ c DOCS  END
      $	scn,eps,sedx,sedy,gdx,gdy,tao,gskm,percbd,bedn,
      $  salref,temref,wsink,sload,sflx)
 
+	use mod_waves
+	use mod_layer_thickness
+	use mod_roughness
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         include 'param.h'
         include 'sed_param.h'
-	include 'waves.h'
 
 ! -------------------------------------------------------------
 ! local variables
@@ -1391,15 +1394,11 @@ c DOCS  END
 	real totbed(nkndim)			!total bedload transport (kg/ms)
         real salref,temref			!salinity [psu] and temperature [C]
         real wsink(0:nlvdim,nkndim,nsdim)       !settling velocity for suspended sediment
-	include 'roughness.h'
 
 ! -------------------------------------------------------------
 ! fem variables
 ! -------------------------------------------------------------
 
-	include 'nbasin.h'
-	include 'levels.h'
-	include 'depth.h'
         real salt,temp			!salinity [psu] and temperature [C]
 
 ! -------------------------------------------------------------
@@ -1528,6 +1527,10 @@ c DOCS  END
      $RLINP,BETA,TEM,SAL,BEDCHA,percbd,AULVA,TIMEDR,nscls,gs,UW,hzoff,
      $scn,sedx,sedy,ws,gdx,gdy,lmax,eps,tao,Z0,sload,sflx)
 
+	use mod_depth
+	use mod_layer_thickness
+	use mod_diff_visc_fric
+
         implicit none
 
 	include 'param.h'
@@ -1616,8 +1619,6 @@ c DOCS  END
         real gdx,gdy			!slope gradients
         double precision alph           !slope effect
         real eps(0:nlvdim,nkndim,nsdim)	!vertical mixing coefficient
-	include 'depth.h'
-	include 'diff_visc_fric.h'
 	double precision uslim
 	double precision pcoes		!% of  fine sediments
 	logical cohes
@@ -2381,14 +2382,15 @@ c DOCS  END
 
         subroutine bedload(nscls,sedx,sedy,dt,bh,bflx)
 
+	use mod_bound_geom
+	use evgeom
+	use basin
+
         implicit none
 
         include 'param.h'
         include 'sed_param.h'
-        include 'testbndo.h'
-	include 'evmain.h'
 
-	include 'basin.h'
 
 ! --- input variables
         integer nscls				!number grainsize classes
@@ -2489,12 +2491,13 @@ c DOCS  END
 
 	subroutine slope_lim_bh(nscls,bflx,bh)
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
         include 'param.h'
         include 'sed_param.h'
 
-	include 'nbasin.h'
         integer nscls				!number of grainsize class
         double precision bflx(nsdim,nkndim)	!bedload sediment contribution [m3/m2]
         real bh(nkndim)				!bed elevation
@@ -2549,12 +2552,13 @@ c DOCS  END
 
 	subroutine slopelim(bbk)
 
+	use evgeom
+	use basin
+
         implicit none
 
         include 'param.h'
-        include 'evmain.h'
 
-	include 'basin.h'
 
         double precision v1v(nkndim),v2v(nkndim),v3v(nkndim),v4v(nkndim)
 	double precision bbk(nkndim),bbe(neldim)
@@ -2564,6 +2568,7 @@ c DOCS  END
         integer ie,k,ii
 
         high = 1.d30
+	bbe = 0.
 
         do ie=1,nel
           h = 0.d0
@@ -2672,6 +2677,8 @@ c DOCS  END
         subroutine bedman(gs,nscls,timedr,bflux,sflux,bh,gskm,bdh,
      $	percbd,bedn)
 
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         include 'param.h'
@@ -2691,7 +2698,6 @@ c DOCS  END
                                                 ! (2) critical erosion stress (Pa)
                                                 ! (3) dry bulk density (kg/m**3)
 
-	include 'nbasin.h'
 	double precision bdh(nkndim)		!total elevation change [>0depo,<0ero]
         double precision dzco			!elevation variation due to compaction [m]
         double precision flx 			!bedload + suspended flux [m]
@@ -3527,14 +3533,15 @@ c DOCS  END
 
         subroutine totcon(nscls,scn,tcon)
 
+	use mod_ts
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         include 'param.h'
         include 'sed_param.h'
 
-	include 'nbasin.h'
-	include 'levels.h'
-	include 'ts.h'
 
 	real rhos,conc
         integer nscls				!number of grainsize class
@@ -3583,26 +3590,27 @@ c DOCS  END
 
         subroutine upedepth(bdh)
 
+	use mod_geom_dynamic
+	use mod_depth
+	use mod_layer_thickness
+	use mod_area
+	use mod_hydro
+	use basin
+
         implicit none
 
         include 'param.h'
 
-        double precision bdh(nkndim)          !total elevation change [>0depo,<0ero]
+        double precision bdh(nkn)          !total elevation change [>0depo,<0ero]
 
-	include 'basin.h'
-	include 'hydro.h'
-	include 'depth.h'
-	include 'area.h'
-        real hlhv(neldim)
-        common /hlhv/hlhv
-	include 'aux_array.h'
-	include 'geom_dynamic.h'
+        real hlhv(nel)
+	real v1v(nkn)
 
         real dh
         real evdep				!element depth variation
         integer ie,ii,k,iw
 
-	real bdhrst(nkndim)
+	real bdhrst(nkn)
 	integer nkk,nv,iv
         character*80 name
 	integer icall
@@ -3678,6 +3686,10 @@ c DOCS  END
 
         subroutine smooth_node(kvalue,kdiff,smooth,gdx,gdy,angrep)
 
+	use mod_geom
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         include 'param.h'
@@ -3693,12 +3705,11 @@ c DOCS  END
         real saux,aaux,smm
 
         integer k,kn,n,ibase,i,l
-
-	include 'nbasin.h'
-	include 'geom.h'
-	include 'levels.h'
+	integer nodes(maxlnk)
 
         if ( smooth .eq. 1.d0 ) return
+
+	baux = 0.
 
         do k = 1,nkn
           saux = 0.
@@ -3709,9 +3720,9 @@ c DOCS  END
 
           if (dabs(kdiff(k)).gt.1d-5) then
             if(ksl.ge.real(angrep)) smm = 0.5
-            call get_link(k,ilinkv,linkv,n,ibase)
+	    call get_nodes_around(k,maxlnk,n,nodes)
             do i = 1,n
-              kn = linkv(ibase+i)           !kn is number of neibor node
+              kn = nodes(i)           !kn is number of neibor node
               l = ilhkv(kn)
               area = areanode(l,kn)
               saux = saux + kvalue(kn)*area
@@ -3738,12 +3749,13 @@ c DOCS  END
 
         subroutine resetsedi(it,adjtime,bh,scn)
 
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         include 'param.h'
         include 'sed_param.h'
 
-	include 'nbasin.h'
 
 	integer it                      !time in seconds
 	integer adjtime			!time for initialization [s]
@@ -3772,12 +3784,13 @@ c DOCS  END
 
         subroutine sedcons(it,tcon,bh,bedn)
 
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         include 'param.h'
         include 'sed_param.h'
 
-	include 'nbasin.h'
 
         double precision bedn(nlbdim,3,nkndim)  !bed characteristics in 3 column table
                                                 ! (1) depth below sediment surface (m)
@@ -3814,22 +3827,22 @@ c DOCS  END
 !
 ! compute bottom velocity on nodes
 !
+	use mod_geom_dynamic
+	use mod_layer_thickness
+	use mod_hydro_vel
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 ! parameters
 	include 'param.h'
-	include 'evmain.h'
 ! arguments
 	real vv(nkndim)
 	real vv1(nkndim)
 ! common
-	include 'nlevel.h'
-	include 'basin.h'
-	include 'hydro_vel.h'
-	include 'levels.h'
-	include 'depth.h'
 
-	include 'geom_dynamic.h'
 
 
 ! local
@@ -3842,7 +3855,7 @@ c DOCS  END
         real hsigma
 	logical bsigma
 
-	if(nlvdim.ne.nlvdi) stop 'error stop : level dim in uvtopr'
+	if(nlvdim.ne.nlvdi) stop 'error stop : level dim in uvbott'
 
 	call get_sigma_info(nlv,nsigma,hsigma)
 	bsigma = nsigma .gt. 0

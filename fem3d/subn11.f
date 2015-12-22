@@ -22,9 +22,9 @@ c
 c subroutine init_scal_bc(r3v)		initializes array for scalar BC
 c subroutine mult_scal_bc(r3v,value)	multiplies array for scalar BC by value
 c 
-c subroutine dist_3d(nlvdim,r3v,kn,nbdim,values)
-c subroutine dist_horizontal(nlvdim,r3v,n,value)
-c subroutine aver_horizontal(nlvdim,r3v,n,value)
+c subroutine dist_3d(nlvddi,r3v,kn,nbdim,values)
+c subroutine dist_horizontal(nlvddi,r3v,n,value)
+c subroutine aver_horizontal(nlvddi,r3v,n,value)
 c
 c subroutine print_scal_bc(r3v)		prints non-flag entries of scalar BC
 c subroutine get_bflux(k,flux)		returns boundary flux of node k
@@ -126,29 +126,22 @@ c
 c mode		1 : first call, initialize b.c.
 c		2 : read in b.c.
 
+	use mod_bound_geom
+	use mod_bnd_aux
+	use mod_bound_dynamic
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
 	use intp_fem_file
 
 	implicit none
 
-        include 'param.h'
-        include 'nbasin.h'
-
 	integer mode
 
 	include 'femtime.h'
-
 	include 'mkonst.h'
 
-	include 'bound_geom.h'
-	include 'bound_dynamic.h'
-
-	include 'nlevel.h'
-
-	include 'bnd_aux.h'
-
 	real rwv2(nkn)
-	integer ids(nbcdim)		!id values for boundary conditions
-        save ids
+	integer, save, allocatable :: ids(:)		!id values for BC
 
 	integer nodes(nkn)
 	real vconst(nkn)
@@ -196,6 +189,14 @@ c---------------------------------------------------------------
     1	continue
 
 c	-----------------------------------------------------
+c       initialize boundary ids
+c	-----------------------------------------------------
+
+	nbc = nbnds()
+	allocate(ids(nbc))
+	ids = 0
+	
+c	-----------------------------------------------------
 c       initialize meteo
 c	-----------------------------------------------------
 
@@ -232,9 +233,11 @@ c	-----------------------------------------------------
 	dtime0 = itanf
 	nvar = 1
 	vconst = 0.
+	ids = 0
 
 	do ibc=1,nbc
           nk = nkbnds(ibc)
+	  if( nk .le. 0 ) cycle
 	  do i=1,nk
             nodes(i) = kbnds(ibc,i)
 	  end do
@@ -244,8 +247,8 @@ c	-----------------------------------------------------
 	  if( intpol .le. 0 ) then
 	    intpol = 2
 	    if( ibtyp .eq. 1 ) intpol = 4
-	    write(6,*) 'sp111: (ibc,ibtyp,intpol) ',ibc,ibtyp,intpol
 	  end if
+	  write(6,*) 'sp111: (ibc,ibtyp,intpol) ',ibc,ibtyp,intpol
           call iff_init(dtime0,zfile,nvar,nk,0,intpol
      +                          ,nodes,vconst,id)
 	  if( ibtyp .le. 0 ) then
@@ -277,9 +280,10 @@ c	-----------------------------------------------------
 	do ibc=1,nbc
 	  ibtyp=itybnd(ibc)
 	  nk = nkbnds(ibc)
+	  id = ids(ibc)
+	  if( id .le. 0 ) cycle
 
 	  if(const.eq.flag.and.ibtyp.eq.1) then
-	        id = ids(ibc)
 	        call iff_read_and_interpolate(id,dtime)
 	        call iff_time_interpolate(id,dtime,ivar,nk,lmax,rwv2)
 	  	call adjust_bound(id,ibc,it,nk,rwv2)
@@ -301,8 +305,12 @@ c	...the variables that have to be set are zenv, utlnv, vtlnv
 c	-----------------------------------------------------
 
 	call init_z(const)	!initializes zenv
+	call make_new_depth	!initializes layer thickness
 	call init_uvt		!initializes utlnv, vtlnv
 	call init_z0		!initializes surface and bottom roughness
+
+	call uvint
+	call copy_uvz
 
 c	-----------------------------------------------------
 c       finish
@@ -354,17 +362,19 @@ c	-----------------------------------------------------
           call get_bnd_ipar(ibc,'ibtyp',ibtyp)
           call get_bnd_ipar(ibc,'levflx',levflx)
           call get_bnd_par(ibc,'tramp',tramp)
+	  id = ids(ibc)
+
+	  if( ibtyp .le. 0 ) cycle
+	  if( id .le. 0 ) cycle
 
           nk = nkbnds(ibc)   !total number of nodes of this boundary
 
 	  rmu = 0.
 	  rmv = 0.
 
-	  id = ids(ibc)
 	  call iff_read_and_interpolate(id,dtime)
 	  call iff_time_interpolate(id,dtime,ivar,nk,lmax,rwv2)
 	  call adjust_bound(id,ibc,it,nk,rwv2)
-	  if( ibtyp .eq. 0 ) nk = 0	!switched off
 
 	  alpha = 1.
 	  if( tramp .gt. 0. .and. it-itanf .le. tramp ) then
@@ -471,14 +481,13 @@ c	between these two values
 c if ktilt is given then this node will be set to z=0 and the other
 c	nodes are linearly interpolated between start-ktilt and ktilt-end
 
+	use mod_bound_geom
+	use mod_bound_dynamic
+	use basin
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
 	include 'femtime.h'
-
-	include 'bound_geom.h'
-	include 'bound_dynamic.h'
-	include 'basin.h'
 
 	integer ibc,ibtyp,ktilt
 	integer nbc
@@ -546,21 +555,17 @@ c
 c if ztilt is given then z_tilt() is used to tilt water level
 c if ktilt is not given nothing is tilted
 
+	use mod_bound_geom
+	use mod_bound_dynamic
+	use mod_hydro_print
+	use mod_hydro
+	use basin
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
 	include 'femtime.h'
-
 	include 'pkonst.h'
 	include 'mkonst.h'
-
-	include 'bound_geom.h'
-	include 'bound_dynamic.h'
-
-	include 'hydro.h'
-	include 'hydro_print.h'
-
-	include 'basin.h'
 
 	integer ibc,ibtyp,kranf,krend,ktilt,k,kn1,kn2
 	integer nbc
@@ -645,7 +650,7 @@ c finds tilting node in boundary node list
 	call get_bnd_ipar(ibc,'ktilt',ktilt)
 	if(ktilt.le.0) return
 
-        call kanfend(ibc,kranf,krend)
+	call kanfend(ibc,kranf,krend)
 
 	berr = .true.
 	do i=kranf,krend
@@ -670,13 +675,12 @@ c******************************************************************
 
 c initializes flux boundary
 
+	use mod_bound_geom
+	use basin
+
 	implicit none
 
         integer ibc
-
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'bound_geom.h'
-	include 'basin.h'
 
 	integer kranf,krend
 	integer ie,i,k1,k2,kk1,kk2,ii1,ii2
@@ -793,22 +797,18 @@ c*******************************************************************
 
 c sets up (water) mass flux array mfluxv (3d) and rqv (vertically integrated)
 
+	use mod_bound_dynamic
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
-
-	include 'param.h'
-	include 'nbasin.h'
-
-	include 'nlevel.h'
-
-	include 'levels.h'
-	include 'bound_dynamic.h'
 
 	logical debug
 	integer i,k,l,lmin,lmax,nk,ibc,mode
 	integer ibtyp,levmax,levmin
 	integer nbc
 	real flux,vol,voltot,fluxtot,fluxnode
-	real vols(nkndim)
+	real vols(nkn)
 
 	integer nkbnds,kbnds,nbnds
 	real volnode		!function to compute volume of node
@@ -929,15 +929,12 @@ c**********************************************************************
 
 c adjusts mass flux for dry nodes
 
+	use mod_geom_dynamic
+	use mod_bound_dynamic
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
-
-	include 'param.h'
-
-	include 'nbasin.h'
-	include 'nlevel.h'
-
-	include 'geom_dynamic.h'
-	include 'bound_dynamic.h'
 
 	integer k,l
 
@@ -962,23 +959,21 @@ c**********************************************************************
 
 c computes scalar flux from fluxes and concentrations
 
+	use mod_bound_dynamic
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h'
-
 	character*(*) what
-	real r3v(nlvdim,1)	!concentration for boundary condition
-	real scal(nlvdim,1)	!concentration of scalar
-	real sflux(nlvdim,1)	!mass flux for each finite volume (return)
-	real sconz(nlvdim,1)	!concentration for each finite volume (return)
+	real r3v(nlvdi,nkn)	!concentration for boundary condition
+	real scal(nlvdi,nkn)	!concentration of scalar
+	real sflux(nlvdi,nkn)	!mass flux for each finite volume (return)
+	real sconz(nlvdi,nkn)	!concentration for each finite volume (return)
 	real ssurf		!value of scalar for surface flux
 
-	include 'nbasin.h'
 	include 'mkonst.h'
-	include 'nlevel.h'
 
-	include 'levels.h'
-	include 'bound_dynamic.h'
 
 	integer k,l,lmax,ks
 	real flux,conz
@@ -1036,19 +1031,17 @@ c**********************************************************************
 
 	subroutine flux_debug(what,mfluxv,sflux,sconz)
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h'
-
 	character*(*) what
-	real mfluxv(nlvdim,1)	!mass flux
-	real sflux(nlvdim,1)	!scalar flux
-	real sconz(nlvdim,1)	!concentration for each finite volume
+	real mfluxv(nlvdi,nkn)	!mass flux
+	real sflux(nlvdi,nkn)	!scalar flux
+	real sconz(nlvdi,nkn)	!concentration for each finite volume
 
-	include 'nbasin.h'
 	include 'femtime.h'
-
-	include 'levels.h'
 
 	integer k,l,lmax
 	integer ifemop
@@ -1083,21 +1076,19 @@ c**********************************************************************
 
 c checks scalar flux
 
+	use mod_bound_dynamic
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h'
-
 	character*(*) what
-	real scal(nlvdim,1)	!concentration of scalar
-	real sconz(nlvdim,1)	!concentration for each finite volume
+	real scal(nlvdi,nkn)	!concentration of scalar
+	real sconz(nlvdi,nkn)	!concentration for each finite volume
 
-	include 'nbasin.h'
 	include 'mkonst.h'
 	include 'femtime.h'
-	include 'nlevel.h'
 
-	include 'levels.h'
-	include 'bound_dynamic.h'
 
 	integer k,l,lmax,ks
 	real cconz,qflux,mflux
@@ -1129,14 +1120,13 @@ c**********************************************************************
 
 c initializes array for scalar boundary condition
 
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h'
+	real r3v(nlvdi,nkn)
 
-	real r3v(nlvdim,nkndim)
-
-	include 'nbasin.h'
-	include 'nlevel.h'
 	include 'mkonst.h'
 
 	integer k,l
@@ -1155,15 +1145,14 @@ c*******************************************************************
 
 c multiplies array for scalar boundary condition with value
 
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h'
-
-	real r3v(nlvdim,nkndim)
+	real r3v(nlvdi,nkn)
 	real value
 
-	include 'nbasin.h'
-	include 'nlevel.h'
 	include 'mkonst.h'
 
 	integer k,l
@@ -1179,29 +1168,31 @@ c multiplies array for scalar boundary condition with value
 
 c*******************************************************************
 
-	subroutine dist_3d(nlvdim,r3v,kn,nbdim,values)
+	subroutine dist_3d(nlvddi,r3v,kn,nbdim,values)
+
+	use basin, only : nkn,nel,ngr,mbw
 
 	implicit none
 
-	integer nlvdim
-	real r3v(nlvdim,1)
+	integer nlvddi
+	real r3v(nlvddi,nkn)
 	integer kn
 	integer nbdim
-	real values(1)
+	real values(nkn)
 
 	integer l,lmax
 
 	if( nbdim .eq. 0 ) then
 	  lmax = 1
 	else
-	  lmax = min(nbdim,nlvdim)
+	  lmax = min(nbdim,nlvddi)
 	end if
 
 	do l=1,lmax
 	  r3v(l,kn) = values(l)
 	end do
 	  
-	do l=lmax+1,nlvdim
+	do l=lmax+1,nlvddi
 	  !r3v(l,kn) = values(nbdim)	!BUGFIX
 	  r3v(l,kn) = r3v(lmax,kn)
 	end do
@@ -1210,12 +1201,12 @@ c*******************************************************************
 
 c**********************************************************************
 
-	subroutine dist_horizontal(nlvdim,r3v,n,value)
+	subroutine dist_horizontal(nlvddi,r3v,n,value)
 
 	implicit none
 
-	integer nlvdim
-	real r3v(nlvdim,1)
+	integer nlvddi
+	real r3v(nlvddi,n)
 	integer n
 	real value
 
@@ -1229,12 +1220,12 @@ c**********************************************************************
 
 c**********************************************************************
 
-        subroutine aver_horizontal(nlvdim,r3v,n,value)
+        subroutine aver_horizontal(nlvddi,r3v,n,value)
 
         implicit none
 
-        integer nlvdim
-        real r3v(nlvdim,1)
+        integer nlvddi
+        real r3v(nlvddi,n)
         integer n
         real value
 
@@ -1254,14 +1245,13 @@ c**********************************************************************
 
 c prints non-flag entries of array for scalar boundary condition
 
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h'
+	real r3v(nlvdi,nkn)
 
-	real r3v(nlvdim,nkndim)
-
-	include 'nbasin.h'
-	include 'nlevel.h'
 	include 'mkonst.h'
 
 	integer k,l
@@ -1284,13 +1274,12 @@ c**********************************************************************
 
 c returns boundary flux of node k
 
+	use mod_bound_dynamic
+
 	implicit none
 
 	integer k	!node
 	real flux	!flux in node k (return)
-
-	include 'param.h'
-	include 'bound_dynamic.h'
 
 	flux = rqv(k)
 
@@ -1302,15 +1291,14 @@ c**********************************************************************
 
 c compute discharge from water level
 
+	use mod_hydro
+
 	implicit none
 
 	integer it		!type of function
 	integer levflx		!type of function
 	integer kn		!node number
 	real rw			!discharge computed
-
-	include 'param.h'
-	include 'hydro.h'
 
 	real z,a,b,c,z0
 
@@ -1429,13 +1417,12 @@ c**********************************************************************
 c returns discharge through boundary ibc for points sources
 c for z-boundaries 0 is returned
 
+	use mod_bound_dynamic
+
 	implicit none
 
 	real get_discharge
 	integer ibc
-
-	include 'param.h'
-	include 'bound_dynamic.h'
 
 	integer itype,nk,i,k
 	real acc

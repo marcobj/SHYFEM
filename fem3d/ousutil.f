@@ -14,12 +14,13 @@ c 21.01.2013    ggu     added two new routines comp_vel2d, comp_barotropic
 c 05.09.2013    ggu     new call to get_layer_thickness()
 c 20.01.2014    ggu     new helper routines
 c 29.04.2015    ggu     new helper routines for start/end time in file
+c 11.09.2015    ggu     weight and hl are local, new velzeta2scal()
 c
 c******************************************************************
 
-        subroutine transp2vel(nel,nkn,nlv,nlvdim,hev,zenv,nen3v
+        subroutine transp2vel(nel,nkn,nlv,nlvddi,hev,zenv,nen3v
      +				,ilhv,hlv,utlnv,vtlnv
-     +                          ,uprv,vprv,weight,hl)
+     +                          ,uprv,vprv)
 
 c transforms transports at elements to velocities at nodes
 
@@ -28,18 +29,19 @@ c transforms transports at elements to velocities at nodes
         integer nel
         integer nkn
 	integer nlv
-        integer nlvdim
+        integer nlvddi
         real hev(1)
         real zenv(3,1)
 	integer nen3v(3,1)
 	integer ilhv(1)
 	real hlv(1)
-        real utlnv(nlvdim,1)
-        real vtlnv(nlvdim,1)
-        real uprv(nlvdim,1)
-        real vprv(nlvdim,1)
-        real weight(nlvdim,1)		!aux variable for weights
-	real hl(1)			!aux variable for real level thickness
+        real utlnv(nlvddi,1)
+        real vtlnv(nlvddi,1)
+        real uprv(nlvddi,1)
+        real vprv(nlvddi,1)
+
+        real weight(nlvddi,nkn)		!aux variable for weights
+	real hl(nlvddi)			!aux variable for real level thickness
 
 	logical bsigma
         integer ie,ii,k,l,lmax,nsigma,nlvaux
@@ -49,7 +51,7 @@ c transforms transports at elements to velocities at nodes
 	real area_elem
 
 	call get_sigma_info(nlvaux,nsigma,hsigma)
-	if( nlvaux .gt. nlvdim ) stop 'error stop transp2vel: nlvdim'
+	if( nlvaux .gt. nlvddi ) stop 'error stop transp2vel: nlvddi'
 	bsigma = nsigma .gt. 0
 
 	do k=1,nkn
@@ -95,7 +97,7 @@ c transforms transports at elements to velocities at nodes
 
 c******************************************************************
 
-        subroutine transp2nodes(nel,nkn,nlv,nlvdim,hev,zenv,nen3v
+        subroutine transp2nodes(nel,nkn,nlv,nlvddi,hev,zenv,nen3v
      +				,ilhv,hlv,utlnv,vtlnv
      +                          ,utprv,vtprv,weight)
 
@@ -106,17 +108,17 @@ c transforms transports at elements to transports at nodes
         integer nel
         integer nkn
 	integer nlv
-        integer nlvdim
+        integer nlvddi
         real hev(1)
         real zenv(3,1)
 	integer nen3v(3,1)
 	integer ilhv(1)
 	real hlv(1)
-        real utlnv(nlvdim,1)
-        real vtlnv(nlvdim,1)
-        real utprv(nlvdim,1)
-        real vtprv(nlvdim,1)
-        real weight(nlvdim,1)
+        real utlnv(nlvddi,1)
+        real vtlnv(nlvddi,1)
+        real utprv(nlvddi,1)
+        real vtprv(nlvddi,1)
+        real weight(nlvddi,1)
 
         integer ie,ii,k,l,lmax
         real u,v,w
@@ -205,17 +207,17 @@ c computes 2D velocities from 2D transports - returns result in u2v,v2v
 
 c***************************************************************
 
-	subroutine comp_barotropic(nel,nlvdim,ilhv
+	subroutine comp_barotropic(nel,nlvddi,ilhv
      +			,utlnv,vtlnv,ut2v,vt2v)
 
 c computes barotropic transport
 
 	implicit none
 
-	integer nel,nlvdim
+	integer nel,nlvddi
 	integer ilhv(1)
-	real utlnv(nlvdim,1)
-	real vtlnv(nlvdim,1)
+	real utlnv(nlvddi,1)
+	real vtlnv(nlvddi,1)
 	real ut2v(1)
 	real vt2v(1)
 
@@ -240,9 +242,10 @@ c***************************************************************
 
 	subroutine compute_volume(nel,zenv,hev,volume)
 
+	use evgeom
+
 	implicit none
 
-	include 'ev.h'
 
 	integer nel
 	real zenv(3,1)
@@ -276,7 +279,7 @@ c***************************************************************
 c***************************************************************
 
         subroutine debug_write_node(ks,it,nrec
-     +		,nkndim,neldim,nlvdim,nkn,nel,nlv
+     +		,nknddi,nelddi,nlvddi,nkn,nel,nlv
      +          ,nen3v,zenv,znv,utlnv,vtlnv)
 
 c debug write
@@ -285,12 +288,12 @@ c debug write
 
 	integer ks	!internal node number to output (0 for none)
         integer it,nrec
-        integer nkndim,neldim,nlvdim,nkn,nel,nlv
-        integer nen3v(3,neldim)
-        real znv(nkndim)
-        real zenv(3,neldim)
-        real utlnv(nlvdim,neldim)
-        real vtlnv(nlvdim,neldim)
+        integer nknddi,nelddi,nlvddi,nkn,nel,nlv
+        integer nen3v(3,nelddi)
+        real znv(nknddi)
+        real zenv(3,nelddi)
+        real utlnv(nlvddi,nelddi)
+        real vtlnv(nlvddi,nelddi)
 
         integer ie,ii,k,l
         logical bk
@@ -353,17 +356,46 @@ c all other variables must have already been stored internally (title,date..)
 
 c***************************************************************
 
-        subroutine read_ous_header(iu,nkndim,neldim,nlvdim,ilhv,hlv,hev)
+        subroutine peek_ous_header(iu,nkn,nel,nlv)
+
+c get size of data
+
+        implicit none
+
+        integer iu
+        integer nkn,nel,nlv
+
+        integer nvers
+        integer ierr
+
+        nvers = 2
+        call ous_init(iu,nvers)
+
+        call ous_read_header(iu,nkn,nel,nlv,ierr)
+        if( ierr .ne. 0 ) goto 99
+
+        call ous_close(iu)
+        rewind(iu)
+
+        return
+   99   continue
+        write(6,*) 'error in reading header of OUS file'
+        stop 'error stop peek_ous_header: reading header'
+        end
+
+c***************************************************************
+
+        subroutine read_ous_header(iu,nknddi,nelddi,nlvddi,ilhv,hlv,hev)
 
 c other variables are stored internally
 
         implicit none
 
         integer iu
-        integer nkndim,neldim,nlvdim
-        integer ilhv(nkndim)
-        real hlv(nlvdim)
-        real hev(neldim)
+        integer nknddi,nelddi,nlvddi
+        integer ilhv(nknddi)
+        real hlv(nlvddi)
+        real hev(nelddi)
 
         integer nvers
         integer nkn,nel,nlv,nvar
@@ -380,7 +412,7 @@ c other variables are stored internally
         call ous_read_header(iu,nkn,nel,nlv,ierr)
         if( ierr .ne. 0 ) goto 99
 
-        call dimous(iu,nkndim,neldim,nlvdim)
+        call dimous(iu,nknddi,nelddi,nlvddi)
 	!call infoous(iu,6)
 
         call getous(iu,nvers,nkn,nel,nlv)
@@ -401,7 +433,7 @@ c other variables are stored internally
         if( ierr .ne. 0 ) goto 99
 
         write(6,*) 'Available levels: ',nlv
-        write(6,*) (hlv(l),l=1,nlv)
+        write(6,'(5g14.6)') (hlv(l),l=1,nlv)
 
         return
    99   continue
@@ -549,6 +581,76 @@ c gets it of last record
         itend = itlast
 
         end
+
+c***************************************************************
+
+        function check_ous_file(file)
+
+        implicit none
+
+        logical check_ous_file
+        character*(*) file
+
+        integer nb,nvers
+        integer ifileo
+
+        check_ous_file = .false.
+
+        nb = ifileo(0,file,'unform','old')
+        if( nb .le. 0 ) return
+        call ous_is_ous_file(nb,nvers)
+        close(nb)
+
+        check_ous_file = nvers > 0
+        
+        end
+
+c***************************************************************
+
+        subroutine velzeta2scal(nel,nkn,nlv,nlvddi,nen3v,ilhkv
+     +				,zenv,uprv,vprv
+     +                          ,zv,sv,dv)
+
+	implicit none
+
+	integer nkn,nel,nlv,nlvddi
+	integer nen3v(3,nel)
+	integer ilhkv(nkn)
+	real zenv(3,nel)
+	real uprv(nlvddi,nkn)
+	real vprv(nlvddi,nkn)
+	real zv(nkn)
+	real sv(nlvddi,nkn)
+	real dv(nlvddi,nkn)
+
+	integer ie,k,ii,l,lmax
+	real u,v,s,d
+
+	zv = 1.e+30
+	sv = 0.
+	dv = 0.
+
+	do ie=1,nel
+	  do ii=1,3
+	    k = nen3v(ii,ie)
+	    zv(k) = min(zv(k),zenv(ii,ie))
+	  end do
+	end do
+
+	do k=1,nkn
+	  lmax = ilhkv(k)
+	  do l=1,lmax
+	    u = uprv(l,k)
+	    v = vprv(l,k)
+	    call c2p(u,v,s,d)	!d is meteo convention
+	    d = d + 180.
+	    if( d > 360. ) d = d - 360.
+	    sv(l,k) = s
+	    dv(l,k) = d
+	  end do
+	end do
+	
+	end
 
 c***************************************************************
 

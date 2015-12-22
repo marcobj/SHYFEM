@@ -16,11 +16,11 @@ c
 c function is_zeta_bound(k)
 c	checks if node k is a zeta boundary
 c
-c subroutine bndo_setbc(it,what,nlvdim,cv,rbc,uprv,vprv)
+c subroutine bndo_setbc(it,what,nlvddi,cv,rbc,uprv,vprv)
 c	sets open boundary condition for level boundaries
-c subroutine bndo_impbc(it,what,nlvdim,cv,rbc)
+c subroutine bndo_impbc(it,what,nlvddi,cv,rbc)
 c       imposes boundary conditions on open boundary
-c subroutine bndo_adjbc(it,nlvdim,cv,uprv,vprv)
+c subroutine bndo_adjbc(it,nlvddi,cv,uprv,vprv)
 c       adjusts boundary conditions on open boundary (values on bnd already set)
 c
 c subroutine bndo_radiat(it,rzv)
@@ -37,7 +37,7 @@ c       integer nbndo                   !total number of OB nodes
 c
 c	real xynorm(2,kbcdim)		!normal direction for OB node
 c
-c	integer iopbnd(nkndim)		!if >0 pointer into array irv
+c	integer iopbnd(nknddi)		!if >0 pointer into array irv
 c					!if <0 internal boundary (= -ibc)
 c
 c	integer ibcnod(kbcdim)		!number of boundary
@@ -79,14 +79,12 @@ c***********************************************************************
 
 c sets up bndo data structure
 
+	use mod_bndo
+	use mod_bound_geom
+	use mod_geom
+	use basin
+
 	implicit none
-
-	include 'param.h'
-	include 'subbndo.h'
-
-	include 'bound_geom.h'
-	include 'geom.h'
-	include 'basin.h'
 
 	logical bexternal
 	logical berror
@@ -159,22 +157,30 @@ c	  -------------------------------
 	  if( iopbnd(k) .ne. i ) then
 	    stop 'internal error bndo (0)'
 	  end if
-	  if( inext .gt. 0 .and. kbcnod(inext) .ne. knext ) then
+	  if( inext .gt. 0 ) then
+	   if( kbcnod(inext) .ne. knext ) then
 	    stop 'internal error bndo (1)'
+	   end if
 	  end if
-	  if( ilast .gt. 0 .and. kbcnod(ilast) .ne. klast ) then
+	  if( ilast .gt. 0 ) then
+	   if( kbcnod(ilast) .ne. klast ) then
 	    stop 'internal error bndo (2)'
+	   end if
 	  end if
 
 c	  -------------------------------
 c	  adjacent boundary nodes must be of same boundary
 c	  -------------------------------
 
-	  if( inext .gt. 0 .and. ibcnod(inext) .ne. ibc ) then
+	  if( inext .gt. 0 ) then
+	   if( ibcnod(inext) .ne. ibc ) then
 	    goto 98
+	   end if
 	  end if
-	  if( ilast .gt. 0 .and. ibcnod(ilast) .ne. ibc ) then
+	  if( ilast .gt. 0 ) then
+	   if( ibcnod(ilast) .ne. ibc ) then
 	    goto 98
+	   end if
 	  end if
 
 c	  -------------------------------
@@ -264,6 +270,8 @@ c----------------------------------------------------------
 
 	if( berror ) stop 'error stop bndo'
 
+	write(6,*) 'finished setting up bndo_init, nbndo = ',nbndo
+
 c----------------------------------------------------------
 c end of routine
 c----------------------------------------------------------
@@ -283,14 +291,13 @@ c***********************************************************************
 
 c inserts node kn with weight area into list (internal routine)
 
+	use mod_bndo
+
 	implicit none
 
 	integer ib		!nodal index
 	real area		!weight
 	integer kn		!node number to insert
-
-	include 'param.h'
-	include 'subbndo.h'
 
 	integer nb,j,k
 
@@ -341,16 +348,13 @@ c***********************************************************************
 
 c writes info on open boundary nodes to terminal
 
+	use mod_bndo
+	use mod_bound_geom
+	use levels
+
 	implicit none
 
         integer iunit
-
-	include 'param.h'
-	include 'subbndo.h'
-
-	include 'bound_geom.h'
-
-	include 'levels.h'
 
 	integer i,k,ibc,nb,j,iu
 	integer itybnd,ipext
@@ -389,15 +393,13 @@ c***********************************************************************
 
 c checks if node k is a zeta boundary
 
+	use mod_bndo
+	use mod_bound_geom
+
 	implicit none
 
 	logical is_zeta_bound
 	integer k
-
-	include 'param.h'
-	include 'subbndo.h'
-
-	include 'bound_geom.h'
 
 	integer ip
 
@@ -414,33 +416,35 @@ c checks if node k is a zeta boundary
 
 c***********************************************************************
 
-        subroutine bndo_setbc(it,what,nlvdim,cv,rbc,uprv,vprv)
+        subroutine bndo_setbc(it,what,nlvddi,cv,rbc,uprv,vprv)
 
 c sets open boundary condition for level boundaries
 c
 c simply calls bndo_impbc() and bndo_adjbc()
 
+	use basin
+
         implicit none
 
         integer it
         character*(*) what      !conz/temp/salt or else
-        integer nlvdim
-        real cv(nlvdim,1)
-        real rbc(nlvdim,1)	!boundary condition (3D)
-	real uprv(nlvdim,1)
-	real vprv(nlvdim,1)
+        integer nlvddi
+        real cv(nlvddi,nkn)
+        real rbc(nlvddi,nkn)	!boundary condition (3D)
+	real uprv(nlvddi,nkn)
+	real vprv(nlvddi,nkn)
 
 c----------------------------------------------------------
 c simply imposes whatever is in rbc
 c----------------------------------------------------------
 
-        call bndo_impbc(it,what,nlvdim,cv,rbc)
+        call bndo_impbc(it,what,nlvddi,cv,rbc)
 
 c----------------------------------------------------------
 c adjusts for ambient value, no gradient or outgoing flow
 c----------------------------------------------------------
 
-	call bndo_adjbc(it,what,nlvdim,cv,uprv,vprv)
+	call bndo_adjbc(it,what,nlvddi,cv,uprv,vprv)
 
 c----------------------------------------------------------
 c end of routine
@@ -454,21 +458,18 @@ c***********************************************************************
 
 c imposes boundary conditions on open boundary
 
+	use mod_bndo
+	use mod_bound_geom
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         integer it
         character*(*) what      !conz/temp/salt or else
         integer nlvddi
-        real cv(nlvddi,1)
-        real rbc(nlvddi,1)	!boundary condition (3D)
-
-	include 'param.h'
-        include 'subbndo.h'
-
-	include 'nbasin.h'
-
-	include 'bound_geom.h'
-	include 'levels.h'
+        real cv(nlvddi,nkn)
+        real rbc(nlvddi,nkn)	!boundary condition (3D)
 
         logical bgrad0
         logical bdebug
@@ -518,22 +519,19 @@ c adjusts boundary conditions on open boundary (values on bnd already set)
 c
 c adjusts for ambient value, no gradient or outgoing flow
 
+	use mod_bndo
+	use mod_bound_geom
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	integer it
         character*(*) what	!conz/temp/salt or else
 	integer nlvddi
-	real cv(nlvddi,1)
-	real uprv(nlvddi,1)
-	real vprv(nlvddi,1)
-
-	include 'param.h'
-	include 'subbndo.h'
-
-	include 'nbasin.h'
-
-	include 'bound_geom.h'
-	include 'levels.h'
+	real cv(nlvddi,nkn)
+	real uprv(nlvddi,nkn)
+	real vprv(nlvddi,nkn)
 
 	logical bgrad0
 	logical blevel
@@ -645,19 +643,15 @@ c***********************************************************************
 
 c imposes radiation condition for levels
 
+	use mod_bndo
+	use mod_bound_geom
+	use mod_hydro
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	integer it
-	real rzv(1)
-
-	include 'param.h'
-	include 'subbndo.h'
-
-	include 'nbasin.h'
-
-	include 'hydro.h'
-
-	include 'bound_geom.h'
+	real rzv(nkn)
 
 	logical bdebug
 	integer i,j,k,l

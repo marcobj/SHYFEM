@@ -10,6 +10,9 @@
 ! 07.01.2015	ggu	bug fix in iff_populate_records() -> handle holes
 ! 08.01.2015	ggu	bug fix for parallel: make variables local
 ! 05.02.2015	ggu	iff_read_and_interpolate() introduced for parallel bug
+! 25.09.2015	ggu	prepared to interpolate from reg onto elements
+! 29.09.2015	ggu	in iff_interpolate() do not interpolate with flag
+! 18.12.2015	ggu	in iff_peek_next_record() adjust date only if ierr==0
 !
 !****************************************************************
 !
@@ -52,12 +55,16 @@
 !
 ! iff_init_global		intializes module
 ! iff_init(...,id)		initializes and gets file id
-!	-> iff_populate_records
+!	iff_populate_records
+!		iff_read_next_record
+!		iff_peek_next_record
+!		iff_allocate_fem_data_structure
+!		iff_space_interpolate
 ! iff_read_and_interpolate
-!	-> iff_read_next_record
-!	-> iff_space_interpolate
-! iff_time_interpolate(id,...)	interpolates for new time (and reads from file)
-!	-> iff_interpolate	interpolates in time
+!	iff_read_next_record
+!	iff_space_interpolate
+! iff_time_interpolate		interpolates for new time
+!	iff_interpolate		interpolates in time
 !
 !****************************************************************
 
@@ -69,6 +76,7 @@
 
 	type, private :: info
 	  integer :: iunit = 0
+	  integer :: id0 = 0		!take fdata from this id - not working
 	  integer :: iformat = 0
 	  integer :: nvers = 0
 	  integer :: ntype = 0
@@ -83,6 +91,9 @@
 	  integer :: ilast = 0		!last entry in time
 	  integer :: ireg = 0		!regular grid
 	  logical :: eof = .false.	!EOF encountered?
+
+	  real :: flag = -999.		!flag for value not available
+	  logical :: bneedall = .true.	!need values for all points
 
 	  integer :: datetime(2) = 0	!date and time parameters
 	  real :: regpar(7) = 0.	!parameters for regular grid
@@ -125,9 +136,12 @@
 	double precision, save :: atime0_fem = 0
 
 	integer, save :: nkn_fem = 0
+	integer, save :: nel_fem = 0
 	integer, save :: nlv_fem = 0
 	integer, save, allocatable :: ilhkv_fem(:)
-	real, save, allocatable :: hd_fem(:)
+	integer, save, allocatable :: ilhv_fem(:)
+	real, save, allocatable :: hk_fem(:)
+	real, save, allocatable :: he_fem(:)
 	real, save, allocatable :: hlv_fem(:)
 
 !================================================================
@@ -404,16 +418,20 @@
 !****************************************************************
 !****************************************************************
 
-	subroutine iff_init_global(nkn,nlv,ilhkv,hkv,hlv,date,time)
+	subroutine iff_init_global(nkn,nel,nlv,ilhkv,ilhv
+     +					,hkv,hev,hlv,date,time)
 
 ! passes params and arrays from fem needed for interpolation
 !
 ! should be only called once at the beginning of the simulation
 
 	integer nkn
+	integer nel
 	integer nlv
 	integer ilhkv(nkn)
+	integer ilhv(nel)
 	real hkv(nkn)
+	real hev(nel)
 	real hlv(nlv)
 	integer date,time
 
@@ -425,17 +443,25 @@
 	  end do
 	end if
 
-	if( nkn /= nkn_fem .or. nlv /= nlv_fem ) then
+	if( nkn /= nkn_fem .or. nel /= nel_fem 
+     +				.or. nlv /= nlv_fem ) then
 	  if( nkn_fem > 0 ) then
-	    deallocate(ilhkv_fem,hd_fem,hlv_fem)
+	    deallocate(ilhkv_fem,hk_fem)
+	    deallocate(ilhv_fem,he_fem)
+	    deallocate(hlv_fem)
 	  end if
-	  allocate(ilhkv_fem(nkn),hd_fem(nkn),hlv_fem(nlv))
+	  allocate(ilhkv_fem(nkn),hk_fem(nkn))
+	  allocate(ilhv_fem(nel),he_fem(nel))
+	  allocate(hlv_fem(nlv))
 	end if
 
 	nkn_fem = nkn
+	nel_fem = nel
 	nlv_fem = nlv
 	ilhkv_fem = ilhkv
-	hd_fem = hkv
+	ilhv_fem = ilhv
+	hk_fem = hkv
+	he_fem = hev
 	hlv_fem = hlv
 
 	call iff_init_global_date_internal(date,time)
@@ -501,7 +527,7 @@
 
 	if( nvar < 1 ) goto 97
 	if( nexp < 1 ) goto 97
-	if( nexp > nkn_fem ) goto 97
+	!if( nexp > nkn_fem ) goto 97
 	if( lexp < 0 ) goto 97
 	if( nintp < 1 ) goto 97
 
@@ -520,6 +546,17 @@
 	!berror = iformat < 0
 	boperr = iformat == iform_error_opening		!error opening
 	berror = iformat == iform_error			!error file
+
+	id0 = 0
+	if( boperr ) then	!see if we can take data from other file
+	  id0 = iff_find_id_to_file(file)
+	  id0 = 0		!not working
+	  if( id0 > 0 ) then
+	    boperr = .false.
+	    iformat = pinfo(id0)%iformat
+	    ntype = pinfo(id0)%ntype
+	  end if
+	end if
 
 	bts = iformat == iform_ts			!file is TS
 	bfem = iformat >= 0 .and. iformat <= 2
@@ -543,24 +580,31 @@
 	pinfo(id)%iunit = -1
 	pinfo(id)%nvar = nvar
 	pinfo(id)%nintp = nintp
-	pinfo(id)%iformat = iformat
 	pinfo(id)%file = file
 	pinfo(id)%nexp = nexp
 	pinfo(id)%lexp = lexp
+
+	pinfo(id)%id0 = id0
+	pinfo(id)%iformat = iformat
+	pinfo(id)%ntype = ntype
 	pinfo(id)%ireg = itype(2)
 
 	!---------------------------------------------------------
 	! get data description and allocate data structure
 	!---------------------------------------------------------
 
-	if( .not. breg .and. nexp > 0 .and. nexp /= nkn_fem ) then
+	if( .not. breg .and. nexp > 0 
+     +		.and. nexp /= nkn_fem .and. nexp /= nel_fem) then
 	  allocate(pinfo(id)%nodes(nexp))	!lateral BC
 	  pinfo(id)%nodes = nodes
 	end if
 
 	allocate(pinfo(id)%strings_file(nvar))
 
-	if( bfem ) then
+	if( id0 > 0 ) then
+	  pinfo(id)%strings_file = pinfo(id0)%strings_file
+	  pinfo(id)%bonepoint = pinfo(id0)%bonepoint
+	else if( bfem ) then
           call fem_file_get_data_description(file
      +				,pinfo(id)%strings_file,ierr)
 	  if( ierr /= 0 ) goto 98
@@ -934,13 +978,17 @@ c	 2	time series
 	else if( bts ) then
 	  nvar = 0
 	  call ts_peek_next_record(iunit,nvar,dtime,f,datetime,ierr)
-	  if( datetime(1) > 0 ) pinfo(id)%datetime = datetime
-	  call iff_adjust_datetime(id,pinfo(id)%datetime,dtime)
+	  if( ierr == 0 ) then
+	    if( datetime(1) > 0 ) pinfo(id)%datetime = datetime
+	    call iff_adjust_datetime(id,pinfo(id)%datetime,dtime)
+	  end if
 	else
           call fem_file_peek_params(iformat,iunit,dtime
      +                          ,nvers,np,lmax,nvar,ntype,datetime,ierr)
-	  pinfo(id)%datetime = datetime
-	  call iff_adjust_datetime(id,pinfo(id)%datetime,dtime)
+	  if( ierr == 0 ) then
+	    pinfo(id)%datetime = datetime
+	    call iff_adjust_datetime(id,pinfo(id)%datetime,dtime)
+	  end if
 	end if
 
 	iff_peek_next_record = ( ierr == 0 )
@@ -1129,7 +1177,7 @@ c	 2	time series
 	double precision dtime
 
 	integer iunit,nvers,np,lmax
-	integer nlvdim,nvar
+	integer nlvddi,nvar
 	integer ierr,i,iformat
 	logical bnofile,bts
 	character*60 string
@@ -1146,7 +1194,7 @@ c	 2	time series
 	lmax = pinfo(id)%lmax
 	nvar = pinfo(id)%nvar
 
-	nlvdim = lmax
+	nlvddi = lmax
 
 	if( bts ) then
 	  ! ts data has already been read
@@ -1157,7 +1205,7 @@ c	 2	time series
      +                          ,string
      +                          ,pinfo(id)%ilhkv_file
      +                          ,pinfo(id)%hd_file
-     +                          ,nlvdim
+     +                          ,nlvddi
      +				,pinfo(id)%data_file(1,1,i)
      +				,ierr)
 	    if( ierr /= 0 ) goto 99
@@ -1215,7 +1263,6 @@ c interpolates in space all variables in data set id
 
 	if( ireg > 0 ) then
 	  if( lexp > 1 ) goto 96
-	  !if( ireg > 0 ) goto 97
 	  call iff_handle_regular_grid(id,iintp)
 	else if( bts ) then
           nvar = pinfo(id)%nvar
@@ -1280,8 +1327,10 @@ c interpolates in space all variables in data set id
 	integer id
 	integer iintp
 
+	logical bneedall
 	integer ivar,nvar
 	integer nx,ny
+	integer nexp
 	integer ierr
 	real x0,y0,dx,dy,flag
 
@@ -1294,19 +1343,39 @@ c interpolates in space all variables in data set id
 	dx = pinfo(id)%regpar(5)
 	dy = pinfo(id)%regpar(6)
 	flag = pinfo(id)%regpar(7)
+        nexp = pinfo(id)%nexp
+	bneedall = pinfo(id)%bneedall
+	pinfo(id)%flag = flag		!use this in time_interpolate
 
-	do ivar=1,nvar
-	  call intp_reg(nx,ny,x0,y0,dx,dy,flag
+	if( nexp == nkn_fem ) then
+	  do ivar=1,nvar
+	    call intp_reg_nodes(nx,ny,x0,y0,dx,dy,flag
      +			,pinfo(id)%data_file(1,1,ivar)
      +			,pinfo(id)%data(1,1,ivar,iintp)
      +			,ierr
      +		    )
-	  if( ierr .ne. 0 ) goto 99
-	end do
+	    !if( bneedall .and. ierr .ne. 0 ) goto 99	!is handled later
+	  end do
+	else if( nexp == nel_fem ) then
+	  do ivar=1,nvar
+	    call intp_reg_elems(nx,ny,x0,y0,dx,dy,flag
+     +			,pinfo(id)%data_file(1,1,ivar)
+     +			,pinfo(id)%data(1,1,ivar,iintp)
+     +			,ierr
+     +		    )
+	    !if( bneedall .and. ierr .ne. 0 ) goto 99	!is handled later
+	  end do
+	else
+	  write(6,*) 'nexp,nkn,nel: ',nexp,nkn_fem,nel_fem
+	  write(6,*) 'Cannot yet handle...'
+	  stop 'error stop iff_handle_regular_grid: nexp'
+	end if
 
 	return
    99	continue
-	write(6,*) 'error interpolating from regular grid: ',ierr
+	write(6,*) 'error interpolating from regular grid: '
+	write(6,*) 'ierr =  ',ierr
+	write(6,*) 'bneedall =  ',bneedall
 	stop 'error stop iff_handle_regular_grid: reg interpolate'
 	end subroutine iff_handle_regular_grid
 
@@ -1466,7 +1535,7 @@ c global lmax and lexp are > 1
 
 	z = 0.
 
-	hfem = hd_fem(ipl)
+	hfem = hk_fem(ipl)
 	h = pinfo(id)%hd_file(ip_from)
 	if( h < -990 ) h = pinfo(id)%hlv_file(lmax)	!take from hlv array
 
@@ -1555,7 +1624,8 @@ c global lmax and lexp are > 1
 
 	if( iff_must_read(id,t) ) then
 	  write(6,*) 'warning: reading data in iff_time_interpolate'
-	  call iff_read_and_interpolate(id,t)
+	  stop 'error stop iff_time_interpolate: internal error (1)'
+	  !call iff_read_and_interpolate(id,t)
 	end if
 
 	!---------------------------------------------------------
@@ -1694,9 +1764,9 @@ c does the final interpolation in time
 	real value(ldim,ndim)
 
 	integer nintp,lexp,nexp,ilast
-	logical bonepoint,bconst,bnodes,b2d,bmulti
-	integer ipl,lfem,i,l,ip,j
-	real val,tr
+	logical bonepoint,bconst,bnodes,b2d,bmulti,bflag
+	integer ipl,lfem,i,l,ip,j,iflag
+	real val,tr,flag
 	double precision time(pinfo(id)%nintp)
 	!real time(pinfo(id)%nintp)
 	real vals(pinfo(id)%nintp)
@@ -1707,6 +1777,7 @@ c does the final interpolation in time
         lexp = max(1,pinfo(id)%lexp)
         nexp = pinfo(id)%nexp
         ilast = pinfo(id)%ilast
+        flag = pinfo(id)%flag
         bonepoint = pinfo(id)%bonepoint
 	bconst = nintp == 0
 	bmulti = .not. bonepoint
@@ -1714,21 +1785,26 @@ c does the final interpolation in time
 	bnodes = pinfo(id)%nexp /= nkn_fem	!use node pointer
 
 	tr = t		!real version of t
+	iflag = 0
 
 	if( bconst .or. bonepoint ) then
 	  if( bconst ) then
 	    val = pinfo(id)%data(1,1,ivar,1)
 	  else
 	    time = pinfo(id)%time
+	    bflag = .false.
+	    val = flag
 	    do j=1,nintp
 	      vals(j) = pinfo(id)%data(1,1,ivar,j)
+	      if( vals(j) == flag ) bflag = .true.
 	    end do
-	    val = rd_intp_neville(nintp,time,vals,t)
+	    if( .not. bflag ) val = rd_intp_neville(nintp,time,vals,t)
 	  end if
 	  do i=1,nexp
 	    do l=1,lexp
 	      if( bmulti ) val = pinfo(id)%data(l,i,ivar,1)
 	      value(l,i) = val
+	      if( val == flag ) iflag = iflag + 1
 	    end do
 	  end do
 	else
@@ -1738,22 +1814,38 @@ c does the final interpolation in time
 	      lfem = 1
 	    else
 	      ipl = i
-	      if( nexp /= nkn_fem ) ipl = pinfo(id)%nodes(i)
+	      if( nexp /= nkn_fem .and. nexp /= nel_fem ) then
+		ipl = pinfo(id)%nodes(i)
+	      end if
 	      lfem = ilhkv_fem(ipl)
 	    end if
 	    val = -888.		!just for check
 	    do l=1,lfem
+	      bflag = .false.
+	      val = flag
 	      do j=1,nintp
 	        vals(j) = pinfo(id)%data(l,i,ivar,j)
+	        if( vals(j) == flag ) bflag = .true.
 	      end do
-	      !val = intp_neville(nintp,time,vals,tr)	!real time version
-	      val = rd_intp_neville(nintp,time,vals,t)
+	      if( .not. bflag ) val = rd_intp_neville(nintp,time,vals,t)
 	      value(l,i) = val
+	      if( val == flag ) iflag = iflag + 1
 	    end do
 	    do l=lfem+1,ldim
 	      value(l,i) = val
+	      if( val == flag ) iflag = iflag + 1
 	    end do
 	  end do
+	end if
+
+	if( iflag > 0 .and. pinfo(id)%bneedall ) then
+	  write(6,*) 'flag values found: ',iflag
+	  write(6,*) id,bconst,bonepoint
+	  write(6,*) nintp, nexp,lexp
+	  write(6,*) val,flag
+	  call iff_print_file_info(id)
+	  write(6,*) 'we need all values for interpolation'
+	   stop 'error stop iff_interpolate: iflag'
 	end if
 
 	end subroutine iff_interpolate
@@ -1793,7 +1885,7 @@ c does the final interpolation in time
 	double precision t
 	integer nintp
 	integer ilast
-	double precision time(:)
+	double precision time(nintp)
 
 	integer n1,n2
 
@@ -1861,6 +1953,38 @@ c does the final interpolation in time
 	end if
 
 	end subroutine iff_assert
+
+!****************************************************************
+
+	subroutine iff_need_all_values(id,bneedall)
+
+	integer id
+	logical bneedall
+
+	pinfo(id)%bneedall = bneedall
+
+	end subroutine iff_need_all_values
+
+!****************************************************************
+
+	subroutine iff_flag_ok(id)
+
+	integer id
+
+	call iff_need_all_values(id,.false.)
+
+	end subroutine iff_flag_ok
+
+!****************************************************************
+
+	subroutine iff_get_flag(id,flag)
+
+	integer id
+	real flag
+
+	flag = pinfo(id)%flag
+
+	end subroutine iff_get_flag
 
 !================================================================
 	end module intp_fem_file
@@ -1961,25 +2085,29 @@ c opens file and inititializes array - simplified version
 
 !****************************************************************
 
-	subroutine iff_init_global_2d(nkn,hkv,date,time)
+	subroutine iff_init_global_2d(nkn,nel,hkv,hev,date,time)
 
 	use intp_fem_file
 
 	implicit none
 
-	integer nkn
+	integer nkn,nel
 	real hkv(nkn)
+	real hev(nel)
 	integer date,time
 
 	integer nlv
 	integer ilhkv(nkn)
+	integer ilhv(nel)
 	real hlv(1)
 
 	nlv = 1
 	ilhkv = 1
+	ilhv = 1
 	hlv(1) = 10000.
 
-	call iff_init_global(nkn,nlv,ilhkv,hkv,hlv,date,time)
+	call iff_init_global(nkn,nel,nlv,ilhkv,ilhv
+     +				,hkv,hev,hlv,date,time)
 
 	end
 

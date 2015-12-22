@@ -52,7 +52,54 @@ c and finally: tau = sum_i(t(i))/sum_i(y(i)) = sum_i(t(i))/sum_i(log(c0/c(i)))
 c
 c------------------------------------------------------------
 
+!==================================================================
+        module mod_renewal_time
+!==================================================================
+
+	implicit none
+
+	! other saved values can be integrated here
+
+	!real cvres3(nlvdi,nkn)      	!computed RT 3D
+	!real vol(nlvdi,nkn)      		!volume
+	!double precision cvacu(nlvdi,nkn)   !conz integrated
+	!double precision volacu(nlvdi,nkn)  !volume integrated
+
+	real, save, allocatable :: cvres3(:,:)
+	real, save, allocatable :: vol(:,:)
+	double precision, save, allocatable :: cvacu(:,:)
+	double precision, save, allocatable :: volacu(:,:)
+
+	real, save, allocatable :: rinside(:)
+
+!==================================================================
+        contains
+!==================================================================
+
+	subroutine mod_renewal_time_init(nkn,nlv)
+
+	integer nkn,nlv
+
+        allocate(cvres3(nlv,nkn))
+        allocate(vol(nlv,nkn))
+        allocate(cvacu(nlv,nkn))
+        allocate(volacu(nlv,nkn))
+
+        allocate(rinside(nkn))
+
+	end subroutine mod_renewal_time_init
+
+!==================================================================
+        end module mod_renewal_time
+!==================================================================
+
         subroutine renewal_time
+
+	use mod_conz, only : cnv
+	use mod_depth
+	use levels
+	use basin
+	use mod_renewal_time
 
         implicit none
 
@@ -61,13 +108,8 @@ c------------------------------------------------------------
 
 	include 'simul.h'
 
-	include 'basin.h'
-	include 'nlevel.h'
 
-	include 'levels.h'
-	include 'conz.h'
 	!include 'aux_array.h'
-	include 'depth.h'
 
 	integer ndim
 	parameter (ndim=100)
@@ -91,20 +133,11 @@ c------------------------------------------------------------
 	character*80 title
 	integer nvers	
 
-	real cvres3(nlvdim,nkndim)      	!computed RT 3D
-	real vol(nlvdim,nkndim)      		!volume
-	double precision cvacu(nlvdim,nkndim)   !conz integrated
-	double precision volacu(nlvdim,nkndim)  !volume integrated
-	save cvacu,volacu
-
-	real rinside(nkndim)
-	save rinside
-
 	integer ifemop
 
 	integer k,nin,nvar,ie
-	integer iu,iuf,iua
-	save iu,iuf,iua
+	integer ius,iuf,iua
+	save ius,iuf,iua
 	integer nrepl
 	save nrepl
 	integer it0
@@ -198,9 +231,11 @@ c------------------------------------------------------------
 	  ccut = dgetpar('ccut')
 	  it0 = it
 
+	  call mod_renewal_time_init(nkn,nlvdi)
+
 	  call wrt_flag_inside(rinside,iaout)
 
-	  iu = ifemop('.jas','formatted','new')
+	  ius = ifemop('.jas','formatted','new')
 	  iuf = ifemop('.frq','formatted','new')
 	  iua = ifemop('.jaa','formatted','new')
 
@@ -246,7 +281,7 @@ c belab		elaborates (accumulates) concentrations
 	if( bdebug ) then
 	  write(6,*) 'WRT debug:'
 	  write(6,*) nrepl,binit,breset,belab,bcompute,bnoret
-	  write(6,*) it,iu
+	  write(6,*) it,ius
 	end if
 
 c------------------------------------------------------------
@@ -274,7 +309,7 @@ c------------------------------------------------------------
 	  tacu = tacu + (it-it0)
 	  call acu_acum(blog,it,c0,cnv,vol,rinside,cvacu,volacu)
 
-	  call wrt_restime_summary(iu,it,it0,mass,mass0,rcorrect)
+	  call wrt_restime_summary(ius,it,it0,mass,mass0,rcorrect)
 	end if
 
 	if( bdebug ) then
@@ -332,7 +367,7 @@ c------------------------------------------------------------
 	  !call wrt_write_area(iua,it,iadim,massa,massa0)
 	  call wrt_write_area(iua,it,iadim,conza,conza0)
 
-	  call wrt_restime_summary(-iu,it,it0,mass,mass0,rcorrect)	!reset
+	  call wrt_restime_summary(-ius,it,it0,mass,mass0,rcorrect)	!reset
 	end if
 
 c------------------------------------------------------------
@@ -362,14 +397,14 @@ c flags inside nodes (nodes with area code different from iaout)
 c
 c on return rinside(k) = 1 for nodes inside domain
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
 
-	real rinside(1)
+	real rinside(nkn)
 	integer iaout		!area code for outside elements
-
-	include 'basin.h'
 
 	integer k,ie,ii,ia
 
@@ -395,16 +430,16 @@ c*****************************************************************
 
 c resets concentration for start of new computation
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
 	real c0				!concentration for nodes inside domain
-	real cnv(nlvdim,1)
-	real rinside(1)			!flag if node is inside domain
-
-	include 'nbasin.h'
-	include 'levels.h'
+	real cnv(nlvdi,nkn)
+	real rinside(nkn)		!flag if node is inside domain
 
 	integer k,l,lmax
 	real conz
@@ -426,16 +461,16 @@ c*****************************************************************
 
 c simulates stirred tank
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
 	real c0				!concentration to impose
-	real cnv(nlvdim,1)
-	real rinside(1)			!flag if node is inside domain
-
-	include 'nbasin.h'
-	include 'levels.h'
+	real cnv(nlvdi,nkn)
+	real rinside(nkn)		!flag if node is inside domain
 
 	integer k,l,lmax
 
@@ -487,23 +522,23 @@ c******************************************************
 
 c computes masses for different areas
 
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
 
 	integer ndim
-	real cnv(nlvdim,1)
+	real cnv(nlvdi,nkn)
 	double precision massa(0:ndim)
 	double precision vola(0:ndim)
 	double precision conza(0:ndim)
 
-	include 'basin.h'
-	include 'levels.h'
-	include 'ev.h'
-
 	integer ie,k,ii,ia,l,lmax,nlev
 	real v,conz,area,hdep
-	real h(nlvdim)
+	real h(nlvdi)
 
 	real volnode
 
@@ -548,15 +583,15 @@ c******************************************************
 
 c limits concentration between 0 and c0
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
 	real c0
-	real cnv(nlvdim,1)		!concentration
-
-	include 'nbasin.h'
-	include 'levels.h'
+	real cnv(nlvdi,nkn)		!concentration
 
 	integer k,l,lmax
 
@@ -576,17 +611,17 @@ c******************************************************
 
 c computes mass and volume on internal nodes
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-	real cnv(nlvdim,1)		!concentration
-	real rinside(1)			!flag if node is inside domain
-	real vol(nlvdim,1)		!volume on node (return)
+	real cnv(nlvdi,nkn)		!concentration
+	real rinside(nkn)		!flag if node is inside domain
+	real vol(nlvdi,nkn)		!volume on node (return)
 	double precision mass,volume	!total mass/volume (return)
-
-	include 'nbasin.h'
-	include 'levels.h'
 
 	integer k,l,lmax
 	real v,conz
@@ -617,15 +652,15 @@ c****************************************************
 
 c sets concentration to zero outside of domain
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-        real cnv(nlvdim,1)
-	real rinside(1)			!flag if node is inside domain
-
-	include 'nbasin.h'
-	include 'levels.h'
+        real cnv(nlvdi,nkn)
+	real rinside(nkn)		!flag if node is inside domain
 
 	integer k,l,lmax
 
@@ -646,14 +681,14 @@ c***************************************************************
 
 c resets acumulated value
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-	double precision cvacu(nlvdim,nkndim)
-
-	include 'nbasin.h'
-	include 'levels.h'
+	double precision cvacu(nlvdi,nkn)
 
 	integer k,lmax,l
 
@@ -670,6 +705,9 @@ c***************************************************************
 
 	subroutine acu_acum(blog,it,c0,cnv,vol,rinside,cvacu,volacu)
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
@@ -677,14 +715,11 @@ c***************************************************************
 	logical blog				!use logarithm to compute
 	integer it
 	real c0					!value used for initialization
-	real cnv(nlvdim,nkndim)
-	real vol(nlvdim,nkndim)
-	real rinside(nkndim)
-	double precision cvacu(nlvdim,nkndim)
-	double precision volacu(nlvdim,nkndim)
-
-	include 'nbasin.h'
-	include 'levels.h'
+	real cnv(nlvdi,nkn)
+	real vol(nlvdi,nkn)
+	real rinside(nkn)
+	double precision cvacu(nlvdi,nkn)
+	double precision volacu(nlvdi,nkn)
 
 	logical binside
 	integer k,l,lmax
@@ -736,6 +771,9 @@ c***************************************************************
 
 c compute renewal time and write to file
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
@@ -747,12 +785,9 @@ c compute renewal time and write to file
 	real ccut
 	real rcorrect
 	double precision tacu
-	double precision cvacu(nlvdim,nkndim)		!accumulated conz
-	real cnv(nlvdim,nkndim)				!last concentration
-	real cvres3(nlvdim,nkndim)			!computed RT 3D
-
-	include 'nbasin.h'
-	include 'levels.h'
+	double precision cvacu(nlvdi,nkn)		!accumulated conz
+	real cnv(nlvdi,nkn)				!last concentration
+	real cvres3(nlvdi,nkn)				!computed RT 3D
 
 	integer k,lmax,l,ivar,ierr
 	double precision conz,conze,rconv,corr,cc0
@@ -805,7 +840,7 @@ c write to file
 c---------------------------------------------------------------
 
 	ivar = 99
-	call write_scalar_file(ia_out,ivar,nlvdim,cvres3)
+	call write_scalar_file(ia_out,ivar,nlvdi,cvres3)
 
 c---------------------------------------------------------------
 c end of routine
@@ -815,7 +850,7 @@ c---------------------------------------------------------------
 
 c**********************************************************************
 
-	subroutine wrt_restime_summary(iu,it,it0,mass,mass0,rcorrect)
+	subroutine wrt_restime_summary(ius,it,it0,mass,mass0,rcorrect)
 
 c perc		percentage of mass still in domain
 c restime	renewal time computed by integrating
@@ -826,7 +861,7 @@ c resstd	standard deviation of renewal time
 
      	implicit none
 	
-	integer iu		!negative if reset and summary write
+	integer ius		!negative if reset and summary write
 	integer it,it0
 	double precision mass
 	double precision mass0
@@ -838,7 +873,8 @@ c resstd	standard deviation of renewal time
 	real restime,restimel,restimec
         real resmed,resstd
 
-	integer ndata
+	logical breset
+	integer ndata,iu
 	double precision remint,remlog,remtim
 	double precision rsum,rsumsq
 	save ndata
@@ -846,17 +882,17 @@ c resstd	standard deviation of renewal time
 	save rsum,rsumsq
 	data ndata / 0 /
 
-	if( iu .le. 0 ) then	!reset
+	breset = ius .le. 0
+	iu = abs(ius)
+
+	if( breset ) then	!reset
 	  ndata = 0
 	  remint = 0.
 	  remlog = 0.
 	  remtim = 0.
 	  rsum = 0.
 	  rsumsq = 0.
-	  !if( iu .ne. 0 ) then
-	  ! write(-iu,1000) it,perc,restime,restimec,restimel,resmed,resstd
-	  !end if
-	  return
+	  !return
 	end if
 
 	call get_timestep(dt)
@@ -903,6 +939,9 @@ c**********************************************************************
 
 c write histogram
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
@@ -910,16 +949,12 @@ c write histogram
 	integer iu
 	integer it
 	real ctop			!cut at this value of renewal time
-	real rinside(nkndim)		!point is intern
-	real cvres3(nlvdim,nkndim)
-	double precision volacu(nlvdim,nkndim)
-
-	include 'levels.h'
+	real rinside(nkn)		!point is intern
+	real cvres3(nlvdi,nkn)
+	double precision volacu(nlvdi,nkn)
 
 	integer ndim
 	parameter (ndim=100)
-
-	include 'nbasin.h'
 
 	logical bdebug
 	integer k,lmax,l,i,ic

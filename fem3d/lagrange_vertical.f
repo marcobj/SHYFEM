@@ -62,6 +62,9 @@ c******************************************************
 
 c returns vertical velocity at point given by ie,l0,is,a
 
+	use mod_hydro_vel
+	use basin
+
 	implicit none
 
 	integer ie	!element number
@@ -71,8 +74,6 @@ c returns vertical velocity at point given by ie,l0,is,a
 	real w		!computed vertical velocity for ie and l0 (return)
 
 	include 'param.h'
-	include 'basin.h'
-	include 'hydro_vel.h'
 
 	integer ii,k1,k2
 	real wo1,wo2,wn1,wn2
@@ -118,6 +119,10 @@ c******************************************************
 
 c computes layer thickness for element ie
 
+	use mod_depth
+	use mod_hydro
+	use levels
+
 	implicit none
 
 	integer ie		!element number
@@ -125,9 +130,6 @@ c computes layer thickness for element ie
 	real hl(lmax)		!layer thickness (return)
 
 	include 'param.h'
-	include 'levels.h'
-	include 'depth.h'
-	include 'hydro.h'
 
 	integer nlev,nsigma,ii,lmax_act
 	real hsigma
@@ -236,17 +238,18 @@ c************************************************************
 
 	subroutine track_xi(id,iel,lb,sv,xi,z,time)
 
+	use mod_lagrange
+
 	implicit none
 
 	include 'param.h'
-	include 'lagrange.h'
 
 	integer id
 	integer iel
 	integer lb
 	double precision sv		!sinking velocity
 	double precision xi(3)
-	double precision z
+	double precision z		!rel vert pos: 0=top, 1=bottom
 	real time
 
 	logical bdebug
@@ -282,7 +285,7 @@ c************************************************************
 	!-----------------------------------------------
 
 	call track_xi_get_vertical(id,iel,lb,lmax,hd,w)
-	w = w - sv
+	w = w - sv				!total vertical velocity
 
 	!-----------------------------------------------
 	! handle particles on surface or on bottom
@@ -495,14 +498,15 @@ c************************************************************
 
 c copies internal coordinates to new element - avoid falling on vertex
 
+	use mod_lagrange
+	use mod_geom
+
 	implicit none
 
 	integer ie
 	double precision xi(3)
 
 	include 'param.h'
-	include 'geom.h'
-	include 'lagrange.h'
 
 	logical bdebug
 	integer ii,in,it
@@ -632,6 +636,8 @@ c************************************************************
 
 c checks if particle is on material boundary
 
+	use mod_geom
+
 	implicit none
 
 	logical track_xi_on_material_boundary
@@ -639,7 +645,6 @@ c checks if particle is on material boundary
 	double precision xi(3)
 
 	include 'param.h'
-	include 'geom.h'
 
 	integer ii
 
@@ -661,6 +666,8 @@ c adjusts layer when passing from one element to the next
 c
 c is only temporary - must also adjust w
 
+	use levels
+
 	implicit none
 
 	integer iel
@@ -668,7 +675,6 @@ c is only temporary - must also adjust w
 	double precision z
 
 	include 'param.h'
-	include 'levels.h'
 
 	integer lmax
 
@@ -687,6 +693,10 @@ c************************************************************
 
 c gets flux and vel information for element and layer
 
+	use mod_lagrange
+	use mod_geom
+	use mod_hydro_vel
+
 	implicit none
 
 	integer iel			!element number
@@ -696,9 +706,6 @@ c gets flux and vel information for element and layer
 	double precision vel		!velocity in element (always positive)
 
 	include 'param.h'
-	include 'lagrange.h'
-	include 'hydro_vel.h'
-	include 'geom.h'
 
 	logical bdebug
 	integer ii,in,io,nn,no,inext,imax
@@ -809,6 +816,10 @@ c************************************************************
 
 	subroutine track_xi_get_vertical(id,iel,lb,lmax,hd,w)
 
+	use mod_hydro_vel
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
 	integer id			!id of particle
@@ -819,9 +830,6 @@ c************************************************************
 	double precision w		!vertical velocity (return)
 
 	include 'param.h'
-	include 'basin.h'
-	include 'hydro_vel.h'
-	include 'nlevel.h'
 
 	integer ii,k
 	real wo,wn
@@ -890,15 +898,16 @@ c************************************************************
 
 c prints information on element
 
+	use mod_geom
+	use mod_hydro_vel
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
 	integer ie
 
 	include 'param.h'
-	include 'basin.h'
-	include 'geom.h'
-	include 'nlevel.h'
-	include 'hydro_vel.h'
 
 	integer ii,k,lmax,l
 	real hl(nlv)

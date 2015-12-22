@@ -37,9 +37,14 @@ c***********************************************
 
 c toxi module ARPAV
 
+	use mod_diff_visc_fric
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
+	include 'mkonst.h'
 
 	integer it	!time in seconds
 	real dt		!time step in seconds
@@ -53,24 +58,17 @@ c toxi module ARPAV
 
         real tstot(nstate)              !for mass test
 
-	include 'nbasin.h'
-	include 'mkonst.h'
-	include 'nlevel.h'
-
-	include 'levels.h'
-
-	include 'diff_visc_fric.h'
-
         character*10 what
 
 	integer k,i,l,lmax
 	integer itoxi
         integer id
 	integer nintp,ivar
+	integer nbc
 	real t,s
 	real u,v
 
-	integer idtoxi(nbcdim)
+	integer, save, allocatable :: idtoxi(:)
 
 	real eaux(nstate)
 	real einit(nstate)
@@ -104,6 +102,8 @@ c toxi module ARPAV
 	real stp
         real mass
 	real wsink
+
+	integer nbnds
 
 	integer iespecial,inspecial
 	save iespecial,inspecial
@@ -162,6 +162,10 @@ c         --------------------------------------------------
 c         --------------------------------------------------
 c	  set boundary conditions for all state variables
 c         --------------------------------------------------
+
+          nbc = nbnds()
+          allocate(idtoxi(nbc))
+          idtoxi = 0
 
 	  call get_first_time(itanf)
 	  dtime0 = itanf
@@ -315,7 +319,7 @@ c	-------------------------------------------------------------------
 
 c*************************************************************
 
-	subroutine writeet(iunit,it,k,l,e,t,s,nlvdim,nkndim,nstate)
+	subroutine writeet(iunit,it,k,l,e,t,s,nlvdim,nknddi,nstate)
 
 c formatted write for debug
 
@@ -323,8 +327,8 @@ c formatted write for debug
 
 	integer iunit
 	integer it,k,l
-	integer nlvdim,nkndim,nstate
-	real e(nlvdim,nkndim,nstate)
+	integer nlvdim,nknddi,nstate
+	real e(nlvdim,nknddi,nstate)
 	real t
 	real s
 
@@ -413,6 +417,9 @@ c*************************************************************
 
 c checks bio vars
 
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
@@ -423,8 +430,6 @@ c checks bio vars
 	character*(*) title
 	real e(nlvdim,nkndim,nstate)	!state vector
 
-	include 'nbasin.h'
-	include 'nlevel.h'
 
         character*20 text
 	integer i

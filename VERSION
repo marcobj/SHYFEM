@@ -1,3 +1,702 @@
+version  7_3_17    18-12-2015    VERS_7_3_17
+
+========================================================== 18-12-2015 - 7_3_17
+
+ * ./grid/gridma1.c:
+ * 17-Dec-2015: delete node only if use is 0				*
+c ./fem3d/subver.f:
+c 16.12.2015	ggu	version 7.3.16
+c 18.12.2015	ggu	version 7.3.17	Christmas 2015 release
+c
+c ./fem3d/basutil_interp.f:
+c 16.12.2015	ggu	depth ht is now passed in for square interpol
+c
+c ./fem3d/subfemintp.f:
+! 18.12.2015	ggu	in iff_peek_next_record() adjust date only if ierr==0
+!
+c ./fem3d/basutil_bathy.f:
+c 16.12.2015    ggu     depth ht is now passed in for square interpol
+
+==========================================================
+
+version  7_3_16    16-12-2015    VERS_7_3_16   commit_2015-12-18
+
+version  7_3_16    16-12-2015    VERS_7_3_16
+
+========================================================== 16-12-2015 - 7_3_16
+
+c ./femplot/suplin.f:
+c 02.12.2015    ggu     bug fix in integrate_flux() - dx was used twice
+c
+c ./fem3d/simsys_spk.f:
+! 09.12.2015	ggu	adapted to new pointers and 3d matrix
+! 15.12.2015	ggu&deb	finsihed and validated
+c
+c ./fem3d/newtra.f:
+c 03.12.2015	ccf&ggu	code optimized
+c
+c ./fem3d/mod_system.f:
+! 15.12.2015    ggu&deb     adapted to 3d case (poisson)
+!
+c ./fem3d/simsys_pard.f:
+c 15.12.2015    deb     adjusted for new 3d framework
+c
+c ./fem3d/subrst.f:
+! 30.11.2015    ggu     allocate cnv/conzv before read
+!
+c ./fem3d/subver.f:
+c 20.11.2015	ggu	version 7.3.16
+c
+c ./fem3d/subgotm.f:
+c 03.12.2015    ccf     levdbg introduced for checka
+c
+c ./fem3d/newpoi.f:
+! 15.12.2015    ggu&deb&wmk     written from scratch
+!
+c ./fem3d/simsys_lp.f:
+c 15.12.2015	ggu	added dummy subroutines for 3d case
+c
+c ./fem3d/subspk.f:
+c 15.12.2015    ggu&deb adapted to new 3d framework
+c
+c ./fem3d/subpard.f:
+c 15.12.2015    deb     adjusted for new 3d framework
+c
+c ./fem3d/sublnku.f:
+c 02.12.2015	ggu	lnk_elems and lnk_nodes eliminated
+c
+c ./fem3d/mod_bnd.f:
+! 01.12.2015    ggu     ready to accept no open boundary (bug fix)
+!
+c ./fem3d/links.f:
+c 02.12.2015    ggu	routines get_link() and get_lenk() deleted
+c
+c ./fem3d/subproj.f:
+! 03.12.2015    ggu     bug fix because arrays were defined length 1
+!
+c ./fem3d/arc/mod_shympi.f:
+! 24.11.2015    ggu     project started
+!
+c ./fem3d/subcoo.f:
+c 04.12.2015    ggu     new approach for constructing matrix - also 3d
+c 15.12.2015    ggu&deb finished and validated 3d approach
+
+==========================================================
+
+version  7_3_15    20-11-2015    VERS_7_3_15   commit_2015-12-16
+
+version  7_3_15    20-11-2015    VERS_7_3_15
+
+========================================================== 20-11-2015 - 7_3_15
+
+c ./fem3d/subver.f:
+c 20.11.2015	ggu	version 7.3.15	pre Madonna della Salute release
+c
+c ./fem3d/new3di.f:
+c 20.11.2015    ggu&erp chunk size introduced, omp finalized
+c
+c ./fem3d/newcon_omp.f:
+c 20.11.2015    ggu&erp chunk size introduced, omp finalized
+
+==========================================================
+
+version  7_3_14    16-11-2015    VERS_7_3_14   commit_2015-11-20
+
+version  7_3_14    16-11-2015    VERS_7_3_14
+
+========================================================== 16-11-2015 - 7_3_14
+
+c ./fem3d/subver.f:
+c 16.11.2015	ggu	version 7.3.14
+c
+c ./fem3d/subnev.f:
+c 16.11.2015	ggu	new routine adjust_xi()
+
+==========================================================
+
+version  7_3_13    09-11-2015    VERS_7_3_13   commit_2015-11-16
+
+version  7_3_13    09-11-2015    VERS_7_3_13
+
+========================================================== 09-11-2015 - 7_3_13
+
+c ./femplot/supsim.f:
+c 06.11.2015    ggu	set valref to 1 if vel field == 0
+c
+c ./fem3d/mod_conz.f:
+! 09.11.2015    ggu     restructured with global values
+!
+c ./fem3d/subver.f:
+c 09.11.2015	ggu	version 7.3.13	the wall release
+c
+c ./fem3d/newconz.f:
+c 09.11.2015    ggu     newly structured in init, compute and write
+
+==========================================================
+
+version  7_3_12    05-11-2015    VERS_7_3_12   commit_2015-11-09
+
+version  7_3_12    05-11-2015    VERS_7_3_12
+
+========================================================== 05-11-2015 - 7_3_12
+
+c ./fem3d/subver.f:
+c 05.11.2015	ggu	version 7.3.12
+
+==========================================================
+
+version  7_3_11    05-11-2015    VERS_7_3_11   commit_2015-11-05
+
+version  7_3_11    05-11-2015    VERS_7_3_11
+
+========================================================== 05-11-2015 - 7_3_11
+
+c ./fem3d/newnudge.f:
+c 04.11.2015    ggu     bug in velocitiy nudging fixed
+c
+c ./fem3d/suboutput.f:
+c 04.11.2015    ggu     allow for initial output in adjust_itmidt()
+c
+c ./fem3d/subrst.f:
+! 30.10.2015    ggu     new names, restructured
+!
+c ./fem3d/subver.f:
+c 05.11.2015	ggu	version 7.3.11
+c
+c ./fem3d/suboutputd.f:
+c 04.11.2015    ggu     allow for initial output in adjust_itmidt()
+c
+c ./fem3d/femelab.f:
+! 05.11.2015    ggu     new option chform to change format
+c
+c ./fem3d/suboff.f:
+c 05.11.2015    ggu     revisited and checked
+c
+c ./fem3d/newini.f:
+c 05.11.2015    ggu	can now initialize z,u,v from file
+
+==========================================================
+
+version  7_3_10    26-10-2015    VERS_7_3_10   commit_2015-11-05
+
+version  7_3_10    26-10-2015    VERS_7_3_10
+
+========================================================== 26-10-2015 - 7_3_10
+
+c ./fem3d/subver.f:
+c 26.10.2015	ggu	version 7.3.10
+c
+c ./fem3d/newcon.f:
+c 26.10.2015    ggu     critical omp sections introduced (eliminated data race)
+c 26.10.2015    ggu     mass check only for levdbg > 2
+c
+c ./fem3d/newbcl.f:
+c 26.10.2015    ggu     bug fix for parallel code (what was not set)
+c
+c ./fem3d/subqfxt.f:
+c 26.10.2015    ggu     critical omp sections introduced (eliminated data race)
+
+==========================================================
+
+version  7_3_9    23-10-2015    VERS_7_3_9   commit_2015-10-26
+
+version  7_3_9    23-10-2015    VERS_7_3_9
+
+========================================================== 23-10-2015 - 7_3_9
+
+c ./fem3d/subver.f:
+c 23.10.2015	ggu	version 7.3.9	after Eric
+
+==========================================================
+
+version  7_3_8    22-10-2015    VERS_7_3_8   commit_2015-10-23
+
+version  7_3_8    22-10-2015    VERS_7_3_8
+
+========================================================== 22-10-2015 - 7_3_8
+
+c ./fem3d/subver.f:
+c 22.10.2015	ggu	version 7.3.8	Tante Lores birthday release again
+
+==========================================================
+
+version  7_3_7    22-10-2015    VERS_7_3_7
+
+========================================================== 22-10-2015 - 7_3_7
+
+c ./fem3d/suboutput.f:
+c 20.10.2015    ggu     new routines to set/get unit
+c
+c ./fem3d/subrst.f:
+c 20.10.2015    ggu     bug fix to get correct restart time (itanf)
+c
+c
+c ./fem3d/subver.f:
+c 22.10.2015	ggu	version 7.3.7	Tante Lores birthday release
+c
+c ./fem3d/suboutputd.f:
+c 20.10.2015    ggu     new routines to set/get id
+c
+c ./fem3d/newstab.f:
+c 20.10.2015    ggu	in output_stability() bug that icall was not adjouned
+
+==========================================================
+
+version  7_3_6    19-10-2015    VERS_7_3_6   commit_2015-10-22
+
+version  7_3_6    19-10-2015    VERS_7_3_6
+
+========================================================== 19-10-2015 - 7_3_6
+
+c ./fem3d/subousa.f:
+c 15.10.2015	ggu	added new calls for shy file format
+c
+c ./fem3d/subshy.f:
+! 15.10.2015    ggu     completed basic parts
+!
+c ./fem3d/subver.f:
+c 19.10.2015	ggu	version 7.3.6
+c
+c ./fem3d/subshyutil.f:
+! 15.10.2015    ggu     started routine
+c
+c ./fem3d/newbcl.f:
+c 15.10.2015    ggu     added new calls for shy file format
+c
+c ./fem3d/shyelab1.f:
+! 16.10.2015    ggu     started shyelab
+
+==========================================================
+
+version  7_3_5    13-10-2015    VERS_7_3_5   commit_2015-10-19
+
+version  7_3_5    13-10-2015    VERS_7_3_5
+
+========================================================== 13-10-2015 - 7_3_5
+
+c ./fem3d/subver.f:
+c 13.10.2015	ggu	version 7.3.5
+
+==========================================================
+
+version  7_3_4a    12-10-2015    VERS_7_3_4a   commit_2015-10-13
+
+version  7_3_4a    12-10-2015    VERS_7_3_4a
+
+========================================================== 12-10-2015 - 7_3_4a
+
+c ./fem3d/subver.f:
+c 12.10.2015	ggu	version 7.3.4a
+
+==========================================================
+
+version  7_3_4    12-10-2015    VERS_7_3_4
+
+========================================================== 12-10-2015 - 7_3_4
+
+c ./fem3d/subver.f:
+c 12.10.2015	ggu	version 7.3.4
+
+==========================================================
+
+version  7_3_3    12-10-2015    VERS_7_3_3   commit_2015-10-12
+
+version  7_3_3    12-10-2015    VERS_7_3_3
+
+========================================================== 12-10-2015 - 7_3_3
+
+c ./femplot/supbas.f:
+c 12.10.2015  ggu     fix in rround() to handle rmaster==0 case
+c
+c ./fem3d/subtime.f:
+c 10.10.2015    ggu     use bsync as global to check for syncronization
+c
+c ./fem3d/subflx.f:
+c 10.10.2015	ggu	new routines for new flx framework
+c
+c ./fem3d/subnev.f:
+c 10.10.2015	ggu	bug fix in adjust_bc() - brown paper bag bug
+c
+c ./fem3d/shyfem.f:
+c 10.10.2015    ggu	fluid mud routines handled differently
+c
+c ./fem3d/elabutil.f:
+! 10.10.2015	ggu	code added to handle FLX routines
+!
+c ./fem3d/subver.f:
+c 12.10.2015	ggu	version 7.3.3
+c
+ * ./post/psgraphf.c:
+ * 11-Oct-2015: new routines qopenfile to open with given file name	*
+c ./tmp/subshy.f:
+! 10.10.2015    ggu     started routine
+!
+c ./femadj/adj5el.f:
+c 11.10.2015    ggu     bug fix: fused node was not moved
+
+==========================================================
+
+version  7_3_2    10-10-2015    VERS_7_3_2
+
+========================================================== 10-10-2015 - 7_3_2
+
+c ./fem3d/subproj.f:
+! 30.09.2015    ccf     introduced module projection
+!
+c ./fem3d/subbas.f:
+c 02.10.2015	ggu	in basin_open_file eliminated double read (bug)
+c 02.10.2015	ggu	new routines is_depth_unique(), estimate_ngr()
+c
+c ./fem3d/shybas.f:
+c 30.09.2015    ggu     shybas started
+c 01.10.2015    ggu     shybas nearly finished
+c 02.10.2015    ggu     only basproj is missing
+c
+c ./fem3d/subcoord.f:
+! 30.09.2015    ccf     introduced module coordinates
+!
+c ./fem3d/subgrd.f:
+c 02.10.2015    ggu     new routine is_grd_file()
+c 02.10.2015    ggu     now stopping on first error
+c
+c ./fem3d/basutil.f:
+! 01.10.2015	ggu	converted to basutil
+!
+c ./fem3d/subver.f:
+c 02.10.2015	ggu	version 7.3.1	first of development branch
+c 10.10.2015	ggu	version 7.3.2
+c
+c ./fem3d/subtidef.f:
+! 30.09.2015    ccf     converted previous routines to module
+! 01.10.2015    ccf     bug fix in hour, now handle negative time
+
+==========================================================
+
+version  7_2_6    30-09-2015    VERS_7_2_6   commit_2015-10-10
+
+version  7_2_6    30-09-2015    VERS_7_2_6
+
+========================================================== 30-09-2015 - 7_2_6
+
+c ./fem3d/subbnds.f:
+c 30.09.2015    ggu     new routine iff_flag_ok() for ambient value
+c
+c ./fem3d/subver.f:
+c 30.09.2015	ggu	version 7.2.6
+c
+c ./fem3d/newcon.f:
+c 30.09.2015    ggu     routine cleaned, no reals in conz3d
+c
+c ./fem3d/optintp.f:
+c 29.09.2015	ggu	move some vars to custimize to the beginning of file
+c
+c ./fem3d/mod_subset.f:
+c 29.09.2015	ggu	new routine which is much faster
+c 30.09.2015	ggu	new routine domain_clusterization_dummy()
+c
+c ./fem3d/newcon_omp.f:
+c 30.09.2015    ggu     routine cleaned, no reals in conz3d
+
+==========================================================
+
+version  7_2_5    29-09-2015    VERS_7_2_5   commit_2015-09-30
+
+version  7_2_5    29-09-2015    VERS_7_2_5   commit_2015-09-29
+
+version  7_2_5    29-09-2015    VERS_7_2_5
+
+========================================================== 29-09-2015 - 7_2_5
+
+c ./fem3d/subnsh.f:
+c 24.09.2015    ggu     call initialization for irv before reading STR file
+c
+c ./fem3d/shyfem.f:
+c 29.09.2015    ccf	inverted set_spherical() and handle_projection()
+c
+c ./fem3d/newnudge.f:
+c 25.09.2015    ggu     prepared for nudging velocities
+c 29.09.2015    ggu     finished nudging velocities
+c
+c ./fem3d/suboutput.f:
+c 24.09.2015    ggu     new file for double precision version
+c
+c ./fem3d/subver.f:
+c 29.09.2015	ggu	version 7.2.5
+c
+c ./fem3d/suboutputd.f:
+c 24.09.2015    ggu     routines re-written for double precision
+c
+c ./fem3d/subreg.f:
+c 25.09.2015	ggu	new routines intp_reg_nodes(), intp_reg_elems()
+c
+c ./fem3d/subsys.f:
+c 29.09.2015	ggu	new boundary file surfvel
+c
+c ./fem3d/newexpl.f:
+c 25.09.2015	ggu	new call to set_nudging()
+c
+c ./fem3d/subfemintp.f:
+! 25.09.2015	ggu	prepared to interpolate from reg onto elements
+! 29.09.2015	ggu	in iff_interpolate() do not interpolate with flag
+
+==========================================================
+
+version  7_2_4    23-09-2015    VERS_7_2_4   commit_2015-09-29
+
+version  7_2_4    23-09-2015    VERS_7_2_4   commit_2015-09-29
+
+version  7_2_4    23-09-2015    VERS_7_2_4   commit_2015-09-28
+
+version  7_2_4    23-09-2015    VERS_7_2_4   commit_2015-09-25
+
+version  7_2_4    23-09-2015    VERS_7_2_4   commit_2015-09-24
+
+version  7_2_4    23-09-2015    VERS_7_2_4   commit_2015-09-24
+
+version  7_2_4    23-09-2015    VERS_7_2_4
+
+========================================================== 23-09-2015 - 7_2_4
+
+c ./fem3d/subnos.f:
+c 22.09.2015	ggu	new routine nos_check_compatibility()
+c
+c ./fem3d/suboutput.f:
+c 23.09.2015    ggu     new routine convert_time_d() for double
+c
+c ./fem3d/elabutil.f:
+! 22.09.2015	ggu	new routine open_shy_file()
+!
+c ./fem3d/subver.f:
+c 23.09.2015	ggu	version 7.2.4
+c
+c ./fem3d/subtime.f:
+c 23.09.2015    ggu     time step is now working with dt as double
+c
+c ./fem3d/noselab1.f:
+c 23.09.2015    ggu     handle more than one file (look for itstart)
+c
+c ./fem3d/nosutil.f:
+c 23.09.2015    ggu     close files in nos_get_it_start() nos_get_it_end()
+
+==========================================================
+
+version  7_2_3    18-09-2015    VERS_7_2_3   commit_2015-09-23
+
+version  7_2_3    18-09-2015    VERS_7_2_3   commit_2015-09-21
+
+version  7_2_3    18-09-2015    VERS_7_2_3
+
+========================================================== 18-09-2015 - 7_2_3
+
+c ./fem3d/shyfem.f:
+c 18.09.2015    ggu	new routine scalar, call to hydro()
+c
+c ./fem3d/subver.f:
+c 18.09.2015	ggu	version 7.2.3
+c
+c ./fem3d/newchk.f:
+c 17.09.2015    ggu     in mass_conserve aux variables are local
+c
+c ./fem3d/subqfxt.f:
+c 18.09.2015	ccf	do not compute heat fluxes in dry nodes
+c 18.09.2015	ccf	checks only for levdbg > 2
+c
+c ./fem3d/tideg.f:
+c 18.09.2015    ggu     zeqv is now initialized even without use of tides (bug)
+c
+c ./fem3d/new3di.f:
+c 17.09.2015    ggu	sp256w renamed to hydro_vertical
+c 17.09.2015    ggu	sp259f renamed to hydro
+c 18.09.2015    ggu	sp256 renamed to hydro_transports, file cleaned
+c
+c ./fem3d/mod_subset.f:
+c 18.09.2015	ggu	code integrated
+c
+c ./fem3d/newexpl.f:
+c 18.09.2015	ggu	use momentx/yv to store advective terms, not aux arrays
+c
+c ./fem3d/subdif.f:
+c 18.09.2015    ggu     austau() not used anymore - eliminated
+c
+c ./fem3d/subcoo.f:
+c 18.09.2015    ggu     bug fix in coo_init - do not set ip/jp for n==0
+
+==========================================================
+
+version  7_2_2    14-09-2015    VERS_7_2_2   commit_2015-09-18
+
+version  7_2_2    14-09-2015    VERS_7_2_2
+
+========================================================== 14-09-2015 - 7_2_2
+
+c ./femplot/supsim.f:
+c 14.09.2015    ggu	prepared for plotting velocities given in fem file
+c
+c ./femplot/supout.f:
+c 14.09.2015  ggu     introduced bwind and bvel (for velocities)
+c
+c ./fem3d/subver.f:
+c 14.09.2015	ggu	version 7.2.2
+c
+c ./fem3d/optintp.f:
+c 14.09.2015	ggu	OI adapted to new modular structure
+c
+c ./fem3d/noselab1.f:
+c 10.09.2015    ggu     std and rms for averaging implemented
+c 11.09.2015    ggu     write in gis format
+c
+c ./fem3d/shyelab.f:
+c 14.09.2015    ggu     support for ext files added
+c
+c ./fem3d/ouselab1.f:
+c 11.09.2015    ggu     split feature added
+c
+c ./fem3d/subext.f:
+c 14.09.2015	ggu	some more helper routines
+c
+c ./fem3d/ousutil.f:
+c 11.09.2015    ggu     weight and hl are local, new velzeta2scal()
+c
+c ./fem3d/subsss.f:
+c 14.09.2015	ggu	new routine i2s0()
+
+==========================================================
+
+version  7_2_1    31-07-2015    VERS_7_2_1   commit_2015-09-14
+
+version  7_2_1    31-07-2015    VERS_7_2_1
+
+========================================================== 31-07-2015 - 7_2_1
+
+c ./fem3d/subver.f:
+c 31.07.2015	ggu	version 7.2.1	holiday release
+
+==========================================================
+
+version  7_1_84    31-07-2015    VERS_7_1_84   commit_2015-07-31
+
+version  7_1_84    31-07-2015    VERS_7_1_84   commit_2015-07-31
+
+version  7_1_84    31-07-2015    VERS_7_1_84
+
+========================================================== 31-07-2015 - 7_1_84
+
+c ./fem3d/subver.f:
+c 31.07.2015	ggu	version 7.1.84
+
+==========================================================
+
+version  7_1_83    30-07-2015    VERS_7_1_83   commit_2015-07-31
+
+version  7_1_83    30-07-2015    VERS_7_1_83
+
+========================================================== 30-07-2015 - 7_1_83
+
+c ./fem3d/shyfem.f:
+c 30.07.2015    ggu	routine renamed from ht to shyfem
+c
+c ./fem3d/subver.f:
+c 30.07.2015	ggu	version 7.1.83
+c
+c ./fem3d/subcst.f:
+c 30.07.2015    ggu     read str-file from command line
+c
+c ./fem3d/shypre.f:
+c 30.07.2015    ggu     vp renamed to shypre
+c
+c ./fem3d/shyelab.f:
+c 30.07.2015    ggu     shyelab started
+
+==========================================================
+
+version  7_1_82    24-07-2015    VERS_7_1_82   commit_2015-07-30
+
+version  7_1_82    24-07-2015    VERS_7_1_82
+
+========================================================== 24-07-2015 - 7_1_82
+
+c ./fem3d/subver.f:
+c 24.07.2015	ggu	version 7.1.82
+
+==========================================================
+
+version  7_1_81    20-07-2015    VERS_7_1_81   commit_2015-07-24
+
+version  7_1_81    20-07-2015    VERS_7_1_81
+
+========================================================== 20-07-2015 - 7_1_81
+
+c ./fem3d/subver.f:
+c 20.07.2015	ggu	version 7.1.81
+
+==========================================================
+
+version  7_1_80    17-07-2015    VERS_7_1_80   commit_2015-07-20
+
+version  7_1_80    17-07-2015    VERS_7_1_80   commit_2015-07-20
+
+version  7_1_80    17-07-2015    VERS_7_1_80
+
+========================================================== 17-07-2015 - 7_1_80
+
+c ./fem3d/subver.f:
+c 17.07.2015	ggu	version 7.1.80
+
+==========================================================
+
+version  7_1_53    17-07-2015    VERS_7_1_53   commit_2015-07-17
+
+version  7_1_53    17-07-2015    VERS_7_1_53
+
+========================================================== 17-07-2015 - 7_1_53
+
+c ./fem3d/subver.f:
+c 17.07.2015	ggu	version 7.1.52
+c 17.07.2015	ggu	version 7.1.53
+
+==========================================================
+
+version  7_1_52    17-07-2015    VERS_7_1_52   commit_2015-07-17
+
+version  7_1_52    17-07-2015    VERS_7_1_52
+
+========================================================== 17-07-2015 - 7_1_52
+
+c ./fem3d/subver.f:
+c 13.07.2015	ggu	version 7.1.52
+
+==========================================================
+
+version  7_1_51    13-07-2015    VERS_7_1_51   commit_2015-07-17
+
+version  7_1_51    13-07-2015    VERS_7_1_51
+
+========================================================== 13-07-2015 - 7_1_51
+
+c ./fem3d/subver.f:
+c 13.07.2015	ggu	version 7.1.51
+
+==========================================================
+
+version  7_1_50    10-07-2015    VERS_7_1_50   commit_2015-07-13
+
+version  7_1_50    10-07-2015    VERS_7_1_50
+
+========================================================== 10-07-2015 - 7_1_50
+
+c ./fem3d_50/subbnd.f:
+c 23.06.2015    ggu	setbc() deleted, nrz,nrq eliminated
+c
+c ./fem3d/subver.f:
+c 10.07.2015	ggu	version 7.1.50	big release...
+c
+c ./fem3d/subbnd.f:
+c 23.06.2015    ggu	setbc() deleted, nrz,nrq eliminated
+
+==========================================================
+
+version  7_1_12    05-06-2015    VERS_7_1_12   commit_2015-07-10
+
 version  7_1_12    05-06-2015    VERS_7_1_12
 
 ========================================================== 05-06-2015 - 7_1_12

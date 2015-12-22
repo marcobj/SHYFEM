@@ -20,11 +20,15 @@ c***************************************************************
 
 c reads nos file and writes NetCDF file
 
+	use mod_depth
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
         include 'param.h'
-        include 'basin.h'
-	include 'evmain.h'
 
 c-------------------------------------------------
 
@@ -40,10 +44,7 @@ c-------------------------------------------------
 	integer ivars(ndim)
 	integer var_ids(ndim)
 
-	include 'levels.h'
-	include 'hydro.h'
 
-	include 'depth.h'
 
 	real uprv(nlvdim,nkndim)
 	real vprv(nlvdim,nkndim)
@@ -58,7 +59,7 @@ c-------------------------------------------------
 
 	real var3d(nlvdim*nkndim)
 
-        integer nvers,nin,nlv,lmax,l
+        integer nvers,nin,lmax,l
         integer itanf,itend,idt
 	integer it,ie,i
         integer ierr,nread,ndry

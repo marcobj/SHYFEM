@@ -14,6 +14,15 @@
 !
         subroutine submud(it,dt)
 
+	use mod_bound_geom
+	use mod_sinking
+	use mod_fluidmud
+	use mod_ts
+	use mod_diff_visc_fric
+	use mod_hydro_print
+	use levels
+	use basin
+
           implicit none
 
           integer it                        !time in seconds
@@ -22,19 +31,13 @@
           include 'param.h'
   
 
-	include 'levels.h'
         real difvm(0:nlvdim,nkndim)  !vertical diffusivity for transport of mud
-	include 'diff_visc_fric.h'
-	include 'nlevel.h'
-	include 'ts.h'
         
 
         integer, save :: testnode, icycle
         logical, save :: ldebug,lsink,lhind,llambda,ladvlam
         logical, save :: lfloc,ladvfloc
-	include 'basin.h'
 
-	include 'hydro_print.h'
 
         integer, allocatable :: innode(:)          !in boundary node number array (bound1)
         integer, allocatable :: ounode(:)          !out boundary node number array (bound2)
@@ -49,7 +52,6 @@
 
         save nk, innode, ounode
 
-	include 'bound_geom.h'
 
 ! -------------------------------------------------------------
 ! local mud variables
@@ -64,7 +66,6 @@
         integer k,l,lmax		!Counters
         character*10 what
         double precision rhow		!Fluid density (kg/m3)
-	include 'fluidmud.h'
         double precision cgel(nlvdim),phigel(nlvdim)
         real mudref		!Initial fluid mud concentration (kg/m3)
         double precision visk		!molecular viscosity
@@ -75,16 +76,13 @@
         real mwsink			!Fluid mud floc settling velocity [m/s]
 	    real wsink,sinkaccel
 	    real fact, dm1 
-	include 'sinking.h'
         real tsec			!Simulation time, real [s]
         real bnd3_mud(nb3dim,0:nbcdim)  !Array containing boundary state
         real bnd3_lam(nb3dim,0:nbcdim)  !Array containing boundary state
         real bnd3_dmf(nb3dim,0:nbcdim)  !Array containing boundary state
         real fmbnd(nsmud),fak,smooth
         real t_now,t_start		        !Boundary vector [kg/m3]
-	include 'bound_names.h'
         logical, save :: circle,ldumpmud,linitmud,lsetbound
-        !include 'testbndo.h'
 
         save what,mudref,lthick,sinkaccel
         save fmbnd
@@ -395,19 +393,20 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! -------------------------------------------------------------
        subroutine get_mudc(k,rhow,dm0,phi,phip,ldebug,testnode,icycle)
 
+	use mod_fluidmud
+	use levels
+
         implicit none
 
         include 'param.h'
 
         integer k,l,nlev
         double precision phip(nlvdim),phi(nlvdim)
-	include 'fluidmud.h'
         double precision rhow          !Sediment mineral density (kg/m3)
         double precision dm0           !Actual and primary diameter
 
 
 	integer lmax
-	include 'levels.h'
         integer testnode,icycle,iwrite
         logical ldebug
         save iwrite
@@ -439,6 +438,9 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! -------------------------------------------------------------
        subroutine get_mudrho(k,rhow,dm0,ldebug,testnode,icycle)
 
+	use mod_fluidmud
+	use levels
+
         implicit none
 ! Purpose:
 ! Computes mud density based on fractal dimension and ratio between actual and primary diameter
@@ -446,11 +448,9 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
         include 'param.h'
 
         integer k,l,nlev
-	include 'fluidmud.h'
         double precision rhow          !Sediment mineral density (kg/m3)
         double precision dm0           !Actual and primary diameter
 	integer lmax
-	include 'levels.h'
         integer testnode,icycle,iwrite
         logical ldebug
         save iwrite
@@ -477,13 +477,14 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! -------------------------------------------------------------
        subroutine set_rhomud(k,l,rhop)
 
+	use mod_fluidmud
+
         implicit none
 ! Purpose:
 ! Computes computes baroclinic forcing due to mud 
 !
         include 'param.h'
 
-	include 'fluidmud.h'
         real*8 drho, maxdrho
 
         integer, intent(in) :: l,k
@@ -508,6 +509,9 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! -------------------------------------------------------------
        subroutine get_cgel(k,dm0,cgel,phigel,ldebug,testnode,icycle)
 
+	use mod_fluidmud
+	use levels
+
         implicit none
 ! Purpose:
 ! Computes the gelling concentration based on fractal dimension 
@@ -523,8 +527,6 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
         double precision cgel(nlvdim)  ! gel, concentration
         double precision phigel(nlvdim)! gel, concentration
 	integer lmax
-	include 'levels.h'
-	include 'fluidmud.h'
         integer testnode,icycle, iwrite
         logical ldebug
         save iwrite
@@ -554,6 +556,12 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
      &                            ldebug,testnode,icycle,sinkaccel,
      &                            lcircle,lhind)
 
+	use mod_bound_geom
+	use mod_sinking
+	use mod_fluidmud
+	use mod_ts
+	use levels
+
         implicit none
 
 ! Purpose:
@@ -566,14 +574,9 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
         double precision d              !grain size
         double precision visk           !molecular viskosity 
         real getpar,vismol
-	include 'fluidmud.h'
-	include 'sinking.h'
-	include 'ts.h'
-	include 'levels.h'
 
         integer l,k,lmax
 
-	include 'bound_geom.h'
 
         double precision :: rhost,nu,dst,ws0,ws,rhow,fak,dmi
         double precision, intent(in):: phi(nlvdim)         !Fluid density (kg/m3)
@@ -650,6 +653,11 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! -------------------------------------------------------------
         subroutine stress_mud(nldim,k,ldebug,testnode,icycle)
 
+	use mod_fluidmud
+	use mod_gotm_aux
+	use mod_ts
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         integer nldim
@@ -660,12 +668,8 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! Computes the rheoligical stresses and the viscosity of the mud
 !
 
-	include 'nbasin.h'
 	include 'pkonst.h'
 
-	include 'ts.h'
-	include 'fluidmud.h'
-	include 'gotm_aux.h'
 
         integer k,l,nlev
         real*8 aux,dh,du,dv,m2,dbuoy,tau_test,lambda_e,visk_new
@@ -735,6 +739,13 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! -------------------------------------------------------------
         subroutine set_yield(nldim,k,tstress,ldebug,testnode,icycle)
 
+	use mod_fluidmud
+	use mod_gotm_aux
+	use mod_ts
+	use mod_roughness
+	use mod_diff_visc_fric
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         integer nldim
@@ -743,15 +754,9 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! Purpose:
 ! Computes the yield stress and sets the certain visc. to model the yield stress regime
 !
-	include 'nbasin.h'
 	include 'pkonst.h'
 
-	include 'ts.h'
-	include 'gotm_aux.h'
         real tstress(nlvdim)
-	include 'fluidmud.h'
-	include 'roughness.h'
-	include 'diff_visc_fric.h'
 
         integer k,l,nlev
         real aux,dh,du,dv,m2,dbuoy,tau_test,lambda_e
@@ -847,6 +852,14 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 !Purpose:
 !Computes the roughness reduction due to the presence of mud
 
+	use mod_sinking
+	use mod_fluidmud
+	use mod_gotm_aux
+	use mod_ts
+	use mod_diff_visc_fric
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         integer nldim
@@ -854,14 +867,9 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
         include 'param.h'
 
 	integer lmax
-	include 'nbasin.h'
 	real alpha
 	include 'pkonst.h'
 
-	include 'sinking.h'
-	include 'ts.h'
-	include 'fluidmud.h'
-	include 'gotm_aux.h'
 
         integer k,nlev
 
@@ -874,10 +882,8 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
         real, parameter :: beta = 0.7
         real, parameter :: mpar = 1.
 
-	include 'diff_visc_fric.h'
 
 	integer i
-	include 'levels.h'
         real h(nlvdim)
 
         call dep3dnod(k,+1,nlev,h)
@@ -916,6 +922,14 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! -------------------------------------------------------------
         subroutine set_bottom_stress(k,tstress)
 
+	use mod_sinking
+	use mod_fluidmud
+	use mod_gotm_aux
+	use mod_ts
+	use mod_diff_visc_fric
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 !Purpose: Computes discrete bottom stress 
 
@@ -924,14 +938,9 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
         include 'param.h'
 
 	integer lmax
-	include 'nbasin.h'
 	real alpha
 	include 'pkonst.h'
 
-	include 'sinking.h'
-	include 'ts.h'
-	include 'fluidmud.h'
-	include 'gotm_aux.h'
 
         integer k,l,nlev
         real tstress
@@ -940,8 +949,6 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
         real*8 cnpar,stress_x,stress_y, rhobar
         real*8  g_dot, rhop, tau,visk, drho, ri
 
-	include 'diff_visc_fric.h'
-	include 'levels.h'
 
         lmax = ilhkv(k)
         g_dot = sqrt(shearf2(lmax,k))
@@ -954,6 +961,9 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! -------------------------------------------------------------
         subroutine set_bottom_visk(k,ufric,depth,visk1,visk2)
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         integer nldim
@@ -963,12 +973,10 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
         include 'param.h'
 
 	integer lmax
-	include 'nbasin.h'
 
         integer k,l,nlev
         real*8 ufric,depth
         real visk1,visk2
-	include 'levels.h'
         real h(nlvdim)
 
         call dep3dnod(k,+1,nlev,h)
@@ -984,6 +992,13 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 !
 ! -------------------------------------------------------------
       subroutine get_floc_diam(k,nldim,dt,dm0,ldebug,testnode,icycle)
+	use mod_fluidmud
+	use mod_gotm_aux
+	use mod_ts
+	use mod_diff_visc_fric
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         integer :: k,l,nldim,nlev
@@ -992,15 +1007,9 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 
         include 'param.h'
 
-	include 'nbasin.h'
 	include 'pkonst.h'
 
-	include 'fluidmud.h'
 
-	include 'levels.h'
-	include 'diff_visc_fric.h'
-	include 'ts.h'
-	include 'gotm_aux.h'
 
         real, intent(in)    :: dt                   ! time step
         double precision, intent(in)    :: dm0                  ! Size of primary floc
@@ -1166,6 +1175,12 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 !
 ! -------------------------------------------------------------       
         subroutine get_lambda(k,nldim,dt,ldebug,testnode,icycle)
+	use mod_fluidmud
+	use mod_gotm_aux
+	use mod_ts
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         integer :: k,l,nldim,nlev
@@ -1174,17 +1189,12 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 !
         include 'param.h'
 
-	include 'nbasin.h'
 	include 'pkonst.h'
 
         logical ldebug
         integer testnode, icycle
 
-	include 'fluidmud.h'
-	include 'ts.h'
-	include 'gotm_aux.h'
 
-	include 'levels.h'
 
         real, intent(in)    :: dt                   ! time step
 
@@ -1483,12 +1493,13 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! shell for scalar (for parallel version)
 ! special version with factor for BC and variable sinking velocity
 !--------------------------------------------------------------
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none 
         include 'param.h'
 
 	integer k,l !DEB
-	include 'nbasin.h'
-	include 'nlevel.h'
 	character*(*) what
         integer ivar
         real fact           !factor for boundary condition
@@ -1562,16 +1573,18 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 
         subroutine circflume(r3v,scal)
 
+	use mod_bound_geom
+	use mod_bound_dynamic
+	use mod_hydro_print
+	use levels
+
         implicit none
 
         include 'param.h'
 
         real r3v(nlvdim,1)              !boundary conc array
 
-	include 'bound_geom.h'
-	include 'nlevel.h'
         real scal(nlvdim,1)             !Fluid mud concentration array (kg/m3)      !ccf
-	include 'bound_dynamic.h'
 
         integer, allocatable :: innode(:)          !in boundary node number array (bound1)
         integer, allocatable :: ounode(:)          !out boundary node number array (bound2)
@@ -1585,9 +1598,7 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
         save innode,ounode,nk,nnode
         data icall /0/
 
-	include 'hydro_print.h'
 
-	include 'levels.h'
         integer lmax
         real diff
 
@@ -1654,17 +1665,18 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! -------------------------------------------------------------
         subroutine mudboundary(r3v,mudref)
 
+	use mod_bound_geom
+	use mod_fluidmud
+	use levels, only : nlvdi,nlv
+
         implicit none
 
         include 'param.h'
 
         real,intent(in) :: mudref       !mudref  
  
-	include 'bound_geom.h'
-	include 'nlevel.h'
         real r3v(nlvdim,1)              !boundary conc array
 
-	include 'fluidmud.h'
 
         integer, allocatable :: innode(:)          !in boundary node number array (bound1)
         integer, allocatable :: ounode(:)          !out boundary node number array (bound2)
@@ -1736,6 +1748,14 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 !
 ! -------------------------------------------------------------
       subroutine write_xfn
+	use mod_fluidmud
+	use mod_depth
+	use mod_gotm_aux
+	use mod_ts
+	use mod_diff_visc_fric
+	use mod_hydro_print
+	use basin
+
         implicit none
 
         integer :: k,l,nldim
@@ -1744,14 +1764,7 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 
 	include 'pkonst.h'
 
-	include 'fluidmud.h'
 
-	include 'diff_visc_fric.h'
-	include 'ts.h'
-	include 'gotm_aux.h'
-	include 'basin.h'
-	include 'hydro_print.h'
-	include 'depth.h'
 
         logical, save :: lfirst
         data lfirst/.true./
@@ -1818,12 +1831,13 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 ! -------------------------------------------------------------
         subroutine masscons(it,mudc)
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         include 'param.h'
 
-	include 'nbasin.h'
-	include 'levels.h'
 
         integer it
         real mudc(nlvdim,nkndim)    !Fluid mud concentration array (kg/m3)

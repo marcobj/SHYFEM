@@ -35,38 +35,31 @@ c*************************************************************
 
 c plots simulation
 
+	use mod_hydro_plot
+	use mod_plot2d
+	use mod_plot3d
+	use mod_geom
+	use mod_depth
+	use mod_hydro_print
+	use mod_hydro_vel
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 c parameters
 
 	include 'param.h'
-	include 'basin.h'
-	include 'evmain.h'
 
-c description
-c FEM parameters
 	include 'mkonst.h'
 	include 'pkonst.h'
-c OUT
-c 3d
-	include 'nlevel.h'
-
-	include 'levels.h'
-	include 'hydro.h'
-	include 'hydro_vel.h'
-
-	include 'hydro_print.h'
 
 
-	include 'plot_aux.h'
 
-c boundary etc.
-	include 'geom.h'
-	include 'depth.h'
-c auxiliary
-	include 'aux_array.h'
-	include 'hydro_plot.h'
-c vertical velocity
+
+
 c local
 	character*20 what
 	integer mode,ivar
@@ -98,22 +91,13 @@ c----------------------------------------------
 	high=1.e+35
 	grav=9.81
 
-	nlvdi = nlvdim
-	nlv = nlvdim
-
 	call set_flag(sflag)
-
-	do i=1,neldim
-	  do l=1,nlvdim
-	    p3(l,i) = sflag
-	  end do
-	end do
 
 c----------------------------------------------
 c read basin
 c----------------------------------------------
 
-	if(iapini(7,nkndim,neldim,0).eq.0) then
+	if(iapini(7,0,0,0).eq.0) then
 		stop 'error stop : iapini'
 	end if
 	write(6,*) 'Basin:   nkn = ',nkn,'  nel = ',nel
@@ -122,7 +106,8 @@ c----------------------------------------------
 c set up elements
 c----------------------------------------------
 
-	call setdim('nlkdim',nlkdim)
+	call allocate_2d_arrays
+
 	isphe = nint(getpar('isphe'))
 	call set_coords_ev(isphe)
 	call set_ev
@@ -136,7 +121,6 @@ c----------------------------------------------
 
 	call mkhkv
 	call mkhev
-	call mkareafvl			!area of finite volumes
 
 c----------------------------------------------
 c time management
@@ -146,7 +130,7 @@ c----------------------------------------------
 	call get_date_time(date,time)
 	call ptime_set_date_time(date,time)
 	call ptime_min_max
-	call iff_init_global_2d(nkn,hkv,date,time)	!FIXME
+	call iff_init_global_2d(nkn,nel,hkv,hev,date,time)	!FIXME
 
 c----------------------------------------------
 c interactive set up
@@ -297,6 +281,119 @@ c*****************************************************************
         time = nint(dgetpar('time'))
 
         end
+
+c*****************************************************************
+
+	subroutine allocate_2d_arrays
+
+	use mod_hydro_plot
+	use mod_plot2d
+	use mod_geom
+	use mod_depth
+	use evgeom
+	use basin, only : nkn,nel,ngr,mbw
+
+	implicit none
+
+	include 'param.h'
+
+
+
+	call ev_init(nel)
+	call mod_geom_init(nkn,nel,ngr)
+
+	call mod_depth_init(nkn,nel)
+
+	call mod_plot2d_init(nkn,nel)
+	call mod_hydro_plot_init(nkn,nel)
+
+	write(6,*) 'allocate_2d_arrays: ',nkn,nel,ngr
+
+	end
+
+c*****************************************************************
+
+	subroutine allocate_simulation
+
+	use mod_plot3d
+	use mod_hydro_print
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
+	implicit none
+
+	include 'param.h'
+
+
+
+
+	real flag
+
+	nlvdi = nlv
+
+	call levels_init(nkn,nel,nlvdi)
+	call mod_hydro_init(nkn,nel,nlvdi)
+	call mod_hydro_vel_init(nkn,nel,nlvdi)
+	call mod_hydro_print_init(nkn,nlvdi)
+	call mod_plot3d_init(nkn,nel,nlvdi)
+
+	call mkareafvl			!area of finite volumes
+
+        call get_flag(flag)
+	p3 = flag
+
+	write(6,*) 'allocate_simulation: ',nkn,nel,nlvdi
+
+	end
+
+c*****************************************************************
+c*****************************************************************
+c*****************************************************************
+
+	subroutine get_dimension_post(nknddi,nelddi,nlvddi)
+
+	implicit none
+
+	integer nknddi,nelddi,nlvddi
+
+	call get_dimension_post_2d(nknddi,nelddi)
+	call get_dimension_post_3d(nlvddi)
+
+	end
+
+c*****************************************************************
+
+	subroutine get_dimension_post_2d(nknddi,nelddi)
+
+	use basin
+
+	implicit none
+
+	integer nknddi,nelddi
+
+	include 'param.h'
+
+	call basin_get_dimension(nknddi,nelddi)
+
+	end
+
+c*****************************************************************
+
+	subroutine get_dimension_post_3d(nlvddi)
+
+	use levels
+
+	implicit none
+
+	integer nlvddi
+
+	include 'param.h'
+
+	call levels_get_dimension(nlvddi)
+
+	end
 
 c*****************************************************************
 

@@ -38,20 +38,17 @@ c****************************************************************
 
 c optimal interpolation
 
+	use evgeom
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'evmain.h'
 
 	integer ndim
 	parameter (ndim = 100)
-	integer matdim
-	parameter (matdim = nkndim*100)
 
-	real rmat(matdim)
-	real zv(nkndim)
-	real rzv(nkndim)
+	real, allocatable :: zv(:)
 
 	real xp(ndim),yp(ndim),zp(ndim)
 
@@ -69,7 +66,7 @@ c-----------------------------------------------------------------
 c read in basin
 c-----------------------------------------------------------------
 
-        if( iapini(1,nkndim,neldim,0) .le. 0 ) stop
+        if( iapini(1,0,0,0) .le. 0 ) stop
 
 	call bas_info
 
@@ -79,6 +76,8 @@ c-----------------------------------------------------------------
 
 	call set_ev
 	call check_ev
+
+	allocate(zv(nkn))
 
 c-----------------------------------------------------------------
 c read BC and interpolate
@@ -169,10 +168,11 @@ c******************************************************************
 
 	subroutine read_data(mode,ndim,np,xp,yp,zp)
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer mode
 	integer ndim,np
@@ -224,6 +224,9 @@ c interpolates depth values
 c
 c exponential interpolation with max radius
 
+	use evgeom
+	use basin
+
 	implicit none
 
 	real afact
@@ -232,8 +235,6 @@ c exponential interpolation with max radius
 	real zv(1)
 
 	include 'param.h'
-	include 'basin.h'
-	include 'evmain.h'
 
 	integer ie,ii,k
 	integer nktot
@@ -251,7 +252,7 @@ c exponential interpolation with max radius
 	real fact,dx,dy
 	real area,x0,y0
 	double precision atot
-	logical ok(neldim)
+	logical ok(nkn)
 
         write(6,*) 'starting exponential interpolation with max radius'
 

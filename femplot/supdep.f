@@ -8,7 +8,7 @@ c
 c subroutine mkhkv(hkv,auxv,nkn,nel)	makes hkv (nodewise depth)
 c subroutine mkhev(hev,nel)		makes hev (elementwise depth)
 c subroutine mkht(hetv,href)		makes hetv (elem depth of actual layer)
-c subroutine mkht3(nlvdi,het3v,href)	makes het3v (3D depth structure)
+c subroutine mkht3(nlvddi,het3v,href)	makes het3v (3D depth structure)
 c function hlthick(l,lmax,hl)		layer thickness
 c
 c revision log :
@@ -31,15 +31,16 @@ c******************************************************************
 
 c makes hkv (nodewise depth)
 
+	use mod_depth
+	use basin
+
 	implicit none
 
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'depth.h'
-	include 'aux_array.h'
+	include 'param.h'
 c local
 	integer ie,ii,k,kn
+	real v1v(nkn)
 
         do k=1,nkn
           hkv(k) = 0.
@@ -67,12 +68,13 @@ c******************************************************************
 
 c makes hev (elementwise depth)
 
+	use mod_depth
+	use basin
+
 	implicit none
 
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'depth.h'
+	include 'param.h'
 c local
 	integer ie,ii
 	real h
@@ -96,20 +98,19 @@ c makes hetv (elementwise depth of actual layer)
 c
 c uses level to decide what to do
 
+	use mod_depth
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 c arguments
 	real hetv(1)
 	real href
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-	include 'nlevel.h'
+	include 'param.h'
 
-	include 'depth.h'
-	include 'levels.h'
-	include 'hydro.h'
-	include 'aux_array.h'
 c local
 	logical bdebug
 	integer ie,ii
@@ -165,22 +166,23 @@ c-------------------------------------------------------------------
 
 c******************************************************************
 
-	subroutine mkht3(nlvdi,het3v,href)
+	subroutine mkht3(nlvddi,het3v,href)
 
 c makes het3v (3D depth structure)
+
+	use mod_depth
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
 
 	implicit none
 
 c arguments
-	integer nlvdi
-	real het3v(nlvdi,1)
+	integer nlvddi
+	real het3v(nlvddi,1)
 	real href
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-	include 'levels.h'
-	include 'depth.h'
-	include 'hydro.h'
+	include 'param.h'
 c local
 	logical bdebug
 	integer ie,ii
@@ -257,13 +259,14 @@ c******************************************************************
 
 c makes area of finite volume
 
+	use mod_plot2d
+	use evgeom
+	use basin
+
 	implicit none
 
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'plot_aux.h'
-	include 'ev.h'
+	include 'param.h'
 c local
 	integer ie,ii,k
 	real afvl

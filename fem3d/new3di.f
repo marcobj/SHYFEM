@@ -5,10 +5,12 @@ c assembling linear system routine
 c
 c contents :
 c
-c subroutine sp259f			administrates one time step
-c subroutine sp256z(rmat,zv,vqv,isum)	assemble matrix
-c subroutine sp256v			assembles vertical system matrix
-c subroutine sp256w(vv)			computes vertical velocities
+c subroutine hydro			administrates one time step
+c subroutine hydro_zeta(vqv)		assemble matrix
+c subroutine hydro_transports		computes transports (temporary)
+c subroutine hydro_transports_final	computes transports (final)
+c subroutine hydro_vertical(dzeta)	computes vertical velocities
+c subroutine correct_zeta(dzeta)	corrects zeta values
 c
 c notes :
 c
@@ -18,15 +20,15 @@ c ASYM			passage to asymmetrix matrix
 c ASYM_OPSPLT		new version without operator splitting (can leave)
 c ASYM_OPSPLT_CH	new version -> change here
 c
-c nkndim	dimension for total number of nodes
-c neldim	dimension for total number of elements
-c nrbdim	dimension for total number of boundary condition nodes
-c nbcdim	dimension for total number of open boundaries
-c mbwdim	dimension for bandwidth
-c ngrdim	dimension for grade of nodes (number of elements attached
+c nknddi	dimension for total number of nodes
+c nelddi	dimension for total number of elements
+c nrbddi	dimension for total number of boundary condition nodes
+c nbcddi	dimension for total number of open boundaries
+c mbwddi	dimension for bandwidth
+c ngrddi	dimension for grade of nodes (number of elements attached
 c		...to one node)
-c nardim	dimension for total number of area codes
-c nexdim	dimension for total number of extra nodes for output
+c narddi	dimension for total number of area codes
+c nexddi	dimension for total number of extra nodes for output
 c
 c nkn,nel	total number of nodes/elements
 c nrz,nrq	total number of nodes with water level/flux boundary conditions
@@ -168,31 +170,32 @@ c 25.03.2014    ggu     new offline
 c 10.04.2014    ggu     cleaning up of a lot of stuff
 c 06.05.2015    ggu     cleaning up of sp256f
 c 20.05.2015    ggu&erp sp256v parallelized
+c 17.09.2015    ggu	sp256w renamed to hydro_vertical
+c 17.09.2015    ggu	sp259f renamed to hydro
+c 18.09.2015    ggu	sp256 renamed to hydro_transports, file cleaned
+c 20.11.2015    ggu&erp chunk size introduced, omp finalized
 c
 c******************************************************************
 
-	subroutine sp259f
+	subroutine hydro
 
 c administrates one hydrodynamic time step for system to solve
 c
 c written on 27.07.88 by ggu   (from sp159f)
 
+	use mod_depth
+	use mod_bound_dynamic
+	use mod_area
+	use mod_hydro_baro
+	use mod_hydro_print
+	use mod_hydro_vel
+	use mod_hydro
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h'
-	include 'nlevel.h'
 	include 'femtime.h'
-	include 'nbasin.h'
-
-	include 'bound_dynamic.h'
-	include 'aux_array.h'
-	include 'hydro.h'
-	include 'hydro_vel.h'
-	include 'hydro_baro.h'
-	include 'hydro_print.h'
-
-	include 'depth.h'
-	include 'area.h'
 
 	logical boff,bdebout
 	logical bzcorr
@@ -203,6 +206,7 @@ c written on 27.07.88 by ggu   (from sp159f)
 	integer kspecial
 	integer iwhat
 	real res
+	real dzeta(nkn)
 
 	integer iround
 	real getpar,resi
@@ -222,13 +226,12 @@ c-----------------------------------------------------------------
         inohyd = nint(getpar('inohyd'))
 	bnohyd = inohyd .eq. 1
 
-	if(nlvdim.ne.nlvdi) stop 'error stop : level dimension in sp259f'
-
 c-----------------------------------------------------------------
 c offline
 c-----------------------------------------------------------------
 
 	call is_offline(1,boff)
+	!if( boff ) write(6,*) 'hydro reading from offline...'
 	if( boff ) return
 
 c-----------------------------------------------------------------
@@ -246,42 +249,31 @@ c-----------------------------------------------------------------
 	call nonhydro_copy	!copies non hydrostatic pressure terms
 	call copy_depth
 
-	call diff_h_set		!horizontal viscosity
+	call set_diffusivity	!horizontal viscosity and diffusivity
 
 c-----------------------------------------------------------------
 c solve for hydrodynamic variables
 c-----------------------------------------------------------------
 
-	iw = 1
-	do while( iw .gt. 0 )		!loop over changing domain
+	do 				!loop over changing domain
 
-	  if( bdebout ) call debug_output(it+2)
-	  call sp256v			!compute intermediate transports
-	  if( bdebout ) call debug_output(it+3)
+	  call hydro_transports		!compute intermediate transports
 
 	  call setnod			!set info on dry nodes
 	  call set_link_info
 	  call adjust_mass_flux		!cope with dry nodes
 
 	  call system_init		!initializes matrix
-
-	  if( bdebout ) call debug_output(it+14)
-	  call sp256z(rqv)		!assemble system matrix for z
-	  if( bdebout ) call debug_output(it+15)
-
+	  call hydro_zeta(rqv)		!assemble system matrix for z
 	  call system_solve_z(nkn,znv)	!solves system matrix for z
-	  if( bdebout ) call debug_output(it+16)
-
 	  call system_adjust_z(nkn,znv)	!copies solution to new z
-	  if( bdebout ) call debug_output(it+17)
 
 	  call setweg(1,iw)		!controll intertidal flats
+	  if( iw == 0 ) exit
 
-	end do	!do while( iw .gt. 0 )
+	end do
 
-	if( bdebout ) call debug_output(it+4)
-	call sp256n			!final transports (also barotropic)
-	if( bdebout ) call debug_output(it+5)
+	call hydro_transports_final	!final transports (also barotropic)
 
 c-----------------------------------------------------------------
 c end of soulution for hydrodynamic variables
@@ -306,7 +298,7 @@ c-----------------------------------------------------------------
 	  call nonhydro_adjust
 	end if
 
-	call sp256w(v1v,saux1,saux2)	!compute vertical velocities
+	call hydro_vertical(dzeta)		!compute vertical velocities
 
 c-----------------------------------------------------------------
 c correction for zeta
@@ -315,10 +307,10 @@ c-----------------------------------------------------------------
 	bzcorr = .true.
 	bzcorr = .false.
 	if( bzcorr ) then
-	  call correct_zeta(v1v)
+	  call correct_zeta(dzeta)
           call setzev     !znv -> zenv
 	  call make_new_depth
-	  call sp256w(v1v,saux1,saux2)	!$$VERVEL
+	  call hydro_vertical(dzeta)		!$$VERVEL
 	end if
 
 c-----------------------------------------------------------------
@@ -327,7 +319,7 @@ c-----------------------------------------------------------------
 
 	call vol_mass(1)		!computes and writes total volume
 	if( bdebout ) call debug_output(it)
-	call mass_conserve(saux1,saux2)	!check mass balance
+	call mass_conserve		!check mass balance
 
 c-----------------------------------------------------------------
 c compute velocities on elements and nodes
@@ -341,15 +333,15 @@ c end of routine
 c-----------------------------------------------------------------
 
 	return
-   99	continue
-	write(6,*) 'Error in inverting matrix for water level'
-	write(6,*) 'it, ier : ',it,ier
-	stop 'error stop : sp259f'
+!   99	continue
+!	write(6,*) 'Error in inverting matrix for water level'
+!	write(6,*) 'it, ier : ',it,ier
+!	stop 'error stop : hydro'
 	end
 
 c******************************************************************
 
-	subroutine sp256z(vqv)
+	subroutine hydro_zeta(vqv)
 
 c assembles linear system matrix
 c
@@ -362,12 +354,20 @@ c changed on 04.06.91 by ggu  (c=(1) : friction term has been corrected)
 c changed on 01.10.92 by ggu  (staggered FE - completely restructured)
 c 12.01.2001    ggu     solve for znv and not level difference (ZNEW)
 
+	use mod_nudging
+	use mod_internal
+	use mod_geom_dynamic
+	use mod_depth
+	use mod_bound_dynamic
+	use mod_hydro_baro
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
-	include 'param.h'
-	include 'ev.h'
-
-	real vqv(1)
+	real vqv(nkn)
 
 	real drittl
 	parameter (drittl=1./3.)
@@ -376,19 +376,7 @@ c 12.01.2001    ggu     solve for znv and not level difference (ZNEW)
 	include 'pkonst.h'
 	include 'femtime.h'
 
-	include 'basin.h'
-	include 'levels.h'
-	include 'bound_dynamic.h'
-	include 'depth.h'
-	include 'hydro_baro.h'
-	include 'hydro.h'
-	include 'geom_dynamic.h'
-
-	include 'internal.h'
         integer afix            !chao deb
-
-
-	include 'nudging.h'
 
 	logical bcolin
 	logical bdebug
@@ -416,9 +404,10 @@ c	data amatr / 2.,1.,1.,1.,2.,1.,1.,1.,2. /	!original
 
         integer locsps,loclp,iround
 	real getpar
-	logical iskbnd,iskout,iseout
+	!logical iskbnd,iskout,iseout
+	logical iskbnd,iseout
         iskbnd(k) = inodv(k).ne.0 .and. inodv(k).ne.-2
-        iskout(k) = inodv(k).eq.-2
+        !iskout(k) = inodv(k).eq.-2
         iseout(ie) = iwegv(ie).ne.0
 
 c-------------------------------------------------------------
@@ -520,6 +509,7 @@ c	------------------------------------------------------
 	  end do
 	  acu = hia(n,1)*z(1) + hia(n,2)*z(2) + hia(n,3)*z(3)
 	  andg = 4.*aj*dt*zndg(n)
+	  !hia(n,n) = hia(n,n) + 4 * dt * aj / tau
 	  hik(n) = acu + andg + 12.*aj*dt*( ut*b(n) + vt*c(n) )	!ZNEW
 	end do
 
@@ -542,6 +532,7 @@ c	------------------------------------------------------
 		!hia(i,i)=12.*aj
 		hik(i)=rw*hia(i,i)
 	  end if
+	  !call handle_ship_boundary(it,i,k,hia,hik)
 	end do
 
 c	------------------------------------------------------
@@ -572,7 +563,8 @@ c	------------------------------------------------------
 c	in hia(i,j),hik(i),i,j=1,3 is system
 c	------------------------------------------------------
 
-	  call system_assemble(nkn,mbw,kn,hia,hik)
+	  !call system_assemble(ie,nkn,mbw,kn,hia,hik)
+	  call system_assemble(ie,kn,hia,hik)
 
 	end do
 
@@ -590,20 +582,24 @@ c-------------------------------------------------------------
 
 c******************************************************************
 
-	subroutine sp256v
+	subroutine hydro_transports
+
+	use basin, only : nkn,nel,ngr,mbw
+!$	use omp_lib
 
 	implicit none
 
-	include 'nbasin.h'
 	include 'pkonst.h'
 	include 'femtime.h'
 
 	integer ie
+	integer ies,iend
 	integer ith
 	integer count0,dcount,chunk,nt
 	integer ibaroc
 	integer ilin,itlin
 	integer num_threads,myid,el_do,rest_do,init_do,end_do
+	integer nchunk,nthreads
 	logical bcolin,baroc
 	real az,am,af,at,av,azpar,ampar
 	real rlin,radv
@@ -611,7 +607,6 @@ c******************************************************************
 	real dt
 
 	double precision tempo
-
 	double precision openmp_get_wtime
 	!integer openmp_get_num_threads,openmp_get_thread_num
 	real getpar
@@ -630,11 +625,11 @@ c-------------------------------------------------------------
 	baroc = ibaroc .eq. 1 .or. ibaroc .eq. 2
 
 	call getazam(azpar,ampar)
-	az=azpar
-	am=ampar
-	af=getpar('afpar')
-	at=getpar('atpar')
-	av=getpar('avpar')
+	az=azpar			! weighting in continuity
+	am=ampar			! weighting in momentum
+	af=getpar('afpar')		! weighting of coriolis term
+	at=getpar('atpar')		! weighting of vertical viscosity
+	av=getpar('avpar')		! weighting of advective terms
 
 	radv = 0.
 	if( ilin .eq. 0 .and. itlin .eq. 0 ) then	!need non-lin terms
@@ -663,37 +658,44 @@ ccc	nt = 2
 ccc	call openmp_set_num_threads(nt)
 ccc	chunk = 1 + nel/nt
 
+	nthreads = 1
+!$      nthreads = omp_get_num_threads()
+	nchunk = 1
+!$      nchunk = nel / ( nthreads * 10 )
+        nchunk = max(nchunk,1)
+
 c-------------------------------------------------------------
 c loop over elements
 c-------------------------------------------------------------
 
-	tempo = openmp_get_wtime()
+	!tempo = openmp_get_wtime()
 
-!$OMP PARALLEL PRIVATE(num_threads,myid,el_do,rest_do,init_do,end_do,ie)
+!$OMP PARALLEL 
+!$OMP SINGLE
 
-        call openmp_get_num_threads(num_threads)
-	if( num_threads == 0 ) num_threads = 1
-        call openmp_get_thread_num(myid)
-        el_do = nel/num_threads
-        rest_do = MOD(nel,num_threads)
-        init_do = el_do*myid+1
-        end_do = init_do+el_do-1
-        if( myid .eq. num_threads-1 ) end_do = end_do+rest_do
+	do ie=1,nel,nchunk
 
-        !print *,'num_threads = ',num_threads
-        !print *,"th = ",myid," el_do = ", el_do," rest_do = ", rest_do
-        !print *,"init_do = ",init_do," end_do = ",end_do," nel  =", nel
+!$OMP TASK FIRSTPRIVATE(ie,bcolin,baroc,az,am,af,at,radv
+!$OMP& 	   ,vismol,rrho0,dt) PRIVATE(ies,iend)
+!$OMP&     SHARED(nel,nchunk)	 DEFAULT(NONE)
+	 
+ 	  iend = ie+nchunk-1
+ 	  if(iend .gt. nel) iend = nel
 
-	do ie=init_do,end_do
-
-	  call sp256v_intern(ie,bcolin,baroc,az,am,af,at,radv
+ 	  do ies=ie,iend
+	    call sp256v_intern(ies,bcolin,baroc,az,am,af,at,radv
      +			,vismol,rrho0,dt)
+	  end do
+
+!$OMP END TASK
 
 	end do
 
+!$OMP END SINGLE
+!$OMP TASKWAIT	
 !$OMP END PARALLEL      
 
-	tempo = openmp_get_wtime() - tempo
+	!tempo = openmp_get_wtime() - tempo
 	!write(66,*) it,tempo
 
 c-------------------------------------------------------------
@@ -711,8 +713,6 @@ c-------------------------------------------------------------
 
 c******************************************************************
 
-!DEC$ ATTRIBUTES INLINE :: sp256v_intern
-
 	subroutine sp256v_intern(ie,bcolin,baroc,az,am,af,at,radv
      +			,vismol,rrho0,dt)
 
@@ -722,6 +722,22 @@ c semi-implicit scheme for 3d model
 c
 c written on 18.02.91 by ggu  (from scratch)
 c
+	use tidef
+	use mod_meteo
+	use mod_waves
+	use mod_fluidmud
+	use mod_internal
+	use mod_depth
+	use mod_layer_thickness
+	use mod_roughness
+	use mod_diff_visc_fric
+	use mod_hydro_baro
+	use mod_hydro_print
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 	integer ie
@@ -732,46 +748,18 @@ c
 	real dt
 
 c parameters
-	include 'param.h'
 	real drittl
 	parameter (drittl=1./3.)
-c	real az,azt,am,amt,af,aft,at,att
-c	parameter (az=0.50,azt=1.-az)
-c	parameter (am=0.50,amt=1.-am)
-c	parameter (af=0.50,aft=1.-af)
-c	parameter (at=0.50,att=1.-at)
 c common
 	include 'mkonst.h'
 	include 'pkonst.h'
 	include 'femtime.h'
-	include 'nlevel.h'
-	include 'basin.h'
-	include 'levels.h'
-	include 'depth.h'
-	include 'hydro.h'
-	include 'hydro_print.h'
-	include 'aux_array.h'
-	include 'hydro_baro.h'
-	include 'ev.h'
-
-       integer afix             !chao deb
-
-
-	include 'diff_visc_fric.h'
-
-
-	include 'meteo_aux.h'
-
-	include 'tides.h'
-
-	include 'internal.h'
-
-	include 'fluidmud.h'
 
 c local
 
 	logical bbaroc,barea0                  !$$BAROC_AREA0
 
+        integer afix             !chao deb
 	logical bfirst,blast
 	logical debug,bdebug
         logical bdebggu
@@ -808,38 +796,22 @@ c	real bb,bbt,cc,cct,aa,aat,ppx,ppy,aux,aux1,aux2
 	real vis
         
 	real rraux,cdf
-
-	include 'waves.h'
-
 	real ss
-	include 'roughness.h'
 
 c-----------------------------------------
-	real hact(0:nlvdim+1)
-	real rhact(0:nlvdim+1)
-	real alev(0:nlvdim)
+	real hact(0:nlvdi+1)
+	real rhact(0:nlvdi+1)
+	real alev(0:nlvdi)
 c-----------------------------------------
-	double precision rmat(10*nlvdim)
-	double precision rvec(6*nlvdim)		!ASYM (3 systems to solve)
+	double precision rmat(10*nlvdi)
+	double precision rvec(6*nlvdi)		!ASYM (3 systems to solve)
 	double precision ppx,ppy
-
-
 c-----------------------------------------
-c	integer iaux
-c	real*8 uaux,vaux
-c	real uamax,vamax
-c	real uuaux,vvaux,uvet1,uvet2
-c-----------------------------------------
-c=(3) aux variables (of no importance)
-c	real ppaux,ppmin,ppmax
-	real auxaux(-2:+2)
 c function
 	integer locssp,iround
 
         real epseps
         parameter (epseps = 1.e-6)
-
-	if(nlvdim.ne.nlvdi) stop 'error stop : level dimension in sp256v'
 
 c-------------------------------------------------------------
 c initialization and baroclinic terms
@@ -853,9 +825,6 @@ c-------------------------------------------------------------
 	if( barea0 ) then               !$$BAROC_AREA $$BAROC_AREA0
 	  if( iarv(ie) .ne. 0 ) bbaroc = .false.
         end if
-
-	rrho0=1./rowass
-	if( .not. bbaroc ) rrho0 = 0.
 
 c-------------------------------------------------------------
 c dimensions of vertical system
@@ -936,7 +905,7 @@ c-------------------------------------------------------------
 	  hact(l) = hdeov(l,ie)
 	end do
 	hact(ilevel+1) = 0.
-	hact(nlvdim+1) = 0.
+	hact(nlvdi+1) = 0.
 
 	if( bcolin ) then
 	  hact(1) = hact(1) - zmm		!FIXME
@@ -1058,8 +1027,8 @@ c	------------------------------------------------------
 
 	do ii=1,3
           k = nen3v(ii,ie)
-          up = saux2(l,k) / hhi
-          vp = saux3(l,k) / hhi
+          up = momentxv(l,k) / hhi
+          vp = momentyv(l,k) / hhi
           f = uui * b(ii) + vvi * c(ii)
           if( f .lt. 0. ) then    !flux out of node => into element
 	    uuadv = uuadv + aux*b(ii)*( up - uc )
@@ -1144,7 +1113,10 @@ c-------------------------------------------------------------
         !call dgelb(rvec,rmat,ngl,1,mbb,mbb,epseps,ier)
         call dgelb(rvec,rmat,ngl,3,mbb,mbb,epseps,ier)		!ASYM_OPSPLT
 
-	if(ier.ne.0) goto 99
+	if(ier.ne.0) then
+	  call vel_matrix_error(it,ier,ie,ilevel,rvec,rmat,hact,alev)
+	  stop 'error stop : sp256v'
+	end if
 
 c-------------------------------------------------------------
 c compute u^hat (negative sign because ppx/ppy was -F^x/-F^y)
@@ -1179,13 +1151,35 @@ c-------------------------------------------------------------
 c end of routine
 c-------------------------------------------------------------
 
-	return
-   99	continue
+	end
+
+c******************************************************************
+
+	subroutine vel_matrix_error(it,ier,ie,lmax,rvec,rmat,hact,alev)
+
+	implicit none
+
+	integer it,ier,ie,lmax
+	double precision rmat(10*lmax)
+	double precision rvec(6*lmax)
+	real hact(0:lmax+1)
+	real alev(0:lmax)
+
+	integer ii,l,kk,ngl,mbb
+	real auxaux(-2:2)
+
+	integer locssp
+
+	ngl=2*lmax
+	mbb=2
+	if(ngl.eq.2) mbb=1
+
 	write(6,*) 'Error in inverting matrix (vertical system)'
 	write(6,*) 'it, ier : ',it,ier
-	write(6,*) 'ie,ilevel,ngl,mbb: ',ie,ilevel,ngl,mbb
+	write(6,*) 'ie,lmax,ngl,mbb: ',ie,lmax,ngl,mbb
 	write(6,*) 'rvec: ',(rvec(l),l=1,ngl)
 	write(6,*) 'matrix: '
+
 	do ii=1,ngl
 	  do l=-2,2
 	    kk=locssp(ii,ii+l,ngl,mbb)
@@ -1197,22 +1191,32 @@ c-------------------------------------------------------------
 	  end do
 	  write(6,*) auxaux
 	end do
-	write(6,*) 'hact: ',(hact(l),l=0,ilevel)
-	write(6,*) 'alev: ',(alev(l),l=0,ilevel)
+
+	write(6,*) 'hact: ',(hact(l),l=0,lmax)
+	write(6,*) 'alev: ',(alev(l),l=0,lmax)
+
 	call check_set_unit(6)
 	call check_elem(ie)
 	call check_nodes_in_elem(ie)
-	stop 'error stop : sp256v'
+
 	end
 
 c******************************************************************
 
-	subroutine sp256n
+	subroutine hydro_transports_final
 
 c post processing of time step
 c
 c written on 23.07.1997 by ggu  (from scratch)
 c
+	use mod_internal
+	use mod_depth
+	use mod_hydro_baro
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 c
 c parameters
@@ -1223,17 +1227,9 @@ c common
 	include 'mkonst.h'
 	include 'pkonst.h'
 	include 'femtime.h'
-	include 'nlevel.h'
-	include 'basin.h'
-	include 'levels.h'
-	include 'depth.h'
-	include 'hydro_baro.h'
-	include 'ev.h'
 
-	include 'internal.h'
         integer afix            !chao deb
 
-	include 'hydro.h'
 
 
 c local
@@ -1247,8 +1243,6 @@ c local
 c function
 	integer iround
 	real getpar
-
-	if(nlvdim.ne.nlvdi) stop 'error stop : level dimension in sp256n'
 
 c-------------------------------------------------------------
 c initialize
@@ -1329,7 +1323,7 @@ c-------------------------------------------------------------
 
 c******************************************************************
 
-	subroutine sp256w(dzeta,vf,va)
+	subroutine hydro_vertical(dzeta)
 
 c computes vertical velocities
 c
@@ -1361,24 +1355,19 @@ c written on 27.08.91 by ggu  (from scratch)
 c 14.08.1998	ggu	w = 0 at open boundary nodes
 c 20.08.1998	ggu	some documentation
 
+	use mod_bound_geom
+	use mod_geom_dynamic
+	use mod_bound_dynamic
+	use mod_hydro_vel
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
-c parameters
-	include 'param.h'
 c arguments
-	!real vv(0:nlvdim,1)	!$$VERVEL
-	real dzeta(1)
-	real vf(nlvdim,1)
-	real va(nlvdim,1)
-c common
-	include 'nlevel.h'
-	include 'basin.h'
-	include 'hydro_vel.h'
-	include 'hydro.h'
-	include 'levels.h'
-	include 'geom_dynamic.h'
-	include 'bound_dynamic.h'
-	include 'ev.h'
+	real dzeta(nkn)
 c local
 	logical debug
 	integer k,ie,ii,kk,l,lmax
@@ -1390,16 +1379,15 @@ c local
 	real ffn,ffo
 	real volo,voln,dt,dvdt,q
 	real dzmax,dz
+	real, allocatable :: vf(:,:)
+	real, allocatable :: va(:,:)
 c statement functions
-	include 'testbndo.h'
 
 	logical is_zeta_bound
 	real volnode
 
-	logical isein
-        isein(ie) = iwegv(ie).eq.0
-
-	if(nlvdim.ne.nlvdi) stop 'error stop : level dimension in sp256w'
+	!logical isein
+        !isein(ie) = iwegv(ie).eq.0
 
 c initialize
 
@@ -1409,13 +1397,10 @@ c initialize
 	azt = 1. - az
 	call get_timestep(dt)
 
-	do k=1,nkn
-	  do l=1,nlv
-	    vf(l,k)=0.
-	    va(l,k)=0.
-	    wlnv(l,k) = 0.
-	  end do
-	end do
+	allocate(vf(nlvdi,nkn),va(nlvdi,nkn))
+	vf = 0.
+	va = 0.
+	wlnv = 0.
 
 c compute difference of velocities for each layer
 c
@@ -1479,7 +1464,7 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	  dzeta(k) = dz
 	end do
 
-	!write(6,*) 'sp256w: dzmax = ',dzmax
+	!write(6,*) 'hydro_vertical: dzmax = ',dzmax
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
@@ -1507,404 +1492,7 @@ c FIXME	-> only for ibtyp = 1,2 !!!!
             end if
 	end do
 
-	return
-	end
-
-c******************************************************************
-
-	subroutine sp256wd(dzeta,vf,va)
-
-c computes vertical velocities (double precision)
-c
-c velocities are computed on S/T points (top and bottom of layer)
-c bottom velocity of the whole column is assumed to be 0
-c -> maybe change this
-c
-c computes volume differences and from these computes vertical
-c velocities at every time step so that the computed velocities
-c satisfy the continuity equation for every single time step
-c
-c wlnv is computed horizontally at a node and vertically
-c it is at the center of the layer -> there are nlv velocities
-c computed
-c
-c b,c are 1/m, (phi is dimensionless)
-c aj is m**2
-c utlnv... is m**2/s
-c dvol is in m**3/s
-c vv is m**2 (area)
-c
-c wlnv is first used to accumulate volume difference -> dvol
-c at the end it receives the vertical velocity
-c
-c wlnv (dvol)   aux array for volume difference
-c vv            aux array for area
-c
-c written on 27.08.91 by ggu  (from scratch)
-c 14.08.1998	ggu	w = 0 at open boundary nodes
-c 20.08.1998	ggu	some documentation
-
-	implicit none
-
-c parameters
-	include 'param.h'
-c arguments
-	!real vv(0:nlvdim,1)	!$$VERVEL
-	real dzeta(1)
-	real vf(nlvdim,1)
-	real va(nlvdim,1)
-c common
-	include 'nlevel.h'
-	include 'basin.h'
-	include 'hydro.h'
-	include 'hydro_vel.h'
-	include 'levels.h'
-	include 'geom_dynamic.h'
-	include 'bound_dynamic.h'
-	include 'ev.h'
-c local
-	logical debug
-	integer k,ie,ii,kk,l,lmax
-	integer ilevel
-        integer ibc,ibtyp
-	real azpar,ampar
-	real dt
-	double precision aj,wbot,wdiv,ff,atop
-	double precision b,c
-	double precision am,az,azt
-	double precision ffn,ffo
-	double precision volo,voln,ddt,dvdt,q
-	double precision dzmax,dz
-	double precision vfd(nlvdim,nkndim)
-	double precision vad(nlvdim,nkndim)
-	double precision wlndv(0:nlvdim,nkndim)
-c statement functions
-
-	logical is_zeta_bound
-	real volnode
-
-	include 'testbndo.h'
-
-	logical isein
-        isein(ie) = iwegv(ie).eq.0
-
-	if(nlvdim.ne.nlvdi) stop 'error stop : level dimension in sp256w'
-
-c initialize
-
-	call getazam(azpar,ampar)
-	az=azpar
-	am=ampar
-	azt = 1. - az
-	call get_timestep(dt)
-	ddt = dt
-
-	do k=1,nkn
-	  do l=1,nlv
-	    vfd(l,k)=0.
-	    vad(l,k)=0.
-	    wlndv(l,k) = 0.
-	  end do
-	end do
-
-c compute difference of velocities for each layer
-c
-c f(ii) > 0 ==> flux into node ii
-c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
-
-	do ie=1,nel
-	 !if( isein(ie) ) then		!FIXME
-	  aj=4.*ev(10,ie)		!area of triangle / 3
-	  ilevel = ilhv(ie)
-	  do l=1,ilevel
-	    do ii=1,3
-		kk=nen3v(ii,ie)
-		b = ev(ii+3,ie)
-		c = ev(ii+6,ie)
-		ffn = utlnv(l,ie)*b + vtlnv(l,ie)*c
-		ffo = utlov(l,ie)*b + vtlov(l,ie)*c
-		ff = ffn * az + ffo * azt
-		vfd(l,kk) = vfd(l,kk) + 3. * aj * ff
-		vad(l,kk) = vad(l,kk) + aj
-	    end do
-	  end do
-	 !end if
-	end do
-
-c from vel difference get absolute velocity (w_bottom = 0)
-c	-> wlnv(nlv,k) is already in place !
-c	-> wlnv(nlv,k) = 0 + wlnv(nlv,k)
-c w of bottom of last layer must be 0 ! -> shift everything up
-c wlnv(nlv,k) is always 0
-c
-c dividing wlnv [m**3/s] by area [vv] gives vertical velocity
-c
-c in va(l,k) is the area of the upper interface: a(l) = a_i(l-1)
-c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
-
-	dzmax = 0.
-
-	do k=1,nkn
-	  lmax = ilhkv(k)
-	  wlndv(lmax,k) = 0.
-	  debug = k .eq. 0
-	  do l=lmax,1,-1
-            voln = volnode(l,k,+1)
-            volo = volnode(l,k,-1)
-	    dvdt = (voln-volo)/ddt
-	    q = mfluxv(l,k)
-	    wdiv = vfd(l,k) + q
-	    wlndv(l-1,k) = wlndv(l,k) + wdiv - dvdt
-	    if( debug ) write(6,*) k,l,wdiv,wlndv(l,k),wlndv(l-1,k)
-	  end do
-	  dz = ddt * wlndv(0,k) / vad(1,k)
-	  dzmax = max(dzmax,abs(dz))
-	  wlnv(0,k) = 0.	! ensure no flux across surface - is very small
-	  dzeta(k) = dz
-	end do
-
-	write(6,*) 'dzmax: ',dzmax
-
-	do k=1,nkn
-	  lmax = ilhkv(k)
-	  debug = k .eq. 0
-	  do l=2,lmax
-	    atop = vad(l,k)
-	    if( atop .gt. 0. ) then
-	      wlndv(l-1,k) = wlndv(l-1,k) / atop
-	      if( debug ) write(6,*) k,l,atop,wlndv(l-1,k)
-	    end if
-	  end do
-	end do
-
-c set w to zero at open boundary nodes (new 14.08.1998)
-c
-c FIXME	-> only for ibtyp = 1,2 !!!!
-
-	do k=1,nkn
-            !if( is_external_boundary(k) ) then	!bug fix 10.03.2010
-            if( is_zeta_bound(k) ) then
-	      do l=0,nlv
-		wlndv(l,k) = 0.
-	      end do
-	      dzeta(k) = 0.
-            end if
-	end do
-
-c copy double precision values to real values
-
-	do k=1,nkn
-	  lmax = ilhkv(k)
-	  wlnv(0,k) = wlndv(0,k)
-	  do l=1,lmax
-	    wlnv(l,k) = wlndv(l,k)
-	    vf(l,k) = vfd(l,k)
-	    va(l,k) = vad(l,k)
-	  end do
-	end do
-
-	return
-	end
-
-c******************************************************************
-
-        subroutine dryz(rmat,v1,v2,zv)
-c
-c estimation of levels in dry areas
-c
-c this routine is not called anymore
-c
-c rmat          band matrix already decomposed
-c v1            auxiliary vector, is used by routine
-c               ...to assemble constant vector
-c v2		pivot for rmat
-c zv		vector with new water levels
-c
-        implicit none
-c
-c arguments
-        real rmat(1),v1(1),v2(1),zv(1)
-c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'geom_dynamic.h'
-	include 'basin.h'
-	include 'ev.h'
-c local
-        integer ii,ie,k,ii1,ii2,kk1,kk2,ier
-	integer idry
-        real z,aj,hh999
-        real b(3),c(3)
-c functions
-        logical iskbnd,iskout,iseout
-        iskbnd(k) = inodv(k).ne.0 .and. inodv(k).ne.-2
-        iskout(k) = inodv(k).eq.-2
-        iseout(ie) = iwegv(ie).ne.0
-c
-	idry = 0
-        do k=1,nkn
-          v1(k)=0.
-	end do
-c
-	do ie=1,nel
-          if( iseout(ie) ) then
-	    idry = idry + 1
-            do ii=1,3
-              b(ii)=ev(ii+3,ie)
-              c(ii)=ev(ii+6,ie)
-            end do
-            aj=ev(10,ie)
-            hh999=12.*aj
-            do ii=1,3
-              k=nen3v(ii,ie)
-              if( iskbnd(k) ) then
-                z=zv(k)
-                ii1=mod(ii,3)+1
-                ii2=mod(ii1,3)+1
-                kk1=nen3v(ii1,ie)
-                kk2=nen3v(ii2,ie)
-                v1(kk1)=v1(kk1)-hh999*(b(ii)*b(ii1)+
-     +                      c(ii)*c(ii1))*z
-                v1(kk2)=v1(kk2)-hh999*(b(ii)*b(ii2)+
-     +                      c(ii)*c(ii2))*z
-                v1(k)=0.
-              end if
-            end do
-          end if
-	end do
-c
-	if( idry .eq. 0 ) return	!no dry areas
-
-	!stop 'error stop dryz: drying routine not yet working '	!ASYM
-
-        !call mchb(v1,rmat,nkn,1,mbw,-1,epseps,ier)
-        !if(ier.ne.0) goto 99
-
-        !write(6,*) '....... new solution for dry areas .......'
-	stop 'error stop dryz: not yet ready...'
-c                                             | should be integer
-c					      v
-        !call lp_subst_system(nkn,mbw,rmat,v1,v2)	!gguexclude - comment
-c
-        do k=1,nkn
-          if( iskout(k) ) zv(k)=v1(k)			!gguexclude - comment
-	end do
-c
-	return
-   99   continue
-        write(6,*) 'ier from mchb : ',ier
-        stop 'error stop dryz'
-	end
-
-c**************************************************
-c
-c transfered to subn35.f
-c
-c        function cdf(h,z0)
-c
-cc computes cd from h and z0
-c
-c        implicit none
-c
-c        real cdf
-c        real h,z0
-c
-c        real kappa,cds
-c
-c        kappa = 0.4
-c
-c        cds = kappa / log( (z0+0.5*h) / z0 )
-c
-c        cdf = cds*cds
-c
-c        end
-c
-c**************************************************
-
-        subroutine check_invers(ngl,mbb,rrmat,x,r)
-
-        implicit none
-
-        integer ngl,mbb
-        double precision rrmat(1)
-        double precision x(1)
-        double precision r(1)
-
-        integer i,j,ip
-        double precision diff,acu,val
-        integer locssp
-
-        diff = 0.
-
-        write(6,*) 'check_invers: ',ngl,mbb
-
-        do i=1,ngl
-          acu = 0.
-          do j=1,ngl
-            ip = locssp(i,j,ngl,mbb)
-            if( ip .gt. 0 ) then
-              val = rrmat(ip)
-              acu = acu + val * x(j)
-              write(6,*) i,j,ip,val
-            end if
-          end do
-          diff = diff + abs(r(i)-acu)
-        end do
-
-        do i=1,ngl
-          write(6,*) 'x,r: ',x(i),r(i)
-        end do
-
-        diff = diff / ngl
-        write(6,*) 'weighted difference for matrix: ',diff
-
-        end
-
-c*******************************************************************
-
-	subroutine set_yaron
-
-c momentum input for yaron
-
-	implicit none
-
-	include 'param.h'
-	include 'ev.h'
-
-	include 'levels.h'
-	include 'basin.h'
-	include 'depth.h'
-	include 'internal.h'
-
-	integer kin,lin,ie,ii,k,lmax,nelem
-	real rnx,rny,rfact,q,area,h,fact
-
-	kin = 3935
-	kin = 0
-	kin = 2088
-	lin = 8
-	nelem = 6
-	nelem = 4
-	rnx = -1
-	rny = 0.
-	rfact = 1.1
-	q = 10.
-
-	if( kin .le. 0 ) return
-
-        do ie=1,nel
-          lmax = ilhv(ie)
-          area = 12. * ev(10,ie)
-	  do ii=1,3
-	    k = nen3v(ii,ie)
-	    if( k .eq. kin .and. lmax .le. lin ) then
-	      h = hdeov(lin,ie)
-	      fact = rfact * q*q / (h*area*sqrt(area)*nelem)
-	write(17,*) 'yaron: ',ie,k,fact,fxv(lin,ie)
-	      fxv(lin,ie) = fxv(lin,ie) - fact * rnx
-	      fyv(lin,ie) = fyv(lin,ie) - fact * rny
-	    end if
-	  end do
-	end do
+	deallocate(vf,va)
 
 	end
 
@@ -1912,13 +1500,14 @@ c*******************************************************************
 
 	subroutine correct_zeta(dzeta)
 
+	use mod_hydro
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	real dzeta(1)		!zeta correction
+	real dzeta(nkn)		!zeta correction
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-	include 'hydro.h'
+	include 'param.h'
 
 	integer k
 

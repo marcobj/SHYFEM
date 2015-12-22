@@ -13,9 +13,9 @@ c subroutine conele(ielem,dz,con,coe)	changes concentration in element ielem
 c
 c subroutine volz3(k,dvol)                      inputs water volume
 c
-c subroutine volco0(k,lmax,nlvdim,s,area,vol,vol0,svol)
+c subroutine volco0(k,lmax,nlvddi,s,area,vol,vol0,svol)
 c       computes volume and total mass of concentration in column of node k
-c subroutine volno0(k,lmax,nlvdim,s,dvol,dcon)
+c subroutine volno0(k,lmax,nlvddi,s,dvol,dcon)
 c       inputs concentration in finite volume (node) k
 c
 c revision log :
@@ -43,6 +43,11 @@ c revised 19.01.94 by ggu   $$conz - implementation of concentration
 c revised 20.01.94 by ggu   $$lumpc - evaluate conz at node
 c revised 04.12.97 by ggu   concentration not adjusted anymore
 
+	use mod_geom
+	use mod_hydro
+	use evgeom
+	use basin
+
 	implicit none
 
 c arguments
@@ -50,22 +55,19 @@ c arguments
 	real vol,dz
 c common
 	include 'param.h'
-	include 'basin.h'
-	include 'hydro.h'
-	include 'ev.h'
-	include 'links.h'
 c local
 	real area
 	integer ie,i,ii,nl
 	integer ibase
+	integer elems(maxlnk)
 
 	integer ithis
 
-	call set_elem_links(k,nl)
+	call get_elems_around(k,maxlnk,nl,elems)
 
 	area=0.
 	do i=1,nl
-	  ie=lnk_elems(i)
+	  ie=elems(i)
 	  if(ie.le.0) stop 'error stop volnod: internal error'
 	  area=area+ev(10,ie)
 	end do
@@ -74,7 +76,7 @@ c local
 	dz=vol/area
 
 	do i=1,nl
-	  ie=lnk_elems(i)
+	  ie=elems(i)
 	  ii = ithis(k,ie)
 	  zenv(ii,ie)=zenv(ii,ie)+dz
 	  zeov(ii,ie)=zeov(ii,ie)+dz		!FIXME ?????
@@ -90,14 +92,15 @@ c inputs water distributed over total surface
 c
 c dz		rise of water level to achieve
 
+	use mod_hydro
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 c arguments
 	real dz
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-	include 'hydro.h'
+	include 'param.h'
 c local
 	integer ie,ii,k
 
@@ -127,15 +130,16 @@ c
 c written 24.03.94 by ggu   from volnod
 c revised 04.12.97 by ggu   concentration not adjusted anymore
 
+	use mod_hydro
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 c arguments
 	integer ielem
 	real dz
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-	include 'hydro.h'
+	include 'param.h'
 c local
 	integer ie,ii
 	integer ie1,ie2
@@ -175,6 +179,11 @@ c revised 20.01.94 by ggu   $$lumpc - evaluate conz at node
 c revised 04.12.97 by ggu   concentration adjusted in own routine
 c 16.01.2001 by ggu   new concentration unique for node
 
+	use mod_geom
+	use mod_hydro
+	use evgeom
+	use basin
+
 	implicit none
 
 c arguments
@@ -183,13 +192,10 @@ c arguments
 	real coe(3,1)
 c common
 	include 'param.h'
-	include 'hydro.h'
-	include 'basin.h'
-	include 'ev.h'
-	include 'links.h'
 c local
 	integer ie,i,ii,nl
 	integer ibase
+	integer elems(maxlnk)
 	real depth
 	real area,vol,dvol,voltot,cnew
 	real massold,massnew
@@ -197,7 +203,7 @@ c local
 
 	integer ithis
 
-	call set_elem_links(k,nl)
+	call get_elems_around(k,maxlnk,nl,elems)
 
 	voltot = 0.
 	dvoltot = 0.
@@ -206,7 +212,7 @@ c local
 	massnew = 0.
 
 	do i=1,nl
-	  ie=lnk_elems(i)
+	  ie=elems(i)
 	  if(ie.le.0) stop 'error stop connod: internal error'
 	  ii = ithis(k,ie)
 	  area = 4. * ev(10,ie)
@@ -220,7 +226,7 @@ c local
 	end do
 
 	do i=1,nl
-	  ie=lnk_elems(i)
+	  ie=elems(i)
 	  ii = ithis(k,ie)
 	  coe(ii,ie) = cnew / voltot
 	end do
@@ -231,7 +237,7 @@ c	write(6,*) 'ggu1: ',massold,massnew,massnew-massold
 
 	massnew = 0.
 	do i=1,nl
-	  ie=lnk_elems(i)
+	  ie=elems(i)
 	  ii = ithis(k,ie)
 	  area = 4. * ev(10,ie)
 	  depth=hm3v(ii,ie)+zenv(ii,ie)		!$$lumpc
@@ -257,6 +263,9 @@ c
 c written 24.03.94 by ggu   from volnod
 c revised 04.12.97 by ggu   concentration adjusted in own routine
 
+	use mod_hydro
+	use basin
+
 	implicit none
 
 c arguments
@@ -265,8 +274,6 @@ c arguments
 	real coe(3,1)
 c common
 	include 'param.h'
-	include 'hydro.h'
-	include 'basin.h'
 c local
 	real depth
 	integer ie,ii
@@ -302,16 +309,17 @@ c
 c written 07.04.95 by ggu   copied from volno3
 c revised 06.08.97 by ggu   use zenv for water level
 
+	use mod_hydro
+	use evgeom
+	use basin
+
 	implicit none
 
 c arguments
 	integer k
 	real dvol
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'hydro.h'
-	include 'ev.h'
+	include 'param.h'
 c local
         integer ie,ii
         real area,zz
@@ -348,6 +356,8 @@ c computes volume and total mass of concentration in column of node k
 c + volume of upper layer
 c new version that computes only up to layer lmax (lmax > 0)
 
+	use levels
+
 	implicit none
 
 c arguments
@@ -361,7 +371,6 @@ c arguments
 	real svol		!total mass of s in column		(out)
 c common
 	include 'param.h'
-	include 'levels.h'
 c local
 	integer l,ilevel,nlev
 	integer mode
@@ -395,6 +404,8 @@ c******************************************************
 c inputs concentration in finite volume (node) k
 c ( 3d version ) -> only up to layer lmax
 
+	use levels
+
 	implicit none
 
 c arguments
@@ -406,7 +417,6 @@ c arguments
 	real dcon		!concentration of new volume dvol
 c common
 	include 'param.h'
-	include 'levels.h'
 c local
 	logical debug
 	integer l,nlev

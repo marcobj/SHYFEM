@@ -61,14 +61,15 @@ c***************************************************************************
 
 c write 2d nos file
 
+	use mod_depth
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
 	integer nb
         character*(*) name,title
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-	include 'depth.h'
+	include 'param.h'
 
         character*80 pfile
         character*80 ptitle
@@ -183,19 +184,17 @@ c***************************************************************************
 
 c***************************************************************************
 
-	subroutine extract_level(nlvdim,nkn,level,v3,v2)
+	subroutine extract_level(nlvddi,nkn,level,v3,v2)
 
 	implicit none
 
-	integer nlvdim
+	integer nlvddi
 	integer nkn
 	integer level
-	real v3(nlvdim,1)
+	real v3(nlvddi,1)
 	real v2(1)
 
 	integer k
-
-	if( level .gt. nlvdim ) stop 'error stop extract_level: level'
 
 	do k=1,nkn
 	  v2(k) = v3(level,k)

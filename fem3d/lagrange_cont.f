@@ -31,10 +31,11 @@ c*******************************************************************
 
 c continuous release - number of particles depends on volume flux
 
+	use mod_lagrange
+
 	implicit none
 
         include 'param.h'
-        include 'lagrange.h'
 
 	integer k1,k2
 	integer ibc,nk,i,ibtyp,np
@@ -95,10 +96,11 @@ c*******************************************************************
 
 c continuous release - number of particles is independent of boundary length
 
+	use mod_lagrange
+
 	implicit none
 
         include 'param.h'
-        include 'lagrange.h'
 
 	integer k1,k2
 	integer ibc,nk,i,ibtyp,np
@@ -159,10 +161,11 @@ c continuous release - works both for pps and ppv
 c
 c replaces the routines above
 
+	use mod_lagrange
+
 	implicit none
 
         include 'param.h'
-        include 'lagrange.h'
 
 	integer k,k1,k2
 	integer ibc,nk,i,ibtyp,np
@@ -189,7 +192,7 @@ c replaces the routines above
 	  call get_bnd_ipar(ibc,'ibtyp',ibtyp)
 	  call get_bnd_par(ibc,'lgrpps',pps)
 
-	  bflux = pps .lt. 0.
+	  bflux = pps .lt. 0.	!if pps is negative it stands for parts per vol
 	  pps = abs(pps)
 
 	  if( pps .gt. 0. ) then
@@ -207,7 +210,6 @@ c replaces the routines above
 	      else
 	        q = dist_node(k1,k2) / totdist
 	      end if
-	!write(333,*) it,i,q
 	      q = max(q,0.)
 	      rp = rp + q*pps*dt
 	      np = rp
@@ -250,13 +252,14 @@ c*******************************************************************
 
 	subroutine create_parts(ity,np,k1,k2)
 
+	use basin
+
 	implicit none
 
 	integer ity
 	integer np,k1,k2
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer i,ie1,ie2
 	real x1,y1,x2,y2,dx,dy
@@ -297,14 +300,15 @@ c*******************************************************************
 
 	function get_bflux_ppv(k1,k2)
 
+	use mod_lagrange
+	use mod_geom
+
 	implicit none
 
 	real get_bflux_ppv
 	integer k1,k2
 
         include 'param.h'
-        include 'lagrange.h'
-        include 'links.h'
 
 	integer ie1,ie2,ii
 
@@ -331,6 +335,8 @@ c*******************************************************************
 
 c release on node
 
+	use basin
+
 	implicit none
 
 	integer ity		!type of particle
@@ -339,14 +345,12 @@ c release on node
 	integer n
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ie
 	real x,y
 
-	ie = 0
-	x = xgv(k)
-	y = ygv(k)
+	call find_elem_to_node(k,ie,x,y)
+	!write(6,*) 'inserting... ',k,ie,x,y
 
 	call release_on_point(ity,ppts,ie,x,y,n)
 
@@ -354,9 +358,73 @@ c release on node
 
 c*******************************************************************
 
+	subroutine find_elem_to_node(k,iee,x,y)
+
+	use basin
+
+c be sure particle is in an element
+
+	implicit none
+
+	integer k
+	integer iee
+	real x,y
+
+	integer ie,ii,kk,n,i
+	real xs,ys,alpha
+	integer ielist(ngr)
+	real ggrand
+
+	n = 0
+	alpha = 0.99
+
+	do ie=1,nel
+	  do ii=1,3
+	    kk = nen3v(ii,ie)
+	    if( kk .eq. k ) then
+	      n = n + 1
+	      if( n > ngr ) stop 'error stop find_elem_to_node: internal'
+	      ielist(n) = ie
+	    end if
+	  end do
+	end do
+
+	if( n == 0 ) stop 'error stop find_elem_to_node: internal 2'
+
+	i = 1 + n*ggrand(77)
+	if( i > n ) i = n
+
+	iee = ielist(i)
+	ie = iee
+
+	xs = 0.
+	ys = 0.
+	n = 0
+	do ii=1,3
+	  kk = nen3v(ii,ie)
+	  if( k /= kk ) then
+	    xs = xs + xgv(kk)
+	    ys = ys + ygv(kk)
+	  else
+	    n = n + 1
+	  end if
+	end do
+
+	if( n /= 1 ) stop 'error stop find_elem_to_node: internal 3'
+
+	xs = xs / 2.
+	ys = ys / 2.
+
+	x = alpha*xgv(k) + (1.-alpha)*xs
+	y = alpha*ygv(k) + (1.-alpha)*ys
+	
+	end
+
+c*******************************************************************
+
 	subroutine release_on_point(ity,ppts,ie,x,y,n)
 
-c release from one point
+c release from one point - works for 2D
 
 	implicit none
 

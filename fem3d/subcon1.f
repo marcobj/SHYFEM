@@ -55,13 +55,14 @@ c*****************************************************************
 
 c sets initial conditions (no stratification)
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	integer nlvddi		!vertical dimension of c
-	real c(nlvddi,1)		!variable to initialize
+	real c(nlvddi,nkn)	!variable to initialize
 	real cref		!reference value
 c common
-	include 'nbasin.h'
 c local
 	integer k,l
 	real depth,hlayer
@@ -80,15 +81,16 @@ c*****************************************************************
 
 c sets initial conditions (with stratification)
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	integer nlvddi		!vertical dimension of c
-	real c(nlvddi,1)		!variable to initialize
+	real c(nlvddi,nkn)	!variable to initialize
 	real cref		!reference value
 	real cstrat		!stratification [conc/km]
-	real hdko(nlvddi,1)	!layer thickness
+	real hdko(nlvddi,nkn)	!layer thickness
 c common
-	include 'nbasin.h'
 c local
 	integer k,l
 	real depth,hlayer
@@ -111,17 +113,17 @@ c*************************************************************
 
 c implements boundary condition (simplicistic version)
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 c arguments
 	integer nlvddi		!vertical dimension of c
-	real c(nlvddi,1)		!concentration (cconz,salt,temp,...)
-	real rbc(1)		!boundary condition
+	real c(nlvddi,nkn)	!concentration (cconz,salt,temp,...)
+	real rbc(nkn)		!boundary condition
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
 	include 'mkonst.h'
-	include 'levels.h'
 c local
 	integer k,l,lmax
 	real rb
@@ -145,19 +147,19 @@ c*************************************************************
 
 c implements boundary condition (simplicistic 3D version)
 
+	use mod_bound_dynamic
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 c arguments
 	integer nlvddi		!vertical dimension of c
-	real c(nlvddi,1)		!concentration (cconz,salt,temp,...)
+	real c(nlvddi,nkn)	!concentration (cconz,salt,temp,...)
 	integer nlvbnd		!vertical dimension of boundary conditions
-	real rbc(nlvbnd,1)	!boundary condition
+	real rbc(nlvbnd,nkn)	!boundary condition
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
 	include 'mkonst.h'
-	include 'levels.h'
-	include 'bound_dynamic.h'
 c local
 	integer k,l,lmax
 	real rb
@@ -203,6 +205,10 @@ c opens (NOS) file
 
 c on return iu = -1 means that no file has been opened and is not written
 
+	use mod_depth
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	integer iu		!unit				       (in/out)
@@ -212,12 +218,8 @@ c on return iu = -1 means that no file has been opened and is not written
 	integer nvar		!total number of variables to write    (in)
 	character*(*) type	!extension of file		       (in)
 
-	include 'param.h' !COMMON_GGU_SUBST
 	include 'simul.h'
-	include 'nbasin.h'
 	include 'femtime.h'
-	include 'levels.h'
-	include 'depth.h'
 
 	integer nvers
 	integer date,time
@@ -294,6 +296,8 @@ c*************************************************************
 
 c writes NOS file
 
+	use levels
+
 	implicit none
 
 	integer iu		!unit
@@ -301,11 +305,9 @@ c writes NOS file
 	integer idtcon		!time intervall of writes
 	integer ivar		!id of variable to be written
 	integer nlvddi		!vertical dimension of c
-	real c(nlvddi,1)		!scalar to write
+	real c(nlvddi,*)		!scalar to write
 
-	include 'param.h' !COMMON_GGU_SUBST
 	include 'femtime.h'
-	include 'levels.h'
 
 	logical binfo
 	integer ierr
@@ -351,6 +353,8 @@ c*************************************************************
 
 c shell for writing file unconditionally to disk
 
+	use levels, only : nlvdi,nlv
+
         implicit none
 
 	integer iu		!unit (0 for first call, set on return)
@@ -358,10 +362,9 @@ c shell for writing file unconditionally to disk
 	integer nvar		!total number of variables
 	integer ivar		!id of variable to be written
 	integer nlvddi		!vertical dimension of c
-	real c(nlvddi,1)	!concentration to write
+	real c(nlvddi,*)	!concentration to write
 
 	include 'femtime.h'
-	include 'nlevel.h'
 
         integer itmcon,idtcon,lmax
 
@@ -383,25 +386,39 @@ c*************************************************************
 c*************************************************************
 
 	subroutine open_scalar_file(ia_out,nl,nvar,type)
+	implicit none
+	integer ia_out(4)	!time information		       (in/out)
+	integer nl		!vertical dimension of scalar          (in)
+	integer nvar		!total number of variables to write    (in)
+	character*(*) type	!extension of file		       (in)
+	double precision da_out(4)
+	da_out = ia_out
+	call open_scalar_file_d(da_out,nl,nvar,type)
+	ia_out = nint(da_out)
+	end
+
+c*************************************************************
+
+	subroutine open_scalar_file_d(da_out,nl,nvar,type)
 
 c opens (NOS) file
 
 c on return iu = -1 means that no file has been opened and is not written
 
+	use mod_depth
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	integer ia_out(4)	!time information		       (in/out)
+	double precision da_out(4)	!time information	       (in/out)
 	integer nl		!vertical dimension of scalar          (in)
 	integer nvar		!total number of variables to write    (in)
 	character*(*) type	!extension of file		       (in)
 
-	include 'param.h' !COMMON_GGU_SUBST
 	include 'femtime.h'
 
 	include 'simul.h'
-	include 'nbasin.h'
-	include 'levels.h'
-	include 'depth.h'
 
 	integer nvers
 	integer date,time
@@ -417,7 +434,7 @@ c-----------------------------------------------------
 
 	iu = ifemop(type,'unformatted','new')
 	if( iu .le. 0 ) goto 98
-	ia_out(4) = iu
+	da_out(4) = iu
 
 c-----------------------------------------------------
 c initialize parameters
@@ -464,22 +481,35 @@ c-----------------------------------------------------
 c*************************************************************
 
 	subroutine write_scalar_file(ia_out,ivar,nlvddi,c)
+	implicit none
+	integer ia_out(4)	!time information
+	integer ivar		!id of variable to be written
+	integer nlvddi		!vertical dimension of c
+	real c(nlvddi,*)		!scalar to write
+	double precision da_out(4)
+	da_out = ia_out
+	call write_scalar_file_d(da_out,ivar,nlvddi,c)
+	ia_out = nint(da_out)
+	end
+
+c*************************************************************
+
+	subroutine write_scalar_file_d(da_out,ivar,nlvddi,c)
 
 c writes NOS file
 c
 c the file must be open, the file will be written unconditionally
 
+	use levels
+
 	implicit none
 
-	integer ia_out(4)	!time information
-	integer ivar		!id of variable to be written
-	integer nlvddi		!vertical dimension of c
-	real c(nlvddi,1)		!scalar to write
+	double precision da_out(4)	!time information
+	integer ivar			!id of variable to be written
+	integer nlvddi			!vertical dimension of c
+	real c(nlvddi,*)		!scalar to write
 
-	include 'param.h' !COMMON_GGU_SUBST
 	include 'femtime.h'
-
-	include 'levels.h'
 
 	logical binfo
 	integer iu,ierr
@@ -490,7 +520,7 @@ c-----------------------------------------------------
 c check if files has to be written
 c-----------------------------------------------------
 
-	iu = ia_out(4)
+	iu = nint(da_out(4))
 	if( iu .le. 0 ) return
 
 c-----------------------------------------------------
@@ -526,16 +556,15 @@ c*************************************************************
 
 c computes min/max for scalar field
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 c arguments
 	integer nlvddi		!vertical dimension of c
-	real c(nlvddi,1)		!concentration (cconz,salt,temp,...)
+	real c(nlvddi,nkn)		!concentration (cconz,salt,temp,...)
         real cmin,cmax
-c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-	include 'levels.h'
 c local
 	integer k,l,lmax
 	real cc
@@ -578,17 +607,17 @@ c*************************************************************
 
 c computes min/max for scalar field -> writes some info
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 c arguments
 	integer nlvddi		!vertical dimension of c
-	real c(nlvddi,1)		!concentration (cconz,salt,temp,...)
+	real c(nlvddi,nkn)		!concentration (cconz,salt,temp,...)
         real cmin,cmax
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
 	include 'femtime.h'
-	include 'levels.h'
 c local
 	integer k,l,lmax
         integer ntot

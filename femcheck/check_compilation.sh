@@ -46,15 +46,18 @@ verbose="YES"
 [ -f .memory ] && rm -f .memory
 [ -f $log ] && rm -f $log
 
-CheckCommand ht ./fem3d/ht 
-CheckCommand vp ./fem3d/vp 
-CheckCommand basinf ./fem3d/basinf 
+#CheckCommand ht ./fem3d/ht 
+#CheckCommand vp ./fem3d/vp 
+CheckCommand shyfem ./fem3d/shyfem 
+CheckCommand shypre ./fem3d/shypre 
+CheckCommand basinf ./fem3d/shyelab 
+CheckCommand basinf ./fem3d/shybas 
 
 CheckCommand plotsim ./femplot/plotsim 
 
 #CheckCommand ggg ./fem3d/ggg 		#fake error
 
-CheckCommand adjele ./femadj/adjele 
+CheckCommand adjele ./femadj/shyadj 
 CheckCommand gridr ./femspline/gridr 
 
 CheckCommand grid ./grid/grid 

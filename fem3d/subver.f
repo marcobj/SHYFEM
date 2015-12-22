@@ -244,6 +244,39 @@ c 30.04.2015	ggu	version 7.1.9	Harald's birthday '
 c 05.05.2015	ggu	version 7.1.10
 c 21.05.2015	ggu	version 7.1.11
 c 05.06.2015	ggu	version 7.1.12
+c 10.07.2015	ggu	version 7.1.50	big release...
+c 13.07.2015	ggu	version 7.1.51
+c 17.07.2015	ggu	version 7.1.52
+c 17.07.2015	ggu	version 7.1.53
+c 17.07.2015	ggu	version 7.1.80
+c 20.07.2015	ggu	version 7.1.81
+c 24.07.2015	ggu	version 7.1.82
+c 30.07.2015	ggu	version 7.1.83
+c 31.07.2015	ggu	version 7.1.84
+c 31.07.2015	ggu	version 7.2.1	holiday release
+c 14.09.2015	ggu	version 7.2.2
+c 18.09.2015	ggu	version 7.2.3
+c 23.09.2015	ggu	version 7.2.4
+c 29.09.2015	ggu	version 7.2.5
+c 30.09.2015	ggu	version 7.2.6
+c 02.10.2015	ggu	version 7.3.1	first of development branch
+c 10.10.2015	ggu	version 7.3.2
+c 12.10.2015	ggu	version 7.3.3
+c 12.10.2015	ggu	version 7.3.4
+c 12.10.2015	ggu	version 7.3.4a
+c 13.10.2015	ggu	version 7.3.5
+c 19.10.2015	ggu	version 7.3.6
+c 22.10.2015	ggu	version 7.3.7	Tante Lores birthday release
+c 22.10.2015	ggu	version 7.3.8	Tante Lores birthday release again
+c 23.10.2015	ggu	version 7.3.9	after Eric
+c 26.10.2015	ggu	version 7.3.10
+c 05.11.2015	ggu	version 7.3.11
+c 05.11.2015	ggu	version 7.3.12
+c 09.11.2015	ggu	version 7.3.13	the wall release
+c 16.11.2015	ggu	version 7.3.14
+c 20.11.2015	ggu	version 7.3.15	pre Madonna della Salute release
+c 16.12.2015	ggu	version 7.3.16
+c 18.12.2015	ggu	version 7.3.17	Christmas 2015 release
 c
 c*****************************************************************
 
@@ -251,18 +284,18 @@ c*****************************************************************
 
 c DOCS	START	P_version
 c
-c \newcommand{\VERSION}{7.1.12}
-c \newcommand{\version}{7\_1\_12}
+c \newcommand{\VERSION}{7.3.17}
+c \newcommand{\version}{7\_3\_17}
 c
 c DOCS	END
 
         implicit none
 
         character*10 version
-	parameter (version='7.1.12')
+        parameter (version='7.3.17')
 
         character*30 string
-	parameter (string='SHYFEM VERSION = '//version)
+        parameter (string='SHYFEM VERSION = '//version)
 
         character*10 shyver
         character*30 shystr
@@ -315,7 +348,7 @@ c writes copyright and version/dimension
         write(6,*) ' ----------------------------------------------'
         write(6,*)
         write(6,*) ' SHYFEM - Finite Element Model for coastal seas'
-        write(6,*) ' Copyright (c) The Shyfem Team 1985-2014'
+        write(6,*) ' Copyright (c) The Shyfem Team 1985-2015'
         write(6,*)
         write(6,*) ' version: ',vers
         write(6,*) ' routine: ',routine

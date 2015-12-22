@@ -8,7 +8,7 @@ newtmp
 mod
 
 lib
-#bin
+bin
 #fem3d/bin
 bugs
 
@@ -16,6 +16,11 @@ femmpi
 rules
 stable
 femdoc/old/
+
+femsave
+femregress
+
+gmon.out
 
 #-----------------------------------------------
 
@@ -123,8 +128,19 @@ fem3d/check_debug
 fem3d/baschk
 fem3d/bascomp
 fem3d/ousvdiff
+fem3d/zinit
+fem3d/noselab
+fem3d/ouselab
+fem3d/extelab
+fem3d/shyelab
+fem3d/shyfem
+fem3d/shypre
+fem3d/shybas
+fem3d/flxelab
 
+femadj/shyadj
 femadj/adjele
+
 fembin/extDiff
 fembin/extMerge
 femplot/line_nodes
@@ -158,6 +174,7 @@ fembin/ousinf
 fembin/rstinf
 fembin/splitext
 fembin/splitflx
+fembin/nosextr_nodes
 fembin/volinf
 fembin/vp
 fembin/wininf
@@ -171,6 +188,17 @@ fembin/etsinf
 fembin/fileinf
 fembin/splitets
 fembin/bc2fem
+fembin/noselab
+fembin/ouselab
+fembin/extelab
+fembin/shyelab
+fembin/shyfem
+fembin/shypre
+fembin/shybas
+fembin/flxelab
+fembin/shyadj
+fembin/adjele
+fembin/femelab
 
 fembin/grid
 fembin/mesh

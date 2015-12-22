@@ -30,12 +30,13 @@ LIBIPS  = $(DIRLIB)/lib$(LIBPOST).a
 
 #--------------------------------------------- macros
 
-OBJS	=	subgrd.o subsrt.o subssv.o subsss.o subfil.o subgeo.o
+OBJS	=	subsrt.o subssv.o subsss.o subfil.o subgeo.o
 
 ADJOBJS	=	adj4el.o adj5el.o adj7el.o adj575.o \
-		adjplo.o adjgrd.o adjneu.o adjvar.o 
+		adjplo.o adjgrd.o adjneu.o adjvar.o \
+		mod_adj_grade.o
 
-EXES	=	adjele
+EXES	=	shyadj
 
 SPECIAL =       Makefile TODO COMMIT VERSION
 SAVEFILES =     *.[fh] $(SPECIAL)
@@ -45,15 +46,15 @@ MAKEDEPEND = $(FEMBIN)/mkdp.pl
 #--------------------------------------------- EXES
 
 default: fem
-fem:	param adjele
-all:	param $(EXES)
+fem:	shyadj
+all:	$(EXES)
 
-adjele:  adjele.o $(ADJOBJS) $(OBJS) $(LIBIFS) $(LIBIPS)
+shyadj:  shyadj.o $(ADJOBJS) $(OBJS) $(LIBIFS) $(LIBIPS)
 	$(LINKER) $(LFLAGS) $@.o $(ADJOBJS) $(OBJS) $(LIBFS) $(LIBPS) -o $@
 
 #--------------------------------------------- clean
 
-cleanall: clean cleanzip cleangrd
+cleanall: clean cleanzip cleangrd cleandiff
 
 clean: cleanobj cleanexe cleanvar cleantex
 
@@ -95,15 +96,13 @@ cleangrd:
 #--------------------------------------------- various
 
 param:
-	-@$(FEMBIN)/make_param.pl $(FEMDIR) param.h
-	-@$(FEMBIN)/param.sh $(FEMDIR) param.h
 
 diff:
 	@$(FEMBIN)/cvsdiff -norcs -ifdiff * > DIFFS
 	@echo "differences written to file DIFFS"
 
 depend:
-	$(MAKEDEPEND) *.f
+	$(MAKEDEPEND) -moddir=$(MODDIR) *.f
 
 list:
 	pwd; ls
@@ -135,14 +134,20 @@ strip:
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-adj4el.o: param.h basin.h grade.h
-adj575.o: param.h basin.h grade.h
-adj5el.o: param.h basin.h grade.h
-adj7el.o: param.h basin.h grade.h
-adjele.o: depth.h param.h basin.h grade.h
+adj4el.o: ../femlib/mod/basin.mod ../femlib/mod/mod_adj_grade.mod
+adj575.o: ../femlib/mod/mod_adj_grade.mod ../femlib/mod/basin.mod
+adj5el.o: param.h ../femlib/mod/mod_adj_grade.mod \
+		../femlib/mod/basin.mod 
+adj7el.o: ../femlib/mod/basin.mod ../femlib/mod/mod_adj_grade.mod
 adjgrd.o: nbstatic.h
-adjneu.o: depth.h param.h basin.h grade.h
-adjplo.o: param.h basin.h grade.h
-adjvar.o: param.h nbstatic.h basin.h grade.h
-subgrd.o: pkonst.h param.h subgrd.h basin.h
+adjneu.o: ../femlib/mod/mod_depth.mod \
+		../femlib/mod/mod_adj_grade.mod \
+		../femlib/mod/basin.mod param.h 
+adjplo.o: param.h ../femlib/mod/mod_adj_grade.mod \
+		../femlib/mod/basin.mod 
+adjvar.o: ../femlib/mod/basin.mod ../femlib/mod/mod_adj_grade.mod \
+		nbstatic.h param.h 
+../femlib/mod/mod_adj_grade.mod: mod_adj_grade.o
+shyadj.o: ../femlib/mod/mod_adj_grade.mod ../femlib/mod/basin.mod \
+		param.h ../femlib/mod/mod_depth.mod 
 

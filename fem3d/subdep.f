@@ -45,14 +45,13 @@ c
 c revised 02.02.94 by ggu	$$nmax - check error condtion nmax
 c revised 29.06.97 by ggu	$$ndim - dimension of f is passed
 
+	use basin
+
 	implicit none
 
 	integer igtdep
 	integer k,ndim
-	real f(1)
-
-	include 'param.h'
-	include 'basin.h'
+	real f(ndim)
 
 	integer iact,ie,i,ii
 
@@ -96,17 +95,16 @@ c               1       unique depth
 c               0       no unique depth
 c               -1      error
 
+	use basin
+
 	implicit none
 
 	integer igtdpa
 	integer mode
-	real h(1)
+	real h(nkn)
 
 	real high
 	parameter(high=1.e+30)
-
-	include 'param.h'
-	include 'basin.h'
 
 	logical buniq
 	integer ie,ii,i,k
@@ -168,14 +166,12 @@ c
 c hev		element averaged depth values
 c hkv            array with unique depth values
 
+	use basin
+
 	implicit none
 
-	real hev(1)
-	real hkv(1)
-
-
-	include 'param.h'
-	include 'basin.h'
+	real hev(nel)
+	real hkv(nkn)
 
 	integer ie,ii,k
 	logical bstop
@@ -234,13 +230,12 @@ c********************************************************************
 
 c makes hev (elementwise depth)
 
+	use basin
+
         implicit none
 
 c arguments
-        real hev(1)
-c common
-	include 'param.h'
-	include 'basin.h'
+        real hev(nel)
 c local
         integer ie,ii
 	real hm
@@ -261,14 +256,13 @@ c********************************************************************
 
 c makes hkv (nodewise depth)
 
+	use basin
+
         implicit none
 
 c arguments
-        real hkv(1)
-        real haux(1)   !aux array -> bug - was integer
-c common
-	include 'param.h'
-	include 'basin.h'
+        real hkv(nkn)
+        real haux(nkn)   !aux array -> bug - was integer
 c local
         integer ie,ii,k,kn
 	real weight
@@ -303,15 +297,13 @@ c makes hkv (nodewise depth)
 c
 c itype:  -1: min  0: aver  +1: max
 
+	use basin
+
         implicit none
 
-        real hkv(1)
-        real haux(1)
+        real hkv(nkn)
+        real haux(nkn)
         integer itype
-
-
-	include 'param.h'
-	include 'basin.h'
 
         integer k,ie,ii
         real hinit,h
@@ -363,12 +355,11 @@ c********************************************************************
 
 c adjusts depth to reference and min/max values - only hm3v is changed
 
+	use basin
+
 	implicit none
 
 	real hmin,hmax,href
-
-	include 'param.h'
-	include 'basin.h'
 
 	integer iaux,ie,ii
 	real hmed
@@ -494,12 +485,11 @@ c********************************************************************
 
 	subroutine flatten_hm3v(hsigma)
 
+	use basin
+
 	implicit none
 
 	real hsigma
-
-	include 'param.h'
-	include 'basin.h'
 
 	integer ie,ii
 	real hm
@@ -525,11 +515,10 @@ c********************************************************************
 
 c adjusts nodal depth values
 
-	implicit none
+	use mod_depth
+	use basin, only : nkn,nel,ngr,mbw
 
-	include 'param.h'
-	include 'nbasin.h'
-	include 'depth.h'
+	implicit none
 
 	real v1v(nkn)
 
@@ -545,10 +534,9 @@ c********************************************************************
 
 c adjusts elemental depth values
 
-	implicit none
+	use mod_depth
 
-	include 'param.h'
-	include 'depth.h'
+	implicit none
 
         call makehev(hev)
 
@@ -574,12 +562,10 @@ c********************************************************************
 
 c adjourns hev and hkv from hm3v (if it has been changed)
 
+	use mod_depth
+	use basin
+
 	implicit none
-
-
-	include 'param.h'
-	include 'basin.h'
-	include 'depth.h'
 
 	integer ie,ii
 
@@ -603,10 +589,9 @@ c********************************************************************
 c checks hkv and hsigma
 c uses information about sigma layers and hsigma (hybrid)
 
-	implicit none
+	use basin
 
-	include 'param.h'
-	include 'basin.h'
+	implicit none
 
 	logical berror
 	integer k,ie,ii
@@ -707,11 +692,10 @@ c********************************************************************
 
 	subroutine read_in_hev(file)
 
-	character*(*) file
+	use mod_depth
+	use basin, only : nkn,nel,ngr,mbw
 
-	include 'param.h'
-	include 'nbasin.h'
-	include 'depth.h'
+	character*(*) file
 
 	integer ie
 
@@ -731,11 +715,10 @@ c********************************************************************
 
 	subroutine write_out_hev(file)
 
-	character*(*) file
+	use mod_depth
+	use basin, only : nkn,nel,ngr,mbw
 
-	include 'param.h'
-	include 'nbasin.h'
-	include 'depth.h'
+	character*(*) file
 
 	integer ie
 

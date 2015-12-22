@@ -55,12 +55,13 @@ c*****************************************************************
 
 c sets dry elements
 
+	use mod_geom_dynamic
+
 	implicit none
 
 	integer ie
 
 	include 'param.h'
-	include 'geom_dynamic.h'
 
 	if( iwegv(ie) .eq. 0 ) then
 	  iwegv(ie) = 3
@@ -104,16 +105,17 @@ c iwegv   0:all nodes wet   >0:number of nodes dry -> out of system
 c
 c revised 12.01.94 by ggu   $$hzon  - use new variable hzon
 c
+	use mod_geom_dynamic
+	use mod_hydro
+	use evgeom
+	use basin
+
         implicit none
 
 c arguments
         integer iweich,iw
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'geom_dynamic.h'
-	include 'basin.h'
-	include 'hydro.h'
-	include 'ev.h'
+	include 'param.h'
 c local
         integer ie,ii,iwh,iweg,k,iu
         integer iespec,iwait,iwet
@@ -318,16 +320,17 @@ c revised 04.03.94 by ggu   $$azuvdry - one az too much in formula
 c revised 27.10.97 by ggu   $$isum - better identification of error 99
 c revised 27.10.97 by ggu   $$dpisum - use double prec. for key values
 c
+	use mod_geom_dynamic
+	use mod_hydro_baro
+	use mod_hydro
+	use evgeom
+	use basin
+
         implicit none
 c
 c common
-	include 'param.h' !COMMON_GGU_SUBST
+	include 'param.h'
 	include 'femtime.h'
-	include 'geom_dynamic.h'
-	include 'basin.h'
-	include 'hydro.h'
-	include 'hydro_baro.h'
-	include 'ev.h'
 c local
         integer ie,ii,i1,i2,isum,itot
         integer i3,i4,i5,i6,i7,i8
@@ -548,13 +551,14 @@ c****************************************************************
 
 c sets array zenv from znv
 
+	use mod_geom_dynamic
+	use mod_hydro
+	use basin
+
         implicit none
 
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'geom_dynamic.h'
-	include 'basin.h'
-	include 'hydro.h'
+	include 'param.h'
 c local
         integer ie,ii
 
@@ -574,21 +578,22 @@ c****************************************************************
 
 c sets array znv from zenv
 
+	use mod_geom_dynamic
+	use mod_hydro
+	use evgeom
+	use basin
+
         implicit none
 
 c common
-	include 'param.h' !COMMON_GGU_SUBST
+	include 'param.h'
 	include 'mkonst.h'
 
-	include 'geom_dynamic.h'
-	include 'basin.h'
-	include 'hydro.h'
-	include 'ev.h'
-	include 'aux_array.h'
 c local
         integer ie,ii,k
         integer ntot
 	real z,area
+	real v1v(nkn),v2v(nkn)
 
 c-------------------------------------------------------------
 c initialize znv and counters
@@ -596,11 +601,9 @@ c-------------------------------------------------------------
 
         ntot = 0
 
-	do k=1,nkn
-	  znv(k) = flag
-	  v1v(k) = 0.
-	  v2v(k) = 0.
-	end do
+	znv = flag
+	v1v = 0.
+	v2v = 0.
 
 c-------------------------------------------------------------
 c set znv and accumulate
@@ -670,16 +673,17 @@ c av    aux vector for weighting factors (areas)
 c
 c written ...07.92 by ggu   $$lump  - lumping of matrix
 c
+	use mod_geom_dynamic
+	use mod_hydro
+	use evgeom
+	use basin
+
         implicit none
 c
 c arguments
         real zv(1),av(1)
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'geom_dynamic.h'
-	include 'basin.h'
-	include 'hydro.h'
-	include 'ev.h'
+	include 'param.h'
 c local
         integer ie,i,k
         real aomega

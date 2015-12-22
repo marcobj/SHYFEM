@@ -12,18 +12,19 @@ c 10.02.2012    ggu     new routines to get initial/final time of records
 c 25.01.2013    ggu     new routines nos_get_vars()
 c 05.09.2013    ggu     new call to get_layer_thickness()
 c 20.01.2014    ggu     new helper routines
+c 23.09.2015    ggu     close files in nos_get_it_start() nos_get_it_end()
 c
 c***************************************************************
 
-	subroutine make_vert_aver(nlvdim,nkn,ilhkv,cv3,vol3,cv2)
+	subroutine make_vert_aver(nlvddi,nkn,ilhkv,cv3,vol3,cv2)
 
 	implicit none
 
-	integer nlvdim
+	integer nlvddi
 	integer nkn
 	integer ilhkv(nkn)
-	real cv3(nlvdim,nkn)
-	real vol3(nlvdim,nkn)
+	real cv3(nlvddi,nkn)
+	real vol3(nlvddi,nkn)
 	real cv2(nkn)
 
 	integer k,l,lmax
@@ -48,16 +49,16 @@ c***************************************************************
 
 c***************************************************************
 
-	subroutine make_aver(nlvdim,nkn,ilhkv,cv3,vol3
+	subroutine make_aver(nlvddi,nkn,ilhkv,cv3,vol3
      +				,cmin,cmax,cmed,vtot)
 
 	implicit none
 
-	integer nlvdim
+	integer nlvddi
 	integer nkn
 	integer ilhkv(nkn)
-	real cv3(nlvdim,nkn)
-	real vol3(nlvdim,nkn)
+	real cv3(nlvddi,nkn)
+	real vol3(nlvddi,nkn)
 	real cmin,cmax,cmed,vtot
 
 	integer k,l,lmax
@@ -88,15 +89,15 @@ c***************************************************************
 
 c***************************************************************
 
-	subroutine make_acumulate(nlvdim,nkn,ilhkv,cv3,cvacu)
+	subroutine make_acumulate(nlvddi,nkn,ilhkv,cv3,cvacu)
 
 	implicit none
 
-	integer nlvdim
+	integer nlvddi
 	integer nkn
 	integer ilhkv(nkn)
-	real cv3(nlvdim,nkn)
-	real cvacu(nlvdim,nkn)
+	real cv3(nlvddi,nkn)
+	real cvacu(nlvddi,nkn)
 
 	integer k,l,lmax
 
@@ -144,17 +145,46 @@ c all other variables must have already been stored internally (title,date..)
 
 c***************************************************************
 
-	subroutine read_nos_header(iu,nkndim,neldim,nlvdim,ilhkv,hlv,hev)
+	subroutine peek_nos_header(iu,nkn,nel,nlv,nvar)
+
+c get size of data
+
+	implicit none
+
+	integer iu
+	integer nkn,nel,nlv,nvar
+
+	integer nvers
+	integer ierr
+
+	nvers = 5
+	call nos_init(iu,nvers)
+
+	call nos_read_header(iu,nkn,nel,nlv,nvar,ierr)
+	if( ierr .ne. 0 ) goto 99
+
+	call nos_close(iu)
+	rewind(iu)
+
+	return
+   99	continue
+	write(6,*) 'error in reading header of NOS file'
+	stop 'error stop peek_nos_header: reading header'
+	end
+
+c***************************************************************
+
+	subroutine read_nos_header(iu,nknddi,nelddi,nlvddi,ilhkv,hlv,hev)
 
 c other variables are stored internally
 
 	implicit none
 
 	integer iu
-	integer nkndim,neldim,nlvdim
-	integer ilhkv(nkndim)
-	real hlv(nlvdim)
-	real hev(neldim)
+	integer nknddi,nelddi,nlvddi
+	integer ilhkv(nknddi)
+	real hlv(nlvddi)
+	real hev(nelddi)
 
 	integer nvers
 	integer nkn,nel,nlv,nvar
@@ -170,7 +200,7 @@ c other variables are stored internally
 	call nos_read_header(iu,nkn,nel,nlv,nvar,ierr)
 	if( ierr .ne. 0 ) goto 99
 
-	call dimnos(iu,nkndim,neldim,nlvdim)
+	call dimnos(iu,nknddi,nelddi,nlvddi)
 
 	call getnos(iu,nvers,nkn,nel,nlv,nvar)
 	call nos_get_date(iu,date,time)
@@ -277,7 +307,7 @@ c***************************************************************
 c***************************************************************
 c***************************************************************
 
-	subroutine init_volume(nlvdim,nkn,nel,nlv,nen3v,ilhkv
+	subroutine init_volume(nlvddi,nkn,nel,nlv,nen3v,ilhkv
      +				,hlv,hev,hl,vol3)
 
 c initializes volumes just in case no volume file is found
@@ -287,14 +317,14 @@ c we could do better using information on node area and depth structure
 
 	implicit none
 
-	integer nlvdim
+	integer nlvddi
 	integer nkn,nel,nlv
 	integer nen3v(3,nel)
 	integer ilhkv(nkn)
 	real hlv(nlv)
 	real hev(nel)
 	real hl(nlv)		!aux vector for layer thickness
-	real vol3(nlvdim,nkn)
+	real vol3(nlvddi,nkn)
 
 	logical bsigma
 	integer ie,ii,k,l,lmax,nsigma,nlvaux
@@ -330,7 +360,7 @@ c we could do better using information on node area and depth structure
 
 c***************************************************************
 
-	subroutine get_volume(nvol,it,nlvdim,ilhkv,vol3)
+	subroutine get_volume(nvol,it,nlvddi,ilhkv,vol3)
 
 c reads volumes
 
@@ -338,9 +368,9 @@ c reads volumes
 
 	integer nvol
 	integer it
-	integer nlvdim
+	integer nlvddi
 	integer ilhkv(1)
-	real vol3(nlvdim,1)
+	real vol3(nlvddi,1)
 
 	integer ivar,ierr
 
@@ -353,7 +383,7 @@ c reads volumes
 	if( it .lt. itold ) goto 95			!error - it too small
 
 	do while( itold .lt. it )
-	  call rdnos(nvol,itold,ivar,nlvdim,ilhkv,vol3,ierr)
+	  call rdnos(nvol,itold,ivar,nlvddi,ilhkv,vol3,ierr)
           if(ierr.gt.0) goto 94			!read error
           if(ierr.ne.0) goto 93			!EOF
           if(ivar.ne.66) goto 92		!ivar should be 66
@@ -465,12 +495,17 @@ c gets it of first record
 	itstart = -1
 
 	call open_nos_file(file,'old',nunit)
+	if( nunit .le. 0 ) return
 	call nos_init(nunit,nvers)
 	call nos_skip_header(nunit,nvar,ierr)
-	if( ierr .ne. 0 ) return
+	if( ierr .ne. 0 ) goto 1
 	call nos_skip_record(nunit,it,ivar,ierr)
-	if( ierr .ne. 0 ) return
+	if( ierr .ne. 0 ) goto 1
 	itstart = it
+
+    1	continue
+	call nos_close(nunit)
+	close(nunit)
 
 	end
 
@@ -494,18 +529,22 @@ c gets it of last record
 	itlast = -1
 
 	call open_nos_file(file,'old',nunit)
+	if( nunit .le. 0 ) return
 	call nos_init(nunit,nvers)
 	call nos_skip_header(nunit,nvar,ierr)
-	if( ierr .ne. 0 ) return
+	if( ierr .ne. 0 ) goto 1
+
+	do
+	  call nos_skip_record(nunit,it,ivar,ierr)
+	  if( ierr .gt. 0 ) goto 1
+	  if( ierr .lt. 0 ) exit
+	  itlast = it
+	end do
+	itend = itlast
 
     1	continue
-	call nos_skip_record(nunit,it,ivar,ierr)
-	if( ierr .gt. 0 ) return
-	if( ierr .lt. 0 ) goto 2
-	itlast = it
-	goto 1
-    2	continue
-	itend = itlast
+	call nos_close(nunit)
+	close(nunit)
 
 	end
 
@@ -535,6 +574,29 @@ c***************************************************************
    99	continue
 	write(6,*) 'not enough variables: ',nvar,i,ierr
 	stop 'error stop nos_get_vars: nvar'
+	end
+
+c***************************************************************
+
+	function check_nos_file(file)
+
+	implicit none
+
+	logical check_nos_file
+	character*(*) file
+
+	integer nb,nvers
+        integer ifileo
+
+	check_nos_file = .false.
+
+	nb = ifileo(0,file,'unform','old')
+	if( nb .le. 0 ) return
+	call nos_is_nos_file(nb,nvers)
+	close(nb)
+
+	check_nos_file = nvers > 0
+
 	end
 
 c***************************************************************

@@ -144,6 +144,15 @@ c**************************************************************
 
 c computes ecological scalars with BFM  model
 
+	use mod_sinking
+	use mod_depth
+	use mod_ts
+	use mod_diff_visc_fric
+	use mod_hydro_print
+	use mod_hydro
+	use levels
+	use basin
+
 	implicit none
 
 	integer it
@@ -156,18 +165,11 @@ c computes ecological scalars with BFM  model
 	parameter(ndim=nlvdim)
 
 	include 'pkonst.h'
-	include 'nlevel.h'
 
-	include 'basin.h'
-	include 'ts.h'
 
-	include 'depth.h'
 	
-	include 'hydro.h'
 
 ! OBC ARRAY AND VARIABLES
-
-	include 'bound_names.h'
 
 	character*10 what
 
@@ -331,12 +333,8 @@ c computes ecological scalars with BFM  model
 
 	integer itmbfm,idtbfm,ivs1,ivs2,ivs3
 	 
-	include 'levels.h'
-	include 'hydro_print.h'
 
 
-	include 'diff_visc_fric.h'
-	include 'sinking.h'
 
 	real load(nlvdim,nkndim)
 	common /load/load
@@ -637,12 +635,13 @@ c**************************************************************
 
 c initializes bfm  arrays
 
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 	include 'bfm_common.h'
-	include 'nbasin.h'
-	include 'nlevel.h'
 	
 	integer nbfmv1
 	real b1cn(nlvdim,nkndim,nbfmv1)
@@ -789,6 +788,8 @@ c**************************************************************
 
 	subroutine write_restart_eco(iunit)
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
@@ -796,7 +797,6 @@ c**************************************************************
 
 	integer iunit
 	integer k,nstate
-	include 'nbasin.h'
 
 	nstate = 48
 
@@ -885,6 +885,8 @@ c**************************************************************
 
 	subroutine read_restart_eco(iunit)
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
@@ -894,7 +896,6 @@ c**************************************************************
 
 	integer k,nstate
 	integer nstate_aux,nkn_aux
-	include 'nbasin.h'
 
 	nstate = 48
 

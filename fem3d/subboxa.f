@@ -127,7 +127,7 @@ c******************************************************************
 
         if( kfluxm .lt. 0 ) then
           if( kfluxm .eq. -1 ) then
-            write(6,*) 'dimension error nfxdim in section $flux : '
+            write(6,*) 'dimension error ndim in section $flux : '
      +                          ,ndim
           else
             write(6,*) 'read error in section $fbox'
@@ -230,6 +230,13 @@ c******************************************************************
 
 c administers writing of flux data
 
+	use mod_conz, only : cnv
+	use mod_ts
+	use mod_diff_visc_fric
+	use mod_hydro_vel
+	use mod_hydro
+	use levels, only : nlvdi,nlv
+
 	implicit none
 
 	include 'param.h'
@@ -245,13 +252,7 @@ c administers writing of flux data
 	real az,azpar,rr
 	real dt
 
-	include 'nlevel.h'
 
-	include 'ts.h'
-	include 'conz.h'
-	include 'hydro_vel.h'
-	include 'diff_visc_fric.h'
-	include 'hydro.h'
 
 	integer ifemop
 	real getpar
@@ -629,10 +630,11 @@ c******************************************************************
 
 	subroutine box_read
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 	include 'subboxa.h'
 
 	integer nb,id,n,ib1,ib2,i
@@ -701,10 +703,11 @@ c******************************************************************
 
 c inserts section in data structure
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 	include 'subboxa.h'
 
 	integer id,n,ib1,ib2
@@ -740,10 +743,11 @@ c sets up ikboxes - index of nodes to boxes
 c
 c is -1 if node belongs to more than one box
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 	include 'subboxa.h'
 
 	integer k,ie,ii,ib
@@ -787,11 +791,14 @@ c******************************************************************
 
 c computes max layers for each box
 
+	use mod_depth
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'ev.h'
 	include 'subboxa.h'
 
 	integer nblayers(nbxdim)		!number of layers in boxes
@@ -799,8 +806,6 @@ c computes max layers for each box
 	real bvolume(nbxdim)			!volume of boxes
 	real bdepth(nbxdim)			!depth of boxes
 
-	include 'levels.h'
-	include 'depth.h'
 
 	integer ib,lmax,ie
 	real area,hdep
@@ -928,10 +933,11 @@ c******************************************************************
 
 	subroutine box_write_2d(it,fluxes,valt,vals,vale,valv,fluxes_ob)
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 	include 'subboxa.h'
 
 	integer it
@@ -989,10 +995,11 @@ c******************************************************************
 	subroutine box_write_3d(it,nblayers,nlayers
      +			,fluxes,valt,vals,vale,valv,fluxes_ob)
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 	include 'subboxa.h'
 
 	integer it
@@ -1062,10 +1069,11 @@ c******************************************************************
 	subroutine box_write_vertical(it,nblayers
      +			,valw,valvis,valdif)
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 	include 'subboxa.h'
 
 	integer it
@@ -1110,17 +1118,18 @@ c******************************************************************
 
 c computes average zeta values for box
 
+	use mod_geom_dynamic
+	use evgeom
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'ev.h'
 	include 'subboxa.h'
 
-        real zev(3,neldim)
+        real zev(3,nel)
 	real val(nbxdim)
 
-	include 'geom_dynamic.h'
 
 	double precision vald(nbxdim)
 	double precision vold(nbxdim)
@@ -1162,18 +1171,19 @@ c******************************************************************
 
 c computes average velocity values (speed) for box
 
+	use mod_layer_thickness
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'ev.h'
 	include 'subboxa.h'
 
 	real val(0:nlvdim,nbxdim)
 
-	include 'levels.h'
-	include 'depth.h'
-	include 'hydro.h'
 
 	real h,u,v
 	real velspeed(nlvdim)
@@ -1184,6 +1194,8 @@ c computes average velocity values (speed) for box
 	integer ib,ie,ii
 	integer lmax,l,k
 	real vol,area3
+
+	velspeed = 0.
 
 	do ib=1,nbox
 	  do l=0,nlvdim
@@ -1232,19 +1244,20 @@ c******************************************************************
 
 c computes average scalar values for box
 
+	use mod_depth
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'ev.h'
 	include 'subboxa.h'
 
 	real scalar(0:nlvdim,nkndim)
 	real val(0:nlvdim,nbxdim)
 	integer iaver			!average or only accumulate
 
-	include 'levels.h'
-	include 'depth.h'
 
 	double precision vald(0:nlvdim,nbxdim)
 	double precision vold(0:nlvdim,nbxdim)
@@ -1293,18 +1306,19 @@ c******************************************************************
 
 c computes average scalar values for box
 
+	use mod_layer_thickness
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'ev.h'
 	include 'subboxa.h'
 
 	real scalar(nlvdim,nkndim)
 	real val(0:nlvdim,nbxdim)
 
-	include 'levels.h'
-	include 'depth.h'
 
 	double precision vald(0:nlvdim,nbxdim)
 	double precision vold(0:nlvdim,nbxdim)
@@ -1353,11 +1367,12 @@ c******************************************************************
 
 c computes average scalar values for box
 
+	use evgeom
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'ev.h'
 	include 'subboxa.h'
 
 	real scalar(*)
@@ -1684,6 +1699,8 @@ c******************************************************************
 
 	subroutine boxes_meteo_accum(nbox,valm,val,ievap)
 
+	use mod_meteo
+
 	implicit none
 
 	integer nbox
@@ -1695,7 +1712,6 @@ c******************************************************************
         parameter( zconv = 1.e-3 / 86400. )
 
 	include 'param.h'
-	include 'meteo.h'
 
 	integer i,ip
 	real econv
@@ -1751,10 +1767,11 @@ c******************************************************************
 
 	subroutine box_write_meteo(it,valm)
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 	include 'subboxa.h'
 
 	integer it
@@ -1794,10 +1811,11 @@ c******************************************************************
 
 c computes mass balance
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 	include 'subboxa.h'
 
 	real dtbox
@@ -1873,10 +1891,11 @@ c******************************************************************
 
 c computes mass balance
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 	include 'subboxa.h'
 
 	real dtbox

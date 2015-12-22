@@ -49,14 +49,14 @@ c******************************************************************
 c******************************************************************
 c******************************************************************
 
-	subroutine fluxes_init(nlvdim,nsect,nlayers,nr,masst)
+	subroutine fluxes_init(nlvddi,nsect,nlayers,nr,masst)
 
 	implicit none
 
-	integer nlvdim,nsect
-	integer nlayers(1)
+	integer nlvddi,nsect
+	integer nlayers(nsect)
 	integer nr
-	real masst(0:nlvdim,3,1)
+	real masst(0:nlvddi,3,nsect)
 
 	integer i,l,lmax
 
@@ -74,15 +74,15 @@ c******************************************************************
 
 c******************************************************************
 
-	subroutine fluxes_accum(nlvdim,nsect,nlayers,nr,masst,fluxes)
+	subroutine fluxes_accum(nlvddi,nsect,nlayers,nr,masst,fluxes)
 
 	implicit none
 
-	integer nlvdim,nsect
-	integer nlayers(1)
+	integer nlvddi,nsect
+	integer nlayers(nsect)
 	integer nr
-	real masst(0:nlvdim,3,1)
-	real fluxes(0:nlvdim,3,1)
+	real masst(0:nlvddi,3,nsect)
+	real fluxes(0:nlvddi,3,nsect)
 
 	integer i,l,lmax
 
@@ -100,15 +100,15 @@ c******************************************************************
 
 c******************************************************************
 
-	subroutine fluxes_aver(nlvdim,nsect,nlayers,nr,masst,fluxes)
+	subroutine fluxes_aver(nlvddi,nsect,nlayers,nr,masst,fluxes)
 
 	implicit none
 
-	integer nlvdim,nsect
-	integer nlayers(1)
+	integer nlvddi,nsect
+	integer nlayers(nsect)
 	integer nr
-	real masst(0:nlvdim,3,1)
-	real fluxes(0:nlvdim,3,1)
+	real masst(0:nlvddi,3,nsect)
+	real fluxes(0:nlvddi,3,nsect)
 
 	integer i,l,lmax
 	real rr
@@ -137,17 +137,17 @@ c computes flux through all sections and returns them in flux
 c
 c flux are divided into total, positive and negative
 
+	use levels, only : nlvdi,nlv
+
 	implicit none
 
-	include 'param.h'
-
 	integer kfluxm
-	integer kflux(1)
-	integer iflux(3,1)
+	integer kflux(kfluxm)
+	integer iflux(3,kfluxm)
 	real az
-	real fluxes(0:nlvdim,3,1)	!computed fluxes (return)
+	real fluxes(0:nlvdi,3,*)	!computed fluxes (return)
 	integer is			!type of scalar (0=mass)
-	real scalar(nlvdim,1)
+	real scalar(nlvdi,*)
 
 	integer nnode,ifirst,ilast,ntotal
 	integer ns
@@ -172,24 +172,24 @@ c******************************************************************
 
 c computes flux through one section
 
+	use levels, only : nlvdi,nlv
+
 	implicit none
 
-	include 'param.h'
-
 	integer n
-	integer kflux(1)
-	integer iflux(3,1)
+	integer kflux(n)
+	integer iflux(3,n)
 	real az
-	real fluxes(0:nlvdim,3)		!computed fluxes (return)
+	real fluxes(0:nlvdi,3)		!computed fluxes (return)
 	integer is			!type of scalar (0=mass)
-	real scalar(nlvdim,1)
+	real scalar(nlvdi,*)
 
 	integer i,k,l,lkmax
 	integer istype,iafter,ibefor
 	real port,ptot,port2d,sport,sptot
-	real flux(nlvdim)
+	real flux(nlvdi)
 
-	do l=0,nlvdim
+	do l=0,nlvdi
 	  fluxes(l,1) = 0.
 	  fluxes(l,2) = 0.
 	  fluxes(l,3) = 0.
@@ -250,9 +250,9 @@ c sets up array iflux
 	implicit none
 
         integer kfluxm		!total number of nodes in kflux
-        integer kflux(1)	!nodes in sections
+        integer kflux(kfluxm)	!nodes in sections
 	integer nsect		!number of section (return)
-	integer iflux(3,1)	!internal array for flux computation (return)
+	integer iflux(3,*)	!internal array for flux computation (return)
 
 	integer ifirst,ilast,nnode,ntotal
 
@@ -297,8 +297,8 @@ c sets up info structure iflux(3,1) for one section
 	implicit none
 
 	integer n
-	integer kflux(1)
-	integer iflux(3,1)
+	integer kflux(n)
+	integer iflux(3,n)
 
 	integer i,k
 	integer ktype
@@ -329,19 +329,19 @@ c******************************************************************
 
 c gets number of internal section in link index of k1
 
+	use mod_geom
+
 	implicit none
 
 	integer igtnsc
 	integer k1,k2
-
-	include 'param.h'
-	include 'links.h'
+	integer elems(maxlnk)
 
 	integer k,i,n,ie
 
 	integer knext,kbhnd
 
-	call set_elem_links(k1,n)
+	call get_elems_around(k1,maxlnk,n,elems)
 
 c	deal with no section given
 
@@ -352,7 +352,7 @@ c	section in the middle
 
 	do i=1,n
 	  igtnsc = i
-	  ie = lnk_elems(i)
+	  ie = elems(i)
 	  k = knext(k1,ie)
 	  if( k .eq. k2 ) return
 	end do
@@ -361,7 +361,7 @@ c	in case we are on the boundary
 
 	i = n
 	igtnsc = igtnsc + 1
-	ie = lnk_elems(i)
+	ie = elems(i)
 	k = kbhnd(k1,ie)
 	if( k .eq. k2 ) return
 
@@ -369,10 +369,10 @@ c	no node found
 
 	write(6,*) k1,k2
 	write(6,*) k1,n
-	write(6,*) (lnk_elems(i),i=1,n)
-	call set_elem_links(k2,n)
+	write(6,*) (elems(i),i=1,n)
+	call get_elems_around(k2,maxlnk,n,elems)
 	write(6,*) k2,n
-	write(6,*) (lnk_elems(i),i=1,n)
+	write(6,*) (elems(i),i=1,n)
 	stop 'error stop igtnsc: internal error (2)'
 	end
 	      
@@ -384,15 +384,14 @@ c**********************************************************************
 
 	subroutine get_nlayers(kfluxm,kflux,nlayers,nlmax)
 
+	use levels
+
 	implicit none
 
 	integer kfluxm
-	integer kflux(1)
-	integer nlayers(1)
+	integer kflux(*)
+	integer nlayers(*)
 	integer nlmax
-
-	include 'param.h'
-	include 'levels.h'
 
 	integer ns
 	integer nnode,ifirst,ilast

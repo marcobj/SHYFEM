@@ -7,8 +7,7 @@ c contents :
 c
 c subroutine set_explicit
 c subroutine viscous_stability(ahpar,ahstab)	computes stability for viscosity
-c subroutine set_diff_horizontal_new1
-c subroutine set_diff_horizontal_new
+c subroutine set_diff_horizontal
 c subroutine set_advective
 c subroutine set_semi_lagrange
 c subroutine set_barocl
@@ -39,6 +38,9 @@ c 10.05.2013	dbf&ggu	new routines for non-hydro
 c 25.05.2013	ggu	new version for vertical advection (bvertadv)
 c 13.09.2013	dbf&ggu	new sigma layer adjustment integrated
 c 10.04.2014	ggu	use rlin and rdistv to determin advective contribution
+c 17.04.2015	ggu	only one routine set_diff_horizontal()
+c 18.09.2015	ggu	use momentx/yv to store advective terms, not aux arrays
+c 25.09.2015	ggu	new call to set_nudging()
 c
 c notes :
 c
@@ -48,14 +50,15 @@ c******************************************************************
 
 	subroutine set_explicit
 
+	use mod_internal
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
         
         include 'param.h'
 
 	integer ie,l
-	include 'nlevel.h'
-	include 'nbasin.h'
-	include 'internal.h'
         
         logical bbarcl
         integer ilin,itlin,ibarcl
@@ -80,12 +83,8 @@ c-------------------------------------------
 c initialization
 c-------------------------------------------
 
-	do ie=1,nel
-	  do l=1,nlv
-	    fxv(l,ie) = 0.
-	    fyv(l,ie) = 0.
-	  end do
-	end do
+	fxv = 0.
+	fyv = 0.
 
 c-------------------------------------------
 c fix or nudge boundary velocities
@@ -97,7 +96,7 @@ c-------------------------------------------
 c horizontal diffusion
 c-------------------------------------------
 
-	call set_diff_horizontal_new1
+	call set_diff_horizontal
 
 c-------------------------------------------
 c advective (non-linear) terms
@@ -105,7 +104,7 @@ c-------------------------------------------
 
         if( ilin .eq. 0 ) then
           if( itlin .eq. 0 ) then
-	    call set_advective(rlin)	!saux1/2/3v must be preserved
+	    call set_advective(rlin)
 	  else if( itlin .eq. 1 ) then
 	    call set_semi_lagrange
 	  else
@@ -122,7 +121,17 @@ c-------------------------------------------
         !if( bbarcl ) call set_barocl_new
 	if( bbarcl ) call set_barocl_new_interface
 
+c-------------------------------------------
+c non-hydrostatic contribution (experimental)
+c-------------------------------------------
+
 	if( bnohyd ) call nonhydro_set_explicit
+
+c-------------------------------------------
+c nudging of water levels and velocities
+c-------------------------------------------
+
+	call set_nudging
 
 c-------------------------------------------
 c end of routine
@@ -138,22 +147,20 @@ c computes stability for viscosity
 c
 c stability is computed for dt == 1
 
+	use mod_geom
+	use mod_internal
+	use mod_diff_visc_fric
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
         include 'param.h'
-	include 'ev.h'
 
 	real ahpar
 	real rindex
-	real dstab(nlvdim,neldim)
-
-	include 'nlevel.h'
-
-	include 'basin.h'
-	include 'geom.h'
-	include 'levels.h'
-	include 'diff_visc_fric.h'
-	include 'internal.h'
+	real dstab(nlvdi,nel)
 
 	integer ie,ii,iei,l,lmax,k
 	real u,v,ui,vi
@@ -204,22 +211,17 @@ c stability is computed for dt == 1
 
 c******************************************************************
 
-	subroutine set_diff_horizontal_new1
+	subroutine set_diff_horizontal
+
+	use mod_geom
+	use mod_internal
+	use mod_diff_visc_fric
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
 
 	implicit none
-
-        include 'param.h'
-	include 'ev.h'
-
-	include 'nbasin.h'
-	include 'nlevel.h'
-
-	include 'internal.h'
-
-	include 'geom.h'
-	include 'levels.h'
-	include 'hydro.h'
-	include 'diff_visc_fric.h'
 
 	integer ie,ii,iei,l,lmax
 	integer noslip
@@ -285,143 +287,19 @@ c******************************************************************
 
 c******************************************************************
 
-	subroutine set_diff_horizontal_new
-
-	implicit none
-
-        include 'param.h'
-
-	include 'nlevel.h'
-
-	include 'internal.h'
-
-        real cb,cd 
-        real ahpar,khpar 
-        real vismol                     !constant vertical molecular viscosity
-	include 'geom_dynamic.h'
-	include 'bound_geom.h'
-
-	include 'aux_array.h'
-	include 'ev.h'
-	include 'levels.h'
-	include 'basin.h'
-	include 'hydro.h'
-
-	integer ie,k,ii,l,lmax
-	!logical bnoslip
-	real ao,u,v
-	real anu,rv,acux,acuy
-	real area,w,um,vm
-	real dt
-	real wm,wmax
-        real getpar
-
-	logical is_material_boundary_node
-
-	is_material_boundary_node(k) = inodv(k) .ne. 0 
-     +					.and. iopbnd(k) .le. 0
-
-	call get_timestep(dt)
-
-        ahpar = getpar('ahpar')
-	anu = ahpar
-        !write(6,*)ahpar
-	if( anu .le. 0 ) return
-	!write(6,*) 'anu: ',anu
-        !bnoslip = nint(getpar('noslip')) .ne. 0
-
-	do k=1,nkn
-	  v1v(k) = 0.		!inverse area
-	  v2v(k) = 0.		!grade
-	  do l=1,nlv
-	    saux1(l,k) = 0.		!average u
-	    saux2(l,k) = 0.		!average v
-	  end do
-	end do
-
-	do ie=1,nel
-	  ao = ev(10,ie)
-	  area = 12. * ao
-	  lmax = ilhv(ie)
-	  do ii=1,3
-	    k = nen3v(ii,ie)
-	    v1v(k) = v1v(k) + anu / area
-	    v2v(k) = v2v(k) + 1.
-	    do l=1,lmax
-	      u = utlov(l,ie)
-	      v = vtlov(l,ie)
-	      saux1(l,k) = saux1(l,k) + u
-	      saux2(l,k) = saux2(l,k) + v
-	    end do
-	  end do
-	end do
-
-	do k=1,nkn
-	  rv = 1. / v2v(k)
-	  !if( bnoslip .and. is_material_boundary_node(k) ) rv = 0.
-	  lmax = ilhkv(k)
-	  do l=1,lmax
-	    saux1(l,k) = saux1(l,k) * rv
-	    saux2(l,k) = saux2(l,k) * rv
-	  end do
-	end do
-
-	wmax = 0.
-	do ie=1,nel
-
-	  wm = 0.
-	  do ii=1,3
-	    k = nen3v(ii,ie)
-	    wm = wm + v1v(k)
-	  end do
-	  wmax = max(wmax,wm)
-
-	  lmax = ilhv(ie)
-	  do l=1,lmax
-	    acux = 0.
-	    acuy = 0.
-	    u = utlov(l,ie)
-	    v = vtlov(l,ie)
-	    do ii=1,3
-	      k = nen3v(ii,ie)
-	      w = v1v(k)
-	      um = saux1(l,k)
-	      vm = saux2(l,k)
-	      acux = acux - w * u + w * um
-	      acuy = acuy - w * v + w * vm
-	    end do
-	    fxv(l,ie) = fxv(l,ie) - acux	!- because f is on left side
-	    fyv(l,ie) = fyv(l,ie) - acuy
-	  end do
-	end do
-
-	wmax = wmax * dt
-
-	!write(99,*) 'stability diffusion: ',wmax
-
-	end
-
-c******************************************************************
-
         subroutine set_momentum_flux
 
-c sets aux arrays saux1/2/3
+c sets arrays momentx/yv
+
+	use mod_layer_thickness
+	use mod_hydro_print
+	use mod_hydro
+	use mod_internal
+	use evgeom
+	use levels
+	use basin
 
         implicit none
-
-        include 'param.h'
-
-	include 'nlevel.h'
-
-
-	include 'aux_array.h'
-
-	include 'hydro.h'
-	include 'hydro_print.h'
-	include 'depth.h'
-	include 'ev.h'
-	include 'basin.h'
-	include 'levels.h'
 
         integer ii,ie,k,l,lmax
         real b,c
@@ -433,18 +311,15 @@ c sets aux arrays saux1/2/3
 	real xadv,yadv
 	real area,vol
 
+	real saux(nlvdi,nkn)
+
 c---------------------------------------------------------------
 c initialization
 c---------------------------------------------------------------
 
-	do k=1,nkn
-	  lmax = ilhkv(k)
-	  do l=1,lmax
-            saux1(l,k) = 0.
-	    saux2(l,k) = 0.
-	    saux3(l,k) = 0.
-	  end do
-	end do
+	saux = 0.
+	momentxv = 0.
+	momentyv = 0.
 
 c---------------------------------------------------------------
 c accumulate momentum that flows into nodes (weighted by flux)
@@ -462,9 +337,9 @@ c---------------------------------------------------------------
                 c = ev(6+ii,ie)
                 f = ut * b + vt * c	! f>0 => flux into node
                 if( f .gt. 0. ) then
-		  saux1(l,k) = saux1(l,k) + f
-		  saux2(l,k) = saux2(l,k) + f * ut
-		  saux3(l,k) = saux3(l,k) + f * vt
+		  saux(l,k) = saux(l,k) + f
+		  momentxv(l,k) = momentxv(l,k) + f * ut
+		  momentyv(l,k) = momentyv(l,k) + f * vt
                 end if
 	    end do
           end do
@@ -478,12 +353,12 @@ c---------------------------------------------------------------
 	  lmax = ilhkv(k)
 	  do l=1,lmax
             h = hdknv(l,k)
-	    if( saux1(l,k) .gt. 0 ) then	!flux into node
-	      saux2(l,k) = saux2(l,k) / saux1(l,k)
-	      saux3(l,k) = saux3(l,k) / saux1(l,k)
+	    if( saux(l,k) .gt. 0 ) then		!flux into node
+	      momentxv(l,k) = momentxv(l,k) / saux(l,k)
+	      momentyv(l,k) = momentyv(l,k) / saux(l,k)
 	    else				!only flux out of node
-	      saux2(l,k) = uprv(l,k) * h
-	      saux3(l,k) = vprv(l,k) * h
+	      momentxv(l,k) = uprv(l,k) * h
+	      momentyv(l,k) = vprv(l,k) * h
 	    end if
 	  end do
 	end do
@@ -498,25 +373,18 @@ c******************************************************************
 
         subroutine set_advective(rlin)
 
+	use mod_internal
+	use mod_layer_thickness
+	use mod_hydro_print
+	use mod_hydro_vel
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
         implicit none
 
-        include 'param.h'
-
 	real rlin		!strength of advection terms - normally 1
-
-	include 'nlevel.h'
-
-
-	include 'aux_array.h'
-
-	include 'internal.h'
-	include 'hydro.h'
-	include 'hydro_vel.h'
-	include 'hydro_print.h'
-	include 'depth.h'
-	include 'ev.h'
-	include 'basin.h'
-	include 'levels.h'
 
 	logical bvertadv		! new vertical advection for momentum
 	real zxadv,zyadv
@@ -545,7 +413,7 @@ c---------------------------------------------------------------
 c accumulate momentum that flows into nodes (weighted by flux)
 c---------------------------------------------------------------
 
-        call set_momentum_flux	!sets aux arrays saux1/2/3
+        call set_momentum_flux	!sets aux arrays momentx/yv
 
 c---------------------------------------------------------------
 c compute advective contribution
@@ -575,8 +443,8 @@ c	    ---------------------------------------------------------------
                 b = ev(3+ii,ie)
                 c = ev(6+ii,ie)
 		wbot = wbot + wlov(l,k)
-                up = saux2(l,k) / h		!NEW
-                vp = saux3(l,k) / h
+                up = momentxv(l,k) / h		!NEW
+                vp = momentyv(l,k) / h
                 f = ut * b + vt * c
                 if( f .lt. 0. ) then	!flux out of node => into element
                   xadv = xadv + f * ( up - uc )
@@ -636,25 +504,21 @@ c computes courant number of advective terms in momentum equation
 c
 c stability is computed for dt == 1
 
+	use mod_internal
+	use mod_geom_dynamic
+	use mod_layer_thickness
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
         include 'param.h'
 
 	real rlin		   !factor for advective terms - normally 1
 	real rindex		   !stability index (return)
-	real astab(nlvdim,neldim)  !stability matrix (return)
-
-        !common /nlv/nlv
-	include 'nlevel.h'
-
-
-	include 'ev.h'
-	include 'hydro.h'
-	include 'depth.h'
-	include 'levels.h'
-	include 'basin.h'
-	include 'geom_dynamic.h'
-	include 'internal.h'
+	real astab(nlvdi,nel)      !stability matrix (return)
 
 	integer ie,l,ii,k,lmax,iweg
 	real cc,cmax
@@ -750,16 +614,16 @@ c******************************************************************
 
 	subroutine set_semi_lagrange
 
+	use mod_internal
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
          
         include 'param.h'
         
 	integer ie,l
 	real xadv,yadv,dt
-        real uadv(neldim),vadv(neldim)
-
-	include 'nbasin.h'
-	include 'internal.h'
+        real uadv(nel),vadv(nel)
 
 	call get_timestep(dt)
 
@@ -781,15 +645,18 @@ c******************************************************************
 
         subroutine set_barocl
 
+	use mod_internal
+	use mod_layer_thickness
+	use mod_ts
+	use evgeom
+	use levels
+	use basin
+
         implicit none
          
         include 'param.h'
-	include 'ev.h'
         
-	include 'nlevel.h'
 	include 'pkonst.h'
-	include 'internal.h'
-	include 'ts.h'
         !integer itanf,itend,idt,nits,niter,it
         !real k,l,ie,ii				!BUG
         integer k,l,ie,ii			!BUG
@@ -798,23 +665,12 @@ c******************************************************************
         real salref,temref,sstrat,tstrat
         real hlayer
         real hhi
-	include 'depth.h'
 
         real xbcl,ybcl
         integer lmax
-	include 'levels.h'
-	include 'basin.h'
 
         real rhop,presbt,presbcx,presbcy,dprescx,dprescy,br,cr!deb
         real b,c
-c        integer icall
-c        save icall
-c        data icall /0/
-
-        if( nlvdim .ne. nlvdi ) stop 'error stop set_barocl: nlvdim'
-
-c        if(icall.eq.-1) return
-
 
         call get_timestep(dt)
 
@@ -878,19 +734,19 @@ c computes baroclinic contribution centered on layers
 c
 c cannot use this for sigma levels
 
+	use mod_internal
+	use mod_layer_thickness
+	use mod_ts
+	use evgeom
+	use levels
+	use basin
+
         implicit none
          
         include 'param.h'
-	include 'ev.h'
         
-	include 'nlevel.h'
 	include 'pkonst.h'
 
-	include 'internal.h'
-	include 'ts.h'
-	include 'depth.h'
-	include 'levels.h'
-	include 'basin.h'
 
 	logical bsigma
         integer k,l,ie,ii,lmax,lmin
@@ -898,8 +754,6 @@ c cannot use this for sigma levels
         double precision xbcl,ybcl
         double precision raux,rhop,presbcx,presbcy
         double precision b,c,br,cr
-
-        if(nlvdim.ne.nlvdi) stop 'error stop set_barocl_new: nlvdi'
 
         raux=grav/rowass
 	call get_bsigma(bsigma)
@@ -950,19 +804,19 @@ c**********************************************************************
 
 c do not use this routine !
 
+	use mod_internal
+	use mod_layer_thickness
+	use mod_ts
+	use evgeom
+	use levels
+	use basin
+
         implicit none
          
         include 'param.h'
-	include 'ev.h'
         
-	include 'nlevel.h'
 	include 'pkonst.h'
 
-	include 'internal.h'
-	include 'ts.h'
-	include 'depth.h'
-	include 'levels.h'
-	include 'basin.h'
 
         integer k,l,ie,ii,lmax,lmin
         double precision hlayer,hhi
@@ -970,12 +824,10 @@ c do not use this routine !
         double precision raux,rhop,presbcx,presbcy
         double precision b,c,br,cr
 
-	double precision px(0:nlvdim)
-	double precision py(0:nlvdim)
+	double precision px(0:nlvdi)
+	double precision py(0:nlvdi)
 
 	stop 'error stop set_barocl_old: do not use this routine'
-
-        if(nlvdim.ne.nlvdi) stop 'error stop set_barocl_new: nlvdi'
 
         raux=grav/rowass
 
@@ -1031,25 +883,27 @@ c computes baroclinic contribution centered on interfaces
 c
 c this routine works with Z and sigma layers
 
+	use mod_internal
+	use mod_layer_thickness
+	use mod_ts
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
         implicit none
          
         include 'param.h'
-	include 'ev.h'
         
-	include 'nlevel.h'
 	include 'pkonst.h'
 
-	include 'internal.h'
-	include 'ts.h'
-	include 'hydro.h'
-	include 'depth.h'
-	include 'levels.h'
-	include 'basin.h'
 
 c---------- DEB SIG
 	real hkk
-	real hkko(0:nlvdim,nkndim)	!depth of interface at node
-	real hkkom(0:nlvdim,nkndim)	!average depth of layer at node
+	!real hkko(0:nlvdi,nkn)	!depth of interface at node
+	!real hkkom(0:nlvdi,nkn)	!average depth of layer at node
+	real, allocatable :: hkko(:,:)	!depth of interface at node
+	real, allocatable :: hkkom(:,:)	!average depth of layer at node
 	real hele
 	real helei
 	real alpha,aux,bn,cn,bt,ct
@@ -1072,8 +926,6 @@ c---------- DEB SIG
 	double precision rhoup,psigma
 	double precision b3,c3
 
-        if(nlvdim.ne.nlvdi) stop 'error stop set_barocl_new: nlvdi'
-
 	bsigadjust = .false.		!regular sigma coordinates
 	bsigadjust = .true.		!interpolate on horizontal surfaces
 
@@ -1083,6 +935,9 @@ c---------- DEB SIG
         raux=grav/rowass
 	psigma = 0.
 	
+	allocate(hkko(0:nlvdi,nkn))
+	allocate(hkkom(0:nlvdi,nkn))
+
 	if( bsigma .and. bsigadjust ) then	!-------------- DEB SIG
 	  do k=1,nkn
 	    lmax=ilhkv(k)
@@ -1279,6 +1134,9 @@ c---------- DEB SIG
           end do
         end do
         
+	deallocate(hkko)
+	deallocate(hkkom)
+
 	return
    99	continue
 	write(6,*) ie,k,ii

@@ -77,6 +77,7 @@ c 10.04.2014    ccf     new section "wrt" for water renewal time
 c 29.10.2014    ggu     do_() routines transfered from newpri.f
 c 10.11.2014    ggu     shyfem time management routines to new file subtime.f
 c 01.12.2014    ccf     handle new section waves for wave module
+c 24.09.2015    ggu     call initialization for irv before reading STR file
 c
 c************************************************************
 
@@ -90,11 +91,14 @@ c writes output to terminal or log file
 	!include 'basin.h'
 	include 'modules.h'
 	include 'femtime.h'
-	include 'nbound.h'
+	include 'simul.h'
 
 	character*80 name
+        integer nrb,nbc
+        integer nkbnd,nbnds
 
-	include 'simul.h'
+        nrb = nkbnd()
+        nbc = nbnds()
 
 	call getfnm('runnam',name)
 	write(6,*)
@@ -120,7 +124,7 @@ c writes output to terminal or log file
 
 	write(6,*) '     Description of boundary values :'
 	write(6,*)
-	write(6,*) '     nbc,nrz,nrq,nrb     :',nbc,nrz,nrq,nrb
+	write(6,*) '     nbc,nrb     :',nbc,nrb
 
 	write(6,*)
 	write(6,*) '     Values from parameter file :'
@@ -165,12 +169,13 @@ c test output of all constants and variables
 c
 c id    identifier
 
+	use basin
+
 	implicit none
 
 	integer id
 
 	include 'param.h'
-	include 'basin.h'
 	include 'modules.h'
 
 	include 'simul.h'
@@ -233,6 +238,7 @@ c to do before time loop
 	include 'femtime.h'
 
 	call wrboxa(it)
+	call wrousa
 
 	end
 
@@ -250,8 +256,7 @@ c to do in time loop before time step
 
 	call modules(M_BEFOR)
 
-        !call tidenew(it)       !tidal potential
-        call tideforc(it)       !tidal potential !ccf
+        call tideforce(it)       !tidal potential !ccf
 
 	call adjust_chezy
 
@@ -307,16 +312,16 @@ c revised 07.04.95 by ggu !$$baroc - impl. of baroclinic salt/temp (21/22)
 c revised ...06.97 by ggu !complete revision
 c 18.03.1998	ggu	use variable section instead name
 
+	use levels
+
 	implicit none
 
 	integer iunit
 
-	include 'param.h' !COMMON_GGU_SUBST
+	include 'param.h'
 	include 'modules.h'
 
 c---------------------------------------------------------------
-	include 'nlevel.h'
-	include 'levels.h'
 c---------------------------------------------------------------
 
 	character*6 section,extra,last
@@ -340,6 +345,7 @@ c	integer nrdsec,nrdveci,nrdvecr
 	if( bdebug ) write(6,*) 'start reading STR file'
 
 	call nrdini(iunit)
+	call mod_irv_initialize
 
 c read loop over sections %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -393,8 +399,6 @@ c read loop over sections %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                         call nrdins(section)
 		else if(section.eq.'levels') then
 			call read_hlv
-			!nlv = nrdvecr(hlv,nlvdi)
-			!if( nlv .lt. 0 ) goto 77
                 else if(section.eq.'lagrg')then
                         call nrdins(section)
                 else if(section.eq.'sedtr')then         !sediment
@@ -435,7 +439,7 @@ c end of read %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	  stop 'error stop nlsh2d: read error'
 	else
 	  write(6,*) 'dimension error in section $levels'
-	  write(6,*) 'nlvdim = ',nlvdi,'   number of data read = ',-nlv
+	  write(6,*) 'nlvdi = ',nlvdi,'   number of data read = ',-nlv
 	  stop 'error stop nlsh2d: dimension error'
 	end if
    97	continue
@@ -461,6 +465,33 @@ c************************************************************************
 
 	stop 'error stop section_deleted: section has been removed'
 	end
+
+c************************************************************************
+
+        subroutine read_hlv
+
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+        use nls
+
+        implicit none
+
+	include 'param.h'
+
+        integer n,nlvddi
+
+        n = nls_read_vector()
+        !call levels_init(nkn,nel,n)
+	call levels_hlv_init(n)
+	nlv = n
+	call levels_get_dimension(nlvddi)
+	if( n > nlvddi ) then
+	  write(6,*) 'nlv,nlvddi: ',nlv,nlvddi
+	  stop 'error stop read_hlv: dimension error'
+	end if
+        call nls_copy_real_vect(n,hlv)
+
+        end subroutine read_hlv
 
 c************************************************************************
 

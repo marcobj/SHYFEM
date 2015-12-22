@@ -10,7 +10,7 @@ c 05.06.1998	ggu	avoid write to terminal
 c
 c*******************************************************************
 
-	subroutine cmv(nkn,ngrdim,ipv,iphv,kphv,ng,iknot)
+	subroutine cmv(nkn,ngrddi,ipv,iphv,kphv,ng,iknot)
 
 c cuthill-mckee algorithmus
 c
@@ -30,10 +30,10 @@ c kanf,kend	neue knotennummern der alten stufe
 
         implicit none
 
-	integer nkn,ngrdim
+	integer nkn,ngrddi
 	integer ipv(nkn)
 	integer iphv(nkn),kphv(nkn)
-	integer ng(nkn),iknot(ngrdim*nkn)
+	integer ng(nkn),iknot(ngrddi*nkn)
 
         integer iwei
         integer jgrmin,jgrmax
@@ -48,12 +48,12 @@ c get switch iwei %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	  call cmvwhat(iwei)
 
           if(iwei.eq.1) then				!grades
-	    call getgrds(ngrdim,nkn,ng,jgrmin,jgrmax)
-	    call cmgrade(nkn,ngrdim,ipv,iphv,kphv,ng,iknot,jgrmin,jgrmax)
+	    call getgrds(ngrddi,nkn,ng,jgrmin,jgrmax)
+	    call cmgrade(nkn,ngrddi,ipv,iphv,kphv,ng,iknot,jgrmin,jgrmax)
 	  else if(iwei.eq.2) then			!give first level
 	    call getfstl(nkn,iphv,kphv,knum)
 	    if( knum .gt. 0 ) then
-              call cmalg(nkn,ngrdim,knum,m,iphv,kphv,ng,iknot)
+              call cmalg(nkn,ngrddi,knum,m,iphv,kphv,ng,iknot)
 	      write(6,*) 'node =',ipv(iphv(1)),'   mbw =',m
 	    end if
 	  else if(iwei.eq.3) then			!return old numbering
@@ -66,7 +66,7 @@ c get switch iwei %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 c********************************************************************
 
-        subroutine cmalg(nkn,ngrdim,knum,m,iphv,kphv,ng,iknot)
+        subroutine cmalg(nkn,ngrddi,knum,m,iphv,kphv,ng,iknot)
 
 c cm-algorithmus
 c
@@ -79,15 +79,15 @@ c m		enthaelt am ende gefundene bandbreite
 
         implicit none
 
-        integer nkn,ngrdim,knum,m
+        integer nkn,ngrddi,knum,m
 	integer iphv(nkn),kphv(nkn)
-	integer ng(nkn),iknot(ngrdim*nkn)
+	integer ng(nkn),iknot(ngrddi*nkn)
 
         integer kanf,kend,knold
         integer ngr,ka,inh,in
         integer nggmin,ngg,n,ia,mh
 
-        ngr=ngrdim
+        ngr=ngrddi
 
 	m=0
 	kanf=1			!grenzen fuer
@@ -141,7 +141,7 @@ c asks about what to do (CMV algorithm)
 	integer ianz
 	real f(10)
 
-	integer inquir,iround
+	integer inquire_numbers,iround
 
 	write(6,*) '0   save numbering and exit'
 	write(6,*) '1   numbering for grades'
@@ -151,7 +151,7 @@ c asks about what to do (CMV algorithm)
 	iwei = -1
 	do while( iwei .lt. 0 .or. iwei .gt. 3 )
 	  iwei = 0
-	  ianz = inquir('give number :',f)
+	  ianz = inquire_numbers('give number :',f)
 	  if( ianz .gt. 0 ) iwei = iround(f(1))
 	end do
 
@@ -166,12 +166,12 @@ c gets min/max grades to use for a starting point minimization
 	implicit none
 
 	integer ngr,nkn
-	integer ng(1)
+	integer ng(nkn)
 	integer jgrmin,jgrmax
 
 	real f(10)
 	integer ianz,jz,n,j
-	integer inquir
+	integer inquire_numbers
 
 	do n=1,ngr
             jz=0
@@ -186,7 +186,7 @@ c gets min/max grades to use for a starting point minimization
 
 	ianz = -1
 	do while( ianz .lt. 0 .or. ianz .gt. 2 )
-	  ianz=inquir('give min/max grade (default 1/4) :',f)
+	  ianz=inquire_numbers('give min/max grade (default 1/4) :',f)
 	  if(ianz.eq.2) then
 		jgrmin=f(1)
 		jgrmax=f(2)
@@ -212,21 +212,21 @@ c gets first level interactively
 	implicit none
 
 	integer nkn
-	integer iphv(1), kphv(1)
+	integer iphv(nkn), kphv(nkn)
 	integer knum
 
 	integer ianz
 	integer node,noden
 	real f(10)
 
-	integer ipint,inquir,iround
+	integer ipint,inquire_numbers,iround
 
 	knum=0
 	call zernum(nkn,iphv,kphv)
 
 	write(6,*)'give nodes of first level (<cr> to end)'
 
-	ianz=inquir(' : ',f)
+	ianz=inquire_numbers(' : ',f)
 	do while(ianz.gt.0)
 		if(ianz.gt.1) then
 		  write(6,*)'only one node a time -> repeat'
@@ -241,7 +241,7 @@ c gets first level interactively
 			write(6,*)'invalid node number'
 		  end if
 		end if
-		ianz=inquir(' : ',f)
+		ianz=inquire_numbers(' : ',f)
 	end do
 
 	if(knum.eq.0) then	!no node
@@ -260,7 +260,7 @@ c initializes numbering of nodes for first node
         implicit none
 
         integer nkn
-        integer iphv(1), kphv(1)
+        integer iphv(nkn), kphv(nkn)
 	integer node,knum
 
         integer i
@@ -278,17 +278,17 @@ c initializes numbering of nodes for first node
 
 c****************************************************************
 
-	subroutine cmgrade(nkn,ngrdim,ipv,iphv,kphv,ng,iknot,
+	subroutine cmgrade(nkn,ngrddi,ipv,iphv,kphv,ng,iknot,
      +				jgrmin,jgrmax)
 
 c cuthill-mckee algorithm for grades
 
         implicit none
 
-	integer nkn,ngrdim
+	integer nkn,ngrddi
 	integer ipv(nkn)
 	integer iphv(nkn),kphv(nkn)
-	integer ng(nkn),iknot(ngrdim*nkn)
+	integer ng(nkn),iknot(ngrddi*nkn)
         integer jgrmin,jgrmax
 
         integer i
@@ -305,7 +305,7 @@ c        write(6,'(16x,a,7x,a,3x,a)') 'node','grade','bandwidth'
         do i=1,nkn
             if(ng(i).ge.jgrmin.and.ng(i).le.jgrmax) then
               call nodnum(nkn,iphv,kphv,i,knum)
-              call cmalg(nkn,ngrdim,knum,m,iphv,kphv,ng,iknot)
+              call cmalg(nkn,ngrddi,knum,m,iphv,kphv,ng,iknot)
 	      !write(6,*) i,ipv(i),ng(i),m,mmin
 	      call optest('inside cmgrade',nkn,ipv,iphv,kphv)
 c              write(6,'(8x,3i12)') ipv(i),ng(i),m
@@ -322,7 +322,7 @@ c              write(6,'(8x,3i12)') ipv(i),ng(i),m
 	    call ininum(nkn,iphv,kphv)
         else			!repeat mimimal node
             call nodnum(nkn,iphv,kphv,ikmer,knum)
-            call cmalg(nkn,ngrdim,knum,m,iphv,kphv,ng,iknot)
+            call cmalg(nkn,ngrddi,knum,m,iphv,kphv,ng,iknot)
             write(6,*) 'node =',ipv(iphv(1)),'   mbw =',m
 	end if
 

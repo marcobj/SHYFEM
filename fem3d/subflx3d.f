@@ -42,7 +42,7 @@ c******************************************************************
 c******************************************************************
 c******************************************************************
 
-	subroutine flx2d_k(k,istype,az,n,transp)
+	subroutine flx2d_k(k,istype,az,n,transp,ne,elems)
 
 c computes fluxes through finite volume k (2D version)
 c
@@ -55,23 +55,23 @@ c for a boundary node n == ne + 1
 c in any case it is the number of internal sections that is returned
 c for a boundary node, transp(n) = 0
 
+	use mod_geom
+	use mod_hydro_baro
+	use mod_hydro
+	use evgeom
+
 	implicit none
 
 	integer k		!node number of finite volume
 	real az			!time weighting parameter
 	integer istype		!type of node (>1 => boundary node)
 	integer n		!dimension/size of transp (entry/return)
-	real transp(1)		!fluxes into elements (flux corrected, return) 
-
-	include 'param.h'
-	include 'ev.h'
-	include 'links.h'
-
-	include 'hydro_baro.h'
-	include 'hydro.h'
+	real transp(n)		!fluxes into elements (flux corrected, return) 
+	integer ne		!total number of elements in elems
+	integer elems(ne)	!elements around k
 
 	logical bdebug
-	integer i,ie,ii,ne,ndim
+	integer i,ie,ii,ndim
 	real aj,area,dz,dt
 	real dvdt,div
 	real uv,uvn,uvo
@@ -92,12 +92,6 @@ c---------------------------------------------------------
 	azt = 1. - az
 
 c---------------------------------------------------------
-c get pointer into link structure
-c---------------------------------------------------------
-
-	call set_elem_links(k,ne)
-
-c---------------------------------------------------------
 c initialize variables
 c---------------------------------------------------------
 
@@ -113,7 +107,7 @@ c computed transports are divergence corrected
 c---------------------------------------------------------
 
 	do i=1,ne
-	  ie = lnk_elems(i)
+	  ie = elems(i)
 	  ii = ithis(k,ie)
 	  b = ev(3+ii,ie)
 	  c = ev(6+ii,ie)
@@ -146,6 +140,9 @@ c
 c internal section is defined by:  kbefor - k - kafter
 c passed in are pointers to these section in lnk structure
 
+	use mod_geom
+	use evgeom
+
 	implicit none
 
 	integer k		!node number of finite volume
@@ -154,20 +151,14 @@ c passed in are pointers to these section in lnk structure
 	real az			!time weighting parameter
 	real flux		!flux computed (return)
 
-	integer ndim		!must be at least ngr
-	parameter (ndim=100)
-
-	include 'param.h'
-	include 'ev.h'
-	include 'links.h'
-
 	logical bdebug
-	integer i,n
+	integer i,n,ne
 	real tt
 
-	real transp(ndim)
-	real weight(ndim)
-	real weight1(ndim)
+	integer elems(maxlnk)
+	real transp(maxlnk)
+	real weight(maxlnk)
+	real weight1(maxlnk)
 
 	bdebug = k .eq. 6615
 	bdebug = k .eq. 0
@@ -176,8 +167,9 @@ c---------------------------------------------------------
 c compute transport through finite volume k
 c---------------------------------------------------------
 
-	n = ndim
-	call flx2d_k(k,istype,az,n,transp)
+	n = maxlnk
+	call get_elems_around(k,maxlnk,ne,elems)
+	call flx2d_k(k,istype,az,n,transp,ne,elems)
 
 	if( bdebug ) then
 	  write(88,*) '2d ',k,n
@@ -215,7 +207,7 @@ c******************************************************************
 c******************************************************************
 c******************************************************************
 
-	subroutine flx3d_k(k,istype,az,lkmax,n,transp)
+	subroutine flx3d_k(k,istype,az,lkmax,n,transp,ne,elems)
 
 c computes fluxes through finite volume k (3D version)
 c
@@ -223,28 +215,27 @@ c if we are on a flux boundary this is not working
 c we should exclude mfluxv from the divergence computation
 c -> has been done - other sources of mfluxv (rain, etc.) are also eliminated
 
-	implicit none
+	use mod_bound_geom
+	use mod_geom
+	use mod_bound_dynamic
+	use mod_hydro_vel
+	use mod_hydro
+	use evgeom
+	use levels
 
-	include 'param.h'
+	implicit none
 
 	integer k		!node number of finite volume
 	integer istype		!type of node (see flxtype)
 	real az			!time weighting parameter
 	integer lkmax		!maximum layer in finite volume k (return)
 	integer n		!dimension/size of transp (entry/return)
-	real transp(nlvdim,1)	!computed fluxes (return)
-
-	include 'ev.h'
-	include 'links.h'
-	include 'testbndo.h'
-
-	include 'hydro.h'
-	include 'hydro_vel.h'
-	include 'levels.h'
-	include 'bound_dynamic.h'
+	real transp(nlvdi,n)	!computed fluxes (return)
+	integer ne		!total number of elements in elems
+	integer elems(ne)	!elements around k
 
 	logical bdebug
-	integer i,ie,ii,ne,ndim
+	integer i,ie,ii,ndim
 	integer l,lmax
 	real aj,area,dz,dt
 	real uv,uvn,uvo
@@ -252,8 +243,8 @@ c -> has been done - other sources of mfluxv (rain, etc.) are also eliminated
 	real azt
 	real div,dvdt,q,qw_top,qw_bot
 
-	real dvol(nlvdim)
-	real areal(nlvdim+1)
+	real dvol(nlvdi)
+	real areal(nlvdi+1)
 
 	integer ithis
 	real areanode,volnode
@@ -268,12 +259,6 @@ c---------------------------------------------------------
 	ndim = n
 	call get_timestep(dt)
 	azt = 1. - az
-
-c---------------------------------------------------------
-c get pointer into link structure
-c---------------------------------------------------------
-
-	call set_elem_links(k,ne)
 
 c---------------------------------------------------------
 c initialize variables
@@ -298,7 +283,7 @@ c note: lkmax is always greater or equal than lmax
 c---------------------------------------------------------
 
 	do i=1,ne
-	  ie = lnk_elems(i)
+	  ie = elems(i)
 	  ii = ithis(k,ie)
 	  b = ev(3+ii,ie)
 	  c = ev(6+ii,ie)
@@ -339,35 +324,33 @@ c
 c internal section is defined by:  kbefor - k - kafter
 c passed in are pointers to these section in lnk structure
 
+	use mod_geom
+	use evgeom
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
-	include 'param.h'
+	include 'femtime.h'
 
 	integer k		!node number of finite volume
 	integer ibefor,iafter	!pointer to pre/post node
 	integer istype		!type of node (see flxtype)
 	real az			!time weighting parameter
 	integer lkmax		!maximum layer in finite volume k (return)
-	real flux(nlvdim)	!computed fluxes (return)
-
-	integer ndim		!must be at least ngr
-	parameter (ndim=100)
-
-	include 'femtime.h'
-
-	include 'ev.h'
-	include 'links.h'
+	real flux(nlvdi)	!computed fluxes (return)
 
 	logical bdebug
-	integer i,n
+	integer i,n,ne
 	integer l
 	real ttot
 
-	real tt(nlvdim)
+	real tt(nlvdi)
 
-	real transp(nlvdim,ndim)
-	real weight(ndim)
-	real weight1(ndim)
+	integer elems(maxlnk)
+	real transp(nlvdi,ngr)
+	real weight(ngr)
+	real weight1(ngr)
 
 	bdebug = k .eq. 6615
 	bdebug = k .eq. 0
@@ -376,8 +359,9 @@ c---------------------------------------------------------
 c compute transport through finite volume k
 c---------------------------------------------------------
 
-	n = ndim
-	call flx3d_k(k,istype,az,lkmax,n,transp)
+	n = maxlnk
+	call get_elems_around(k,maxlnk,ne,elems)
+	call flx3d_k(k,istype,az,lkmax,n,transp,ne,elems)
 
 	if( bdebug ) then
 	  write(88,*) '3d ',k,lkmax,n
@@ -456,7 +440,7 @@ c weigth	weights (return)
 	implicit none
 
 	integer n,istype,is
-	real weight(1)
+	real weight(n)
 
 	integer it,i
 	real start,fact,dw
@@ -530,21 +514,20 @@ c
 c uses inodv only for determination of open bounday nodes
 c else uses kantv
 
+	use mod_bound_geom
+	use mod_geom
+	use mod_geom_dynamic
+
 	implicit none
 
 	integer flxtype		!type of node (1=int,2=bnd,3=BOO,4=OOB,5=OOO)
 	integer k		!node number of finite volume
-
-	include 'param.h'
-	include 'geom_dynamic.h'
-	include 'geom.h'
 
 	integer ktype
 	integer kafter,kbefor
 
 	integer ipext
 
-	include 'testbndo.h'
 
 	if( kantv(1,k) .eq. 0 ) then			!inner point
 	   ktype = 1
@@ -585,20 +568,21 @@ c 3d version
 c
 c if on boundary (itype>1) rflux(n) is not used (because not defined)
 
-	implicit none
+	use levels, only : nlvdi,nlv
+	use basin
 
-	include 'param.h'
+	implicit none
 
 	integer k		!node
 	integer itype		!type of node (1=int,2=bnd,3=BOO,4=OOB,5=OOO)
 	integer lkmax		!number of layers
 	integer n		!number of sides (tfluxes)
-	real rflux(nlvdim,n)	!fluxes into node (element)
-	real tflux(nlvdim,n)	!fluxes through sides (return value)
+	real rflux(nlvdi,n)	!fluxes into node (element)
+	real tflux(nlvdi,n)	!fluxes through sides (return value)
 
 	integer i,l
-	real rf(ngrdim)
-	real tf(ngrdim)
+	real rf(ngr)
+	real tf(ngr)
 
 	do l=1,lkmax
 

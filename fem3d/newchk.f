@@ -9,11 +9,11 @@ c subroutine test3d(iunit,nn)           test output for new variables
 c subroutine check_all			checks arrays for sanity (shell)
 c subroutine check_fem			checks arrays for sanity
 c subroutine check_values		checks important variables
-c subroutine tsmass(ts,z,nlvdim,tstot)  computes mass of T/S or any conc. ts
+c subroutine tsmass(ts,z,nlvdi,tstot)   computes mass of T/S or any conc. ts
 c subroutine debug_dry			writes debug information on dry areas
 c subroutine debug_node(k)		writes debug information on node k
 c subroutine mimafem(string)		writes some min/max values to stdout
-c subroutine mass_conserve(vf,va)	checks mass conservation
+c subroutine mass_conserve		checks mass conservation
 c
 c subroutine check_node(k)		debug info on node k
 c subroutine check_elem(ie)		debug info on element ie
@@ -54,6 +54,7 @@ c 12.07.2011    ggu     loop only over actual nodes/elements, not dimensions
 c 15.07.2011    ggu     new routines for CRC computation
 c 25.10.2011    ggu     hlhv eliminated
 c 15.05.2014    ggu     write mass error only for levdbg >= 3
+c 17.09.2015    ggu     in mass_conserve aux variables are local
 c
 c*************************************************************
 
@@ -62,6 +63,17 @@ c*************************************************************
 c test output for new variables
 c
 c nn	number of first array elements to be printed
+
+	use mod_meteo
+	use mod_internal
+	use mod_geom_dynamic
+	use mod_depth
+	use mod_ts
+	use mod_diff_visc_fric
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
 
 	implicit none
 
@@ -72,27 +84,14 @@ c parameter
 	include 'param.h'
 c common
 	include 'femtime.h'
-	include 'nbasin.h'
-	include 'nlevel.h'
 
-	include 'internal.h'
-	include 'levels.h'
-	include 'hydro.h'
-	include 'hydro_vel.h'
-	include 'depth.h'
 
-	include 'ts.h'
-	include 'diff_visc_fric.h'
-	include 'geom_dynamic.h'
 
-	include 'meteo_aux.h'
 
 c local
 	logical bmeteo
 	integer i,l,nk,ne
 	integer iu,ii
-
-	if(nlvdim.ne.nlvdi) stop 'error stop : level dimension in test3d'
 
 	bmeteo = .false.
 
@@ -247,25 +246,19 @@ c******************************************************************
 
 c checks important variables
 
+	use mod_layer_thickness
+	use mod_ts
+	use mod_hydro_baro
+	use mod_hydro_vel
+	use mod_hydro
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-	include 'nbasin.h'
 	include 'femtime.h'
-	include 'nlevel.h'
-
-	include 'depth.h'
-
-
-
-	include 'hydro.h'
-	include 'hydro_baro.h'
-
-	include 'ts.h'
-
-
-	include 'hydro_vel.h'
 
 	character*16 text
 
@@ -277,23 +270,23 @@ c checks important variables
 	call check2Dr(3,3,nel,zeov,-10.,+10.,text,'zeov')
 	call check2Dr(3,3,nel,zenv,-10.,+10.,text,'zenv')
 
-	call check1Dr(nkn,unv,-10000.,+10000.,text,'unv')
-	call check1Dr(nkn,vnv,-10000.,+10000.,text,'vnv')
+	call check1Dr(nel,unv,-10000.,+10000.,text,'unv')
+	call check1Dr(nel,vnv,-10000.,+10000.,text,'vnv')
 
-	call check2Dr(nlvdim,nlv,nkn,utlnv,-10000.,+10000.,text,'utlnv')
-	call check2Dr(nlvdim,nlv,nkn,vtlnv,-10000.,+10000.,text,'vtlnv')
+	call check2Dr(nlvdi,nlv,nel,utlnv,-10000.,+10000.,text,'utlnv')
+	call check2Dr(nlvdi,nlv,nel,vtlnv,-10000.,+10000.,text,'vtlnv')
 
-	call check2Dr(nlvdim,nlv,nkn,ulnv,-10.,+10.,text,'ulnv')
-	call check2Dr(nlvdim,nlv,nkn,vlnv,-10.,+10.,text,'vlnv')
+	call check2Dr(nlvdi,nlv,nel,ulnv,-10.,+10.,text,'ulnv')
+	call check2Dr(nlvdi,nlv,nel,vlnv,-10.,+10.,text,'vlnv')
 
-	call check2Dr(nlvdim,nlv,nkn,tempv,-30.,+70.,text,'tempv')
-	call check2Dr(nlvdim,nlv,nkn,saltv,-1.,+50.,text,'saltv')
+	call check2Dr(nlvdi,nlv,nkn,tempv,-30.,+70.,text,'tempv')
+	call check2Dr(nlvdi,nlv,nkn,saltv,-1.,+50.,text,'saltv')
 
-	call check2Dr(nlvdim,nlv,nkn,hdknv,0.,+10000.,text,'hdknv')
-	call check2Dr(nlvdim,nlv,nkn,hdkov,0.,+10000.,text,'hdkov')
+	call check2Dr(nlvdi,nlv,nkn,hdknv,0.,+10000.,text,'hdknv')
+	call check2Dr(nlvdi,nlv,nkn,hdkov,0.,+10000.,text,'hdkov')
 
-	call check2Dr(nlvdim,nlv,nel,hdenv,0.,+10000.,text,'hdenv')
-	call check2Dr(nlvdim,nlv,nel,hdeov,0.,+10000.,text,'hdeov')
+	call check2Dr(nlvdi,nlv,nel,hdenv,0.,+10000.,text,'hdenv')
+	call check2Dr(nlvdi,nlv,nel,hdeov,0.,+10000.,text,'hdeov')
 
 	end
 
@@ -315,10 +308,6 @@ c
 
 	double precision scalcont
 
-	if( nlvdi .ne. nlvdim ) then
-	  write(6,*) nlvdi,nlvdim
-	  stop 'error stop tsmass: nlvdim'
-	end if
 	if( mode .ne. 1 .and. mode .ne. -1 ) then
 	  write(6,*) 'mode = ',mode
 	  stop 'error stop tsmass: wrong value for mode'
@@ -334,14 +323,15 @@ c************************************************************
 
 c writes debug information on dry areas
 
+	use mod_geom_dynamic
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
 c common
 	include 'femtime.h'
-	include 'nbasin.h'
-	include 'geom_dynamic.h'
 
 	integer ie,iweg
 
@@ -360,6 +350,16 @@ c*************************************************************
 
 c writes debug information on final volume around node k (internal)
 
+	use mod_geom_dynamic
+	use mod_depth
+	use mod_hydro_baro
+	use mod_hydro_print
+	use mod_hydro_vel
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 	integer k
@@ -368,17 +368,7 @@ c writes debug information on final volume around node k (internal)
 
 c common
 	include 'femtime.h'
-	include 'nlevel.h'
 	include 'mkonst.h'
-	include 'basin.h'
-	include 'depth.h'
-	include 'hydro_vel.h'
-	include 'hydro_print.h'
-	include 'levels.h'
-	include 'hydro.h'
-	include 'hydro_baro.h'
-	include 'geom_dynamic.h'
-	include 'ev.h'
 
 	integer ie,ii,kk,l,i
 	integer ilevel
@@ -392,13 +382,17 @@ c common
 	real getpar
 	integer ipext,ieext
 
-	integer netot
-	integer kinf(2,ngrdim)
-	save netot,kinf
+	integer, save :: netot
+	integer, save, allocatable :: kinf(:,:)
 
 	integer kmem
 	save kmem
 	data kmem / 0 /
+
+	if( k == 0 ) then
+	  allocate(kinf(2,ngr))
+	  kinf = 0
+	end if
 
 	if( k .ne. kmem ) then
 	  netot = 0
@@ -407,8 +401,8 @@ c common
 	      kk = nen3v(ii,ie)
 	      if( kk .eq. k ) then
 	        netot = netot + 1
-	        if( netot .gt. ngrdim ) then
-		  stop 'error stop debug_node: ngrdim'
+	        if( netot .gt. ngr ) then
+		  stop 'error stop debug_node: ngr'
 	        end if
 	        kinf(1,netot) = ie
 	        kinf(2,netot) = ii
@@ -474,6 +468,14 @@ c*************************************************************
 
 c writes some min/max values to stdout
 
+	use mod_layer_thickness
+	use mod_ts
+	use mod_hydro_print
+	use mod_hydro_vel
+	use mod_hydro
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
 	include 'param.h'
@@ -481,15 +483,8 @@ c writes some min/max values to stdout
         character*(*) string
 c common
 	include 'femtime.h'
-	include 'nbasin.h'
-	include 'nlevel.h'
 
-	include 'hydro.h'
-	include 'hydro_vel.h'
-	include 'hydro_print.h'
-	include 'ts.h'
 
-	include 'depth.h'
 
 
 
@@ -508,8 +503,6 @@ c functions
 c-----------------------------------------------------
 c initial check and write
 c-----------------------------------------------------
-
-	if(nlvdim.ne.nlvdi) stop 'error stop mimafem: level dimension'
 
         !return  !FIXME
         write(6,*) '------------------ ',string,' ',it
@@ -625,23 +618,21 @@ c computes and writes total water volume
 
 c*************************************************************
 
-	subroutine mass_conserve(vf,va)
+	subroutine mass_conserve
 
 c checks mass conservation of single boxes (finite volumes)
 
+	use mod_bound_geom
+	use mod_bound_dynamic
+	use mod_hydro_vel
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
-	include 'param.h'
-
-	real vf(nlvdim,1)
-	real va(nlvdim,1)
-
-	include 'basin.h'
-	include 'hydro.h'
-	include 'hydro_vel.h'
-	include 'levels.h'
-	include 'bound_dynamic.h'
-	include 'ev.h'
+	include 'mkonst.h'
 
 	logical berror,bdebug
 	integer ie,l,ii,k,lmax,mode,ks,kss
@@ -657,9 +648,10 @@ c checks mass conservation of single boxes (finite volumes)
 	real vrwarn,vrerr
 	real qinput
 	double precision vtotmax,vvv,vvm
+	real, allocatable :: vf(:,:)
+	real, allocatable :: va(:,:)
 
 	real volnode,areanode,getpar
-	include 'testbndo.h'
 
 	integer ninfo
 	save ninfo
@@ -675,6 +667,8 @@ c----------------------------------------------------------------
 	vrerr = getpar('vrerr')
 	levdbg = nint(getpar('levdbg'))
 
+	if( levdbg .le. 1 ) return
+
 	mode = +1
         call getazam(azpar,ampar)
 	az = azpar
@@ -682,13 +676,9 @@ c----------------------------------------------------------------
         azt = 1. - az
 	call get_timestep(dt)
 
-	do k=1,nkn
-          lmax = ilhkv(k)
-	  do l=1,lmax
-	    vf(l,k) = 0.
-	    va(l,k) = 0.
-	  end do
-	end do
+	allocate(vf(nlvdi,nkn),va(nlvdi,nkn))
+	vf = 0.
+	va = 0.
 
 c----------------------------------------------------------------
 c compute horizontal divergence
@@ -761,8 +751,8 @@ c----------------------------------------------------------------
 	vrmax = 0.
 	vmax = 0.
 	do k=1,nkn
-	 !if( is_inner(k) ) then
-	 if( .not. is_external_boundary(k) ) then
+	  if( is_zeta_boundary(k) ) cycle
+	  if( is_external_boundary(k) ) cycle
 	  bdebug = k .eq. kss
 	  if( bdebug ) write(78,*) '============================='
 	  berror = .false.
@@ -794,7 +784,6 @@ c----------------------------------------------------------------
 		call check_node(k)
 		write(78,*) '============================'
 	  end if
-	 end if
 	end do
 
 	vlmax = vmax		!absolute error for each box
@@ -888,6 +877,8 @@ c	vrlmax 		!relative error for each box
 
 	write(ninfo,*) 'mass_balance: ',vbmax,vlmax,vrbmax,vrlmax
 
+	deallocate(vf,va)
+
 c----------------------------------------------------------------
 c end of routine
 c----------------------------------------------------------------
@@ -902,27 +893,28 @@ c*************************************************************
 
 	subroutine check_crc
 
+	use mod_internal
+	use mod_depth
+	use mod_layer_thickness
+	use mod_bound_dynamic
+	use mod_area
+	use mod_ts
+	use mod_diff_visc_fric
+	use mod_hydro_print
+	use mod_hydro_vel
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
-	include 'ev.h'
 
 	include 'femtime.h'
-	include 'nbasin.h'
-	include 'nlevel.h'
 
-	include 'levels.h'
-	include 'internal.h'
-	include 'hydro.h'
-	include 'hydro_vel.h'
-	include 'depth.h'
 
-	include 'diff_visc_fric.h'
-	include 'ts.h'
 
-	include 'bound_dynamic.h'
-	include 'area.h'
-	include 'hydro_print.h'
 
 	integer icrc,iucrc
 	save iucrc
@@ -945,30 +937,30 @@ c*************************************************************
 
 	call check_crc_1d(iucrc,'znv',nkn,znv)
 	call check_crc_1d(iucrc,'zenv',3*nel,zenv)
-	call check_crc_2d(iucrc,'utlnv',nlvdim,nel,ilhv,utlnv)
-	call check_crc_2d(iucrc,'vtlnv',nlvdim,nel,ilhv,vtlnv)
-	call check_crc_2d(iucrc,'saltv',nlvdim,nkn,ilhkv,saltv)
-	call check_crc_2d(iucrc,'tempv',nlvdim,nkn,ilhkv,tempv)
-	call check_crc_2d(iucrc,'rhov',nlvdim,nkn,ilhkv,rhov)
+	call check_crc_2d(iucrc,'utlnv',nlvdi,nel,ilhv,utlnv)
+	call check_crc_2d(iucrc,'vtlnv',nlvdi,nel,ilhv,vtlnv)
+	call check_crc_2d(iucrc,'saltv',nlvdi,nkn,ilhkv,saltv)
+	call check_crc_2d(iucrc,'tempv',nlvdi,nkn,ilhkv,tempv)
+	call check_crc_2d(iucrc,'rhov',nlvdi,nkn,ilhkv,rhov)
 
 	if( icrc .le. 1 ) return
 
 	!call check_crc_1d(iucrc,'ev',evdim*nel,ev)	!FIXME - double
 	call check_crc_1d(iucrc,'hev',nel,hev)
 	call check_crc_1d(iucrc,'fcorv',nel,fcorv)
-	call check_crc_2d(iucrc,'visv',nlvdim,nkn,ilhkv,visv)
-	call check_crc_2d(iucrc,'difv',nlvdim,nkn,ilhkv,difv)
-	call check_crc_2d(iucrc,'hdknv',nlvdim,nkn,ilhkv,hdknv)
-	call check_crc_2d(iucrc,'hdenv',nlvdim,nel,ilhv,hdenv)
+	call check_crc_2d(iucrc,'visv',nlvdi,nkn,ilhkv,visv)
+	call check_crc_2d(iucrc,'difv',nlvdi,nkn,ilhkv,difv)
+	call check_crc_2d(iucrc,'hdknv',nlvdi,nkn,ilhkv,hdknv)
+	call check_crc_2d(iucrc,'hdenv',nlvdi,nel,ilhv,hdenv)
 
 	if( icrc .le. 2 ) return
 
-	call check_crc_2d(iucrc,'ulnv',nlvdim,nel,ilhv,ulnv)
-	call check_crc_2d(iucrc,'vlnv',nlvdim,nel,ilhv,vlnv)
-	call check_crc_2d(iucrc,'mfluxv',nlvdim,nkn,ilhkv,mfluxv)
-	call check_crc_2d(iucrc,'areakv',nlvdim,nkn,ilhkv,areakv)
-	call check_crc_2d(iucrc,'wlnv',nlvdim+1,nkn,ilhkv,wlnv)
-	call check_crc_2d(iucrc,'wprv',nlvdim+1,nkn,ilhkv,wprv)
+	call check_crc_2d(iucrc,'ulnv',nlvdi,nel,ilhv,ulnv)
+	call check_crc_2d(iucrc,'vlnv',nlvdi,nel,ilhv,vlnv)
+	call check_crc_2d(iucrc,'mfluxv',nlvdi,nkn,ilhkv,mfluxv)
+	call check_crc_2d(iucrc,'areakv',nlvdi,nkn,ilhkv,areakv)
+	call check_crc_2d(iucrc,'wlnv',nlvdi+1,nkn,ilhkv,wlnv)
+	call check_crc_2d(iucrc,'wprv',nlvdi+1,nkn,ilhkv,wprv)
 
 	if( icrc .le. 3 ) return
 
@@ -1052,6 +1044,18 @@ c*************************************************************
 
 c writes debug information on node k
 
+	use mod_geom_dynamic
+	use mod_depth
+	use mod_layer_thickness
+	use mod_bound_dynamic
+	use mod_area
+	use mod_ts
+	use mod_diff_visc_fric
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use basin
+
 	implicit none
 
 	integer k
@@ -1063,18 +1067,8 @@ c writes debug information on node k
 
 	include 'femtime.h'
 
-	include 'levels.h'
-	include 'geom_dynamic.h'
 
-	include 'hydro_vel.h'
-	include 'basin.h'
-	include 'bound_dynamic.h'
-	include 'hydro.h'
-	include 'ts.h'
-	include 'diff_visc_fric.h'
 
-	include 'depth.h'
-	include 'area.h'
 
 	integer iu
 	integer l,lmax,kk
@@ -1111,29 +1105,31 @@ c*************************************************************
 
 c writes debug information on element ie
 
+	use mod_geom_dynamic
+	use mod_depth
+	use mod_layer_thickness
+	use mod_hydro_vel
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 	integer iunit
 	integer ie
 
 	include 'param.h'
-	include 'ev.h'
 
 	integer iucheck
 	common /iucheck/iucheck
 
 	include 'femtime.h'
 
-	include 'basin.h'
-	include 'levels.h'
-	include 'geom_dynamic.h'
-
-	include 'depth.h'
-
-	include 'hydro.h'
 
 
-	include 'hydro_vel.h'
+
+
 
 
 	integer iu
@@ -1172,6 +1168,8 @@ c*************************************************************
 
 c writes debug information on nodes in element ie
 
+	use basin
+
 	implicit none
 
 	integer ie
@@ -1180,7 +1178,6 @@ c writes debug information on nodes in element ie
 	common /iucheck/iucheck
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ii,k,iu
 	integer ieext
@@ -1204,6 +1201,8 @@ c*************************************************************
 
 c writes debug information on elements around node k
 
+	use basin
+
 	implicit none
 
 	integer k
@@ -1213,7 +1212,6 @@ c writes debug information on elements around node k
 
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ie,ii,kk,iu
 	logical bdebug

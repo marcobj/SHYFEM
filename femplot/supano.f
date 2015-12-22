@@ -760,6 +760,7 @@ c write legend
 	  end if
 	end if
 
+	dtick = 1.
 	ntk = nticks
 	blog = ipllog .ne. 0
 	if( blog ) ntk = -1
@@ -2055,6 +2056,8 @@ c	+---+---+
 c	| 1 | 2 |
 c	+---+---+
 
+	use basin
+
 	implicit none
 
 	integer iquad		!quadrante that is free
@@ -2068,7 +2071,6 @@ c	+---+---+
 
 
 	include 'param.h'
-	include 'basin.h'
 
 	character*80 line
 	integer i,j,k,n

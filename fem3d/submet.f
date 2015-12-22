@@ -16,17 +16,18 @@ c*********************************************************************
 
 c converts distributed source from [m/s] to [m**3/s]
 
+	use mod_bound_dynamic
+	use evgeom
+	use basin
+
 	implicit none
 
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'bound_dynamic.h'
-	include 'basin.h'
-	include 'ev.h'
-	include 'aux_array.h'
+	include 'param.h'
 
 	integer k,ie,ii
 	real area3
+	real v1v(nkn)
 
 	do k=1,nkn
 	  v1v(k) = 0.
@@ -54,12 +55,13 @@ c*******************************************************************
 
 c initializes evaporation mass flux
 
+	use mod_meteo
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
-	include 'meteo.h'
 
-	include 'nbasin.h'
 
 	integer k
 
@@ -75,13 +77,14 @@ c*******************************************************************
 
 c adds evaporation mass flux to distributed source
 
+	use mod_meteo
+	use mod_bound_dynamic
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
-	include 'meteo.h'
 
-	include 'nbasin.h'
-	include 'bound_dynamic.h'
 
 	integer k,ievap
 	real getpar
@@ -102,12 +105,13 @@ c*******************************************************************
 
 c initializes evaporation mass flux
 
+	use mod_meteo
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
-	include 'meteo.h'
 
-	include 'nbasin.h'
 
 	integer k
 	real dragco
@@ -168,18 +172,21 @@ c*******************************************************************
 
 c computes heat flux through bulk formulas
 
+	use mod_ts
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
 	include 'femtime.h'
-	include 'nbasin.h'
-	include 'ts.h'
+
 	double precision dq
 	real dt
 
         call get_timestep(dt)
-        call qflux3d(it,dt,nkn,nlvdim,tempv,dq)	!compute heat flux
+        call qflux3d(it,dt,nkn,nlvdi,tempv,dq)	!compute heat flux
 
 	end
 
@@ -191,6 +198,8 @@ c*******************************************************************
 
 c returns wind (wx/y), normalized stress (taux/yn) and pressure (p)
 
+	use mod_meteo
+
 	implicit none
 
 	integer k		!node number
@@ -199,7 +208,6 @@ c returns wind (wx/y), normalized stress (taux/yn) and pressure (p)
 	real p			!pressure [Pa]
 
 	include 'param.h'
-	include 'meteo.h'
 
 	wx = wxv(k)
 	wy = wyv(k)
@@ -230,10 +238,11 @@ c*******************************************************************
 
 c returns ice cover [fraction 0-1]
 
+	use mod_meteo
+
 	implicit none
 
 	include 'param.h'
-	include 'meteo.h'
 
         integer k               !node number
         real ice_cover          ![0-1]
@@ -248,11 +257,12 @@ c*******************************************************************
 
 c returns ice cover array [fraction 0-1]
 
+	use mod_meteo
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
-	include 'nbasin.h'
-	include 'meteo.h'
 
         real ice_cover(nkn)          ![0-1]
 

@@ -11,6 +11,12 @@
         common /nbasin/ nkn,nel,ngr,mbw
         save /nbasin/
 
+        integer nkndi,neldi,ngrdi,mbwdi
+	parameter ( nkndi = nkndim )
+	parameter ( neldi = neldim )
+	parameter ( ngrdi = ngrdim )
+	parameter ( mbwdi = mbwdim )
+
         real dcorbas,dirnbas
         common /bkonst/ dcorbas,dirnbas
 	save /bkonst/

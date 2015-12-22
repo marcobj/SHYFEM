@@ -14,13 +14,14 @@ c*******************************************************************
 
 c returns distance between two nodes
 
+	use basin
+
         implicit none
 
         real dist_node
         integer k1,k2
 
 	include 'param.h'
-	include 'basin.h'
 
         real x1,y1,x2,y2,dx,dy
 
@@ -100,12 +101,13 @@ c*******************************************************************
 
 c returns center of gravity of total basin
 
+	use basin
+
 	implicit none
 
 	real xm,ym
 
 	include 'param.h'
-	include 'basin.h'
 
 	call xy_center(nkn,xgv,ygv,xm,ym)
 
@@ -144,6 +146,8 @@ c*******************************************************************
 
 c returns x,y and min/max coordinates of vertices of element ie
 
+	use basin
+
 	implicit none
 
 	integer ie
@@ -152,7 +156,6 @@ c returns x,y and min/max coordinates of vertices of element ie
 	real ymin,ymax
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ii,k
 
@@ -173,13 +176,14 @@ c*******************************************************************
 
 	subroutine compute_total_area(area)
 
+	use evgeom
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	real area
 
-	include 'nbasin.h'
 
-	include 'ev.h'
 
 	integer ie
 	double precision a,tot_area

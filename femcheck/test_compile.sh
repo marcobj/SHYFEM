@@ -7,6 +7,12 @@
 compilers="GNU_GFORTRAN INTEL"
 #compilers="GNU_GFORTRAN"
 
+rules_arc_dir=./arc/rules
+rules_dist_dir=./femcheck
+
+rules_save=$rules_arc_dir/Rules.save
+rules_dist=./femcheck/Rules.dist
+
 #--------------------------------------------------------
 
 #trap Clean_up SIGHUP SIGINT SIGTERM
@@ -22,8 +28,8 @@ Clean_up()
 Clean_before()
 {
   rm -f *.out *.tmp
-  mv --backup=numbered ./Rules.make ./rules/Rules.save
-  cp ./rules/Rules.dist ./Rules.make
+  mv --backup=numbered ./Rules.make $rules_save
+  cp $rules_dist ./Rules.make
   [ -f allstdout.txt ] && rm allstdout.txt
   [ -f allstderr.txt ] && rm allstderr.txt
 }
@@ -32,15 +38,15 @@ Clean_after()
 {
   rm -f *.tmp
   rm -f stdout.out stderr.out
-  mv -f ./rules/Rules.save ./Rules.make
+  mv -f $rules_save ./Rules.make
   [ -f allstdout.txt ] && mv allstdout.txt allstdout.tmp
   [ -f allstderr.txt ] && mv allstderr.txt allstderr.tmp
 }
 
 SetUp()
 {
-  mkdir -p ./rules
-  [ -f ./rules/Rules.dist ] || cp ./Rules.make ./rules/Rules.dist
+  mkdir -p $rules_arc_dir $rules_dist_dir
+  [ -f $rules_dist ] || cp ./Rules.make $rules_dist
 }
 
 WrapUp()
@@ -101,15 +107,22 @@ Clean_before
 
 for comp in $compilers
 do
+
   echo "================================="
   echo "compiling with $comp"
   echo "================================="
   Rules "FORTRAN_COMPILER=$comp"
 
+  make compiler_version > /dev/null 2>&1
+
+  [ $? -ne 0 ] && continue
+  echo "compiler $comp is available..."
+
   Comp "ECOLOGICAL=NONE GOTM=true NETCDF=false SOLVER=SPARSKIT PARALLEL=false"
   #Comp "ECOLOGICAL=EUTRO GOTM=false SOLVER=PARDISO"
   Comp "ECOLOGICAL=EUTRO GOTM=false"
-  Comp "ECOLOGICAL=ERSEM GOTM=true NETCDF=true SOLVER=GAUSS"
+  #Comp "ECOLOGICAL=ERSEM GOTM=true NETCDF=true SOLVER=GAUSS"
+  Comp "ECOLOGICAL=NONE GOTM=true NETCDF=true SOLVER=GAUSS"
   Comp "ECOLOGICAL=AQUABC NETCDF=false PARALLEL=true"
 done
 

@@ -26,6 +26,8 @@ c manages release of particles
 	real getpar
 
 	npoints = nint(getpar('nbdy'))
+	if( npoints <= 0 ) return
+
         call getfnm('lagra',line)
 
         if( line .eq. ' ' ) then      !total lagoon
@@ -257,6 +259,8 @@ c*******************************************************************
 
 c flags elements which are in/out-side or at border of line
 
+	use basin
+
 	implicit none
 
 	integer n
@@ -264,8 +268,6 @@ c flags elements which are in/out-side or at border of line
 	integer iflag(1)
 
 	include 'param.h'
-	include 'basin.h'
-	include 'aux_array.h'
 
 	logical inpoly
 	logical debug
@@ -274,6 +276,7 @@ c flags elements which are in/out-side or at border of line
 	real xlmin,xlmax,ylmin,ylmax
 	real xmin,xmax,ymin,ymax
 	real xa,ya,xe(3),ye(3)
+	real v1v(nkn)
 
 	debug = .false.
 
@@ -428,6 +431,9 @@ c*******************************************************************
 
 c release in partial area
 
+	use mod_lagrange
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	real dxy
@@ -436,10 +442,8 @@ c release in partial area
 	real x(1),y(1)
 
 	include 'param.h'
-	include 'nbasin.h'
-	include 'lagrange.h'
 
-	integer iflag(neldim)
+	integer iflag(nel)
 
 	integer ie,i,j
 	integer nin,iin,ifl,np
@@ -537,12 +541,13 @@ c*******************************************************************
 
 c release in total area
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	real dxy
 
 	!include 'param.h'
-	include 'nbasin.h'
 	!include 'lagrange.h'
 
 	integer ie,i,j

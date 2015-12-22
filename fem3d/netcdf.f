@@ -205,7 +205,7 @@ c---------------------
 
 	what = 'units'
 	call nc_convert_date(date0,time0,date)
-	text = 'seconds since '//date
+	text = 'seconds since '//trim(date)
 	call nc_define_attr(ncid,what,text,varid)
 
 	what = 'standard_name'
@@ -439,7 +439,7 @@ c---------------------
 
 	what = 'units'
 	call nc_convert_date(date0,time0,date)
-	text = 'seconds since '//date
+	text = 'seconds since '//trim(date)
 	call nc_define_attr(ncid,what,text,varid)
 
 	what = 'standard_name'
@@ -578,7 +578,7 @@ c---------------------
 
 	what = 'units'
 	call nc_convert_date(date0,time0,date)
-	text = 'seconds since '//date
+	text = 'seconds since '//trim(date)
 	call nc_define_attr(ncid,what,text,varid)
 
 	what = 'standard_name'
@@ -1499,6 +1499,8 @@ c*****************************************************************
 
 	subroutine nc_write_coords_reg(ncid,nx,ny,xlon,ylat,depth)
 
+	use levels
+
 	implicit none
 
 	include 'param.h'
@@ -1511,7 +1513,6 @@ c*****************************************************************
 	real ylat(ny)
 	real depth(nx,ny)
 
-	include 'levels.h'
 
 	integer lon_varid,lat_varid,lvl_varid,dep_varid
 	integer eix_varid,top_varid
@@ -1548,6 +1549,10 @@ c*****************************************************************
 
 	subroutine nc_write_coords(ncid)
 
+	use mod_depth
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
@@ -1556,9 +1561,6 @@ c*****************************************************************
 
 	integer ncid
 
-	include 'basin.h'
-	include 'levels.h'
-	include 'depth.h'
 
 	integer lon_varid,lat_varid,lvl_varid,dep_varid
 	integer eix_varid,top_varid
@@ -1816,13 +1818,13 @@ c compact data for write
 c*****************************************************************
 c*****************************************************************
 
-	subroutine nc_compact_3d_reg(nlvdim,nlv,nx,ny,var_in,var_out)
+	subroutine nc_compact_3d_reg(nlvddi,nlv,nx,ny,var_in,var_out)
 
 	implicit none
 
-	integer nlvdim
+	integer nlvddi
 	integer nlv,nx,ny
-	real var_in(nlvdim,nx,ny)
+	real var_in(nlvddi,nx,ny)
 	real var_out(nlv,nx,ny)
 
 	integer l,ix,iy
@@ -1839,13 +1841,13 @@ c*****************************************************************
 
 c*****************************************************************
 
-	subroutine nc_compact_3d(nlvdim,nlv,nkn,var_in,var_out)
+	subroutine nc_compact_3d(nlvddi,nlv,nkn,var_in,var_out)
 
 	implicit none
 
-	integer nlvdim
+	integer nlvddi
 	integer nlv,nkn
-	real var_in(nlvdim,nkn)
+	real var_in(nlvddi,nkn)
 	real var_out(nlv,nkn)
 
 	integer k,l
@@ -1912,7 +1914,7 @@ c writes global conventions
 
 	call nc_current_time(cdate)
 	what = 'history'
-	text = 'created on ' // cdate
+	text = 'created on ' // trim(cdate)
 	call nc_strip(text)
 	call nc_define_attr(ncid,what,text,varid)
 

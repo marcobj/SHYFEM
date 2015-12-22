@@ -9,7 +9,7 @@ c 05.06.1998    ggu     avoid write to terminal
 c
 c*********************************************************************
 
-	subroutine rosen(nkn,ngrdim,iphv,kphv,ng,iknot,kvert)
+	subroutine rosen(nkn,ngrddi,iphv,kphv,ng,iknot,kvert)
 c
 c rosen algorithmus
 c
@@ -30,7 +30,7 @@ c		...unveraendert lassen
 c nhil    anzahl der indexpaare auf khil (max. ndim)
 c kvert		indexpaare die bereits miteinander
 c		...vertauscht worden sind
-c nvert		anzahl der indexpaare auf kvert (max. nkndim)
+c nvert		anzahl der indexpaare auf kvert (max. nkn)
 c		...wird auf 0 gesetzt wenn es gelingt zwei
 c		...indizes zu vertauschen bei denen die
 c		...bandbreite erniedrigt wird
@@ -43,9 +43,9 @@ c
         integer ndim
         parameter (ndim=10)
 
-	integer nkn,ngrdim
+	integer nkn,ngrddi
 	integer iphv(nkn),kphv(nkn)
-	integer ng(nkn),iknot(ngrdim*nkn)
+	integer ng(nkn),iknot(ngrddi*nkn)
 	integer kvert(2,nkn)
 
         integer ipaar(2,ndim),khil(2,ndim)
@@ -70,7 +70,8 @@ c
 	nhil=0
 	nvert=0
         ms=nkn+1
-	ngr=ngrdim
+	ngr=ngrddi
+	kmerk = 0
 c
         do while (true)
 c

@@ -38,6 +38,8 @@ c*****************************************************************
 
 	program readext
 
+	use basin
+
 	implicit none
 
 	integer noddim
@@ -61,7 +63,6 @@ c*****************************************************************
 	integer iz(noddim)
 
 c global data ------------------------------------
-	include 'basin.h'
 c ------------------------------------------------
 
 	integer iapini, ideffi, ifileo
@@ -73,7 +74,7 @@ c ------------------------------------------------
 
 c open files ---------------------------------------------------
 
-        if(iapini(2,nkndim,neldim,0).eq.0) then
+        if(iapini(2,0,0,0).eq.0) then
                 stop 'error stop : iapini'
         end if
 

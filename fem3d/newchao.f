@@ -14,17 +14,18 @@ c******************************************************************
 
 c written on 06.06.96 by ggu   (from sp159f)
 
+	use mod_hydro_baro
+	use mod_hydro
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
 c parameter
 	include 'param.h'
 c common
-	include 'nlevel.h'
 	include 'femtime.h'
 
-	include 'hydro_baro.h'
-	include 'hydro.h'
-	include 'basin.h'
 
 	real umax,dz,fact
 	integer ie,l,last,iex

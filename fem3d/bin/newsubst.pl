@@ -44,54 +44,56 @@ $fortran->parse_files($::quiet);
 #----------------------------------------------------------------
 
 if( $::subst ) {
-  subst_femtim($fortran);
-  subst_konst($fortran);
-  subst_ts($fortran);
-  subst_levels($fortran);
-  subst_depth($fortran);
-  subst_meteo($fortran);
-  subst_hydro($fortran);
-  subst_hydro_vel($fortran);
-  subst_hydro_print($fortran);
-  subst_hydro_plot($fortran);
-  subst_plot_aux($fortran);
-  subst_plot_supout($fortran);
-  subst_basin($fortran);
-  subst_geom_dynamic($fortran);
-  subst_geom($fortran);
-  subst_tides($fortran);
-  subst_diff_visc_fric($fortran);
-  subst_waves($fortran);
-  subst_bound_geom($fortran);
-  subst_hydro_baro($fortran);
-  subst_sinking($fortran);
-  subst_simul($fortran);
-  subst_area($fortran);
-  subst_aux_array($fortran);
-  subst_turbulence($fortran);
-  subst_bound_dynamic($fortran);
-  subst_bound_names($fortran);
-  subst_roughness($fortran);
-  subst_internal($fortran);
-  subst_diff_aux($fortran);
-  subst_bnd_aux($fortran);
-  subst_fluidmud($fortran);
-  subst_volcomp($fortran);
-  subst_nudging($fortran);
-  subst_gotm($fortran);
-  subst_conz($fortran);
-  subst_nohyd($fortran);
-  subst_extra($fortran);
-  subst_const_aux($fortran);
-  subst_debug($fortran);
-  subst_coords($fortran);
-  subst_sigma($fortran);
-  subst_histo($fortran);
-  subst_stab($fortran);
-  subst_grd($fortran);
-  subst_semi($fortran);
-  subst_subnls($fortran);
-  subst_reg($fortran);
+  #subst_femtim($fortran);
+  #subst_konst($fortran);
+  #subst_ts($fortran);
+  #subst_levels($fortran);
+  #subst_depth($fortran);
+  #subst_meteo($fortran);
+  #subst_hydro($fortran);
+  #subst_hydro_vel($fortran);
+  #subst_hydro_print($fortran);
+  #subst_hydro_plot($fortran);
+  #subst_plot_aux($fortran);
+  #subst_plot_supout($fortran);
+  #subst_basin($fortran);
+  #subst_geom_dynamic($fortran);
+  #subst_geom($fortran);
+  #subst_tides($fortran);
+  #subst_diff_visc_fric($fortran);
+  #subst_waves($fortran);
+  #subst_bound_geom($fortran);
+  #subst_hydro_baro($fortran);
+  #subst_sinking($fortran);
+  #subst_simul($fortran);
+  #subst_area($fortran);
+  #subst_aux_array($fortran);
+  #subst_turbulence($fortran);
+  #subst_bound_dynamic($fortran);
+  #subst_bound_names($fortran);
+  #subst_roughness($fortran);
+  #subst_internal($fortran);
+  #subst_diff_aux($fortran);
+  #subst_bnd_aux($fortran);
+  #subst_fluidmud($fortran);
+  #subst_volcomp($fortran);
+  #subst_nudging($fortran);
+  #subst_gotm($fortran);
+  #subst_conz($fortran);
+  #subst_nohyd($fortran);
+  #subst_extra($fortran);
+  #subst_const_aux($fortran);
+  #subst_debug($fortran);
+  #subst_coords($fortran);
+  #subst_sigma($fortran);
+  #subst_histo($fortran);
+  #subst_stab($fortran);
+  #subst_grd($fortran);
+  #subst_semi($fortran);
+  #subst_subnls($fortran);
+  #subst_reg($fortran);
+
+  subst_lagr($fortran);
 
   treat_includes($fortran);
   #check_common($fortran);
@@ -538,10 +540,16 @@ sub subst_konst {
   subst_common($fortran,"nkonst","nbasin.h");
   subst_common($fortran,"level","nlevel.h");
 }
+
 sub subst_femtim {
   my $fortran = shift;
   subst_common($fortran,"femtim","femtime.h");
   subst_common($fortran,"femtimu","femtime.h");
+}
+
+sub subst_lagr {
+  my $fortran = shift;
+  subst_common($fortran,"lagrange","mod_lagrange.h");
 }
 
 #----------------------------------------------------------------
@@ -1195,14 +1203,84 @@ sub inc2use {
 
   my $fortran = shift;
 
-  #include2use($fortran,"hydro.h","fem_hydro.f");
-  #include2use($fortran,"tides.h","fem_tides");
-
   include2use($fortran,"basin.h","basin");
   include2use($fortran,"nbasin.h","basin","nkn,nel,ngr,mbw");
   include2use($fortran,"levels.h","levels");
   include2use($fortran,"nlevel.h","levels","nlvdi,nlv");
-  include2use($fortran,"hydro.h","hydro");
+  include2use($fortran,"ev.h","evgeom");
+  include2use($fortran,"evmain.h","evgeom");
+
+#  return;
+
+  include2use($fortran,"hydro.h","mod_hydro");
+  include2use($fortran,"hydro_vel.h","mod_hydro_vel");
+  include2use($fortran,"hydro_print.h","mod_hydro_print");
+  include2use($fortran,"hydro_baro.h","mod_hydro_baro");
+
+  include2use($fortran,"diff_visc_fric.h","mod_diff_visc_fric");
+  include2use($fortran,"roughness.h","mod_roughness");
+
+#  return;
+
+  include2use($fortran,"ts.h","mod_ts");
+  include2use($fortran,"area.h","mod_area");
+  include2use($fortran,"aux_array.h","mod_aux_array");
+  include2use($fortran,"bound_dynamic.h","mod_bound_dynamic");
+  include2use($fortran,"diff_aux.h","mod_diff_aux");
+  include2use($fortran,"gotm_aux.h","mod_gotm_aux");
+
+  include2use($fortran,"bnd_aux.h","mod_bnd_aux");
+  include2use($fortran,"depth.h","mod_depth");
+  include2use($fortran,"geom_dynamic.h","mod_geom_dynamic");
+  include2use($fortran,"internal.h","mod_internal");
+  include2use($fortran,"nohyd.h","mod_nohyd");
+  include2use($fortran,"nudging.h","mod_nudging");
+
+#  return;
+
+  include2use($fortran,"bclfix.h","mod_bclfix");
+  include2use($fortran,"fluidmud.h","mod_fluidmud");
+  include2use($fortran,"sinking.h","mod_sinking");
+  include2use($fortran,"turbulence.h","mod_turbulence");
+  include2use($fortran,"waves.h","mod_waves");
+
+  include2use($fortran,"meteo.h","mod_meteo");
+  include2use($fortran,"meteo_aux.h","mod_meteo");
+
+#  return;
+
+  include2use($fortran,"geom.h","mod_geom");
+  include2use($fortran,"geom_aux.h","mod_geom");
+  include2use($fortran,"links.h","mod_geom");
+
+  include2use($fortran,"conz.h","mod_conz");
+
+  include2use($fortran,"bound_geom.h","mod_bound_geom");
+  include2use($fortran,"testbndo.h","mod_bound_geom");
+  include2use($fortran,"bnd.h","mod_bnd");
+  include2use($fortran,"nbound.h","mod_bnd");
+  include2use($fortran,"nbvdim.h","mod_bnd");
+
+#  return;
+
+  include2use($fortran,"tvd.h","mod_tvd");
+  include2use($fortran,"tides.h","mod_tides");
+
+  include2use($fortran,"subbndo.h","mod_bndo");
+  include2use($fortran,"nudge.h","mod_nudge");
+
+#  return;
+
+  include2use($fortran,"plot_aux_3d.h","mod_plot3d");
+  include2use($fortran,"plot_aux.h","mod_plot2d");
+  include2use($fortran,"hydro_plot.h","mod_hydro_plot");
+
+  include2use($fortran,"common.h","mod_system");
+  include2use($fortran,"common_amat.h","mod_system");
+
+  include2use($fortran,"grade.h","mod_adj_grade");
+
+  include2use($fortran,"lagrange.h","mod_lagrange");
 }
 
 #--------------------------------------------------------------

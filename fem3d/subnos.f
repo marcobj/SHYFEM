@@ -9,7 +9,7 @@ c	 subroutine ininos
 c	 subroutine setnos(iunit,nvers,nkn,nel,nlv,nvar)
 c	 subroutine getnos(iunit,nvers,nkn,nel,nlv,nvar)
 c	 subroutine delnos(iunit)
-c	 subroutine dimnos(iunit,nkndim,neldim,nlvdim)
+c	 subroutine dimnos(iunit,nknddi,nelddi,nlvddi)
 c
 c        subroutine errnos(iunit,routine,text)
 c        subroutine findnos_err(iunit,routine,text,n)
@@ -18,7 +18,7 @@ c        subroutine infonos(iunit,iout)
 c
 c        subroutine nos_init(iunit,nversion)
 c        subroutine nos_close(iunit)
-c        subroutine nos_check_dimension(iunit,nkndim,neldim,nlvdim)
+c        subroutine nos_check_dimension(iunit,nknddi,nelddi,nlvddi)
 c
 c        subroutine nos_get_date(iunit,date,time)
 c        subroutine nos_set_date(iunit,date,time)
@@ -29,6 +29,7 @@ c        subroutine nos_set_femver(iunit,femver)
 c        subroutine nos_get_params(iunit,nkn,nel,nlv,nvar)
 c        subroutine nos_set_params(iunit,nkn,nel,nlv,nvar)
 c        subroutine nos_clone_params(iu_from,iu_to)
+c        subroutine nos_check_compatibility(iu1,iu2)
 c
 c	 subroutine nos_is_nos_file(iunit,nvers)
 c
@@ -36,8 +37,8 @@ c        subroutine nos_read_header(iunit,nkn,nel,nlv,nvar,ierr)
 c        subroutine nos_write_header(iunit,nkn,nel,nlv,nvar,ierr)
 c        subroutine nos_read_header2(iu,ilhkv,hlv,hev,ierr)
 c        subroutine nos_write_header2(iunit,ilhkv,hlv,hev,ierr)
-c        subroutine nos_read_record(iu,it,ivar,nlvdim,ilhkv,c,ierr)
-c        subroutine nos_write_record(iunit,it,ivar,nlvdim,ilhkv,c,ierr)
+c        subroutine nos_read_record(iu,it,ivar,nlvddi,ilhkv,c,ierr)
+c        subroutine nos_write_record(iunit,it,ivar,nlvddi,ilhkv,c,ierr)
 c
 c        subroutine nos_back_record(iunit)
 c        subroutine nos_skip_header(iunit,nvar,ierr)
@@ -59,6 +60,7 @@ c 02.12.2012	ggu	restructured
 c 21.01.2013	ggu	code for next and back record
 c 18.01.2014	ggu	restructured, new date,time,femver (version 4+5)
 c 29.10.2014	ggu	new routine nos_is_nos_file()
+c 22.09.2015	ggu	new routine nos_check_compatibility()
 c
 c notes :
 c
@@ -277,27 +279,27 @@ c please note that the file has still to be closed manually
 
 c************************************************************
 
-	subroutine dimnos(iunit,nkndim,neldim,nlvdim)
+	subroutine dimnos(iunit,nknddi,nelddi,nlvddi)
 
 c checks dimension of arrays - internal routine
 
 	implicit none
 
-	integer iunit,nkndim,neldim,nlvdim
+	integer iunit,nknddi,nelddi,nlvddi
 
 	integer nvers,nkn,nel,nlv,nvar
 
 	call getnos(iunit,nvers,nkn,nel,nlv,nvar)
 
-        if( nkn .gt. nkndim ) goto 99
-        if( nel .gt. neldim ) goto 99
-        if( nlv .gt. nlvdim ) goto 99
+        if( nkn .gt. nknddi ) goto 99
+        if( nel .gt. nelddi ) goto 99
+        if( nlv .gt. nlvddi ) goto 99
 
 	return
    99   continue
-        write(6,*) 'nkn,nkndim : ',nkn,nkndim
-        write(6,*) 'nel,neldim : ',nel,neldim
-        write(6,*) 'nlv,nlvdim : ',nlv,nlvdim
+        write(6,*) 'nkn,nknddi : ',nkn,nknddi
+        write(6,*) 'nel,nelddi : ',nel,nelddi
+        write(6,*) 'nlv,nlvddi : ',nlv,nlvddi
         stop 'error stop dimnos: dimension error'
 	end
 
@@ -470,13 +472,13 @@ c************************************************************
 
 c************************************************************
 
-	subroutine nos_check_dimension(iunit,nkndim,neldim,nlvdim)
+	subroutine nos_check_dimension(iunit,nknddi,nelddi,nlvddi)
 
 	implicit none
 
-	integer iunit,nkndim,neldim,nlvdim
+	integer iunit,nknddi,nelddi,nlvddi
 
-	call dimnos(iunit,nkndim,neldim,nlvdim)
+	call dimnos(iunit,nknddi,nelddi,nlvddi)
 
 	end
 
@@ -663,6 +665,46 @@ c should be only used to write file -> nvers should be max version
 	end
 
 c************************************************************
+
+	subroutine nos_check_compatibility(iu1,iu2)
+
+c checks compatibility between two nos files
+c
+c second file must have already been opened and initialized with nos_init
+c should be only used to write file -> nvers should be max version
+
+	implicit none
+
+	include 'nosinf.h'
+
+	integer iu1,iu2
+
+	integer i,n1,n2
+
+	call findnos_err(iu1,'nos_check_compatibility'
+     +				,'Cannot find entry.',n1)
+	call findnos_err(iu2,'nos_check_compatibility'
+     +				,'Cannot find entry.',n2)
+
+	!unit and version are not checked (0,1)
+	!neither are date and time (6,7)
+
+	do i=2,5
+	  if( nosvar(i,n1) /= nosvar(i,n1) ) exit
+	end do
+
+	if( i > 5 ) return	!all ok
+
+	write(6,*) 'the two nos files are not compatible'
+	write(6,*) 'units: ',n1,n2
+	do i=0,nitdim
+	  write(6,*) i,nosvar(i,n1),nosvar(i,n2)
+	end do
+	stop 'error stop nos_check_compatibility: not compatible'
+
+	end
+
+c************************************************************
 c************************************************************
 c************************************************************
 
@@ -689,6 +731,8 @@ c nvers > 0	good nos file
 
 	if( ntype .ne. ftype ) nvers = 0
 	if( nvers .le. 0 .or. nvers .gt. maxvers ) nvers = -abs(nvers)
+
+	rewind(iunit)
 
     1	continue
 
@@ -839,9 +883,9 @@ c reads second record of NOS file
 	implicit none
 
 	integer iu
-	integer ilhkv(1)
-	real hlv(1)
-	real hev(1)
+	integer ilhkv(*)
+	real hlv(*)
+	real hev(*)
 	integer ierr
 
 	logical bdata
@@ -903,9 +947,9 @@ c writes second record of NOS file
 	implicit none
 
 	integer iunit
-	integer ilhkv(1)
-	real hlv(1)
-	real hev(1)
+	integer ilhkv(*)
+	real hlv(*)
+	real hev(*)
 	integer ierr
 
 	integer k,l,ie
@@ -932,7 +976,7 @@ c write records
 
 c************************************************************
 
-	subroutine nos_read_record(iu,it,ivar,nlvdim,ilhkv,c,ierr)
+	subroutine nos_read_record(iu,it,ivar,nlvddi,ilhkv,c,ierr)
 
 c reads data record of NOS file
 
@@ -940,9 +984,9 @@ c reads data record of NOS file
 
 c arguments
 	integer iu,it,ivar
-	integer nlvdim
-	integer ilhkv(1)
-	real c(nlvdim,1)
+	integer nlvddi
+	integer ilhkv(*)
+	real c(nlvddi,*)
 	integer ierr
 c local
 	integer l,k,lmax
@@ -955,7 +999,9 @@ c local
 
 	call getnos(iunit,nvers,nkn,nel,nlv,nvar)
 
-	lmax = min(nlv,nlvdim)
+	!it = -1
+	!ivar = 0
+	lmax = min(nlv,nlvddi)
 
 	if( nvers .eq. 1 ) then
 	   ivar = 1
@@ -992,6 +1038,7 @@ c local
 	ierr=-1
 	return
    98	continue
+	write(6,*) 'nvers,it,ivar,lmax: ',nvers,it,ivar,lmax
 	write(6,*) 'nos_read_record: Error while reading'
 	write(6,*) 'time record of NOS file'
 	ierr=98
@@ -1006,7 +1053,7 @@ c local
 
 c************************************************************
 
-	subroutine nos_write_record(iunit,it,ivar,nlvdim,ilhkv,c,ierr)
+	subroutine nos_write_record(iunit,it,ivar,nlvddi,ilhkv,c,ierr)
 
 c writes data record of NOS file
 
@@ -1014,9 +1061,9 @@ c writes data record of NOS file
 
 c arguments
 	integer iunit,it,ivar
-	integer nlvdim
-	integer ilhkv(1)
-	real c(nlvdim,1)
+	integer nlvddi
+	integer ilhkv(*)
+	real c(nlvddi,*)
 	integer ierr
 c local
 	integer l,k,lmax
@@ -1024,7 +1071,7 @@ c local
 
 	call getnos(iunit,nvers,nkn,nel,nlv,nvar)
 
-	lmax = min(nlv,nlvdim)
+	lmax = min(nlv,nlvddi)
 
 	write(iunit) it,ivar,lmax
 
@@ -1037,6 +1084,59 @@ c local
 	ierr=0
 
 	return
+	end
+
+c************************************************************
+
+	subroutine nos_peek_record(iu,it,ivar,ierr)
+
+c peeks into data record of NOS file
+
+	implicit none
+
+c arguments
+	integer iu,it,ivar
+	integer ierr
+c local
+	integer l,k,lmax
+	integer nvers,nkn,nel,nlv,nvar
+	integer iunit,ios
+
+	iunit = abs(iu)
+
+	call getnos(iunit,nvers,nkn,nel,nlv,nvar)
+
+	lmax = nlv
+
+	if( nvers .eq. 1 ) then
+	   ivar = 1
+	   read(iunit,iostat=ios) it
+	else if( nvers .ge. 2 ) then
+	   if( nvers .ge. 4 ) then
+	     read(iunit,iostat=ios) it,ivar,lmax
+	   else
+	     read(iunit,iostat=ios) it,ivar
+	   end if
+	else
+	   write(6,*) 'nvers = ',nvers,'  iunit = ',iunit
+	   stop 'error stop nos_peek_record: internal error (1)'
+	end if
+
+	if( ios > 0 ) then
+	  write(6,*) 'nos_peek_record: Error while reading'
+	  write(6,*) 'time record of NOS file'
+	  ierr=98
+	  return
+	end if
+
+	backspace(iu)
+
+	if( ios < 0 ) then
+	  ierr=-1
+	else
+	  ierr=0
+	end if
+
 	end
 
 c************************************************************
@@ -1083,12 +1183,12 @@ c************************************************************
 
 	integer iunit,it,ivar,ierr
 
-	integer nlvdim
+	integer nlvddi
 	integer ilhkv(1)
 	real c(1,1)
 
-	nlvdim = 1
-	call nos_read_record(-iunit,it,ivar,nlvdim,ilhkv,c,ierr)
+	nlvddi = 1
+	call nos_read_record(-iunit,it,ivar,nlvddi,ilhkv,c,ierr)
 
 	end
 
@@ -1101,7 +1201,7 @@ c************************************************************
 c************************************************************
 
 	subroutine rhnos	(iunit,nvers
-     +				,nkndim,neldim,nlvdim
+     +				,nknddi,nelddi,nlvddi
      +				,nkn,nel,nlv,nvar
      +				,ilhkv,hlv,hev
      +				,title
@@ -1118,12 +1218,12 @@ c		on return actual version read
 
 c arguments
 	integer iunit,nvers
-	integer nkndim,neldim,nlvdim
+	integer nknddi,nelddi,nlvddi
 	integer nkn,nel,nlv,nvar
 	integer date,time
-	integer ilhkv(1)
-	real hlv(1)
-	real hev(1)
+	integer ilhkv(*)
+	real hlv(*)
+	real hev(*)
 	character*(*) title
 c local
 	integer ierr,l
@@ -1139,7 +1239,7 @@ c local
         write(6,*) 'date,time: ',date,time
         write(6,*) 'title    : ',title
 
-        call dimnos(iunit,nkndim,neldim,nlvdim)
+        call dimnos(iunit,nknddi,nelddi,nlvddi)
 
         call rsnos(iunit,ilhkv,hlv,hev,ierr)
         if(ierr.ne.0) goto 98
@@ -1175,9 +1275,9 @@ c               .. of the call parameters
 c arguments
         integer iunit,nvers
         integer nkn,nel,nlv,nvar
-	integer ilhkv(1)
-	real hlv(1)
-	real hev(1)
+	integer ilhkv(*)
+	real hlv(*)
+	real hev(*)
         character*(*) title
 
         integer ierr
@@ -1250,9 +1350,9 @@ c************************************************************
 	implicit none
 
 	integer iunit
-	integer ilhkv(1)
-	real hlv(1)
-	real hev(1)
+	integer ilhkv(*)
+	real hlv(*)
+	real hev(*)
 	integer ierr
 
 	call nos_read_header2(iunit,ilhkv,hlv,hev,ierr)
@@ -1266,9 +1366,9 @@ c************************************************************
 	implicit none
 
 	integer iunit
-	integer ilhkv(1)
-	real hlv(1)
-	real hev(1)
+	integer ilhkv(*)
+	real hlv(*)
+	real hev(*)
 	integer ierr
 
 	call nos_write_header2(iunit,ilhkv,hlv,hev,ierr)
@@ -1277,33 +1377,33 @@ c************************************************************
 
 c************************************************************
 
-	subroutine rdnos(iunit,it,ivar,nlvdim,ilhkv,c,ierr)
+	subroutine rdnos(iunit,it,ivar,nlvddi,ilhkv,c,ierr)
 
 	implicit none
 
 	integer iunit,it,ivar
-	integer nlvdim
-	integer ilhkv(1)
-	real c(nlvdim,1)
+	integer nlvddi
+	integer ilhkv(*)
+	real c(nlvddi,*)
 	integer ierr
 
-	call nos_read_record(iunit,it,ivar,nlvdim,ilhkv,c,ierr)
+	call nos_read_record(iunit,it,ivar,nlvddi,ilhkv,c,ierr)
 
 	end
 
 c************************************************************
 
-	subroutine wrnos(iunit,it,ivar,nlvdim,ilhkv,c,ierr)
+	subroutine wrnos(iunit,it,ivar,nlvddi,ilhkv,c,ierr)
 
 	implicit none
 
 	integer iunit,it,ivar
-	integer nlvdim
-	integer ilhkv(1)
-	real c(nlvdim,1)
+	integer nlvddi
+	integer ilhkv(*)
+	real c(nlvddi,*)
 	integer ierr
 
-	call nos_write_record(iunit,it,ivar,nlvdim,ilhkv,c,ierr)
+	call nos_write_record(iunit,it,ivar,nlvddi,ilhkv,c,ierr)
 
 	end
 

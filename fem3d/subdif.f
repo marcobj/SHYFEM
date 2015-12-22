@@ -24,12 +24,16 @@ c 17.02.2010    ggu     bug fix in diffweight()
 c 08.04.2010    ggu     better error reporting in diffweight()
 c 16.02.2011    ggu     in diffweight() use double precision
 c 01.06.2011    ggu     bug fix in green() -> i instead ii
+c 18.09.2015    ggu     austau() not used anymore - eliminated
 c
 c*****************************************************************
 
         subroutine diffstab(dt,rk,istot,v1v,v2v,gamma)
 
 c checks stability of diffusion (old, not used)
+
+	use evgeom
+	use basin
 
         implicit none
 
@@ -40,8 +44,6 @@ c checks stability of diffusion (old, not used)
         real gamma              !stability parameter -> must be < 1.
 
 	include 'param.h'
-	include 'basin.h'
-	include 'ev.h'
 
         integer k,ie,ii
         real alpha,beta,area,b,c,bmin,bmax
@@ -89,6 +91,9 @@ c*************************************************************
 
 c checks stability of diffusion (with variable diffusion coef.)
 
+	use evgeom
+	use basin
+
         implicit none
 
         real dt
@@ -98,8 +103,6 @@ c checks stability of diffusion (with variable diffusion coef.)
         real gamma              !stability parameter -> must be < 1.
 
 	include 'param.h'
-	include 'basin.h'
-	include 'ev.h'
 
         integer k,ie,ii
         real alpha,beta,area,b,c,bmin,bmax
@@ -145,12 +148,13 @@ c computes weight for diffusion
 c
 c weights in main diagonal are positive => weights out of diag are negative
 
+	use mod_diff_aux
+	use evgeom
+	use basin
+
         implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'ev.h'
-	include 'diff_aux.h'
 
 	logical bdebug,berror
         integer k,ie,ii,iii,i
@@ -331,6 +335,9 @@ c*************************************************************
 
 c limits diffusion parameter
 
+	use evgeom
+	use basin
+
         implicit none
 
         real dt
@@ -339,8 +346,6 @@ c limits diffusion parameter
         real gammax             !max for stability parameter, should be < 1
 
 	include 'param.h'
-	include 'basin.h'
-	include 'ev.h'
 
         integer k,ie,ii
         integer nchange
@@ -383,15 +388,16 @@ c*************************************************************
 
 c adjusts diffusion coefficient
 
+	use mod_depth
+	use evgeom
+	use basin
+
         implicit none
 
         integer mode
         real rkv(1)
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'ev.h'
-	include 'depth.h'
+	include 'param.h'
 
         integer k,ie,ii
         real h,aux,fact
@@ -444,7 +450,7 @@ c adjusts diffusion coefficient
 
 c*************************************************************************** 
 
-        subroutine diff_h_set
+        subroutine set_diffusivity
 
 c sets the horizontal diffusion array
 c
@@ -453,23 +459,23 @@ c	0	constant
 c	1	variable with area ( ah = alpha * dx**(4/3) )
 c	2	smagorinsky (variable with area and time)
 
+	use mod_diff_visc_fric
+	use evgeom
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
-        include 'param.h'
-
-	include 'nbasin.h'
 	include 'femtime.h'
-
-	include 'aux_array.h'
-	include 'diff_visc_fric.h'
-	include 'levels.h'
-	include 'ev.h'
 
         character*80 file,title
         integer ie,l,lmax
         real dt
         real alpha,ahmax,area,ah
         real dhlen,dhpar,chpar,thpar,shpar,ahpar
+	real ve1v(nel)
+	real v1v(nkn)
+	real v2v(nkn)
 
         real getpar
 
@@ -485,8 +491,6 @@ c	2	smagorinsky (variable with area and time)
 c------------------------------------------------------------------
 c set params
 c------------------------------------------------------------------
-
-	call austau(v1v)	!this can be done anyway (du/dx etc.)
 
         if( icall .lt. 0 ) return
 
@@ -637,18 +641,18 @@ c***************************************************************************
 
         subroutine smagorinsky
 
+	use mod_diff_visc_fric
+	use mod_hydro_print
+	use evgeom
+	use levels
+	use basin
+
         implicit none
 
         include 'param.h'
         
-	include 'nlevel.h'
 	include 'femtime.h'
         
-	include 'ev.h'
-	include 'levels.h'
-	include 'basin.h'
-	include 'hydro_print.h'
-	include 'diff_visc_fric.h'
         
         real b(3),c(3),ux,uy,vx,vy
         real dt,ds,dd,dl,aj
@@ -723,6 +727,12 @@ c solves green identity for reynolds stresses
 
 c ieltv:  >0 element  0: boundary  -1: open boundary
 
+	use mod_geom
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 	integer ie
@@ -731,11 +741,6 @@ c ieltv:  >0 element  0: boundary  -1: open boundary
 
 	include 'param.h'
 
-	include 'ev.h'
-	include 'levels.h'
-	include 'geom.h'
-	include 'basin.h'
-	include 'hydro.h'
 
 	integer k,i,ii,iii,ienb,i1,i2
 	real dl(3)
@@ -860,81 +865,3 @@ c------------------------------------------------------------
 
 c***********************************************************************
 
-	subroutine austau(vv)
-
-c computes aux vectors for austausch term		!$$AUST
-
-	implicit none
-
-c parameters
-	include 'param.h'
-	real vv(1)
-c common
-	include 'nlevel.h'
-	include 'levels.h'
-	include 'basin.h'
-	include 'hydro.h'
-	include 'aux_array.h'
-	include 'ev.h'
-	include 'geom_dynamic.h'
-c local
-	integer ie,l,k,ii
-	real aj,ut,vt,b,c,rv
-c functions
-	real getpar
-
-	if(nlvdim.ne.nlvdi) stop 'error stop : level dimension in austau'
-
-	if( getpar('ahpar') .le. 0. ) return
-
-	do k=1,nkn
-	  do l=1,nlv
-	    saux1(l,k)=0.
-	    saux2(l,k)=0.
-	    saux3(l,k)=0.
-	    saux4(l,k)=0.
-	  end do
-	end do
-
-	do l=1,nlv
-
-	  do k=1,nkn
-	    vv(k)=0.
-	  end do
-
-	  do ie=1,nel
-	   if( iwegv(ie) .eq. 0 ) then
-	    if(l.le.ilhv(ie)) then
-	      aj=ev(10,ie)
-	      do ii=1,3
-	        k=nen3v(ii,ie)
-	        vv(k)=vv(k)+aj
-		ut=utlov(l,ie)
-		vt=vtlov(l,ie)
-		b=ev(3+ii,ie)
-		c=ev(6+ii,ie)
-	        saux1(l,k)=saux1(l,k)+aj*ut*b
-	        saux2(l,k)=saux2(l,k)+aj*ut*c
-	        saux3(l,k)=saux3(l,k)+aj*vt*b
-	        saux4(l,k)=saux4(l,k)+aj*vt*c
-	      end do
-	    end if
-	   end if
-	  end do
-
-	  do k=1,nkn
-	    if(vv(k).gt.0.) then
-		rv = -3./vv(k)
-		saux1(l,k) = rv * saux1(l,k)
-		saux2(l,k) = rv * saux2(l,k)
-		saux3(l,k) = rv * saux3(l,k)
-		saux4(l,k) = rv * saux4(l,k)
-	    end if
-	  end do
-
-	end do
-
-	return
-	end
-
-c****************************************************************

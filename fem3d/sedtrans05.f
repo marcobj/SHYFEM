@@ -45,8 +45,7 @@ C****************************************************************************
 C****************************************************************************
 
       SUBROUTINE SEDTRANS05(D,UZ,Z,CDIR,HT,PER,WDIR,GD,BETA,RHOS,
-     $RHOW,IOPT1,VISC,NBCONC,CONC,MAXBED,BEDCHA,TIMEDR,AULVA,                                					   	!**INPUT VARIABLES**
-     $
+     $RHOW,IOPT1,VISC,NBCONC,CONC,MAXBED,BEDCHA,TIMEDR,AULVA,    !**INPUT**
      $USTCRB,USTCRS,USTUP,UB,FCW,UA,U100,USTCWS,USTCW,Z0,RHEIGHT,
      $RLENGTH,QS,QSDIR,SEDM,SED,SEDDIR,FALL,C0,EDRATE,ZS,TAOS,
      $TCONC)		!**OUTPUT VARIABLES**
@@ -650,6 +649,7 @@ C INITIALIZE PARAMETERS
       BKB=0.0
       SKB=0.0
       TKB=0.0
+      ICOUNT = 0
 
 C*********************
 C PURE CURRENT CASE
@@ -3652,6 +3652,7 @@ C for flocculation calculation
       WSFLOC = 0.
       MEANWS = 0. 
 
+      TCONC1 = 0.
       DO 210, I=1,NBCONC
          TCONC1=TCONC1+CONC(I)
 210   CONTINUE

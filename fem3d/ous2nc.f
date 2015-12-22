@@ -20,11 +20,15 @@ c***************************************************************
 
 c reads ous file and writes NetCDF file
 
+	use mod_depth
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
         include 'param.h'
-        include 'basin.h'
-	include 'evmain.h'
 
 c-------------------------------------------------
 
@@ -33,10 +37,7 @@ c-------------------------------------------------
 
         character*80 title
 
-	include 'levels.h'
-	include 'hydro.h'
 
-	include 'depth.h'
 
 	real uprv(nlvdim,nkndim)
 	real vprv(nlvdim,nkndim)
@@ -46,12 +47,10 @@ c-------------------------------------------------
 	real v2v(neldim)
 
 	real haux(nkndim)
-	real weight(nlvdim,nkndim)
-	real hl(nlvdim)
 
 	real var3d(nlvdim*nkndim)
 
-        integer nvers,nin,nlv,lmax,l
+        integer nvers,nin,lmax,l
         integer itanf,itend,idt,idtous
 	integer it,ie,i
         integer ierr,nread,ndry
@@ -224,7 +223,7 @@ c     +          ,nen3v,zenv,znv,utlnv,vtlnv)
 
         call transp2vel(nel,nkn,nlv,nlvdim,hev,zenv,nen3v
      +                          ,ilhv,hlv,utlnv,vtlnv
-     +                          ,uprv,vprv,weight,hl)
+     +                          ,uprv,vprv)
 
 	iwrite = iwrite + 1
 	if ( maxrec .gt. 0 .and. iwrite .gt. maxrec ) goto 100

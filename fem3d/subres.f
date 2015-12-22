@@ -38,19 +38,19 @@ c
 c
 c computes residual currents
 c
+	use mod_depth
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 c
 c parameter
         include 'param.h'
 c common
 	include 'simul.h'
-	include 'nbasin.h'
 	include 'femtime.h'
-	include 'nlevel.h'
 
-	include 'levels.h'
-	include 'hydro.h'
-	include 'depth.h'
 
 c local
 	character*80 nam,dir,file
@@ -68,9 +68,11 @@ c function
 	integer ifemop
 	logical has_output,is_over_output,next_output
 c save
-	real ur(nlvdim,neldim),vr(nlvdim,neldim)
-        real znr(nkndim),zer(3,neldim)
-	save ur,vr,znr,zer
+	real, save, allocatable :: ur(:,:)
+	real, save, allocatable :: vr(:,:)
+	real, save, allocatable :: znr(:)
+	real, save, allocatable :: zer(:,:)
+
 	integer icall,nr
 	save icall,nr
 	data icall,nr /0,0/
@@ -92,8 +94,6 @@ c---------------------------------------------------------------------
           if( .not. has_output(ia_out) ) icall = -1
 
 	  if(icall.eq.-1) return
-
-	  if(nkn.gt.nkndim.or.nel.gt.neldim) goto 98
 
 	  bdebug = iround(getpar('levdbg')) .ge. 1
 
@@ -121,20 +121,15 @@ c---------------------------------------------------------------------
 
 	  if( bdebug ) write(6,*) 'resid : res-file opened ',it
 
+	  allocate(ur(nlvdi,nel))
+	  allocate(vr(nlvdi,nel))
+	  allocate(znr(nkn))
+	  allocate(zer(3,nel))
 	  nr=0
-	  do ie=1,nel
-            lmax = ilhv(ie)
-            do l=1,lmax
-	      ur(l,ie)=0.
-	      vr(l,ie)=0.
-            end do
-	    do ii=1,3
-	      zer(ii,ie)=0.
-	    end do
-	  end do
-	  do k=1,nkn
-            znr(k) = 0.
-	  end do
+	  ur = 0.
+	  vr = 0.
+	  znr = 0.
+	  zer = 0.
 	end if
 
 c---------------------------------------------------------------------
@@ -198,7 +193,7 @@ c---------------------------------------------------------------------
 	  end do
 
 	  nout = ia_out(4)
-          call ous_write_record(nout,it,nlvdim,ilhv,znr,zer
+          call ous_write_record(nout,it,nlvdi,ilhv,znr,zer
      +                                  ,ur,vr,ierr)
           if(ierr.ne.0.) goto 79
 
@@ -230,13 +225,6 @@ c---------------------------------------------------------------------
 	write(6,*) 'Error opening residual file : '
 	write(6,*) file
 	stop 'error stop : resid'
-   98   continue
-	write(6,*) 'Error in dimension :'
-	write(6,*) 'nkn,nkndim : ',nkn,nkndim
-	write(6,*) 'nel,neldim : ',nel,neldim
-	write(6,*) 'Please change parameters NKNDIM and NELDIM'
-	write(6,*) 'in routine RESID (file SUBRES)'
-	stop 'error stop : resid'
    78   continue
 	write(6,*) 'Error writing record 1 of residual file: ',ierr
 	stop 'error stop : resid'
@@ -254,6 +242,10 @@ c
 c
 c computes rms currents
 c
+	use mod_hydro_baro
+	use mod_hydro
+	use basin
+
 	implicit none
 c
 c parameter
@@ -261,22 +253,18 @@ c parameter
 c common
 	include 'simul.h'
 	include 'femtime.h'
-	include 'basin.h'
-	include 'hydro.h'
-	include 'hydro_baro.h'
-	include 'aux_array.h'
 c local
 	double precision rr
 	integer ii,ie,k,id
 	real hm,u,v
+	real v1v(nkn),v2v(nkn)
 c function
 	integer iround
 c	integer wfnov,wrnov,ifileo
 	real getpar
 	logical has_output,is_over_output,next_output
 c save
-	double precision rms(neldim)
-	save rms
+	double precision, save, allocatable :: rms(:)
 	logical bdebug
 	save bdebug
 	integer ia_out(4)
@@ -294,18 +282,15 @@ c save
 
 	  if(icall.eq.-1) return
 
-	  if(nkn.gt.nkndim.or.nel.gt.neldim) goto 98
-
 	  bdebug = iround(getpar('levdbg')) .ge. 1
 
 	  call open_scalar_file(ia_out,1,1,'rms')
 
 	  if( bdebug ) write(6,*) 'rmsvel : rms-file opened ',it
 
+	  allocate(rms(nel))
 	  nr=0
-	  do ie=1,nel
-	    rms(ie)=0.
-	  end do
+	  rms = 0.
 	end if
 
 	icall=icall+1
@@ -338,10 +323,8 @@ c       if time write output to rms file
 	    rms(ie)=sqrt(rms(ie)*rr)
 	  end do
 
-	  do k=1,nkn
-	    v1v(k)=0.
-	    v2v(k)=0.
-	  end do
+	  v1v=0.
+	  v2v=0.
 
 	  do ie=1,nel
 	    do ii=1,3
@@ -367,13 +350,6 @@ c rms velocity is in v1v
 	end if
 
 	return
-   98   continue
-	write(6,*) 'Error in dimension :'
-	write(6,*) 'nkn,nkndim : ',nkn,nkndim
-	write(6,*) 'nel,neldim : ',nel,neldim
-	write(6,*) 'Please change parameters NKNDIM and NELDIM'
-	write(6,*) 'in routine RMSVEL (file SUBRES)'
-	stop 'error stop : rmsvel'
 	end
 
 c********************************************************************
@@ -412,7 +388,7 @@ c computes residuum
 
 	real resi
         integer n
-        real zov(1),znv(1)
+        real zov(n),znv(n)
 
         integer i
         real res,var,epsr
@@ -439,6 +415,10 @@ c********************************************************************
 
 c computes average of scalar values
 
+	use mod_ts
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 c parameter
@@ -446,13 +426,8 @@ c parameter
 	include 'param.h'
 
 c common
-	include 'nbasin.h'
 	include 'femtime.h'
-	include 'nlevel.h'
 
-	include 'aux_array.h'
-	include 'ts.h'
-	include 'levels.h'
 c local
 	double precision rr
 	real tact,sact
@@ -461,17 +436,18 @@ c local
 c function
 	real getpar
 c save
-	double precision tacu(nlvdim,nkndim)
-	double precision sacu(nlvdim,nkndim)
-	real tmin(nlvdim,nkndim), tmax(nlvdim,nkndim)
-	real smin(nlvdim,nkndim), smax(nlvdim,nkndim)
+	double precision, save, allocatable :: tacu(:,:)
+	double precision, save, allocatable :: sacu(:,:)
+	real, save, allocatable :: tmin(:,:)
+	real, save, allocatable :: tmax(:,:)
+	real, save, allocatable :: smin(:,:)
+	real, save, allocatable :: smax(:,:)
+	real, save, allocatable :: saux(:,:)
+
 	integer icall,nout,nr
 	integer idtsca,itmsca,itsca
 	real high
 	logical bdebug
-	save tacu,sacu
-	save tmin,tmax
-	save smin,smax
 	save icall,nout,nr
 	save idtsca,itmsca,itsca
 	save high
@@ -514,18 +490,21 @@ c-------------------------------------------------------------
 
 	  itsca=itmsca+idtsca
 
+	  allocate(tacu(nlvdi,nkn))
+	  allocate(sacu(nlvdi,nkn))
+	  allocate(tmin(nlvdi,nkn))
+	  allocate(tmax(nlvdi,nkn))
+	  allocate(smin(nlvdi,nkn))
+	  allocate(smax(nlvdi,nkn))
+	  allocate(saux(nlvdi,nkn))
+
 	  nr=0
-	  do k=1,nkn
-	    nlev = ilhkv(k)
-	    do l=1,nlev
-	      tacu(l,k) = 0.
-	      sacu(l,k) = 0.
-	      tmin(l,k) = high
-	      smin(l,k) = high
-	      tmax(l,k) = -high
-	      smax(l,k) = -high
-	    end do
-	  end do
+	  tacu = 0.
+	  sacu = 0.
+	  tmin = high
+	  tmax = high
+	  smin = -high
+	  smax = -high
 
 	end if
 
@@ -556,12 +535,6 @@ c-------------------------------------------------------------
 	  end do
 	end do
 
-	if( bdebug ) then
-	  l = 1
-	  k = 1000
-	  write(98,*) 'tsmed : ',saltv(l,k),sacu(l,k)/nr
-	end if
-
 	if( it .lt. itsca ) return
 
 c-------------------------------------------------------------
@@ -570,50 +543,32 @@ c-------------------------------------------------------------
 
 	if( bdebug ) write(6,*) 'tsmed : tsa file written ',it,nr
 
-	if( bdebug ) then
-	  l = 1
-	  k = 1000
-	  write(98,*) 'tsmed : ',sacu(l,k)/nr
-	end if
-
 	itsca=itsca+idtsca
 
 	rr=1./nr
 
-	do k=1,nkn
-	  nlev = ilhkv(k)
-	  do l=1,nlev
-	    saux1(l,k) = tacu(l,k) * rr
-	    saux2(l,k) = sacu(l,k) * rr
-	  end do
-	end do
+	saux = tacu * rr
+	call confil(nout,itmsca,idtsca,25,nlvdi,saux)
+	saux = sacu * rr
+	call confil(nout,itmsca,idtsca,26,nlvdi,saux)
 
-	call confil(nout,itmsca,idtsca,25,nlvdim,saux1)
-	call confil(nout,itmsca,idtsca,26,nlvdim,saux2)
-
-	call confil(nout,itmsca,idtsca,31,nlvdim,tmin)
-	call confil(nout,itmsca,idtsca,32,nlvdim,tmax)
-	call confil(nout,itmsca,idtsca,35,nlvdim,smin)
-	call confil(nout,itmsca,idtsca,36,nlvdim,smax)
+	call confil(nout,itmsca,idtsca,31,nlvdi,tmin)
+	call confil(nout,itmsca,idtsca,32,nlvdi,tmax)
+	call confil(nout,itmsca,idtsca,35,nlvdi,smin)
+	call confil(nout,itmsca,idtsca,36,nlvdi,smax)
 
 	nr=0
-	do k=1,nkn
-	  nlev = ilhkv(k)
-	  do l=1,nlev
-	    tacu(l,k) = 0.
-	    sacu(l,k) = 0.
-	    tmin(l,k) = high
-	    smin(l,k) = high
-	    tmax(l,k) = -high
-	    smax(l,k) = -high
-	  end do
-	end do
+	tacu = 0.
+	sacu = 0.
+	tmin = high
+	tmax = high
+	smin = -high
+	smax = -high
 
 c-------------------------------------------------------------
 c end of routine
 c-------------------------------------------------------------
 
-	return
 	end
 
 c********************************************************************
@@ -624,31 +579,29 @@ c********************************************************************
 c computes average of scalar values - initialization
 c
 c for 2D arrays call with nlvddi = 1
-c for 3D arrays call with nlvddi = nlvdim
+c for 3D arrays call with nlvddi = nlvdi
+
+	use levels
+	use basin
 
 	implicit none
 
 c parameter
 
 	include 'param.h'
+	include 'femtime.h'
 
 	character*(*) ext	!extension of file
 	integer id		!id number for variables to be written
 	integer nvar		!number of variables to be handled
-	integer nlvddi		!number of layers (either nlvdim or 1)
+	integer nlvddi		!number of layers (either nlvdi or 1)
 	integer idtc		!frequency of file to be written
 	integer itmc		!start time for accumulation
-	double precision cmed(nlvddi,nkndim,1)	!average
-	real cmin(nlvddi,nkndim,1)		!minimum
-	real cmax(nlvddi,nkndim,1)		!maximum
+	double precision cmed(nlvddi,nkndi,nvar)	!average
+	real cmin(nlvddi,nkndi,nvar)		!minimum
+	real cmax(nlvddi,nkndi,nvar)		!maximum
 	integer ivect(8)	!info array that is set up
 
-c common
-	include 'nbasin.h'
-	include 'femtime.h'
-	include 'nlevel.h'
-
-	include 'levels.h'
 c local
 	logical bdebug
 	integer i,k,l,nlev,nlvuse
@@ -677,8 +630,8 @@ c-------------------------------------------------------------
 c check levels
 c-------------------------------------------------------------
 
-        if( nlvddi .ne. 1 .and. nlvddi .ne. nlvdim ) then
-          write(6,*) 'nlvddi,nlvdim: ',nlvddi,nlvdim
+        if( nlvddi .ne. 1 .and. nlvddi .ne. nlvdi ) then
+          write(6,*) 'nlvddi,nlvdi: ',nlvddi,nlvdi
           stop 'error stop cmed_init: invalid nlvddi'
         end if
 
@@ -751,28 +704,25 @@ c********************************************************************
 c computes average of scalar values - accumulation and writing
 c
 c for 2D arrays call with nlvddi = 1
-c for 3D arrays call with nlvddi = nlvdim
+c for 3D arrays call with nlvddi = nlvdi
+
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
 
 	implicit none
 
 c parameter
 
 	include 'param.h'
-
-	integer nlvddi		                !number of layers (nlvdim or 1)
-	real cvec(nlvddi,nkndim,1)		!array with concentration
-	double precision cmed(nlvddi,nkndim,1)	!average
-	real cmin(nlvddi,nkndim,1)		!minimum
-	real cmax(nlvddi,nkndim,1)		!maximum
-	integer ivect(8)                	!info array that is set up
-
-c common
-	include 'nbasin.h'
 	include 'femtime.h'
 
-	include 'aux_array.h'
+	integer nlvddi		                !number of layers (nlvdi or 1)
+	real cvec(nlvddi,nkn,1)			!array with concentration
+	double precision cmed(nlvddi,nkn,1)	!average
+	real cmin(nlvddi,nkn,1)			!minimum
+	real cmax(nlvddi,nkn,1)			!maximum
+	integer ivect(8)                	!info array that is set up
 
-	include 'levels.h'
 c local
 	logical bdebug
 	integer nout,id
@@ -782,6 +732,7 @@ c local
 	real high
 	real c
 	double precision rr
+	real, allocatable :: saux(:,:)
 
 	high = 1.e+30
 
@@ -842,41 +793,26 @@ c-------------------------------------------------------------
 	itc=itc+idtc
 
 	rr=1./nr
+	allocate(saux(nlvdi,nkn))
 
 	do i=1,nvar
-	  do k=1,nkn
-	    nlev = min(nlvddi,ilhkv(k))
-	    do l=1,nlev
-	      saux1(l,k) = cmed(l,k,i) * rr     !needed because cmed is real*8
-              if( l .eq. 1 ) v3v(k) = saux1(l,k)
-	    end do
-	  end do
-          !if( nlvddi .eq. 1 ) then
-	  !  call confil(nout,itmc,idtc,id+1,nlvddi,v3v)
-          !else
-	  !  call confil(nout,itmc,idtc,id+1,nlvddi,saux1)
-          !end if
-	  call confil(nout,itmc,idtc,id+1,nlvddi,saux1)
+	  saux = cmed(:,:,i) * rr
+	  call confil(nout,itmc,idtc,id+1,nlvddi,saux)
 	  call confil(nout,itmc,idtc,id+2,nlvddi,cmin(1,1,i))
 	  call confil(nout,itmc,idtc,id+3,nlvddi,cmax(1,1,i))
 	  id = id + 3
 	end do
+
+	deallocate(saux)
 
 c	-------------------------------------------------------------
 c 	re-initialize
 c	-------------------------------------------------------------
 
 	nr=0
-	do i=1,nvar
-	  do k=1,nkn
-	    nlev = min(nlvddi,ilhkv(k))
-	    do l=1,nlev
-	      cmed(l,k,i) = 0.
-	      cmin(l,k,i) = high
-	      cmax(l,k,i) = -high
-	    end do
-	  end do
-	end do
+	cmed = 0.
+	cmin = high
+	cmax = -high
 
 	ivect(4) = nr
 	ivect(7) = itc
@@ -891,30 +827,29 @@ c********************************************************************
 
 	subroutine ts_shell
 
+	use mod_ts
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
 c parameter
 
 	include 'param.h'
-
-	include 'ts.h'
 c local
 	integer idtc,itmc,itsmed
 	integer id,nvar
 c function
 	real getpar
 c save
-	double precision tacu(nlvdim,nkndim)
-	double precision sacu(nlvdim,nkndim)
-	real tmin(nlvdim,nkndim), tmax(nlvdim,nkndim)
-	real smin(nlvdim,nkndim), smax(nlvdim,nkndim)
+	double precision, save, allocatable :: tacu(:,:)
+	double precision, save, allocatable :: sacu(:,:)
+	real, save, allocatable :: tmin(:,:)
+	real, save, allocatable :: tmax(:,:)
+	real, save, allocatable :: smin(:,:)
+	real, save, allocatable :: smax(:,:)
 	integer itvect(8)
 	integer isvect(8)
-
-	save tacu,sacu
-	save tmin,tmax
-	save smin,smax
-	save itvect,isvect
 
 	integer icall
 	save icall
@@ -936,18 +871,32 @@ c save
 
 	  nvar = 1
 
+	  allocate(tacu(nlvdi,nkn))
+	  allocate(sacu(nlvdi,nkn))
+	  allocate(tmin(nlvdi,nkn))
+	  allocate(tmax(nlvdi,nkn))
+	  allocate(smin(nlvdi,nkn))
+	  allocate(smax(nlvdi,nkn))
+
+	  tacu = 0.
+	  sacu = 0.
+	  tmin = 0.
+	  tmax = 0.
+	  smin = 0.
+	  smax = 0.
+
 	  id = 160
-	  call cmed_init('tav',id,nvar,nlvdim,idtc,itmc
+	  call cmed_init('tav',id,nvar,nlvdi,idtc,itmc
      +                          ,tacu,tmin,tmax,itvect)
 	  id = 170
-	  call cmed_init('sav',id,nvar,nlvdim,idtc,itmc
+	  call cmed_init('sav',id,nvar,nlvdi,idtc,itmc
      +                          ,sacu,smin,smax,isvect)
 
 	  icall = 1
 	end if
 
-	call cmed_accum(nlvdim,tempv,tacu,tmin,tmax,itvect)
-	call cmed_accum(nlvdim,saltv,sacu,smin,smax,isvect)
+	call cmed_accum(nlvdi,tempv,tacu,tmin,tmax,itvect)
+	call cmed_accum(nlvdi,saltv,sacu,smin,smax,isvect)
 
 	end
 

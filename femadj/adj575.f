@@ -7,9 +7,9 @@ c 5-7-5 grade routines
 c
 c contents :
 c
-c subroutine elim57(nkn,nel,ngrdim,ngrade,nbound,ngri,nen3v)
+c subroutine elim57(nkn,nel,ngrddi,ngrade,nbound,ngri,nen3v)
 c			eliminates special 575 connections (shell)
-c subroutine elim575(k,nkn,nel,ngrdim,ngrade,nbound,ngri,nen3v)
+c subroutine elim575(k,nkn,nel,ngrddi,ngrade,nbound,ngri,nen3v)
 c			eliminates 5-7-5 connections
 c
 c***********************************************************
@@ -18,11 +18,10 @@ c***********************************************************
 
 c eliminates 5-7-5 grades
 
-	implicit none
+	use mod_adj_grade
+	use basin
 
-        include 'param.h'
-        include 'basin.h'
-        include 'grade.h'
+	implicit none
 
         integer k,n
 
@@ -32,7 +31,7 @@ c eliminates 5-7-5 grades
           n = ngrade(k)
           if( n .eq. 7 .and. nbound(k) .eq. 0 ) then
             call elim575(k)
-	    call chkgrd
+	    !call chkgrd('checking in 575 grade')
           end if
         end do
 
@@ -43,12 +42,13 @@ c***********************************************************
 	subroutine elim575(k)
 
 c eliminates 5-7-5 connections
+c
+c create one new node and two new elements
+
+	use mod_adj_grade
+	use basin
 
 	implicit none
-
-        include 'param.h'
-        include 'basin.h'
-        include 'grade.h'
 
 	integer k
 
@@ -58,10 +58,10 @@ c eliminates 5-7-5 connections
 	integer ip1,ip2
 	integer ip
 	integer ng,idp
-	integer ngav(ngrdim)
-	integer ngrv(ngrdim)
-	integer nbav(ngrdim)
-	integer iau(ngrdim)
+	integer ngav(ngrdi)	!we do not need 0 index
+	integer ngrv(ngrdi)
+	integer nbav(ngrdi)
+	integer iau(ngrdi)
 	real x,y,xm,ym
 
 	if( k .gt. nkn ) return
@@ -69,11 +69,12 @@ c eliminates 5-7-5 connections
 	bdebug = .true.
 	bdebug = .false.
 
-	if( bdebug ) write(6,*) 'new node: ',k
+	if( bdebug ) write(6,*) 'elim575 new node: ',k
 
 c make list
 
         n = ngrade(k)
+	if( n > ngrdi ) stop 'error stop elim575: ngrdi'
 	do i=1,n
 	  ngav(i) = ngri(i,k)
 	end do
@@ -86,12 +87,6 @@ c make list
 	    nbav(i) = 1
 	  end if
 	end do
-
-	if( bdebug ) then
-	  do i=1,n
-c	    write(6,*) ngav(i-1),ngav(i),ngav(i+1)
-	  end do
-	end if
 
 c check if exchange is possible
 
@@ -120,10 +115,16 @@ c find out distance of 5 grades
 	  end if
 	end do
 
+	if( bdebug ) then
+	  do i=1,n
+	    write(6,*) ngav(i),ngrv(i),nbav(i)
+	  end do
+	end if
+
 	idp = ip2 - ip1
 	if( idp .le. 2 .or. idp .ge. 5 ) return
 
-	write(6,*) k,nc,ip1,ip2
+	write(6,*) 'elim575: ',k,ip1,ip2,idp
 
 	if( bdebug ) then
 	  write(6,*) ngav(ip1),ngav(ip2)
@@ -176,10 +177,10 @@ c new elements
 
 c adjust grade index of old node (5 grade)
 
-	call delgr(k,ngav(2),ngrdim,ngrade,ngri)
-	call delgr(k,ngav(3),ngrdim,ngrade,ngri)
-	call delgr(k,ngav(4),ngrdim,ngrade,ngri)
-	call insgr(k,ngav(1),nkn,ngrdim,ngrade,ngri)
+	call delgr(k,ngav(2),ngrdi,ngrade,ngri)
+	call delgr(k,ngav(3),ngrdi,ngrade,ngri)
+	call delgr(k,ngav(4),ngrdi,ngrade,ngri)
+	call insgr(k,ngav(1),nkn,ngrdi,ngrade,ngri)
 
 c adjust grade index of new node (6 grade)
 
@@ -191,20 +192,20 @@ c adjust grade index of new node (6 grade)
 
 c adjust grade index of 5-5 nodes
 
-	call insgrb(ngav(1),k,nkn,ngrdim,ngrade,ngri)
-	call insgr(ngav(5),k,nkn,ngrdim,ngrade,ngri)
+	call insgrb(ngav(1),k,nkn,ngrdi,ngrade,ngri)
+	call insgr(ngav(5),k,nkn,ngrdi,ngrade,ngri)
 
 c substitute new node in grade index of nodes close to new node
 
-	call exchgr(ngav(2),k,nkn,ngrdim,ngrade,ngri)
-	call exchgr(ngav(3),k,nkn,ngrdim,ngrade,ngri)
-	call exchgr(ngav(4),k,nkn,ngrdim,ngrade,ngri)
+	call exchgr(ngav(2),k,nkn,ngrdi,ngrade,ngri)
+	call exchgr(ngav(3),k,nkn,ngrdi,ngrade,ngri)
+	call exchgr(ngav(4),k,nkn,ngrdi,ngrade,ngri)
 
 	if( bdebug ) then
-	  call prgr(k,ngrdim,ngrade,ngri)
-	  call prgr(nkn,ngrdim,ngrade,ngri)
-	  call prgr(ngav(1),ngrdim,ngrade,ngri)
-	  call prgr(ngav(5),ngrdim,ngrade,ngri)
+	  call prgr(k,ngrdi,ngrade,ngri)
+	  call prgr(nkn,ngrdi,ngrade,ngri)
+	  call prgr(ngav(1),ngrdi,ngrade,ngri)
+	  call prgr(ngav(5),ngrdi,ngrade,ngri)
 	end if
 
 c adjust coordinates
@@ -221,6 +222,30 @@ c adjust coordinates
 
 c	call plosel2(nel-1,nel)
 
+c	call node_debug(k,nkn,nel,nen3v,xgv,ygv)
+
 	end
 
 c*******************************************************
+
+	subroutine node_debug(k,nkn,nel,nen3v,xgv,ygv)
+
+	integer nen3v(3,nel)
+	real xgv(nkn),ygv(nkn)
+
+	iu = 79
+
+	write(iu,*) k,nkn,nel
+	do i=1,nel
+	  do ii=1,3
+	    write(iu,*) nen3v(ii,i)
+	  end do
+	end do
+	do i=1,nkn
+	  write(iu,*) xgv(i),ygv(i)
+	end do
+
+	end
+
+c*******************************************************
+

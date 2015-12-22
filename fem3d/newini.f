@@ -63,6 +63,7 @@ c 23.08.2013    ggu	depth routines to subdep.f
 c 05.09.2013    ggu	in adjust_levels() allow for nlv==1
 c 31.10.2014    ccf	initi_z0 for zos and zob
 c 25.05.2015    ggu	file cleaned and prepared for module
+c 05.11.2015    ggu	can now initialize z,u,v from file
 c
 c notes :
 c
@@ -74,14 +75,15 @@ c**************************************************************
 
 c set up time independent vertical vectors
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
-	include 'nbasin.h'
-	include 'nlevel.h'
-	include 'levels.h'
 
-	integer nlv_est,nlv_read
+	integer nlv_est,nlv_read,nlv_final
+	real, allocatable :: hlv_aux(:)
 
 	write(6,*) 'setting up vertical structure'
 
@@ -89,16 +91,22 @@ c------------------------------------------------------------------
 c sanity check
 c------------------------------------------------------------------
 
-	call get_nlv_read(nlv_read)
-	nlv_est = nlv_read
+	nlv_est = nlv
 	call estimate_nlv(nlv_est)
+	write(6,*) 'nlv,nlv_est,nlvdi: ',nlv,nlv_est,nlvdi
 
 	call check_nlv
 
-	nlv = nlvdi
+	if( nlv > 0 ) then
+	  allocate(hlv_aux(nlv))
+	  hlv_aux(1:nlv) = hlv(1:nlv)
+	  call levels_hlv_init(0)
+	end if
 	call levels_init(nkn,nel,nlv_est)
-	nlvdi = nlv_est
-	call transfer_hlv
+	if( nlv > 0 ) then
+	  hlv(1:nlv) = hlv_aux(1:nlv)
+	  deallocate(hlv_aux)
+	end if
 
 c------------------------------------------------------------------
 c levels read in from $levels section
@@ -119,8 +127,9 @@ c------------------------------------------------------------------
 c check data structure
 c------------------------------------------------------------------
 
-	call levels_reinit(nlv)
-	nlvdi = nlvdim		!to be removed later
+	nlv_final = nlv
+	!nlv_final = nlvdim		!to be removed later
+	call levels_reinit(nlv_final)
 
 	call check_vertical
 
@@ -157,14 +166,15 @@ c*****************************************************************
 
 c sets vertical eddy coefficient
 
+	use mod_diff_visc_fric
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-	include 'nbasin.h'
-	include 'nlevel.h'
 
-	include 'diff_visc_fric.h'
 
 	integer k,l
 	real vistur,diftur
@@ -201,14 +211,15 @@ c*****************************************************************
 
 c checks vertical eddy coefficient
 
+	use mod_diff_visc_fric
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-	include 'nbasin.h'
-	include 'nlevel.h'
 
-	include 'diff_visc_fric.h'
 
 	integer k,l
 	real v,d
@@ -245,8 +256,26 @@ c checks arrays containing vertical structure
 	implicit none
 
 	call check_nlv
+	call check_hlv
 	call check_levels
 	call check_ilevels
+
+	end
+
+c*****************************************************************
+
+	subroutine check_hlv
+
+	use levels
+
+	implicit none
+
+	include 'param.h'
+
+	integer l
+
+	write(6,*) 'check_hlv: ',nlv,nlvdi
+	write(6,'(5g14.6)') (hlv(l),l=1,nlv)
 
 	end
 
@@ -256,16 +285,18 @@ c*****************************************************************
 
 c checks nlv and associated parameters
 
+	use levels, only : nlvdi,nlv
+
 	implicit none
 
 	include 'param.h'
 
-	include 'nlevel.h'
 
-	write(6,*) 'check_nlv : ',nlvdim,nlvdi,nlv
+	write(6,*) 'check_nlv : '
+	write(6,*) '    nlvdi : ',nlvdi
+	write(6,*) '      nlv : ',nlv
 
-	if(nlvdim.ne.nlvdi) stop 'error stop check_nlv: level dimension'
-	if(nlv.gt.nlvdim) stop 'error stop check_nlv: level dimension'
+	if(nlv.gt.nlvdi) stop 'error stop check_nlv: level dimension'
 
 	end
 
@@ -275,12 +306,13 @@ c*****************************************************************
 
 c estimates maximum value for nlv
 
+	use basin
+
 	implicit none
 
 	integer nlv_est		!nlv_read on entry, estimate on return
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ie,ii
 	integer nsigma,nreg
@@ -303,7 +335,9 @@ c estimates maximum value for nlv
 	nreg = 0
 	if( dzreg > 0 ) nreg = hmax/dzreg
 
-	nlv_est = nlv_est + nsigma + nreg + 1
+	!nlv_est = nlv_est + nsigma + nreg + 1
+	nlv_est = nlv_est + nsigma + nreg
+	nlv_est = max(nlv_est,1)
 
 	end
 
@@ -333,13 +367,13 @@ c sigma levels, dzreg and hsigma	hybrid levels
 c zeta levels, nsigma and hsigma	hybrid levels
 c sigma and zeta levels and hsigma	hybrid levels
 
+	use levels
+	use basin
+
 	implicit none
 
 c common
 	include 'param.h'
-	include 'basin.h'
-	include 'nlevel.h'
-	include 'levels.h'
 
 c local
 	logical bsigma,bhybrid,bzeta
@@ -473,8 +507,8 @@ c--------------------------------------------------------------
 
 	write(6,*) 'adjust_levels: '
 	write(6,*) 'nlv,nsigma,hsigma: ',nlv,nsigma,hsigma
-	write(6,*) 'hlv:  ',(hlv(l),l=1,nlv)
-	write(6,*) 'hldv: ',(hldv(l),l=1,nlv)
+	write(6,'(5g14.6)') 'hlv:  ',(hlv(l),l=1,nlv)
+	write(6,'(5g14.6)') 'hldv: ',(hldv(l),l=1,nlv)
 
 c--------------------------------------------------------------
 c check hlv and hldv values
@@ -482,7 +516,7 @@ c--------------------------------------------------------------
 
 	call check_levels
 
-	write(6,*) 'finished adjusting layer structure'
+	write(6,*) 'finished adjusting layer structure ',nlv
 
 c--------------------------------------------------------------
 c end of routine
@@ -543,12 +577,12 @@ c*****************************************************************
 
 c checks arrays hlv and hldv
 
+	use levels
+
 	implicit none
 
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nlevel.h'
-	include 'levels.h'
+	include 'param.h'
 
 c local
 	logical bstop,bsigma
@@ -628,19 +662,22 @@ c*****************************************************************
 
 c sets nlv and ilhv - only needs hm3v and hlv, hev is temporary array
 
+	use levels
+	use basin
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'nlevel.h'
-	include 'levels.h'
+	include 'param.h'
 
 c local
 	logical bsigma
 	integer ie,ii,l,lmax,nsigma
-	real h,hmax,hsigma,hm
+	real hsigma
 
+	real h,hmax,hm
 	real hev(nel)		!local
+	!double precision h,hmax,hm
+	!double precision hev(nel)		!local
 
 	lmax=0
 	hmax = 0.
@@ -678,11 +715,17 @@ c local
 
 	nlv = lmax
 
+	write(6,*) 'finished setting ilhv and nlv'
+	write(6,*) 'nsigma,hsigma: ',nsigma,hsigma
+	write(6,*) 'nlv,lmax,hmax: ',nlv,lmax,hmax
+	write(6,'(5g14.6)') (hlv(l),l=1,nlv)
+
 	return
    99	continue
 	write(6,*) ie,l,nlv,h,hlv(nlv)
 	write(6,*) 'maximum basin depth: ',hmax
 	write(6,*) 'maximum layer depth: ',hlv(nlv)
+	write(6,'(5g14.6)') (hlv(l),l=1,nlv)
 	stop 'error stop set_ilhv: not enough layers'
 	end
 
@@ -692,11 +735,12 @@ c*****************************************************************
 
 c set ilhkv array - only needs ilhv
 
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'levels.h'
-	include 'basin.h'
 
 	integer ie,ii,k,l
 
@@ -712,6 +756,12 @@ c set ilhkv array - only needs ilhv
 	  end do
 	end do
 
+	!do k=1,nkn
+	!  if( ilhkv(k) .eq. 2 ) then
+	!    write(6,*) '2 layer node: ',k,ilhkv(k)
+	!  end if
+	!end do
+
 	end
 
 c*****************************************************************
@@ -720,12 +770,12 @@ c*****************************************************************
 
 c set minimum number of levels for node and element
 
+	use levels
+	use basin
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nlevel.h'
-	include 'levels.h'
-	include 'basin.h'
+	include 'param.h'
 
 	integer ie,ii,k,l
 	integer lmin,lmax
@@ -770,12 +820,13 @@ c*****************************************************************
 
 c checks arrays ilhv and ilhkv
 
+	use levels
+	use basin
+
 	implicit none
 
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'levels.h'
+	include 'param.h'
 
 	logical bsigma,bspure
 	integer nsigma
@@ -838,12 +889,12 @@ c sets last layer thickness
 c
 c adjusts nlv, hm3v, ilhv
 
+	use levels
+	use basin
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'nlevel.h'
-	include 'levels.h'
+	include 'param.h'
 
 	logical bwrite
 	logical badjust,b2d,bsigma,binsigma
@@ -852,9 +903,11 @@ c adjusts nlv, hm3v, ilhv
 	integer ilytyp
         integer ic1,ic2,ic3
 	integer nsigma
-	real h,hold,hnew,hlast,hm
+	real h,hold,hnew,hlast
 	real hlvmin
 	real hmin,hmax,hsigma
+	real hm
+	!double precision hm
 
 	integer ieext
 	real getpar
@@ -1000,6 +1053,8 @@ c------------------------------------------------------------
 	stop 'error stop set_last_layer: hlvmin'
    99	continue
 	write(6,*) 'ie,l,hold,h: ',ie,l,hold,h
+	write(6,*) 'nsigma,hsigma: ',nsigma,hsigma
+	write(6,*) 'hlv: ',nlv,(hlv(l),l=1,nlv)
 	if( nsigma > 0 .and. hold < 0. ) then
 	  write(6,*) 'cannot yet handle salt marshes with sigma layers'
 	end if
@@ -1012,6 +1067,10 @@ c*****************************************************************
 
 c sets coriolis parameter
 
+	use mod_internal
+	use basin
+        use coordinates
+
 	implicit none
 
 	real omega2	!double frequency of earth rotation
@@ -1019,19 +1078,18 @@ c sets coriolis parameter
 	real rearth	!radius of earth
 	parameter ( rearth = 6371000. )
 
-	include 'param.h' !COMMON_GGU_SUBST
+	include 'param.h'
 	include 'mkonst.h'
 	include 'pkonst.h'
 
-	include 'basin.h'
-	include 'internal.h'
-
+	logical bgeo
 	integer k,ie,ii
 	integer icor
 	integer isphe
 	real yc,ym,y,ymin,ymax,dlat
 	real aux1,aux2,rad
 	real getpar
+	real, dimension(nkn)	:: yaux
 
 c if coordinates are cartesian (isphe=0) then icor determines 
 c how Coriolis is used:
@@ -1044,27 +1102,36 @@ c please note that in case of icor=1 or 2 also the parameter dlat (the average
 c latitude of the basin) has to be set
 c
 c with spherical coordinates (isphe=1) the default is to always use
-c Coriolis. If you really do not want to use Coriolis, then please set
-c icor = -1. The parameter dlat is not needed.
+c Coriolis with latitude read from basin. If you really do not want to 
+c use Coriolis, then please set icor = -1. The parameter dlat is not needed.
+
+c with cartesian coordinates (isphe=0) the default is to use a constant 
+c latitude (dlat) for Coriolis (icor > 0). If you want a spatially varying 
+c Coriolis parameter you have to convert the cartesian coordinates to 
+c spherical setting the basin projection (iproj > 0)
 
 	icor=nint(getpar('icor'))	!flag how to use Coriolis
 	call get_coords_ev(isphe)
 
 	rad = pi / 180.
 	dlat = dcor			! average latitude
+	fcorv = 0.
 
-	yc=0.
-	ymin=ygv(1)
-	ymax=ygv(1)
-	do k=1,nkn
-	  y = ygv(k)
-	  yc = yc + y
-	  ymin = min(y,ymin)
-	  ymax = max(y,ymax)
-	end do
-	yc=yc/nkn
+	if( icor < 0 ) return		! no coriolis
 
-	if( isphe .eq. 1 ) dlat = yc		! get directly from basin
+	bgeo = ( isphe .eq. 1 .or. iproj .ne. 0 )  !use geographical coords
+
+	if( bgeo ) then
+	  yaux = ygeov
+	else
+	  yaux = ygv
+	end if
+       
+	yc   = sum(yaux)/nkn
+	ymin = minval(yaux)
+	ymax = maxval(yaux)
+
+	if( bgeo ) dlat = yc		! get directly from basin
 
 	aux1 = 0.
 	aux2 = 0.
@@ -1087,18 +1154,14 @@ c icor = -1. The parameter dlat is not needed.
 	do ie=1,nel
 	  ym=0.
 	  do ii=1,3
-	    ym=ym+ygv(nen3v(ii,ie))
+	    ym=ym+yaux(nen3v(ii,ie))
 	  end do
 	  ym=ym/3.
-	  if( isphe .eq. 0 ) then	!cartesian
-	    fcorv(ie)=aux1+aux2*(ym-yc)
-	  else if( isphe .eq. 1 ) then	!spherical
-	    if( icor .lt. 0 ) then	! -> do not use
-	      fcorv(ie) = 0.
-	    else
-	      !fcorv(ie) = omega2*cos(ym*rad)	!BUG
-	      fcorv(ie) = omega2*sin(ym*rad)
-	    end if
+	  if( bgeo ) then			!spherical
+	    !fcorv(ie) = omega2*cos(ym*rad)	!BUG
+	    fcorv(ie) = omega2*sin(ym*rad)
+	  else if( isphe .eq. 0 ) then		!cartesian
+  	    fcorv(ie)=aux1+aux2*(ym-yc)
 	  else
 	    write(6,*) 'isphe = ',isphe
 	    if( isphe .eq. -1 ) write(6,*) '...not initialized'
@@ -1114,12 +1177,13 @@ c*****************************************************************
 
 c checks coriolis parameter
 
+	use mod_internal
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
+	include 'param.h'
 
-	include 'internal.h'
 
 	integer ie
 	real f,fmax
@@ -1144,16 +1208,18 @@ c*****************************************************************
 
 c initializes nodal value variable from file
 
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
 	character*(*) name		!name of variable
-	real var(nlvdim,nkndim,1)	!variable to set
+	real var(nlvdi,nkn,1)		!variable to set
         integer nvar
 
 	integer it
-	integer nlvdi
 	character*80 file
 
 	call getfnm(name,file)
@@ -1172,12 +1238,14 @@ c*****************************************************************
 
 c initializes nodal value variable from file (2D version)
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
 	character*(*) name		!name of variable
-	real var(nkndim,1)		!variable to set
+	real var(nkn,1)			!variable to set
         integer nvar
 
 	integer it
@@ -1195,18 +1263,25 @@ c initializes nodal value variable from file (2D version)
 	end
 
 c*****************************************************************
+c*****************************************************************
+c*****************************************************************
 
 	subroutine init_z(const)
 
-c initializes variables
+c initializes water levels (znv and zenv)
 
 	implicit none
 
 	real const		!constant z value to impose
 
-	include 'param.h'
-
 	character*80 name
+	logical rst_use_restart
+
+c--------------------------------------------------------
+c see if we already have hydro restart data
+c--------------------------------------------------------
+
+	if( rst_use_restart(1) ) return
 
 c--------------------------------------------------------
 c get name of file
@@ -1242,14 +1317,15 @@ c*****************************************************************
 
 c initializes water level with constant
 
+	use mod_hydro
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	real const		!constant z value to impose
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
+	include 'param.h'
 
-	include 'hydro.h'
 
 	integer k,ie,ii
 
@@ -1275,68 +1351,187 @@ c*******************************************************************
 
 c initializes water level from file
 
+	use mod_hydro
+	use basin, only : nkn,nel,ngr,mbw
+	use intp_fem_file
+
 	implicit none
+
+	include 'femtime.h'
 
 	character*(*) name	!file name
 
-	include 'param.h'
-
-	include 'nbasin.h'
-
-	include 'hydro.h'
-
 	integer nb,k
-	integer ifileo
+	integer nvar,nintp,np,lmax,ibc
+	integer idzeta
+	double precision dtime
+	integer nodes(1)
+	real zconst(1)
+	character*10 what
 
-	nb=ifileo(10,name,'unform','old')
-	if(nb.le.0) goto 81
-	read(nb,err=82,end=82) (znv(k),k=1,nkn)
-	close(nb)
+	dtime = itanf
+        nodes = 0
+        nvar = 1
+        nintp = 2
+        np = nkn
+        lmax = 0
+        ibc = 0                         !no lateral boundary
+        what = 'zeta init'
+        zconst = 0.
+
+	write(6,*) 'Initializing water levels...'
+        call iff_init(dtime,name,nvar,np,lmax,nintp
+     +                          ,nodes,zconst,idzeta)
+        call iff_set_description(idzeta,ibc,what)
+
+        lmax = 1
+        call iff_read_and_interpolate(idzeta,dtime)
+        call iff_time_interpolate(idzeta,dtime,1,np,lmax,znv)
+
+	call iff_forget_file(idzeta)
 
 	write(6,*) 'Initial water levels read from file : '
-	write(6,*) name
+	write(6,*) trim(name)
 
-	return
-   81	continue
-	write(6,*) 'Error opening initial water level file :'
-	write(6,*) name
-	write(6,*) 'on unit ',nb
-	stop 'error stop init_file_z'
-   82	continue
-	write(6,*) 'Error reading from initial water level file'
-	write(6,*) name
-	stop 'error stop init_file_z'
 	end
 
+c*******************************************************************
+c*******************************************************************
 c*******************************************************************
 
 	subroutine init_uvt
 
 c initializes transport in levels
 
+	use mod_hydro
+
 	implicit none
 
-	include 'param.h'
-	include 'hydro.h'
+	character*80 name
+	logical rst_use_restart
 
-	utlnv = 0.
-	vtlnv = 0.
+c--------------------------------------------------------
+c see if we already have hydro restart data
+c--------------------------------------------------------
+
+	if( rst_use_restart(1) ) return
+
+c--------------------------------------------------------
+c get name of file
+c--------------------------------------------------------
+
+        call getfnm('uvinit',name)
+
+c--------------------------------------------------------
+c initialize from file or with constant
+c--------------------------------------------------------
+
+	if(name.ne.' ') then
+	  call init_file_uv(name)
+	  call vtot
+	else
+	  utlnv = 0.
+	  vtlnv = 0.
+	  call ttov
+	end if
+
+c--------------------------------------------------------
+c end of routine
+c--------------------------------------------------------
 
 	end
 
+c*******************************************************************
+
+	subroutine init_file_uv(name)
+
+c initializes water level from file
+
+	use mod_hydro
+	use mod_hydro_vel
+	use mod_hydro_print
+	use basin, only : nkn,nel,ngr,mbw
+	use intp_fem_file
+	use levels
+
+	implicit none
+
+	include 'femtime.h'
+
+	character*(*) name	!file name
+
+	integer nb,k
+	integer nvar,nintp,np,lmax,ibc
+	integer ntype,iformat
+	integer idvel
+	double precision dtime
+	integer nodes(1)
+	real uvconst(2)
+	character*10 what
+
+	integer fem_file_regular
+
+	dtime = itanf
+        nodes = 0
+        nvar = 2
+        nintp = 2
+        np = nkn			!velocities must be on node - relax later
+        lmax = nlvdi
+        ibc = 0                         !no lateral boundary
+        what = 'uv init'
+        uvconst = 0.
+
+	write(6,*) 'Initializing velocities...'
+
+	call fem_file_test_formatted(name,np,nvar,ntype,iformat)
+	if( nvar /= 2 ) then
+	  write(6,*) 'expecting 2 variables, found ',nvar
+	  write(6,*) 'read error from file ',trim(name)
+	  stop 'error stop init_file_uv: nvar'
+	end if
+	if( fem_file_regular(ntype) > 0 ) then
+	  np = nel
+	else if( np /= nkn .and. np /= nel ) then
+	  write(6,*) 'unexpected value for np found ',np
+	  write(6,*) 'possible values: ',nkn,nel
+	  write(6,*) 'read error from file ',trim(name)
+	  stop 'error stop init_file_uv: np'
+	end if
+
+        call iff_init(dtime,name,nvar,np,lmax,nintp
+     +                          ,nodes,uvconst,idvel)
+        call iff_set_description(idvel,ibc,what)
+
+        call iff_read_and_interpolate(idvel,dtime)
+	if( np == nkn ) then
+          call iff_time_interpolate(idvel,dtime,1,np,lmax,uprv)
+          call iff_time_interpolate(idvel,dtime,2,np,lmax,vprv)
+	  call prtouv
+	else
+          call iff_time_interpolate(idvel,dtime,1,np,lmax,ulnv)
+          call iff_time_interpolate(idvel,dtime,2,np,lmax,vlnv)
+	  call uvtopr
+	end if
+
+	call iff_forget_file(idvel)
+
+	write(6,*) 'Initial velocities read from file : '
+	write(6,*) trim(name)
+
+	end
+
+c*******************************************************************
+c*******************************************************************
 c*******************************************************************
 
 	subroutine init_z0
 
 c initializes surface z0sk(k) and bottom z0bn(k) roughness 
 
+	use mod_roughness
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
-
-	include 'param.h'
-
-	include 'nbasin.h'
-
-	include 'roughness.h'
 
 	integer k
 

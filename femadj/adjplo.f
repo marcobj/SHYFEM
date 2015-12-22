@@ -13,7 +13,7 @@ c subroutine pltgrd(n,k,k1,k2,xgv,ygv)
 c			plots grade in color
 c subroutine pltsgrd(igr,nkn,nel,nen3v,ngrade,xgv,ygv)
 c			plots only special grade
-c subroutine wrgrd(file,nkn,nel,xgv,ygv,nen3v)
+c subroutine write_grid(file,nkn,nel,xgv,ygv,nen3v)
 c			writes quick and dirty results to file
 c
 c revision log :
@@ -26,17 +26,20 @@ c***********************************************************
 
 c plots basin
 
+	use mod_adj_grade
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'grade.h'
 
 	integer ie,ii,k,n,i1,i2
 	real xmin,xmax,ymin,ymax
 
 	call mima(xgv,nkn,xmin,xmax)
 	call mima(ygv,nkn,ymin,ymax)
+
+	write(6,*) 'start plotting basin...'
 
 	call qstart
 
@@ -66,6 +69,8 @@ c	    if( k .gt. 0 ) call qplot(xgv(k),ygv(k))	!HACK
 	end do
 
 	call qend
+
+	write(6,*) 'finished plotting basin...'
 
 	end
 
@@ -140,41 +145,22 @@ c writes quick and dirty results from basin to file
 
 	implicit none
 
-	call wrgrd('new0.grd')
+	call write_grid('new0.grd')
 
 	end
 
 c***********************************************************
 
-	subroutine wrgrd(file)
+	subroutine write_grid(file)
 
 c writes quick and dirty results to file
 
 	implicit none
 
-	include 'param.h'
-	include 'basin.h'
-
 	character*(*) file
 
-	integer k,ie,ii,it
-
-	open(1,file=file,status='unknown',form='formatted')
-
-	do k=1,nkn
-	  it = 0
-	  write(1,'(i1,2i8,2f14.4)') 1,k,it,xgv(k),ygv(k)
-	end do
-
-c	call primem(2*nkn)	!prints deleted nodes
-
-	do ie=1,nel
-	  if( ipev(ie) .gt. 0 ) then
-	    write(1,'(i1,3i8,3i8)') 2,ie,0,3,(nen3v(ii,ie),ii=1,3)
-	  end if
-	end do
-
-	close(1)
+	call basin_to_grd
+	call grd_write(file)
 
 	end
 
@@ -186,11 +172,12 @@ c***********************************************************
 
 c plots element
 
+	use mod_adj_grade
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'grade.h'
 
 	integer ie1,ie2
 
@@ -271,11 +258,12 @@ c***********************************************************
 
 c plots node and neighborhood
 
+	use mod_adj_grade
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'grade.h'
 
 	integer k
 
@@ -309,11 +297,12 @@ c***********************************************************
 
 c plots one node
 
+	use mod_adj_grade
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'grade.h'
 
 	integer k
 
@@ -339,11 +328,12 @@ c***********************************************************
 
 c plots node number
 
+	use mod_adj_grade
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'grade.h'
 
 	integer k
 
@@ -383,10 +373,11 @@ c******************************************************
 
 c computes min/max of (x,y) of node k and neighbors
 
+	use mod_adj_grade
+
 	implicit none
 
 	include 'param.h'
-	include 'grade.h'
 
 	integer k
 	real xmin,xmax,ymin,ymax
@@ -424,11 +415,12 @@ c******************************************************
 c computes min/max of (x,y) of node k
 c xmin... must be already initialized
 
+	use mod_adj_grade
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'grade.h'
 
 	integer k
 	real xmin,xmax,ymin,ymax

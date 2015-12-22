@@ -94,7 +94,7 @@ c************************************************************
 	subroutine fem_file_write_header(iformat,iunit,it
      +				,nvers,np,lmax
      +				,nvar,ntype
-     +				,nlvdim,hlv,datetime,regpar)
+     +				,nlvddi,hlv,datetime,regpar)
 
 c writes header of fem file
 
@@ -108,8 +108,8 @@ c writes header of fem file
 	integer lmax		!maximum vertical values (1 for 2d)
 	integer nvar		!number of variables to write
 	integer ntype		!type of information contained
-	integer nlvdim		!vertical dimension of data
-	real hlv(nlvdim)	!depth at bottom of layer
+	integer nlvddi		!vertical dimension of data
+	real hlv(nlvddi)	!depth at bottom of layer
 	integer datetime(2)	!date and time parameters
 	real regpar(7)		!parameters for regular field
 
@@ -202,7 +202,7 @@ c************************************************************
 
 	if( lmax .gt. 1 ) then
 	  if( iformat == 1 ) then
-	    write(iunit,*) (hlv(l),l=1,lmax)
+	    write(iunit,1000) (hlv(l),l=1,lmax)
 	  else
 	    write(iunit) (hlv(l),l=1,lmax)
 	  end if
@@ -216,6 +216,8 @@ c************************************************************
 	  end if
 	end if
 
+	return
+ 1000	format(5g14.6)
 	end
 
 c************************************************************
@@ -224,7 +226,7 @@ c************************************************************
      +				,nvers,np,lmax
      +				,string
      +				,ilhkv,hd
-     +				,nlvdim,data)
+     +				,nlvddi,data)
 
 c writes data of the file
 
@@ -238,8 +240,8 @@ c writes data of the file
 	character*(*) string	!string explanation
 	integer ilhkv(np)	!number of layers in point k (node)
 	real hd(np)		!total depth
-	integer nlvdim		!vertical dimension of data
-	real data(nlvdim,np)	!data
+	integer nlvddi		!vertical dimension of data
+	real data(nlvddi,np)	!data
 
 	logical b2d
 	integer k,lm,l,nv
@@ -256,11 +258,11 @@ c writes data of the file
 	if( iformat == 1 ) then
 	  write(iunit,*) text
 	  if( b2d ) then
-	    write(iunit,*) (data(1,k),k=1,np)
+	    write(iunit,1000) (data(1,k),k=1,np)
 	  else
 	    do k=1,np
 	      lm = ilhkv(k)
-	      write(iunit,*) lm,hd(k),(data(l,k),l=1,lm)
+	      write(iunit,1010) lm,hd(k),(data(l,k),l=1,lm)
 	    end do
 	  end if
 	else
@@ -275,6 +277,9 @@ c writes data of the file
 	  end if
 	end if
 
+	return
+ 1000	format(5g14.6)
+ 1010	format(i8,(5g14.6))
 	end
 
 c************************************************************
@@ -523,7 +528,7 @@ c returns data description for first record
 	implicit none
 
 	character*(*) file		!file name
-	character*80 strings(1)		!return - must have dimension nvar
+	character*80 strings(*)		!return - must have dimension nvar
 	integer ierr
 
 	integer iformat
@@ -808,7 +813,7 @@ c************************************************************
      +				,nvers,np,lmax
      +				,string
      +				,ilhkv,hd
-     +				,nlvdim,data
+     +				,nlvddi,data
      +				,ierr)
 
 c reads data of the file
@@ -823,8 +828,8 @@ c reads data of the file
 	character*(*) string	!string explanation
 	integer ilhkv(np)	!number of layers in point k (node)
 	real hd(np)		!total depth
-	integer nlvdim		!vertical dimension of data
-	real data(nlvdim,np)	!data
+	integer nlvddi		!vertical dimension of data
+	real data(nlvddi,np)	!data
 	integer ierr		!return error code
 
 	logical b2d
@@ -1062,9 +1067,9 @@ c************************************************************
 
 	implicit none
 
+	integer fem_file_regular
 	integer ntype
 
-	integer fem_file_regular
 	integer itype(2)
 
 	call fem_file_make_type(ntype,2,itype)

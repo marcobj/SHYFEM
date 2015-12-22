@@ -3,7 +3,7 @@
 ! include file for pardiso solver
 !---------------------------------------------------------------------
 
-	include 'param.h'
+	!include 'param.h'
 	!include 'nkonst.h'
 
 !---------------------------------------------------------------------
@@ -40,11 +40,6 @@
 	integer is2v(nkndim)
         common /vs1v/vs1v, /vs2v/vs2v, /vs3v/vs3v, /is2v/is2v
 	save /vs1v/,/vs2v/,/vs3v/,/is2v/
-
-        !real znv(nkndim)
-        !common /znv/znv
-	!integer nen3v(3,neldim)
-        !common /nen3v/nen3v
 
 !---------------------------------------------------------------------
 ! new arrays

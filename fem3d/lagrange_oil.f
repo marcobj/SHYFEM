@@ -3,12 +3,13 @@ c*******************************************************************
 
 	subroutine init_diff_oil
 
+	use mod_lagrange
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
         include 'param.h'
-        include 'lagrange.h'
 
-	include 'nbasin.h'
 
 	integer ie
 
@@ -22,20 +23,18 @@ c*******************************************************************
 
 	subroutine set_diff_oil
 
+	use mod_lagrange
+	use evgeom
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-        include 'param.h'
-        include 'lagrange.h'
-
-	include 'ev.h'
-
-	include 'aux_array.h'
-
 	include 'femtime.h'
-	include 'nbasin.h'
 
-	real oil(neldim)
-	real zfilm(neldim)
+	real oil(nel)
+	real zfilm(nel)
+	real v1v(nkn)
+	real v2v(nkn)
 
 	integer ie,i
 	integer ioil,ifreq

@@ -14,15 +14,11 @@ c*******************************************************************
 
 	subroutine readmud
 
+	use mod_fluidmud
+	use basin
+	use levels
+
 	implicit none
-
-	include 'param.h'
-
-	include 'fluidmud.h'
-
-	integer k,l
-
-	vts = 0.
 
 	call nrdskp
 
@@ -31,6 +27,21 @@ c*******************************************************************
 c*******************************************************************
 
 	subroutine submud(it,dt)
+	end
+
+c*******************************************************************
+
+	subroutine submud_init
+
+	use mod_fluidmud
+	use basin
+	use levels
+
+	implicit none
+
+	call mod_fluidmud_dummy_init(nkn,nlv)
+	vts = 0.
+
 	end
 
 c*******************************************************************

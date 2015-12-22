@@ -35,6 +35,7 @@ c 11.02.2009    ggu     in cstfile set fixed name for STR file
 c 15.07.2011    ggu     new call to read basin
 c 20.10.2014    ggu     new routine ckdate()
 c 10.11.2014    ggu     time and date routines transfered to subtime.f
+c 30.07.2015    ggu     read str-file from command line
 c
 c************************************************************************
 
@@ -110,13 +111,20 @@ c revised 07.04.95 by ggu !$$conzfl - conz compared to iflag (bug)
 c revised 07.04.95 by ggu !$$baroc - impl. of baroclinic salt/temp (21/22)
 c revised 13.06.97 by ggu !$$kranf - check if kranf <= krend
 
+	use mod_bnd
+	use mod_bound_geom
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'modules.h'
 
+	include 'param.h'
 	include 'mkonst.h'
 	include 'pkonst.h'
-	real getpar
+
+        real getpar
+        integer nkbnd
 
 c parameters read from STR file
 
@@ -131,6 +139,11 @@ c	call ckexta	!extra output points
 	call ckflxa	!flux sections
 	call ckvola	!flux sections
 	call ckarea	!chezy values
+
+c re-allocate boundary arrays
+
+        call mod_bound_geom_reinit(nkn,nrb)
+	call mod_bnd_reinit(nbc)
 	call ckbnds	!boundary conditions
 
 	call ckclos
@@ -167,23 +180,34 @@ c********************************************************************
 
 c reads files (str and bas)
 
+	use basin
+
 	implicit none
 
-	include 'param.h'
-	include 'basin.h'
-
-	integer nin
+	integer nin,nc
 	character*80 basnam
+	character*80 strfile
 
-	integer idefbas
+	integer idefbas,ifileo
 
-	nin = 5
+	strfile = ' '
+        nc = command_argument_count()
+        if( nc .gt. 0 ) call get_command_argument(1,strfile)
+ 
+	if( strfile == ' ' ) then
+	  write(6,*) 'Usage: shyfem str-file'
+	  stop
+	  nin = 5
+	else
+	  nin = ifileo(0,strfile,'form','old')
+	end if
+
 	call nlsh2d(nin)
+	if( nin .ne. 5 ) close(nin)
 
         call getfnm('basnam',basnam)
         nin = idefbas(basnam,'old')
 	call basin_read(nin)
-	!call sp13rr(nin,nkndim,neldim)
 	close(nin)
 
 	end

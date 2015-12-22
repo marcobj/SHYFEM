@@ -52,14 +52,15 @@ c*****************************************************************
 
 	subroutine traccia
 
+	use mod_geom_dynamic
+	use mod_hydro
+
 	implicit none
 
 	include 'param.h'
 
 	include 'femtime.h'
 
-	include 'hydro.h'
-	include 'geom_dynamic.h'
 
 	integer itnew,itold,ierr
 	real zp,zold,znew
@@ -157,6 +158,10 @@ c*****************************************************************
 
 	subroutine interpolate_traccia(iep,itp,itold,itnew,xp,yp,zp,uv)
 
+	use mod_geom_dynamic
+	use mod_hydro_baro
+	use mod_hydro
+
 	implicit none
 
 	integer iep
@@ -169,9 +174,6 @@ c*****************************************************************
 	parameter (xinit=38889.,yinit=32745.2)
 
 	include 'param.h'
-	include 'hydro.h'
-	include 'hydro_baro.h'
-	include 'geom_dynamic.h'
 
 	logical bintmiss
 	logical bnearpoint
@@ -256,6 +258,8 @@ c*****************************************************************
 
 c interpolates water level
 
+	use mod_hydro
+
 	implicit none
 
 	integer iep
@@ -264,7 +268,6 @@ c interpolates water level
 	real zp
 
 	include 'param.h'
-	include 'hydro.h'
 
 	real zold,znew
 
@@ -281,6 +284,10 @@ c*****************************************************************
 
 c interpolates current velocity
 
+	use mod_hydro_baro
+	use mod_hydro_vel
+	use levels
+
 	implicit none
 
 	include 'param.h'
@@ -290,9 +297,6 @@ c interpolates current velocity
 	integer itp,itold,itnew
 	real uv(2)
 
-	include 'hydro_baro.h'
-	include 'hydro_vel.h'
-	include 'levels.h'
 
 	integer level,lmax
 	real uold,unew,vold,vnew
@@ -429,6 +433,8 @@ c*****************************************************************
 
 	function get_nearest_point(xp,yp)
 
+	use basin
+
 	implicit none
 
 	integer get_nearest_point
@@ -436,7 +442,6 @@ c*****************************************************************
 
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer knear,k
 	real dist,d

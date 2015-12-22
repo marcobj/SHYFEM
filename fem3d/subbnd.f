@@ -21,7 +21,7 @@ c function kbnd(i)			 returns i th node of all b. nodes
 c subroutine kanfend(ibc,kranf,krend)    returns index of first and last bnode
 c function kbnds(ibc,i)			 returns i th node of boundary ibc
 c subroutine irbnds(ibc,ndim,idim,nodes) returns nodes of boundary ibc
-c subroutine bndsetget(ibc,ientry,value,bset) sets/gets value at entry ientry
+c subroutine setget_bnd_par(ibc,ientry,value,bset) sets/gets value at ientry
 c subroutine setbnd(ibc,value,barray)	 sets boundary ibc to value in barray
 c
 c subroutine setbc(value,array,flag)	 sets all open boundaries to value
@@ -54,7 +54,7 @@ c 20.01.2000    ggu     call to rdbnds without dimension -> use getdim
 c 07.04.2000    ggu     new subroutine setbc
 c 07.05.2001    ggu     introduced new variable zfact
 c 25.09.2001    ggu     introduced bio2dn
-c 07.08.2003    ggu     check for nrbdim in rdbnds
+c 07.08.2003    ggu     check for nrb in rdbnds
 c 15.10.2004    ggu     new boundary types and sedin
 c 02.03.2005    ggu     new nbdim for 3D boundary values
 c 02.03.2005    ggu     some new helper functions
@@ -77,6 +77,7 @@ c 16.06.2014    ggu	new include file bnd.h (with nbndim)
 c 25.06.2014    ggu	new routine exists_bnd_name()
 c 29.10.2014    ccf	include vel3dn boundary file
 c 03.11.2014    ggu	nbdim deleted
+c 23.06.2015    ggu	setbc() deleted, nrz,nrq eliminated
 c
 c************************************************************************
 
@@ -84,14 +85,13 @@ c************************************************************************
 
 c initializes boundary parameters
 
+	use mod_bnd
+
 	implicit none
 
-	include 'nbound.h'
 
 	nbc = 0
 	nrb = 0
-	nrz = 0
-	nrq = 0
 
 	end
 
@@ -101,13 +101,14 @@ c************************************************************************
 
 c reads boundary info from STR file
 
+	use mod_bnd
+	use mod_bound_geom
+
 	implicit none
 
 	integer ibc
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbound.h'
-	include 'bound_geom.h'
+	include 'param.h'
 
 	include 'bound_names.h'
 !AR mud
@@ -115,7 +116,8 @@ c reads boundary info from STR file
 	character*80 name,text
 	double precision dvalue
 	real value
-	integer nbcdi,nrbdi
+	integer n
+	integer nbcdi
 	integer i,kranf,krend,kref
 	integer iweich,id,nbnd
 	integer nrdpar
@@ -126,13 +128,12 @@ c reads boundary info from STR file
 	save icall
 	data icall / 0 /
 
-	call getdim('nbcdim',nbcdi)
-	call getdim('nrbdim',nrbdi)
+	nbcdi = nbc_dim
 
 	if( icall .eq. 0 ) then		!initialize bnd array
 	  do i=1,nbcdi
 
-	    call bnd_init(i)
+	    !call bnd_init(i)
 
 	    boundn(i) = ' '
 	    conzn(i) = ' '
@@ -155,8 +156,13 @@ c reads boundary info from STR file
 	  icall = 1
 	end if
 
-	nbc = max(nbc,ibc)	!allow for non contiguous numbering
-	if(nbc.gt.nbcdi) goto 77
+	n = max(nbc,ibc)	!allow for non contiguous numbering
+	if(n.gt.nbcdi) goto 77
+	call mod_bnd_adjust(n)
+	do i=nbc+1,n
+	  call bnd_init(i)
+	end do
+	nbc = n
 
 	call sctpar('bound')
 	call sctfnm('bound')
@@ -436,7 +442,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccc
 	    if( iweich .eq. 4 ) goto 93
 	    if( name .eq. 'kbound' ) then	!$$1stnode
 		nrb=nrb+1
-		if( nrb .gt. nrbdi ) goto 76
+		call mod_irv_init(nrb)
 		irv(nrb)=nint(value)
 	    else if( iweich .eq. 3 ) then	!file name
 	        ! must be handeled later
@@ -449,7 +455,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccc
 	call set_bnd_ipar(ibc,'krend',krend)	!position of end node
 	call addpar('krend',float(krend))
 
-	call get_nbnd(nbnd)
+	call get_bnd_nbnd(nbnd)
 	do id=1,nbnd
 	  call get_bnd_name(id,name)
 	  value = getpar(name)
@@ -473,20 +479,16 @@ cccccccccccccccccccccccccccccccccccccccccccccccccc
 	call getfnm('bfm2bc',bfm2bc(ibc))
 	call getfnm('bfm3bc',bfm3bc(ibc))
 
-	!call check_bnd(ibc)
+	!call check_bnd_entries(ibc)
 
 	call check_parameter_values('before deleting section')
 	call delete_section('bound')
 	call check_parameter_values('after deleting section')
 
 	return
-   76	continue
-	write(6,*) 'Dimension error for nrbdim'
-	write(6,*) 'nrbdim :',nrbdi
-	stop 'error stop : rdbnds'
    77	continue
-	write(6,*) 'Dimension error for nbcdim'
-	write(6,*) 'nbcdim :',nbcdi
+	write(6,*) 'Dimension error for nbc_dim'
+	write(6,*) 'nbc_dim :',nbcdi
 	stop 'error stop : rdbnds'
    92	continue
 	write(6,*) 'Error in name list read : ',iweich
@@ -505,12 +507,12 @@ c********************************************************************
 
 c checks boundary information read from STR
 
+	use mod_bnd
+	use mod_bound_geom
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbound.h'
-	include 'bound_geom.h'
-	include 'bound_names.h'
+	include 'param.h'
 
 	logical bstop
 	integer i,k,ibc
@@ -520,6 +522,7 @@ c checks boundary information read from STR
 	real period
 	real ztilt
 	integer ipint
+	character*80 file
 
 	bstop = .false.
 
@@ -569,17 +572,12 @@ c checks boundary information read from STR
 	   write(6,'(a,i2,a)') 'section BOUND ',i,' :'
 	   write(6,*) '   No nodes given for boundary'
 	   bstop=.true.
-	 else
-	   if(ibtyp.eq.1) then
-		nrz=nrz+krend-kranf+1
-	   else if(ibtyp.eq.2) then
-		nrq=nrq+krend-kranf+1
-	   end if
 	 end if
 
 	 if( ibtyp .gt. 0 ) then
+	   call get_boundary_file(ibc,'zeta',file)
            call get_bnd_par(ibc,'period',period)
-	   if( period .le. 0. .and. boundn(i) .eq. ' ' ) then
+	   if( period .le. 0. .and. file .eq. ' ' ) then
 		write(6,'(a,i2,a)') 'section BOUND ',i,' :'
 		write(6,*) '   Period must be > 0'
 		write(6,*) '   period = ',period
@@ -616,8 +614,8 @@ c checks boundary information read from STR
 		bstop=.true.
 	 end if
 
-	 if( ibtyp .gt. 0 ) then
-	  do k=kranf,krend
+	 do k=kranf,krend
+	    if( k == 0 ) cycle
 	    knode=ipint(irv(k))		!$$EXTINW
 	    if(knode.le.0) then
               write(6,'(a,i2,a)') 'Section BOUND ',i,' :'
@@ -625,8 +623,7 @@ c checks boundary information read from STR
               bstop=.true.
 	    end if
 	    irv(k)=knode
-	  end do
-	 end if
+	 end do
 
 	end do
 
@@ -638,14 +635,15 @@ c********************************************************************
 
 	subroutine prbnds
 
+	use mod_bnd
+	use mod_bound_geom
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbound.h'
+	include 'param.h'
 
 	include 'bound_names.h'
 
-	include 'bound_geom.h'
 
 	integer i,ibc
 	integer ibtyp,kranf,krend
@@ -655,14 +653,20 @@ c********************************************************************
 	if( nbc .le. 0 ) return
 
 	write(6,*)
-	write(6,1003)
+	write(6,*) '====== info on open boundaries ========='
+	write(6,*)
+	write(6,*) ' inlet,type,intpol,nnodes ... nodes,files : '
 
 	do ibc=1,nbc
           call get_bnd_ipar(ibc,'ibtyp',ibtyp)
           call get_bnd_ipar(ibc,'intpol',intpol)
           call get_bnd_ipar(ibc,'kranf',kranf)
           call get_bnd_ipar(ibc,'krend',krend)
-	  write(6,1036) ibc,ibtyp,intpol,(ipext(irv(i)),i=kranf,krend)
+
+	  write(6,'(4i9)') ibc,ibtyp,intpol,krend-kranf+1
+	  if( kranf > 0 .and. krend > 0 ) then
+	    write(6,'(8i9)') (ipext(irv(i)),i=kranf,krend)
+	  end if
 
 	  call print_filename(boundn(ibc))
 	  call print_filename(conzn(ibc))
@@ -680,9 +684,11 @@ c********************************************************************
 	  call print_filename(bfm3bc(ibc))
 	end do
 
+	write(6,*)
+	write(6,*) '========================================'
+	write(6,*)
+
 	return
- 1003   format(' inlet,type,intpol,file,nodes : ')
- 1036   format(i7,3x,i5,2x,i5/(10x,10i6))
 	end
 
 c********************************************************************
@@ -700,16 +706,16 @@ c********************************************************************
 
 	subroutine tsbnds
 
+	use mod_bnd
+	use mod_bound_geom
+
 	implicit none
 
 	include 'param.h'
-	include 'nbound.h'
 
 	include 'bound_names.h'
 
-	include 'bnd.h'
 
-	include 'bound_geom.h'
 
 	integer j,i
 
@@ -729,7 +735,7 @@ c********************************************************************
           write(6,*) lam2dn(j)
 	  write(6,*) tox3dn(j)
 	  write(6,*) bfm1bc(j),bfm2bc(j),bfm3bc(j)
-	  write(6,*) (bnd(i,j),i=1,nbndim)
+	  write(6,*) (bnd(i,j),i=1,nbvdim)
 	end do
 
 	write(6,*) '/irv/'
@@ -809,11 +815,12 @@ c********************************************************************
 
 c returns total number of open boundaries
 
+	use mod_bnd
+
 	implicit none
 
 	integer nbnds
 
-	include 'nbound.h'
 
 	nbnds = nbc
 
@@ -825,11 +832,12 @@ c********************************************************************
 
 c returns total number of open boundary nodes
 
+	use mod_bnd
+
 	implicit none
 
 	integer nkbnd
 
-	include 'nbound.h'
 
 	nkbnd = nrb
 
@@ -854,6 +862,7 @@ c returns total number of nodes of boundary ibc
         call get_bnd_ipar(ibc,'krend',krend)
 
 	nkbnds = krend - kranf + 1
+	if( kranf == 0 .or. krend == 0 ) nkbnds = 0
 
 	end
 
@@ -863,21 +872,18 @@ c********************************************************************
 
 c returns i th node of all boundary nodes
 
+	use mod_bnd
+	use mod_bound_geom
+
 	implicit none
 
 	integer kbnd
 	integer i
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbound.h'
-	include 'bound_geom.h'
+	include 'param.h'
 
-	integer krend
-
-        call get_bnd_ipar(nbc,'krend',krend)  !here we use nbc (last boundary)
-
-        if( i .gt. krend ) then
-            write(6,*) 'i, krend, nbc : ',i,krend,nbc
+        if( i .gt. nrb ) then
+            write(6,*) 'i, nrb, nbc : ',i,nrb,nbc
             stop 'error stop kbnd: i out of bounds'
         end if
 
@@ -939,6 +945,8 @@ c********************************************************************
 
 c returns i th node of boundary ibc
 
+	use mod_bound_geom
+
 	implicit none
 
 	integer kbnds
@@ -946,7 +954,6 @@ c returns i th node of boundary ibc
 	integer i
 
 	include 'param.h'
-	include 'bound_geom.h'
 
 	integer kranf,krend,n
 
@@ -972,6 +979,8 @@ c********************************************************************
 
 c returns nodes of boundary ibc (maximum ndim)
 
+	use mod_bound_geom
+
 	implicit none
 
 	integer ibc			!number of open boundary  (in)
@@ -980,7 +989,6 @@ c returns nodes of boundary ibc (maximum ndim)
 	integer nodes(1)		!boundary nodes           (out)
 
 	include 'param.h'
-	include 'bound_geom.h'
 
 	integer i,imaxi
 	integer kranf,krend
@@ -1016,6 +1024,8 @@ c********************************************************************
 
 c sets boundary ibc to value in barray (apparently not used)
 
+	use mod_bound_geom
+
 	implicit none
 
 	integer ibc
@@ -1023,7 +1033,6 @@ c sets boundary ibc to value in barray (apparently not used)
 	real barray(1)
 
 	include 'param.h'
-	include 'bound_geom.h'
 
 	integer kranf,krend,k,kn
 
@@ -1041,60 +1050,17 @@ c sets boundary ibc to value in barray (apparently not used)
 
 c********************************************************************
 
-	subroutine setbc(value,array,flag)
-
-c sets all open boundaries to value
-
-	implicit none
-
-	real value
-	real array(1)
-	real flag
-
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbound.h'
-	include 'nbasin.h'
-	include 'bound_geom.h'
-
-	integer ibc
-	integer ibtyp,kranf,krend
-	integer k,kn
-
-	do k=1,nkn
-	  array(k) = flag
-	end do
-
-	do ibc=1,nbc
-
-          call get_bnd_ipar(ibc,'ibtyp',ibtyp)
-          call get_bnd_ipar(ibc,'kranf',kranf)
-          call get_bnd_ipar(ibc,'krend',krend)
-
-          do k=kranf,krend
-
-             kn=irv(k)
-
-             if( ibtyp .eq. 1 .or. ibtyp .eq. 2 ) then
-               array(kn)=value
-	     end if
-
-	  end do
-	end do
-
-	end
-
-c********************************************************************
-
         subroutine chkibc(ibc,errtext)
  
 c checks if ibc is in bounds
  
+	use mod_bnd
+
         implicit none
  
         integer ibc
 	character*(*) errtext
  
-	include 'nbound.h'
  
         if( ibc .lt. 1 .or. ibc .gt. nbc ) then
 	    write(6,*) errtext
@@ -1197,16 +1163,17 @@ c********************************************************************
 
 c initializes boundary ibc
 
+	use mod_bnd
+
 	implicit none
 
 	integer ibc
 
 	include 'param.h'
-	include 'bnd.h'
 
 	integer i
 
-	do i=1,nbndim
+	do i=1,nbvdim
 	  bnd(i,ibc) = 0.
 	end do
 
@@ -1216,21 +1183,28 @@ c********************************************************************
 c********************************************************************
 c********************************************************************
 
-        subroutine bndsetget(ibc,ientry,value,bset)
+        subroutine setget_bnd_par(ibc,ientry,name,value,bset)
 
 c sets/gets value at entry ientry
+
+	use mod_bnd
 
         implicit none
 
         integer ibc
         integer ientry
+	character*(*) name
         real value
         logical bset
 
 	include 'param.h'
-	include 'bnd.h'
 
-        call chkibc(ibc,'bndsetget:')
+        call chkibc(ibc,'setget_bnd_par:')
+
+        if( ientry .le. 0 ) then
+          write(6,*) 'no such entry: ',ientry,ibc,name
+	  stop 'error stop setget_bnd_par: no such entry'
+        end if
 
         if( bset ) then
           bnd(ientry,ibc) = value
@@ -1245,26 +1219,26 @@ c********************************************************************
         subroutine set_bnd_par(ibc,name,value)
         character*(*) name
         id = iget_bnd_id(name,.true.)
-        call bndsetget(ibc,id,value,.true.)
+        call setget_bnd_par(ibc,id,name,value,.true.)
         end
 
         subroutine get_bnd_par(ibc,name,value)
         character*(*) name
         id = iget_bnd_id(name,.true.)
-        call bndsetget(ibc,id,value,.false.)
+        call setget_bnd_par(ibc,id,name,value,.false.)
         end
 
         subroutine set_bnd_ipar(ibc,name,ivalue)
         character*(*) name
         id = iget_bnd_id(name,.true.)
 	value = ivalue
-        call bndsetget(ibc,id,value,.true.)
+        call setget_bnd_par(ibc,id,name,value,.true.)
         end
 
         subroutine get_bnd_ipar(ibc,name,ivalue)
         character*(*) name
         id = iget_bnd_id(name,.true.)
-        call bndsetget(ibc,id,value,.false.)
+        call setget_bnd_par(ibc,id,name,value,.false.)
 	ivalue = nint(value)
         end
 
@@ -1278,14 +1252,14 @@ c********************************************************************
 c********************************************************************
 c********************************************************************
 
-	subroutine get_nbnd(nbnd)
+	subroutine get_bnd_nbnd(nbnd)
+
+	use mod_bnd
 
         implicit none
 
 	integer nbnd
 
-        integer nbvdim
-        parameter(nbvdim=25)
 
 	nbnd = nbvdim
 
@@ -1310,14 +1284,14 @@ c********************************************************************
 
         function iget_bnd_id(name,berror)
 
+	use mod_bnd
+
         implicit none
 
         integer iget_bnd_id
         character*(*) name
 	logical berror		!raises error if name not existing
 
-        integer nbvdim
-        parameter(nbvdim=25)
 
         integer id
         character*6 bname
@@ -1349,13 +1323,13 @@ c to add a variable:
 c	add to names
 c	increase nbvdim (more instances in file)
 
+	use mod_bnd
+
 	implicit none
 
 	integer id
         character*(*) name
 
-        integer nbvdim
-        parameter(nbvdim=25)
 
         character*6 names(nbvdim)
         save names
@@ -1378,21 +1352,21 @@ c	increase nbvdim (more instances in file)
 
 c********************************************************************
 
-	subroutine check_bnd(ibc)
+	subroutine check_bnd_entries(ibc)
+
+	use mod_bnd
 
 	implicit none
 
 	integer ibc
 
-        integer nbvdim
-        parameter(nbvdim=25)
 
         integer i
 	real value
 
-	write(6,*) 'check_bnd: ',ibc
+	write(6,*) 'check_bnd_entries: ',ibc
         do i=1,nbvdim
-          call bndsetget(ibc,i,value,.false.)
+          call setget_bnd_par(ibc,i,' ',value,.false.)
 	  write(6,*) i,value
 	end do
 

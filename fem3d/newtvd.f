@@ -41,12 +41,13 @@ c*****************************************************************
 
 c initializes horizontal tvd scheme
 
+	use mod_tvd
+
         implicit none
 
 	integer itvd
 
 	include 'param.h'
-	include 'tvd.h'
 
 	integer icall
 	save icall
@@ -74,19 +75,19 @@ c*****************************************************************
 
 c computes gradients for scalar cc (average gradient information)
 
+	use evgeom
+	use levels
+	use basin
+
         implicit none
 
-	integer nlvddi
-	real cc(nlvddi,1)
-	real gx(nlvddi,1)
-	real gy(nlvddi,1)
-	real aux(nlvddi,1)
-
+	include 'param.h'
         
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'levels.h'
-	include 'ev.h'
+	integer nlvddi
+	real cc(nlvddi,nkn)
+	real gx(nlvddi,nkn)
+	real gy(nlvddi,nkn)
+	real aux(nlvddi,nkn)
         
         integer k,l,ie,ii,lmax
 	real b,c,area
@@ -142,18 +143,18 @@ c*****************************************************************
 
 c computes gradients for scalar cc (only 2D - used in sedi3d)
 
+	use evgeom
+	use basin
+
         implicit none
 
-	real cc(1)
-	real gx(1)
-	real gy(1)
-	real aux(1)
-
-        
 	include 'param.h'
-	include 'basin.h'
-	include 'ev.h'
         
+	real cc(nkn)
+	real gx(nkn)
+	real gy(nkn)
+	real aux(nkn)
+
         integer k,ie,ii
 	real b,c,area
 	real ggx,ggy
@@ -199,18 +200,18 @@ c*****************************************************************
 
 c computes concentration of upwind node (using info on upwind node)
 
+	use mod_tvd
+	use levels
+	use basin
+
         implicit none
 
         include 'param.h'
-        include 'tvd.h'
 
         integer ie,l
 	integer ic,id
         real cu
-        real cv(nlvdim,1)
-
-	include 'basin.h'
-	include 'levels.h'
+        real cv(nlvdi,nkn)
 
         integer ienew
         integer ii,k
@@ -241,12 +242,13 @@ c initializes position of upwind node
 c
 c sets position and element of upwind node
 
+	use mod_tvd
+	use basin
+
         implicit none
 
         include 'param.h'
-        include 'tvd.h'
 
-	include 'basin.h'
 
 	logical bsphe,bdebug
 	integer inode
@@ -351,32 +353,35 @@ c*****************************************************************
 
 c computes horizontal tvd fluxes for one element
 
+	use mod_tvd
+	use mod_hydro_vel
+	use evgeom
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
 	include 'param.h'
-        include 'tvd.h'
-        include 'ev.h'
 
 	integer ie,l
 	integer itot,isum
 	double precision dt
-	double precision cl(0:nlvdim+1,3)		!bug fix
-	real cv(nlvdim,nkndim)
-        real gxv(nlvdim,nkndim)
-        real gyv(nlvdim,nkndim)
+	double precision cl(0:nlvdi+1,3)		!bug fix
+	real cv(nlvdi,nkn)
+        real gxv(nlvdi,nkn)
+        real gyv(nlvdi,nkn)
 	double precision f(3)
 	double precision fl(3)
 
 	real eps
 	parameter (eps=1.e-8)
 
-	include 'basin.h'
-	include 'hydro_vel.h'
-
         logical bgradup
         logical bdebug
 	integer ii,k
         integer ic,kc,id,kd,ip,iop
+	integer itot1,itot2
+	integer tet1
         real term,fact,grad
         real conc,cond,conf,conu
         real gcx,gcy,dx,dy
@@ -385,6 +390,8 @@ c computes horizontal tvd fluxes for one element
         real alfa,dis,aj
         real vel
         real gdx,gdy
+
+	integer smartdelta
 
 	bgradup = .true.
 	bgradup = itvd_type .eq. 2
@@ -402,24 +409,32 @@ c computes horizontal tvd fluxes for one element
 
 	  if( itot .lt. 1 .or. itot .gt. 2 ) return
 
+	  itot2 = itot - 1
+	  itot1 = 2 - itot
+
 	  u = ulnv(l,ie)
           v = vlnv(l,ie)
 	  aj = 24 * ev(10,ie)
 
             ip = isum
-            if( itot .eq. 2 ) ip = 6 - ip		!bug fix
+            !if( itot .eq. 2 ) ip = 6 - ip		!bug fix
+	    ip = itot2*(6-ip) + itot1*ip
 
             do ii=1,3
               if( ii .ne. ip ) then
-                if( itot .eq. 1 ) then			!flux out of one node
-                  ic = ip
-                  id = ii
-                  fact = 1.
-                else					!flux into one node
-                  id = ip
-                  ic = ii
-                  fact = -1.
-                end if
+                !if( itot .eq. 1 ) then			!flux out of one node
+                !  ic = ip
+                !  id = ii
+                !  fact = 1.
+                !else					!flux into one node
+                !  id = ip
+                !  ic = ii
+                !  fact = -1.
+                !end if
+                ic = itot2*ii + itot1*ip
+		id = itot2*ip + itot1*ii
+		fact = -itot2 + itot1
+
                 kc = nen3v(ic,ie)
                 conc = cl(l,ic)
                 kd = nen3v(id,ie)
@@ -430,13 +445,15 @@ c computes horizontal tvd fluxes for one element
                 !dis = sqrt(dx**2 +dy**2)
 		! next is bug fix for lat/lon
 		iop = 6 - (id+ic)			!opposite node of id,ic
+		tet1 = 1+mod(iop,3)
 		dx = aj * ev(6+iop,ie)
-		if( 1+mod(iop,3) .eq. id ) dx = -dx
+		!if( tet1 .eq. id ) dx = -dx
+		dx = -2*smartdelta(tet1,id) * dx + dx
 		dy = aj * ev(3+iop,ie)
-		if( 1+mod(iop,3) .eq. ic ) dy = -dy
+		!if( tet1 .eq. ic ) dy = -dy
+		dy = -2*smartdelta(tet1,ic) * dy + dy
 		dis = ev(16+iop,ie)
 
-                !vel = sqrt(u**2 + v**2)                !total velocity
                 vel = abs( u*dx + v*dy ) / dis          !projected velocity
                 alfa = ( dt * vel  ) / dis
 
@@ -508,6 +525,11 @@ c ------------------- l+1 -----------------------
 c                     l+2             u
 c ------------------- l+2 -----------------------
 
+	use mod_layer_thickness
+	use mod_hydro_print
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
@@ -516,13 +538,9 @@ c ------------------- l+2 -----------------------
 	integer k			!node of vertical
 	real dt				!time step
 	real wsink			!sinking velocity (positive downwards)
-	real cv(nlvdim,nkndim)		!scalar to be advected
-	real vvel(0:nlvdim)		!velocities at interface (return)
-	real vflux(0:nlvdim)		!fluxes at interface (return)
-
-	include 'levels.h'
-	include 'hydro_print.h'
-	include 'depth.h'
+	real cv(nlvdi,nkn)		!scalar to be advected
+	real vvel(0:nlvdi)		!velocities at interface (return)
+	real vflux(0:nlvdi)		!fluxes at interface (return)
 
         real eps
         parameter (eps=1.e-8)
@@ -599,6 +617,8 @@ c ------------------- l+1 -----------------------
 c                     l+2             u
 c ------------------- l+2 -----------------------
 
+	use levels, only : nlvdi,nlv
+
 	implicit none
 
 	include 'param.h'
@@ -608,10 +628,10 @@ c ------------------- l+2 -----------------------
 	integer lmax				!total number of layers
 	double precision dt			!time step
 	double precision wsink			!sinking velocity (+ downwards)
-	double precision cl(0:nlvdim+1,3)	!scalar to be advected
-	double precision hold(0:nlvdim+1,3)	!depth of layers
-	double precision wvel(0:nlvdim+1,3)	!velocities at interface
-	double precision vflux(0:nlvdim+1,3)	!fluxes at interface (return)
+	double precision cl(0:nlvdi+1,3)	!scalar to be advected
+	double precision hold(0:nlvdi+1,3)	!depth of layers
+	double precision wvel(0:nlvdi+1,3)	!velocities at interface
+	double precision vflux(0:nlvdi+1,3)	!fluxes at interface (return)
 
         double precision eps
         parameter (eps=1.e-8)
@@ -666,6 +686,19 @@ c ------------------- l+2 -----------------------
 	end do
 
 	end
+
+c*****************************************************************
+
+	function smartdelta(a,b)
+
+	implicit none
+
+	integer smartdelta
+        integer, intent(in) :: a,b
+
+        smartdelta=int((float((a+b)-abs(a-b)))/(float((a+b)+abs(a-b))))
+
+	end function smartdelta
 
 c*****************************************************************
 

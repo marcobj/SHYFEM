@@ -43,21 +43,22 @@ c written on 27.08.91 by ggu  (from scratch)
 c 14.08.1998    ggu     w = 0 at open boundary nodes
 c 20.08.1998    ggu     some documentation
 
+	use mod_plot2d
+	use mod_plot3d
+	use mod_hydro_vel
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
         implicit none
 
 c parameters
         include 'param.h'
-        include 'ev.h'
 c common
-	include 'nlevel.h'
 
-	include 'basin.h'
-	include 'levels.h'
 
-	include 'hydro.h'
 
-	include 'hydro_vel.h'
-	include 'plot_aux.h'
 
 c local
 	logical byaron
@@ -65,11 +66,6 @@ c local
         integer ilevel
 	integer inwater
         real aj,wbot,wtop,ff
-
-        if(nlvdim.ne.nlvdi) then
-	  write(6,*) nlvdim,nlvdi
-	  stop 'error stop : level dimension in sp256w'
-	end if
 
 c initialize
 

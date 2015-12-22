@@ -23,6 +23,14 @@ c
 c
 c computes wave celerity in triangle
 c
+	use mod_depth
+	use mod_bnd_aux
+	use mod_bound_dynamic
+	use mod_hydro_baro
+	use mod_hydro
+	use evgeom
+	use basin
+
 	implicit none
 c
 c arguments
@@ -33,17 +41,10 @@ c parameters
 	integer ndim
 	parameter (ndim=55)
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'ev.h'
+	include 'param.h'
 	include 'pkonst.h'
 	include 'femtime.h'
 	include 'mkonst.h'
-	include 'depth.h'
-	include 'hydro.h'
-	include 'hydro_baro.h'
-	include 'bound_dynamic.h'
-	include 'basin.h'
-	include 'bnd_aux.h'
 c local
 	integer ie,ii,k,irand,n
 	real dt,area,bcz,c,cmax

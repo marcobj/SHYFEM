@@ -67,6 +67,8 @@ c 05.09.2013    ggu	endtime() and nplot introduced
 c 30.05.2014    ggu	flag no data points and do not plot
 c 20.10.2014    ggu	new time management
 c 05.06.2015    ggu	some plotting routines adjourned (flag)
+c 14.09.2015    ggu	prepared for plotting velocities given in fem file
+c 06.11.2015    ggu	set valref to 1 if vel field == 0
 c
 c notes :
 c
@@ -81,6 +83,11 @@ c**********************************************************
 
 c 3D concentrations
 
+	use mod_plot2d
+	use mod_plot3d
+	use levels, only : nlvdi,nlv,ilhkv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
@@ -88,8 +95,6 @@ c 3D concentrations
 	character*(*) type
 	integer ivarin
 
-	include 'nbasin.h'
-	include 'plot_aux.h'
 
         character*80 line
 	integer nrec,ivel,nplot
@@ -112,7 +117,7 @@ c 3D concentrations
         call mkvarline(ivar,line)
 	ivaria = ivar
 
-	do while( femnext(atime,ivaria,nlvdim,nkn,p3) )
+	do while( femnext(atime,ivaria,nlvdi,nkn,p3) )
 	  nrec = nrec + 1
 	  write(6,*) 'new record: ',nrec,ivaria,ivar,atime
 	  if( ivar .ne. ivaria ) goto 99
@@ -122,13 +127,15 @@ c 3D concentrations
 	    nplot = nplot + 1
             if( isect .eq. 0 ) then
 	      write(6,*) '..........horizontal plotting nodes ',nplot
-	      if( ivar .eq. 21 ) then	!wind
+	      if( ivar .eq. 21 .or. ivar .eq. 2 ) then	!wind or vel
 		ivel = 3		!wind
-		call set_uv(nlvdim,nkn,p3)
+		!if( ivar .eq. 2 ) ivel = 3
+		if( ivar .eq. 2 ) ivel = 5	!plot 2d vel field
+		call set_uvfem(nlvdi,nkn,level,ilhkv,p3)
 	        call reset_dry_mask
 	        call plovel(ivel)
 	      else
-	        call extnlev(level,nlvdim,nkn,p3,parray)
+	        call extnlev(level,nlvdi,nkn,p3,parray)
 	        call prepare_dry_mask
 	        call ploval(nkn,parray,line)
 	      end if
@@ -151,7 +158,41 @@ c 3D concentrations
 
 c**********************************************************
 
+	subroutine set_uvfem(nlvddi,nkn,level,ilhkv,p3)
+
+	use mod_hydro_plot
+
+	implicit none
+
+	integer nlvddi
+	integer nkn
+	integer level
+	integer ilhkv(nkn)
+	real p3(nlvddi,nkn,2)
+
+	include 'param.h'
+
+	integer k,lev
+
+	lev = max(1,level)
+
+	do k=1,nkn
+	  if( level .le. ilhkv(k) ) then
+	    uv(k) = p3(lev,k,1)
+	    vv(k) = p3(lev,k,2)
+	  else
+	    uv(k) = 0.
+	    vv(k) = 0.
+	  end if
+	end do
+
+	end
+
+c**********************************************************
+
 	subroutine set_uv(nlvddi,nkn,p3)
+
+	use mod_hydro_plot
 
 	implicit none
 
@@ -160,7 +201,6 @@ c**********************************************************
 	real p3(nlvddi,nkn,2)
 
 	include 'param.h'
-	include 'hydro_plot.h'
 
 	integer k
 
@@ -177,6 +217,11 @@ c**********************************************************
 
 c 3D concentrations
 
+	use mod_plot2d
+	use mod_plot3d
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
@@ -184,8 +229,6 @@ c 3D concentrations
 	character*(*) type	!default extension for file
 	integer ivar_in		!desired variable id
 
-	include 'nbasin.h'
-	include 'plot_aux.h'
 
         character*80 line
 	integer nrec,it,nplot
@@ -206,9 +249,9 @@ c 3D concentrations
 
         call mkvarline(ivar,line)
 
-	do while( nosnext(it,ivaria,nlvdim,p3) )
+	do while( nosnext(it,ivaria,nlvdi,p3) )
 	  nrec = nrec + 1
-	  call fvlnext(it,nlvdim,fvlv)
+	  call fvlnext(it,nlvdi,fvlv)
 	  write(6,*) 'new record: ',nrec,it,ivaria,ivar
 	  !call ptime_info()
 	  if( ptime_end() ) exit
@@ -216,7 +259,7 @@ c 3D concentrations
 	    nplot = nplot + 1
             if( isect .eq. 0 ) then
 	      write(6,*) '..........horizontal plotting nodes ',nplot
-	      call extnlev(level,nlvdim,nkn,p3,parray)
+	      call extnlev(level,nlvdi,nkn,p3,parray)
 	      call prepare_dry_mask
 	      call ploval(nkn,parray,line)
             else
@@ -238,6 +281,11 @@ c**********************************************************
 
 c 3D concentrations (element values)
 
+	use mod_plot2d
+	use mod_plot3d
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
@@ -245,8 +293,6 @@ c 3D concentrations (element values)
 	character*(*) type	!default extension for file
 	integer ivar_in		!desired variable id
 
-	include 'nbasin.h'
-	include 'plot_aux.h'
 
         character*80 line
 	integer nrec,it,nplot
@@ -266,7 +312,7 @@ c 3D concentrations (element values)
 
         call mkvarline(ivar,line)
 
-	do while( eosnext(it,ivaria,nlvdim,p3) )
+	do while( eosnext(it,ivaria,nlvdi,p3) )
 	  nrec = nrec + 1
 	  write(6,*) nrec,it,ivaria,ivar
 	  if( ptime_end() ) exit
@@ -274,8 +320,8 @@ c 3D concentrations (element values)
 	    nplot = nplot + 1
             if( isect .eq. 0 ) then
 	      write(6,*) '..........horizontal plotting elements ',nplot
-	      !call extelev(level,nlvdim,nkn,p3,parray)
-	      call extelev(level,nlvdim,nel,p3,parray)
+	      !call extelev(level,nlvdi,nkn,p3,parray)
+	      call extelev(level,nlvdi,nel,p3,parray)
 	      call prepare_dry_mask
 	      call ploeval(nel,parray,line)
             else
@@ -318,11 +364,12 @@ c**********************************************************
 
 	subroutine plozet
 
+	use mod_hydro
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-	include 'hydro.h'
+	include 'param.h'
 
 	integer nrec,it,k,nplot
 	logical ousnext,ptime_ok,ptime_end
@@ -356,11 +403,12 @@ c**********************************************************
 
 c plots barene
 
+	use mod_plot2d
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-	include 'plot_aux.h'
+	include 'param.h'
 
 	integer nrec,it,k,nplot
 	logical ousnext,ptime_ok,ptime_end
@@ -425,6 +473,9 @@ c**********************************************************
 
 	subroutine plosim(bvel)
 
+	use mod_plot2d
+	use mod_plot3d
+
 	implicit none
 
 	include 'param.h'
@@ -434,7 +485,6 @@ c**********************************************************
 	integer nrec,it,nplot
         integer ivel,isect
 
-	include 'plot_aux.h'
 
 	logical velnext,ptime_ok,ptime_end
 	integer getisec
@@ -481,6 +531,8 @@ c**********************************************************
 
 c plots node values
 
+	use mod_plot2d
+
 	implicit none
 
 	integer nkn
@@ -488,7 +540,6 @@ c plots node values
         character*(*) title
 
 	include 'param.h'
-	include 'plot_aux.h'
 
 	real pmin,pmax,flag
 	real getpar
@@ -523,6 +574,8 @@ c**********************************************************
 
 c plots element values
 
+	use mod_plot2d
+
 	implicit none
 
 	integer nel
@@ -530,7 +583,6 @@ c plots element values
         character*(*) title
 
 	include 'param.h'
-	include 'plot_aux.h'
 
 	real pmin,pmax,flag
 	real getpar
@@ -562,11 +614,12 @@ c**********************************************************
 
 	subroutine plozbar
 
+	use mod_hydro
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'hydro.h'
-	include 'basin.h'
 
 	logical bdry
 	integer ie,ii,k
@@ -607,6 +660,9 @@ c**********************************************************
 	else if( ivel == 4 ) then
 	  write(6,*) 'plotting wave...'
 	  call plo2vel(ivel,'2D ')
+	else if( ivel == 5 ) then
+	  write(6,*) 'plotting velocities...'
+	  call plo2vel(ivel,'3D ')
 	else
 	  write(6,*) 'plotting 3d...'
 	  call plo3vel(ivel)
@@ -624,6 +680,13 @@ c ivel = 1	velocities
 c ivel = 2	transports
 c ivel = 3	wind
 c ivel = 4	waves
+c ivel = 5	velocities already prepared
+
+	use mod_hydro_plot
+	use mod_plot2d
+	use mod_depth
+	use mod_hydro
+	use basin
 
 	implicit none
 
@@ -633,25 +696,17 @@ c ivel = 4	waves
 	integer nxdim,nydim
 	parameter( nxdim = 300 , nydim = 300 )
 
-
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'aux_array.h'
-	include 'hydro_plot.h'
-
-	include 'depth.h'
-	include 'hydro.h'
-
-	include 'plot_aux.h'
+	include 'param.h'
 
 	real ureg(nxdim,nydim)
 	real vreg(nxdim,nydim)
+	real v1v(nkn)
 
 	logical boverl,bnode,bbound,bnorm
         logical bspecial
 	logical bdebug
 	logical bregular
-	logical bvel,btrans,bwind,bwave
+	logical bvel,btrans,bwind,bwave,bvelok
         character*80 line
         character*80 spcvel
 	integer ie,k
@@ -701,6 +756,7 @@ c	-----------------------------------------------------------
         btrans = ivel .eq. 2
         bwind  = ivel .eq. 3
         bwave  = ivel .eq. 4
+        bvelok = ivel .eq. 5
 
 	velref = getpar('velref')
 	velmin = getpar('velmin')
@@ -731,7 +787,7 @@ c	-----------------------------------------------------------
           line(4:) = 'wind velocity'
         else if( bwave ) then
           line(4:) = 'waves'
-        else if( bvel ) then
+        else if( bvel .or. bvelok ) then
           line(4:) = 'velocity'
         else if( btrans ) then
           line(4:) = 'transport'
@@ -776,7 +832,7 @@ c------------------------------------------------------------------
 	    uvnv(ie) = usnv(ie)
 	    vvnv(ie) = vsnv(ie)
 	  end do
-        else if( bwind .or. bwave ) then
+        else if( bwind .or. bwave .or. bvelok ) then
 	  !ok
 	else
 	  stop 'error stop plo2vel: internal error (77)'
@@ -786,7 +842,7 @@ c------------------------------------------------------------------
 c compute values on nodes -> 0 for dry nodes
 c------------------------------------------------------------------
 
-        if( bwind .or. bwave ) then
+        if( bwind .or. bwave .or. bvelok ) then
 	  call intpe(uv,uvnv,bwater)
 	  call intpe(vv,vvnv,bwater)
         else
@@ -862,6 +918,7 @@ c------------------------------------------------------------------
 	    end if
 	end if
 	typsca = typls * typlsf
+	if( valref <= 0. ) valref = 1		!if vel field == 0
 
 	write(6,*) 'plo2vel: '
 	write(6,*) 'scale (type): ',typls,typlsf,ioverl
@@ -941,24 +998,17 @@ c**********************************************************
 
 	subroutine plo3vel(ivel)
 
+	use mod_hydro_plot
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	integer ivel
 
-c	integer nlvdim
-c	parameter ( nlvdim = 14 )
-
 	include 'param.h'
-
-	include 'nbasin.h'
-
-	include 'nlevel.h'
-
-	include 'levels.h'
-
-	include 'hydro.h'
-	include 'hydro_vel.h'
-	include 'hydro_plot.h'
 
 	integer ie,ii,k,l
 	integer level,lmax,lact
@@ -970,8 +1020,6 @@ c	parameter ( nlvdim = 14 )
 	bdebug = .true.
 	bdebug = .false.
 
-	if( nlvdi .ne. nlvdim ) stop 'error stop plo3vel: nlvdim'
-
 c make vertical velocities
 
 	call vertical
@@ -980,6 +1028,7 @@ c handle level
 
 	level = getlev()
 	write(6,*) 'plo3vel: level = ',level,' ivel = ',ivel
+	write(6,*) 'nlvdi: ',nlvdi,'  nlv: ',nlv
 
 	if( ivel .eq. 3 .or. ivel .eq. 4 ) then	!wave or wind
 	  call plo2vel(ivel,'3D ')
@@ -1071,13 +1120,14 @@ c**********************************************************
 
 	subroutine plobas
 
+	use mod_depth
+	use basin
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
+	include 'param.h'
 
 
-	include 'depth.h'
 
 	logical bnumber,belem
         real pmin,pmax
@@ -1371,13 +1421,14 @@ c**************************************************************
 
 	subroutine plotel( ie , color )
 
+	use basin
+
 	implicit none
 
 	integer ie
 	real color
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ii,k
 	real xp(3),yp(3)
@@ -1409,7 +1460,7 @@ c**************************************************************
 
 	call qstart
 
-        call basin(0)
+        call plot_basin(0)
 	call frame(0)
 
         call qcomm('Plotting elements')
@@ -1418,7 +1469,7 @@ c**************************************************************
 	end do
 
         call qcomm('Plotting basin')
-        call basin(2)
+        call plot_basin(2)
 
 	call qend
 
@@ -1430,15 +1481,16 @@ c*****************************************************************
 
 c sets values on boundary to val
 
+	use mod_geom
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	real a(1)
 	real val
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
+	include 'param.h'
 
-	include 'geom.h'
 
 	integer k
 
@@ -1571,6 +1623,8 @@ c*****************************************************************
 
 c compute elemental values vev()
 
+	use basin
+
 	implicit none
 
         real vnv(1)
@@ -1579,7 +1633,6 @@ c compute elemental values vev()
 
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ie,ii,k,iflag
 	real sum,flag
@@ -1610,6 +1663,8 @@ c*****************************************************************
 
 c compute nodal values vnv()
 
+	use basin
+
 	implicit none
 
 	real vev(1)
@@ -1617,12 +1672,11 @@ c compute nodal values vnv()
 	logical bwater(1)
 
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'aux_array.h'
-	include 'basin.h'
+	include 'param.h'
 
 	integer ie,ii,k
 	real r,flag
+	real v2v(nkn)
 
         call get_flag(flag)
 
@@ -1883,11 +1937,12 @@ c*****************************************************************
 
 c plots node values
 
+	use mod_plot2d
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-	include 'plot_aux.h'
+	include 'param.h'
 
 	integer ie
 	real dgray

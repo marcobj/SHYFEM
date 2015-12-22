@@ -11,18 +11,20 @@ c*******************************************************************
 
 	subroutine prepare_vel(pp3)
 
+	use mod_plot2d
+	use mod_plot3d
+	use mod_hydro_print
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-	real pp3(nlvdim,nkndim)
+	real pp3(nlvdi,nkn)
 
-	include 'nbasin.h'
-	include 'nlevel.h'
 
-	include 'plot_aux.h'
 
-	include 'hydro_print.h'
 
 	integer k,l
 	real u,v,w
@@ -31,7 +33,7 @@ c*******************************************************************
 	call vertical		!compute wlnv from utlnv,vtlnv
 
 	href = 0.
-	call mkht3(nlvdim,het3v,href)
+	call mkht3(nlvdi,het3v,href)
 
 	call make_vel_from_tra(het3v)
 	call vel_to_node
@@ -51,17 +53,18 @@ c*******************************************************************
 
 	subroutine make_vel_from_tra(het3v)
 
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-        real het3v(nlvdim,neldim)
+        real het3v(nlvdi,nel)
 
-	include 'nbasin.h'
 
-	include 'hydro.h'
-	include 'hydro_vel.h'
-	include 'levels.h'
 
 	integer ie,l,lmax
 	real h,rh
@@ -87,20 +90,20 @@ c*******************************************************************
 
 	subroutine vel_to_node
 
+	use mod_hydro_print
+	use mod_hydro_vel
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
 
-	include 'nlevel.h'
 
-	include 'basin.h'
-	include 'levels.h'
 
-	include 'hydro_vel.h'
 
-	include 'hydro_print.h'
 
-	include 'ev.h'
 
 	integer ie,ii,k,l,lmax
 	real aj

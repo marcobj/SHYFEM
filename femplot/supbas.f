@@ -53,6 +53,7 @@ c 13.06.2013  ggu     bug fix in spherical_fact() -> set fact to 1
 c 13.12.2013  ggu     new mode=4 for plotting gray grid over scalar variable
 c 30.05.2014  ggu     new metpnt for meteo points, imicro computed
 c 10.02.2015  ggu     also plot other points, also regular points
+c 12.10.2015  ggu     fix in rround() to handle rmaster==0 case
 c
 c notes:
 c
@@ -154,7 +155,7 @@ c**************************************************************
 	  call setgeo(x,y,dxygrd,dxygrd,-999.)
 
 	  call annote		!annotation
-	  call basin(0)		!scaling
+	  call plot_basin(0)	!scaling
 	  call label_reg_grid
 	  call plot_islands(cgray)
 
@@ -171,7 +172,7 @@ c**************************************************************
 !--------------------------------------
 
         call qcomm('Plotting basin')
-        call basin(mode)
+        call plot_basin(mode)
 
 !--------------------------------------
 ! end of plot - now only labeling
@@ -242,7 +243,7 @@ c**************************************************************
 
 c*************************************************************
 
-	subroutine basin(mode)
+	subroutine plot_basin(mode)
 
 c plots basin
 c
@@ -253,13 +254,14 @@ c	2: boundary
 c	3: net in gray (for bathymetry - use bgray)
 c	4: net in gray (for scalar and velocities - use bsgray)
 
+	use mod_geom
+	use basin
+
 	implicit none
 
 	integer mode
 
 	include 'param.h'
-	include 'basin.h'
-	include 'geom.h'
 
 	real xmin,ymin,xmax,ymax
 	common /bamima/ xmin,ymin,xmax,ymax
@@ -324,13 +326,14 @@ c
 c mode	1: node number   2: element number
 c	positive: external    negative: internal
 
+	use mod_geom
+	use basin
+
 	implicit none
 
 	integer mode
 
 	include 'param.h'
-	include 'basin.h'
-	include 'geom.h'
 
 	real xmin,ymin,xmax,ymax
 	common /bamima/ xmin,ymin,xmax,ymax
@@ -477,12 +480,13 @@ c computes min/max of basin
 c
 c mode	0: exact dimensions  1: larger dimensions
 
+	use basin
+
 	implicit none
 
 	integer mode
 
 	include 'param.h'
-	include 'basin.h'
 
 	real xmin,ymin,xmax,ymax
 	common /bamima/ xmin,ymin,xmax,ymax
@@ -683,9 +687,10 @@ c dxygrd is used first
 c then typls is used if given
 c else it is computed from grid
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'nbasin.h'
 
 	integer ie
 	real area,ao
@@ -812,6 +817,11 @@ c negative values are respected
 
 	integer iaux
 	real raux
+
+	if( rmaster == 0. ) then	!FIXME
+	  rround = r
+	  return
+	end if
 
 	iaux = r/rmaster
 	raux = iaux * rmaster
@@ -1665,14 +1675,15 @@ c**************************************************************
 
 c plots islands gray
 
+	use mod_geom
+	use basin
+
 	implicit none
 
 	real cgray	!color
 	
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'geom.h'
-	include 'basin.h'
+	include 'param.h'
 
 	real xmin,ymin,xmax,ymax
 	common /bamima/ xmin,ymin,xmax,ymax

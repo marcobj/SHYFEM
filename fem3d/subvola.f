@@ -134,7 +134,10 @@ c******************************************************************
 	integer nfxdi
         integer nrdveci
 
-	call getdim('nfxdim',nfxdi)
+	!write(6,*) 'module not yet converted... do not use'
+	!stop 'error stop rdvola: cannot use'
+
+	nfxdi = nfxdim
 
 	kvold = nfxdi
         kvolm = nrdveci(kvol,nfxdi)
@@ -364,6 +367,9 @@ c initialization
 
         end if
 
+	write(6,*) 'module not yet converted... do not use'
+	stop 'error stop wrvola: cannot use'
+
 c normal call
 
         icall = icall + 1
@@ -467,12 +473,13 @@ c******************************************************************
 
 c computes vol in total basin
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	real voltotal
 	logical bz	!if true use new zeta to compute volume
 
-	include 'nbasin.h'
 
 	integer ie,mode
 	real volume
@@ -501,11 +508,12 @@ c******************************************************************
 
 c computes area in total basin
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	real areatotal
 
-	include 'nbasin.h'
 
 	integer ie
 	real area
@@ -581,13 +589,14 @@ c******************************************************************
 
 c initializes vol routines finally
 
+	use mod_geom
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
+	include 'param.h'
 	include 'volcomp.h'
 
 
-	include 'geom.h'
 	
 	integer idummy
 
@@ -655,6 +664,8 @@ c******************************************************************
 
 c sets up element info structure ivol(1) from kvol(1) for one area
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	integer nv		!progressive number of line	(in)
@@ -664,7 +675,6 @@ c sets up element info structure ivol(1) from kvol(1) for one area
 	integer ivolm		!filling of ivol		(out)
 	integer ivol(1)		!element numbers of volumes     (out)
 
-	include 'nbasin.h'
 
 	real xline(nkn), yline(nkn)
 	integer kline(nkn)
@@ -736,7 +746,6 @@ c	write(6,*) (ivol(ie),ie=1,ivolm)
    99	continue
 	write(6,*) 'idim: ',idim
 	write(6,*) 'Number of elements in volumes is too big.'
-	write(6,*) 'Please adjust nfxdim in param.h'
 	stop 'error stop volinf: dimension ivol'
 	end
 
@@ -778,6 +787,9 @@ c******************************************************************
 
 c close line -> nodes will be unique (first & last are different)
 
+	use mod_geom
+	use basin
+
 	implicit none
 
 	integer n		!size of kvol
@@ -787,9 +799,7 @@ c close line -> nodes will be unique (first & last are different)
 	real xline(1), yline(1)
 
 	include 'param.h'
-	include 'basin.h'
 
-	include 'geom.h'
 
 	integer i,k
 	integer kfirst,kstart,knext
@@ -841,6 +851,8 @@ c******************************************************************
 
 	subroutine wrtelem(iunit,n,ielems,ietype)
 
+	use basin
+
 	implicit none
 
 	integer iunit
@@ -848,23 +860,14 @@ c******************************************************************
 	integer ielems(1)
 	integer ietype
 
-
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'aux_array.h'
-
-
-
-	include 'basin.h'
-
 	integer k,i,ii,ie,nvert
 	integer kn(10)
 	real hmed
+	real v3v(nkn)
 
 	real depele
 
-	do k=1,nkn
-	  v3v(k) = 0.
-	end do
+	v3v = 0.
 
 	do i=1,n
 
@@ -898,6 +901,8 @@ c******************************************************************
 
 	subroutine wrtline(iunit,n,inodes,il,iltype)
 
+	use basin
+
 	implicit none
 
 	integer iunit
@@ -907,7 +912,6 @@ c******************************************************************
 
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer k,i
 	integer istart

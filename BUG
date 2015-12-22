@@ -1,4 +1,19 @@
 
+BUG_55	     ggu	7.3.3    12.10.2015
+	severe bug fix in adjust_bc() (subnev.f)
+
+BUG_54	     ccf	7.2.5    29.09.2015
+	projection called before spherical initialization ... fixed
+
+BUG_53	     ggu&dbf	7.2.5    24.09.2015
+	irv not initialized with no external boundaries
+
+BUG_52	     ggu	7.2.3    19.09.2015
+	in coo_init n==0 was not checked
+
+BUG_51 	    ggu		7.2.3    19.09.2015
+	zeqv was not always initialized in tideini
+
 BUG_2010_50     ggu&deb	6.1.48   16.03.2012
 	use of sigma routines (supdep.f) and plotting (suputi.f)
 

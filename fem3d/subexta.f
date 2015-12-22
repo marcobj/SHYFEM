@@ -188,14 +188,12 @@ c******************************************************************
 
 c writes and administers ext file
 
+	use mod_hydro_print
 	use extra
 
 	implicit none
 
 	integer it
-
-	include 'param.h'
-	include 'hydro_print.h'
 
 	integer nbext
 	real err,href,hzoff
@@ -270,15 +268,14 @@ c ...ndim is dummy argument
 
 	real writ7h
 	integer iunit,nvers
-        integer knausm,knaus(1)
+        integer knausm,knaus(knausm)
 	real href,hzmin
+	real v1v(knausm)
 
 	integer nmax
 	parameter(nmax=50)
 
-	include 'param.h'
 	include 'simul.h'
-	include 'aux_array.h'
 
 	integer i,n,ndim
 	real hmin,hmax

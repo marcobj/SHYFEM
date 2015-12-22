@@ -15,30 +15,26 @@
 # Parameters
 ##############################################
 #
-# Here you should set all your application 
-# specific parameters. The ones below are
-# usually the only ones you have to bother.
-# However, if you have special needs you can
-# also set all the other parameters. Please see
-# param.h for more details.
-#
-# NKNDIM	total number of nodes in domain
-# NELDIM	total number of elements in domain
-# NGRDIM	maximum number of elements attached to one vertex (node)
-# MBWDIM	dimension of bandwidth for system matrix (see output from vpgrd)
-# NLVDIM	total number of vertical layers for application (1 for 2D)
-# NBDYDIM	maximum number of particles for lagrangian model
-#
-# N.B.: the parameters set here may be bigger than the actual application
+# For the new version of SHYFEM no
+# parameters have to be set anymore.
+# Please leave this section empty.
 #
 ##############################################
 
-export MBWDIM = 300
-export NGRDIM = 12
-export NLVDIM = 8
+##############################################
+# compiler profile
+##############################################
+#
+# You can either compile with maximum speed
+# or with checks enabled, depending on your
+# application.
+# If in doubt, please leave as it is.
+#
+##############################################
 
-export NKNDIM = 11000
-export NELDIM = 22000
+COMPILER_PROFILE = NORMAL
+#COMPILER_PROFILE = CHECK
+#COMPILER_PROFILE = SPEED
 
 ##############################################
 # Compiler
@@ -139,7 +135,7 @@ SOLVER=SPARSKIT
 
 NETCDF=false
 #NETCDF=true
-NETCDFDIR = /usr/local/netcdf
+#NETCDFDIR = /usr/local/netcdf
 NETCDFDIR = /usr
 
 ##############################################
@@ -211,6 +207,8 @@ DISTRIBUTION_TYPE = experimental
 DEFDIR  = $(HOME)
 FEMDIR  = ..
 DIRLIB  = $(FEMDIR)/femlib
+MODDIR  = 
+MODDIR  = $(DIRLIB)/mod
 
 LIBX = -L/usr/X11R6/lib -L/usr/X11/lib -L/usr/lib/X11  -lX11
 
@@ -262,6 +260,7 @@ endif
 # PROFILE      insert profiling instructions
 # OPTIMIZE     optimize program for speed
 # WARNING      generate compiler warnings for unusual constructs
+# BOUNDS       generate bounds check during run
 
 #PROFILE = true
 PROFILE = false
@@ -269,11 +268,31 @@ PROFILE = false
 #DEBUG = true
 DEBUG = false
 
-OPTIMIZE = true
-#OPTIMIZE = false
+OPTIMIZE = MEDIUM
+#OPTIMIZE = HIGH
+#OPTIMIZE = NONE
 
 #WARNING = true
 WARNING = false
+
+#BOUNDS = true
+BOUNDS = false
+
+ifeq ($(COMPILER_PROFILE),CHECK)
+  PROFILE = true
+  DEBUG = true
+  OPTIMIZE = NONE
+  WARNING = true
+  BOUNDS = true
+endif
+
+ifeq ($(COMPILER_PROFILE),SPEED)
+  PROFILE = false
+  DEBUG = false
+  OPTIMIZE = HIGH
+  WARNING = false
+  BOUNDS = false
+endif
 
 ##############################################
 #
@@ -299,6 +318,11 @@ WARNING = false
 #
 ##############################################
 
+FGNU_GENERAL = 
+ifdef MODDIR
+  FGNU_GENERAL = -J$(MODDIR)
+endif
+
 FGNU_PROFILE = 
 ifeq ($(PROFILE),true)
   FGNU_PROFILE = -p
@@ -306,20 +330,34 @@ endif
 
 FGNU_WARNING = 
 ifeq ($(WARNING),true)
-  FGNU_NOOPT = -Wall -pedantic
-  FGNU_NOOPT = -Wall -Wtabs -Wno-unused -Wno-uninitialized
-  FGNU_NOOPT = -Wall -Wtabs -Wno-unused
+  FGNU_WARNING = -Wall -pedantic
+  FGNU_WARNING = -Wall -Wtabs -Wno-unused -Wno-uninitialized
+  FGNU_WARNING = -Wall -Wtabs -Wno-unused
+  FGNU_WARNING = -Wall -Wtabs -Wno-unused \
+			-Wno-conversion -Wno-unused-dummy-argument
+endif
+
+FGNU_BOUNDS = 
+ifeq ($(BOUNDS),true)
+  FGNU_BOUNDS = -fbounds-check
 endif
 
 FGNU_NOOPT = 
 ifeq ($(DEBUG),true)
+  TRAP_LIST = zero,invalid,overflow,underflow,denormal
+  TRAP_LIST = zero,invalid,overflow,denormal
+  TRAP_LIST = zero
   FGNU_NOOPT = -g
+  #FGNU_NOOPT = -g -fbacktrace -ffpe-trap=$(TRAP_LIST)
+  FGNU_NOOPT = -g -fbacktrace -ffpe-trap=$(TRAP_LIST) $(FGNU_BOUNDS)
 endif
 
-FGNU_OPT   = 
-ifeq ($(OPTIMIZE),true)
+FGNU_OPT   = -O
+ifeq ($(OPTIMIZE),HIGH)
   FGNU_OPT   = -O3
-  FGNU_OPT   = -O
+endif
+ifeq ($(OPTIMIZE),NONE)
+  FGNU_OPT   = 
 endif
 
 FGNU_OMP   =
@@ -347,7 +385,7 @@ ifeq ($(FORTRAN_COMPILER),GNU_GFORTRAN)
   F95		= $(FGNU95)
   LINKER	= $(F77)
   LFLAGS	= $(FGNU_OPT) $(FGNU_PROFILE) $(FGNU_OMP)
-  FFLAGS	= $(LFLAGS) $(FGNU_NOOPT) $(FGNU_WARNING)
+  FFLAGS	= $(LFLAGS) $(FGNU_NOOPT) $(FGNU_WARNING) $(FGNU_GENERAL)
   FINFOFLAGS	= -v
 endif
 
@@ -378,9 +416,11 @@ ifeq ($(DEBUG),true)
   FIBM_NOOPT =
 endif
 
-FIBM_OPT   = 
-ifeq ($(OPTIMIZE),true)
-# FIBM_OPT   = -O3 
+FIBM_OPT   = -O
+ifeq ($(OPTIMIZE),HIGH)
+  FIBM_OPT   = -O3
+endif
+ifeq ($(OPTIMIZE),NONE)
   FIBM_OPT   = 
 endif
 
@@ -421,10 +461,12 @@ ifeq ($(DEBUG),true)
   FPG_NOOPT = -g
 endif
 
-FPG_OPT   = 
-ifeq ($(OPTIMIZE),true)
-  FPG_OPT   = -O
+FPG_OPT   = -O
+ifeq ($(OPTIMIZE),HIGH)
   FPG_OPT   = -O3
+endif
+ifeq ($(OPTIMIZE),NONE)
+  FPG_OPT   = 
 endif
 
 FPG_OMP   =
@@ -486,6 +528,11 @@ FINTEL_ERSEM = $(DEFINES)
 
 #-------------------------------------------------
 
+FINTEL_GENERAL =
+ifdef MODDIR
+  FINTEL_GENERAL = -module $(MODDIR)
+endif
+
 FINTEL_PROFILE = 
 ifeq ($(PROFILE),true)
   FINTEL_PROFILE = -p
@@ -506,7 +553,7 @@ ifeq ($(DEBUG),true)
   FINTEL_NOOPT = -g -traceback -check all
   FINTEL_NOOPT = -g -traceback -check uninit -check bounds 
   FINTEL_NOOPT = -g -traceback -check uninit 
-  FINTEL_NOOPT = -g -traceback 
+  FINTEL_NOOPT = -g -traceback -O0
 endif
 
 # FINTEL_OPT   = -O -g -Mprof=time
@@ -514,16 +561,21 @@ endif
 # FINTEL_OPT   = -O3 -g -axAVX -mcmodel=medium -shared-intel
 # FINTEL_OPT   = -O -g -fp-model precise -no-prec-div
 
-FINTEL_OPT   = 
-ifeq ($(OPTIMIZE),true)
-  FINTEL_OPT   = -O 
-  #FINTEL_OPT   = -O -mcmodel=medium
-  #FINTEL_OPT   = -O -mcmodel=large
+FINTEL_OPT   = -O -mcmodel=large
+FINTEL_OPT   = -O 
+ifeq ($(OPTIMIZE),HIGH)
+  FINTEL_OPT   = -O3
+  #FINTEL_OPT   = -O3 -mcmodel=medium
+  #FINTEL_OPT   = -O3 -mcmodel=large
+endif
+ifeq ($(OPTIMIZE),NONE)
+  FINTEL_OPT   = 
 endif
 
 FINTEL_OMP   =
 ifeq ($(PARALLEL),true)
   FINTEL_OMP   = -threads -openmp
+  FINTEL_OMP   = -openmp
 endif
 
 ifeq ($(FORTRAN_COMPILER),INTEL)
@@ -532,7 +584,7 @@ ifeq ($(FORTRAN_COMPILER),INTEL)
   F95     	= $(F77)
   LINKER	= $(F77)
   LFLAGS	= $(FINTEL_OPT) $(FINTEL_PROFILE) $(FINTEL_OMP)
-  FFLAGS	= $(LFLAGS) $(FINTEL_NOOPT) $(FINTEL_WARNING)
+  FFLAGS	= $(LFLAGS) $(FINTEL_NOOPT) $(FINTEL_WARNING) $(FINTEL_GENERAL)
   FINFOFLAGS	= -v
 endif
 
@@ -553,6 +605,7 @@ endif
 ifeq ($(C_COMPILER),INTEL)
   CC     = icc
   CFLAGS = -O -g -traceback -check-uninit
+  CFLAGS = -O -g -traceback
   LCFLAGS = -O 
   CINFOFLAGS = -v
 endif

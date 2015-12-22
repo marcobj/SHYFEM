@@ -7,6 +7,8 @@ c 30.10.2003	ggu	subroutine prepare_bc_l included in this file
 c 04.03.2004	ggu	writes also number of variables (1)
 c 11.03.2009	ggu	bug fix -> declare hev() here
 c 07.02.2015	ggu	OI finished
+c 14.09.2015	ggu	OI adapted to new modular structure
+c 29.09.2015	ggu	move some vars to custimize to the beginning of file
 c
 c notes :
 c
@@ -34,27 +36,30 @@ c****************************************************************
 
 c optimal interpolation interpolation
 
+	use mod_depth
+	use evgeom
+	use basin
 	use clo
 
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'evmain.h'
 
 	integer nobdim
 	parameter (nobdim = 1000)
 
-	include 'depth.h'
 
 	real xobs(nobdim)
 	real yobs(nobdim)
 	real zobs(nobdim)
 	real bobs(nobdim)
-	real xback(nkndim)
-	real yback(nkndim)
-	real zback(nkndim)
-	real zanal(nkndim)
+
+	real, allocatable :: xback(:)
+	real, allocatable :: yback(:)
+	real, allocatable :: zback(:)
+	real, allocatable :: zanal(:)
+	real, allocatable :: hd(:)
+	integer, allocatable :: ilhkv(:)
 
 	integer nvers,ntype,nvar,nlvdi
 	integer iformat,lmax,np
@@ -62,13 +67,12 @@ c optimal interpolation interpolation
 	integer jmax,j
 	double precision dtime
 	real hlv(1)
-	real hd(nkndim)
 	real regpar(7)
-	integer ilhkv(nkndim)
+	integer date
 	integer datetime(2)
 	character*30 string,format
 
-	character*80 file,basin
+	character*80 file,basnam
 	logical bback,bgeo,bcart,bquiet,blimit,breg,bnos,bmulti
 	integer k,ie,n,ndim
 	integer nobs,nback
@@ -119,7 +123,7 @@ c--------------------------------------------------------------
 
         call clo_parse_options(1)  !expecting (at least) 1 file after options
 
-        call clo_get_option('basin',basin)
+        call clo_get_option('basin',basnam)
         call clo_get_option('cart',bcart)
         call clo_get_option('quiet',bquiet)
         call clo_get_option('rl',rl)
@@ -133,16 +137,31 @@ c--------------------------------------------------------------
 
 	!call clo_info()
 
-	ndim = nkndim
 	bback = .false.
 	call clo_get_file(1,file)
+
+c-----------------------------------------------------------------
+c set some variables
+c-----------------------------------------------------------------
+
+	ivar = 85		!what is in the observations - ice
+	string = 'ice cover [0-1]'
+	date = 19970101
+
+	ivar = 12		!what is in the observations - temperature
+	string = 'temperature [C]'
+	date = 20100101
 
 c-----------------------------------------------------------------
 c read in basin
 c-----------------------------------------------------------------
 
-	call ap_set_names(basin,' ')
-	call ap_init(1,nkndim,neldim)
+	call ap_set_names(basnam,' ')
+	call ap_init(.false.,1,0,0)
+
+	allocate(xback(nkn),yback(nkn),zback(nkn),zanal(nkn))
+	allocate(ilhkv(nkn),hd(nkn))
+	ndim = nkn
 
 	call bas_get_minmax(xmin,ymin,xmax,ymax)
 	dxy = max((xmax-xmin),(ymax-ymin))
@@ -170,6 +189,9 @@ c-----------------------------------------------------------------
 c set up ev and background grid
 c-----------------------------------------------------------------
 
+	call ev_init(nel)
+	call mod_depth_init(nkn,nel)
+
 	call set_ev
 	call check_ev
 
@@ -193,6 +215,7 @@ c-----------------------------------------------------------------
 	  end if
 	end if
 
+	write(6,*) 'ggu 1'
 	iformat = 0
 	format = 'unformatted'
 	ntype = 1
@@ -202,30 +225,37 @@ c-----------------------------------------------------------------
 	  ntype = ntype + 10
 	end if
 
+	write(6,*) 'ggu 2'
 	nvers = 0
 	nvar = 1
 	lmax = 1
 	nlvdi = 1
 	np = nback
+	write(6,*) 'ggu 2'
 	it = 0
 	datetime = 0
-	datetime(1) = 19970101
+	datetime(1) = date
+	write(6,*) 'ggu 2'
 	hlv(1) = 10000.
+	write(6,*) 'ggu 2'
 	hd = 1.
 	ilhkv = 1
-	string = 'ice cover [0-1]'
+
+	write(6,*) 'ggu 3'
 
 c-----------------------------------------------------------------
 c open files
 c-----------------------------------------------------------------
 
 	irec = 0
-	ivar = 85
+	drl = 0.05		!test different rl, distance drl
 	drl = 0.
-	drl = 0.05
 	if( bmulti ) drl = 0.
 	jmax = 0
 	if( drl > 0. ) jmax = 5
+	if( jmax > 0 ) then
+	  write(6,*) 'trying multiple values for rl: ',drl,jmax
+	end if
 
 	if( bnos ) then
 	  call wrnos2d_open(iunos,'optintp','optimal interpolation')
@@ -236,6 +266,7 @@ c-----------------------------------------------------------------
 
 	iuobs = 1
 	open(iuobs,file=file,status='old',form='formatted')
+	write(6,*) 'file with observations: ',trim(file)
 
 c-----------------------------------------------------------------
 c read observations and interpolate
@@ -305,10 +336,11 @@ c****************************************************************
 	subroutine setup_background(ndim,dx,dy,xmin,ymin,xmax,ymax
      +			,nback,xback,yback,regpar)
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ndim
 	real dx,dy
@@ -367,6 +399,10 @@ c****************************************************************
 	  regpar(7) = flag
 	end if
 
+	if( nx > 0. ) then
+	  call write_reg_grid(nx,ny,x0,y0,dx,dy)
+	end if
+
 	return
    98	continue
 	write(6,*) nx,ny,nback,k,ndim
@@ -411,10 +447,11 @@ c	k2, val2
 c	...
 c	kn, valn
 
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
 
 	logical bmulti
 	integer iuobs
@@ -486,8 +523,39 @@ c	kn, valn
 	write(6,*) 'format should be: "k val" or "x y val"'
 	stop 'error stop read_observations: wrong format'
    99	continue
-	write(6,*) k,kn
+	write(6,*) 'k = ',k
 	stop 'error stop read_observations: no such node'
+	end
+
+c******************************************************************
+
+	subroutine write_reg_grid(nx,ny,x0,y0,dx,dy)
+
+	implicit none
+
+	integer nx,ny
+	real x0,y0
+	real dx,dy
+
+	integer iu
+	integer ix,iy,i
+	real x,y
+
+	iu = 9
+	open(iu,file='regfile.grd',form='formatted',status='unknown')
+
+	i = 0
+	do iy=0,ny
+	  do ix=0,nx
+	    i = i + 1
+	    x = x0 + ix*dx
+	    y = y0 + iy*dy
+	    write(iu,*) 1,i,0,x,y
+	  end do
+	end do
+
+	close(iu)
+
 	end
 
 c******************************************************************

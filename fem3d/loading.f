@@ -34,17 +34,19 @@ c areaload      total loadings [kg/day] for areas
 c
 c  the node numbers in karee are external node numbers
 
+	use levels
+	use basin
+	!use levels, only : nlvdi
+
 	implicit none
 
         include 'param.h'
 	integer nstate
 	parameter(nstate=9)
 
-	real eload(nlvdim,nkndim,nstate)
+	real eload(nlvdi,nkndi,nstate)
 
-	include 'nbasin.h'
 
-	include 'levels.h'
 
 	integer nareas
 	parameter (nareas=5)
@@ -53,8 +55,7 @@ c  the node numbers in karee are external node numbers
 	real areaload(nstate,nareas)
 	save areaload
 
-	integer aree(nkndim)
-        save aree
+	integer, save, allocatable :: aree(:)
 
 	integer k,l,lmax,i,ia
 	real litri,kgs
@@ -163,6 +164,8 @@ c---------------------------------------------------------
         if( icall .eq. 0 ) then
           icall = 1
 
+	  allocate(aree(nkn))
+
           call load_init_area(nkn,aree)
 
           call load_add_area(1,nnodes1,nodes1,aree)
@@ -228,20 +231,22 @@ c the specified loadings in sload are in [kg/day] or [kg/(m**2 day)]
 c
 c please set afact according to the choice of unit of sload (see below)
 
+	use basin
+	use levels, only : nlvdi
+
 	implicit none
 
         include 'param.h'
+
 	integer nstate
 	parameter(nstate=9)
 
-	real eload(nlvdim,nkndim,nstate)	!loading matrix for eutro
+	real eload(nlvdi,nkndi,nstate)	!loading matrix for eutro
 	real sload(nstate)			!surface load for each var
 
-	include 'nbasin.h'
 
-	real areav(nkndim)
-	real volv(nkndim)
-        save areav,volv
+	real, save, allocatable :: areav(:)
+	real, save, allocatable :: volv(:)
 
 	integer k,i,mode,layer
 	real litri,kgs
@@ -267,6 +272,9 @@ c---------------------------------------------------------
         if( icall .eq. 0 ) then
           icall = 1
 	  mode = 1
+
+	  allocate(areav(nkn))
+	  allocate(volv(nkn))
 
 	  areatot = 0.
           do k=1,nkn
@@ -356,15 +364,16 @@ c*************************************************************
 
 c makes total volume of areas
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         integer nareas
         real volume(1)
         integer aree(1)
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-	include 'levels.h'
+	include 'param.h'
 
         integer mode,i,k,ia,lmax,l
 

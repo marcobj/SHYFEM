@@ -102,7 +102,7 @@ depend:
 
 #---------------------------
 
-cleanall : clean cleanlib cleanzip
+cleanall : clean cleanlib cleanzip cleandiff
 
 clean: cleanobj cleanexe cleanvar cleantex
 
@@ -126,7 +126,7 @@ cleanvar:
 	-rm -f ggg hhh
 	-rm -f mon.out nohup.out
 	-rm -f fort.* *.tmp
-	-rm -f plot.ps plot.*.ps
+	-rm -f plot.ps plot.*.ps demo.ps
 	-rm -f plot.pdf plot.*.pdf
 	-rm -f out.ps out.*.ps
 	-rm -f *.stackdump
@@ -157,22 +157,22 @@ save:   cleanall
 #----------------------------
 
 .c.o:
-	$(CC)  -c $(CFLAGS) $<
+	$(CC)  -c -g $(CFLAGS) $<
 		 
 .f.o:
-	$(F77) -c $(FFLAGS) $<
+	$(F77) -c -g $(FFLAGS) $<
 
 #----------------------------
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
 colorutil.o: general.h
-demopost.o: pgraph.h general.h
+demopost.o: general.h pgraph.h
 general.o: general.h
-gustd.o: gustd.h general.h
+gustd.o: general.h gustd.h
 pc.o: pspost.h
 pcalp.o: pgraph.h general.h
-pgraph.o: pgraph.h general.h
-psgraph.o: psgraph.h gustd.h colorutil.h general.h
-psgraphf.o: psgraph.h general.h
+pgraph.o: general.h pgraph.h
+psgraph.o: general.h colorutil.h psgraph.h gustd.h
+psgraphf.o: general.h psgraph.h
 

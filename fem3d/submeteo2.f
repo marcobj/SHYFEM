@@ -175,15 +175,12 @@ c DOCS  END
 !
 ! in order to use these routines, please set imreg = 3 in the STR file
 
-	include 'param.h'
-	include 'nbasin.h'
+	use mod_meteo
+	use mod_depth
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	include 'femtime.h'
-	include 'nlevel.h'
-
-	include 'levels.h'
-	include 'depth.h'
-
-	include 'meteo.h'
 
 	character*60 windfile,heatfile,rainfile,icefile
 	character*4 what
@@ -791,13 +788,14 @@ c convert rain from mm/day to m/s
 
 c convert ice data (nothing to do)
 
+	use evgeom
+	use basin
+
 	integer id
 	integer n
 	real r(n)
 
 	include 'param.h'
-	include 'basin.h'
-	include 'ev.h'
 	include 'femtime.h'
 
 	integer k,ie,ii,ia
@@ -992,10 +990,11 @@ c convert ice data (nothing to do)
 
 ! computes wet bulb temperature
 
+	use mod_meteo
+
 	implicit none
 
 	include 'param.h'
-	include 'meteo.h'
 
 	integer mode
 	integer n
@@ -1091,10 +1090,11 @@ c convert ice data (nothing to do)
 !
 ! pressure is returned in [mb]
 
+	use mod_meteo
+
 	implicit none
 
 	include 'param.h'
-	include 'meteo.h'
 
         integer k                       !node number
         real qs                         !solar radiation [W/m**2]
@@ -1130,10 +1130,11 @@ c returns precipitation and evaporation values
 c
 c eeff is evaporation used in model, if ievap==0 => eeff==0.
 
+	use mod_meteo
+
 	implicit none
 
 	include 'param.h'
-	include 'meteo.h'
 
 	integer k
 	real r			!rain [m/s]
@@ -1160,10 +1161,11 @@ c eeff is evaporation used in model, if ievap==0 => eeff==0.
 
 c sets evaporation
 
+	use mod_meteo
+
 	implicit none
 
 	include 'param.h'
-	include 'meteo.h'
 
 	integer k
 	real e			!evaporation [m/s]
@@ -1176,10 +1178,11 @@ c sets evaporation
 
 	subroutine meteo_get_solar_radiation(k,qs)
 
+	use mod_meteo
+
 	implicit none
 
 	include 'param.h'
-	include 'meteo.h'
 
         integer k                       !node number
         real qs                         !solar radiation [W/m**2]
@@ -1194,10 +1197,11 @@ c sets evaporation
 
 ! helper function -> return wind for node k
 
+	use mod_meteo
+
         implicit none
 
 	include 'param.h'
-	include 'meteo.h'
 
         integer k
         real wx,wy
@@ -1213,14 +1217,15 @@ c sets evaporation
 
 c interpolates files spatially - to be deleted
 
+	use mod_meteo
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         real qs,ta,rh,wb,uw,cc
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
+	include 'param.h'
 
-	include 'meteo_aux.h'
 
         integer k
 

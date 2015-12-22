@@ -34,15 +34,11 @@ c****************************************************************
 
 c initializes length of element sides
 
+	use mod_lagrange
+	use basin
+
 	implicit none
 	
-	include 'param.h'
-	include 'lagrange.h'
-
-	
-	include 'basin.h'
-
-
 	real x1,x2,y1,y2,dx,dy,ddx,ddy,d
 	integer ie,k,i1,i2,p1,p2
 
@@ -83,15 +79,12 @@ c******************************************************************
 
 c sets up fluxes in 3d - has to be done every time step
 
+	use mod_lagrange
+	use mod_geom
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
-
-	include 'param.h'
-	include 'lagrange.h'
-	include 'links.h'
-	
-	include 'nbasin.h'
-
-	include 'levels.h'
 
 	integer k,ie,ii,i
 	integer nn,ne
@@ -101,8 +94,9 @@ c sets up fluxes in 3d - has to be done every time step
 	real az,azpar
 	real tdif
 	
-	real rflux(nlvdim,ngrdim)       !fluxes across finite volume k
-	real tflux(nlvdim,ngrdim)       !fluxes across sides of element
+	integer elems(maxlnk)
+	real rflux(nlvdi,maxlnk)       !fluxes across finite volume k
+	real tflux(nlvdi,maxlnk)       !fluxes across sides of element
 	
 	integer flxtype
 
@@ -130,11 +124,11 @@ c	--------------------------------------------
         do k=1,nkn
           itype=flxtype(k)
 
-	  n = ngrdim
-	  call flx3d_k(k,itype,az,lkmax,n,rflux)
+	  n = maxlnk
+	  call get_elems_around(k,maxlnk,ne,elems)
+	  call flx3d_k(k,itype,az,lkmax,n,rflux,ne,elems)
 	  call make_fluxes_3d(k,itype,lkmax,n,rflux,tflux)
-
-  	  call setup_flux3d(k,lkmax,n,tflux)
+  	  call setup_flux3d(k,lkmax,n,tflux,ne,elems)
         end do
 
 c	--------------------------------------------
@@ -155,13 +149,11 @@ c******************************************************************
 
 c sets up fluxes - has to be done every time step
 
-	implicit none
+	use mod_lagrange
+	use mod_geom
+	use basin, only : nkn,nel,ngr,mbw
 
-	include 'param.h'
-	include 'lagrange.h'
-	include 'links.h'
-	
-	include 'nbasin.h'
+	implicit none
 
 	integer k,ie,ii,i
 	integer nn,ne
@@ -170,10 +162,11 @@ c sets up fluxes - has to be done every time step
 	real az,azpar
 	real tdif
 	
-	real rflux(ngrdim)       !fluxes across finite volume k
-	real tflux(ngrdim)       !fluxes across sides of element
-	real tflux_aux(ngrdim)   !fluxes across sides of element (aux)
-	real flux2d_aux(3,neldim)
+	integer elems(maxlnk)
+	real rflux(maxlnk)       !fluxes across finite volume k
+	real tflux(maxlnk)       !fluxes across sides of element
+	real tflux_aux(maxlnk)   !fluxes across sides of element (aux)
+	real flux2d_aux(3,nel)
 	
 	integer flxtype
 
@@ -191,73 +184,19 @@ c sets up fluxes - has to be done every time step
           itype=flxtype(k)
 
 c	  --------------------------------------------
-c	  old way to set-up  rflux,tflux ... delete
-c	  --------------------------------------------
-
-	  !call set_elem_links(k,ne)
-	  !nn = ne
-          !if( itype .gt. 1 ) nn = nn + 1   !boundary
-          !if( nn .gt. ngrdim ) stop 'error stop flxnod: ndim'
-	  !rflux(nn) = 0.
-	
-    	  !call mk_rflux(k,nn,itype,az,rflux,ne,lnk_elems)
-  	  !call mk_tflux(k,nn,itype,rflux,tflux_aux)
-
-	  !write(6,*) 'flux old ',k,nn,ne,itype
-	  !write(6,*) 'rflux old ',(rflux(j),j=1,nn)
-	  !write(6,*) 'tflux old ',(tflux_aux(j),j=1,nn)
-
-c	  --------------------------------------------
 c	  new way to set-up rflux,tflux
 c	  --------------------------------------------
 
-	  n = ngrdim
-	  call flx2d_k(k,itype,az,n,rflux)
+	  n = ngr
+	  call get_elems_around(k,maxlnk,ne,elems)
+	  call flx2d_k(k,itype,az,n,rflux,ne,elems)
 	  call make_fluxes_2d(k,itype,n,rflux,tflux)
-
-	  !write(6,*) 'flux new ',k,n,itype
-	  !write(6,*) 'rflux new ',(rflux(j),j=1,n)
-	  !write(6,*) 'tflux new ',(tflux(j),j=1,n)
-
-c	  --------------------------------------------
-c	  error check ... delete
-c	  --------------------------------------------
-
-	  !if( n .ne. nn ) then
-	  !  stop 'error stop setup_fluxes: n .ne. nn'
-	  !end if
-	  !do i=1,n
-	  !  tdif = abs( tflux_aux(i) - tflux(i) )
-	  !  if( tdif .gt. 1.e-4 ) then
-	  !    write(6,*) k,i
-	  !    write(6,*) (tflux_aux(j),j=1,n)
-	  !    write(6,*) (tflux(j),j=1,n)
-	  !    stop 'error stop setup_fluxes: tflux .ne. tflux_aux'
-	  !  end if
-	  !end do
-
-c	  --------------------------------------------
-c	  set-up lagrangian fluxes
-c	  --------------------------------------------
-
-  	  !call setup_fx(k,nn,tflux,ne,lnk_elems)	!old
-  	  !call setup_flux2d(k,n,tflux,flux2d_aux)	!new
-  	  call setup_flux2d(k,n,tflux,flux2d)		!new
+  	  call setup_flux2d(k,n,tflux,flux2d,ne,elems)
         end do
 
 c	--------------------------------------------
 c	error check ... delete
 c	--------------------------------------------
-
-        !do ie=1,nel
-        !  do ii=1,3
-	!    tdif = abs( flux2d(ii,ie) - flux2d_aux(ii,ie) )
-	!    if( tdif .gt. 1.e-4 ) then
-	!      write(6,*) ie,ii,flux2d(ii,ie),flux2d_aux(ii,ie)
-	!      stop 'error stop setup_fluxes: flux2d'
-	!    end if
-        !  end do
-        !end do
 
 c	--------------------------------------------
 c	compute velocities
@@ -274,214 +213,33 @@ c	--------------------------------------------
 c******************************************************************
 c******************************************************************
 c******************************************************************
-c old routines -> delete
-c******************************************************************
-c******************************************************************
-c******************************************************************
 
-	subroutine mk_rflux(k,n,itype,az,transp,ne,elems)
-
-c computes flux through finite volume k
-c
-c internal section is defined by:  kbefor - k - kafter
-
-	implicit none
-
-        include 'param.h'
-
-	integer k,n,itype,ne
-	real az
-	real transp(1)
-	integer elems(1)
-
-	include 'femtime.h'
-
-	include 'ev.h'
-        !real uov(1),vov(1),unv(1),vnv(1)
-        !common /uov/uov, /vov/vov, /unv/unv, /vnv/vnv
-	include 'hydro.h'
-
-	integer i,ip,ie,ii
-	integer l
-	real aj,area,dz,uv,rdt
-	real uvn,uvo
-	real b,c
-	real azt,tt
-
-	integer ithis
-	 
-	rdt = 1./idt
-	azt = 1. - az
-
-c compute transports into finite volume of node k -> transp
-c computed transports are divergence corrected
-
-	l = 1
-	do i=1,ne
-	 ie = elems(i)
-	 ii = ithis(k,ie)
-	 aj = ev(10,ie)
-	 area = 4. * aj
-	 dz = zenv(ii,ie) - zeov(ii,ie)
-	 b = ev(3+ii,ie)
-	 c = ev(6+ii,ie)
-	 uvn = utlnv(l,ie) * b + vtlnv(l,ie) * c
-	 uvo = utlov(l,ie) * b + vtlov(l,ie) * c
-	 uv = 12. * aj * ( az*uvn + azt*uvo )
-	 uv = uv - dz * area * rdt
-	 transp(i) = uv
-	end do
-
-	end
-
-c******************************************************************
-
-        subroutine mk_tflux(k,n,itype,rflux,tflux)
-
-c computes fluxes over sides (tflux) from fluxes into node (rflux)
-
-        implicit none
-
-        integer k               !node
-        integer n               !number of sides (tfluxes)
-        integer itype           !type of node (1=int,2=bnd,3=BOO,4=OOB,5=OOO)
-        real rflux(n)        !fluxes into node (element)
-        real tflux(n)        !fluxes through sides (return value)
-
-	integer ipf,ipl      !puntatori vertici
-
-        integer i
-        real rr
-
-	if( itype .eq. 1 ) then         !internal node
-                rr = 0.
-                do i=1,n-1
-                  rr = rr + i * rflux(i)
-                end do
-                rr = rr / n
-
-                tflux(n) = rr
-                do i=n-1,1,-1
-                  tflux(i) = tflux(i+1) - rflux(i)
-                end do
-        else if( itype .eq. 2 ) then    !node on material boundary
-                tflux(1) = 0.
-                do i=2,n-1
-                  tflux(i) = tflux(i-1) + rflux(i-1)
-                end do
-                tflux(n) = 0.
-        else if( itype .eq. 3 ) then    !BOO - boundary on left
-                tflux(n) = 0.
-                do i=n-1,1,-1
-                  tflux(i) = tflux(i+1) - rflux(i)
-                end do
-        else if( itype .eq. 4 ) then    !OOB - boundary on right
-                tflux(1) = 0.
-                do i=2,n
-                  tflux(i) = tflux(i-1) + rflux(i-1)
-                end do
-        else if( itype .eq. 5 ) then    !node totaly on open boundary
-                rr = 0.
-                do i=1,n-1
-                  rr = rr + i * rflux(i)
-                end do
-                rr = rr / n
-                tflux(n) = rr
-                do i=n-1,1,-1
-                  tflux(i) = tflux(i+1) - rflux(i)
-                end do
-
-        else
-                stop 'error stop make_fluxes: internal error (1)'
-        end if
-	end
-
-c**********************************************************************
-
-        subroutine setup_fx(k,n,tflux,ne,elems)
-
-c computes fluxes in element
-
-        implicit none
-
-        integer k,n,ne
-        real tflux(1)
-	integer elems(1)
-
-        include 'param.h'
-	include 'lagrange.h'
-
-        integer i,ie,ip,ii
-        integer j,n1,n2
-
-        integer ithis
-        integer ibhnd
-        integer inext
-
-	if( n .ne. ne ) then	!just a check
-	  if( ne+1 .ne. n ) then
-	    write(6,*) k,n,ne,(elems(i),i=1,n)
-	    stop 'error stop setup_fx: internal error (1)'
-	  end if
-	  if( elems(n) .ne. 0 ) then
-	    write(6,*) k,n,ne,(elems(i),i=1,n)
-	    stop 'error stop setup_fx: internal error (2)'
-	  end if
-	end if
-
-        do i=1,ne
-         ie=elems(i)
-         n1=ibhnd(k,ie)
-         n2=inext(k,ie)
-         j=i+1
-         if(i.eq.n) j=1
-	!write(6,*) 'setup_fx ',k,n,ne
-	!write(62,*) k,n,ne
-	!write(62,*) i,ie,n1,n2,j
-	!write(62,*) tflux(j),tflux(i)
-         flux2d(n2,ie)=flux2d(n2,ie)-tflux(j)
-         flux2d(n1,ie)=flux2d(n1,ie)+tflux(i)      
-        end do
-
-        end
-
-c******************************************************************
-c******************************************************************
-c******************************************************************
-c end old routines
-c******************************************************************
-c******************************************************************
-c******************************************************************
-
-  	subroutine setup_flux3d(k,lkmax,n,tflux)
+  	subroutine setup_flux3d(k,lkmax,n,tflux,ne,elems)
 
 c computes 3d fluxes in element
 c
 c maybe not existing fluxes are set in flux3d
 c we do not use lkmax, but lmax
 
+	use mod_lagrange
+	use mod_geom
+	use levels
+
         implicit none
 
-        include 'param.h'
-	include 'lagrange.h'
-	include 'links.h'
-
         integer k,lkmax,n
-	real tflux(nlvdim,1)       !fluxes across sides of element
+	real tflux(nlvdi,1)       !fluxes across sides of element
+        integer ne                !total number of elements in elems
+        integer elems(ne)         !elements around k
 
-	include 'levels.h'
-
-        integer i,ie,ne,l,lmax
+        integer i,ie,l,lmax
         integer j,n1,n2
 
         integer ibhnd
         integer inext
 
-	ne = n
-	if( lnk_elems(ne) .le. 0 ) ne = ne - 1
-
         do i=1,ne
-          ie=lnk_elems(i)	!set up outside
+          ie=elems(i)
           n1=ibhnd(k,ie)
           n2=inext(k,ie)
           j=i+1
@@ -497,41 +255,33 @@ c we do not use lkmax, but lmax
 
 c******************************************************************
 
-  	subroutine setup_flux2d(k,n,tflux,flux2d_loc)
+  	subroutine setup_flux2d(k,n,tflux,flux2d_loc,ne,elems)
 
 c computes fluxes in element
+
+	use mod_lagrange
+	use mod_geom
 
         implicit none
 
         integer k,n
         real tflux(1)
 	real flux2d_loc(3,1)
+        integer ne              !total number of elements in elems
+        integer elems(ne)       !elements around k
 
-        include 'param.h'
-	include 'lagrange.h'
-	include 'links.h'
-
-        integer i,ie,ne
+        integer i,ie
         integer j,n1,n2
 
         integer ibhnd
         integer inext
 
-	ne = n
-	if( lnk_elems(ne) .le. 0 ) ne = ne - 1
-
         do i=1,ne
-          ie=lnk_elems(i)	!set up outside
+          ie=elems(i)
           n1=ibhnd(k,ie)
           n2=inext(k,ie)
           j=i+1
           if(i.eq.n) j=1
-	!write(6,*) 'setup_flux2d ',k,n,ne
-	!write(61,*) k,n,ne
-	!write(61,*) i,ie,n1,n2,j
-	!write(61,*) tflux(j),tflux(i)
-          !flux2d_aux(n2,ie)=flux2d_aux(n2,ie)-tflux(j)
-          !flux2d_aux(n1,ie)=flux2d_aux(n1,ie)+tflux(i)      
           flux2d_loc(n2,ie)=flux2d_loc(n2,ie)-tflux(j)
           flux2d_loc(n1,ie)=flux2d_loc(n1,ie)+tflux(i)      
         end do
@@ -556,20 +306,13 @@ c		= dH + (z1+z2-2*z3)/6
 c
 c all this has to be revised for sigma layers
 
+	use mod_lagrange
+	use mod_layer_thickness
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
-
-	include 'param.h'
-	include 'lagrange.h'
-
-	include 'nbasin.h'
-
-	include 'nlevel.h'
-
-	include 'levels.h'
-
-	include 'hydro.h'
-
-	include 'depth.h'
 
 	logical bsigma
 	integer ie,ii,i1,i2
@@ -630,16 +373,12 @@ c		= dH + (z1+z2-2*z3)/6
 c
 c all this has to be revised for sigma layers
 
+	use mod_lagrange
+	use mod_layer_thickness
+	use mod_hydro
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
-
-	include 'param.h'
-	include 'lagrange.h'
-
-	include 'nbasin.h'
-
-	include 'hydro.h'
-
-	include 'depth.h'
 
 	integer ie,ii,i1,i2
 	real flx,dh,zi1,zi2,zi3,dp,ar,dst

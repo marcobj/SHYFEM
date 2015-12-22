@@ -10,7 +10,68 @@ c 17.06.2013    ggu     eliminated compiler warnings
 c 25.03.2014    ggu     new offline (for T/S)
 c 06.05.2015    ccf     write offline to .off file
 c 06.05.2015    ccf     read offline from offlin file in section name
+c 05.11.2015    ggu     revisited and checked
 c
+c****************************************************************
+
+!==================================================================
+	module mod_offline
+!==================================================================
+
+	implicit none
+
+	integer, parameter :: nintp = 4		!2 (linear) or 4 (cubic)
+
+	integer, save :: ioffline = 0
+	integer, save :: idtoff,itmoff,itoff
+	integer, save :: iwhat			!0 (none), 1 (write), 2 (read)
+	integer, save :: iread
+	integer, save :: iunit
+	integer, save :: icall = 0
+	logical, save :: bfirst = .true.
+	logical, save :: bdebug = .false.
+
+	double precision, save :: dtr = 0.
+	integer, save :: time(nintp)
+
+	!double precision ut(nlvdi,nel,nintp)
+	!double precision vt(nlvdi,nel,nintp)
+	!double precision ze(3,nel,nintp)
+	!double precision wn(0:nlvdi,nkn,nintp)
+	!double precision zn(nkn,nintp)
+	!double precision sn(nlvdi,nkn,nintp)
+	!double precision tn(nlvdi,nkn,nintp)
+
+	double precision, save, allocatable :: ut(:,:,:)
+	double precision, save, allocatable :: vt(:,:,:)
+	double precision, save, allocatable :: ze(:,:,:)
+	double precision, save, allocatable :: wn(:,:,:)
+	double precision, save, allocatable :: zn(:,:)
+	double precision, save, allocatable :: sn(:,:,:)
+	double precision, save, allocatable :: tn(:,:,:)
+
+!==================================================================
+	contains
+!==================================================================
+
+	subroutine mod_offline_init(nk,ne,nl)
+
+	integer nk,ne,nl
+
+	allocate(ut(nl,ne,nintp))
+	allocate(vt(nl,ne,nintp))
+	allocate(ze(3,ne,nintp))
+	allocate(wn(0:nl,nk,nintp))
+	allocate(zn(nk,nintp))
+	allocate(sn(nl,nk,nintp))
+	allocate(tn(nl,nk,nintp))
+
+	end subroutine mod_offline_init
+
+!==================================================================
+	end module mod_offline
+!==================================================================
+
 c****************************************************************
 
 	subroutine offline(mode)
@@ -39,51 +100,23 @@ c combinations are possible: -3,-7
 c
 c-----------------------------------------------------
 
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+	use mod_offline
+
 	implicit none
 
 	include 'param.h'
+	include 'femtime.h'
 
 	integer mode
 
-	integer nintp			!2 (linear) or 4 (cubic) are possible
-	!parameter (nintp=2)		!grade of interpolation
-	parameter (nintp=4)		!grade of interpolation
-
-	include 'femtime.h'
-
-	integer ioffline
-	common /ioffline/ioffline
-	save /ioffline/
-
-	double precision dtr
-	integer time(nintp)
-	save time
-	double precision ut(nlvdim,neldim,nintp)
-	double precision vt(nlvdim,neldim,nintp)
-	double precision ze(3,neldim,nintp)
-	double precision wn(0:nlvdim,nkndim,nintp)
-	double precision zn(nkndim,nintp)
-	double precision sn(nlvdim,nkndim,nintp)
-	double precision tn(nlvdim,nkndim,nintp)
-	save dtr
-	save ut,vt,ze,wn,zn,sn,tn
-
-	integer iwhat,iread
-	integer idtoff,itmoff,itstart
-	integer ierr,ig
+	integer itstart
+	integer ierr,ig,iu
 	real dt
 	character*60 name,status
-	save idtoff, itmoff, iwhat
-
-	real getpar
-
         integer ifemop, ifileo
-	integer iu,it1,it2,itoff
-	save iu,it1,it2,itoff
-
-	integer icall
-	save icall
-	data icall /0/
+	real getpar
 
 	if( icall .lt. 0 ) return
 
@@ -91,13 +124,16 @@ c-------------------------------------------------------------
 c initialize
 c-------------------------------------------------------------
 
-	if( icall .eq. 0 ) then
+	if( bfirst ) then
 	  ioffline = 0
 
           call convert_date('itmoff',itmoff)
           call convert_time('idtoff',idtoff)
 
-	  if( it .lt. itmoff ) return
+	  call adjust_itmidt(itmoff,idtoff,itoff)
+	  itoff = itmoff + idtoff
+
+	  write(6,*) 'offline init:',itmoff,idtoff,it,itoff
 
   	  if( idtoff .eq. 0 ) iwhat = 0		!nothing
 	  if( idtoff .gt. 0 ) iwhat = 1		!write
@@ -106,32 +142,42 @@ c-------------------------------------------------------------
 	  if( iwhat .le. 0 ) icall = -1
 	  if( idtoff .eq. 0 ) icall = -1
 	  if( icall .lt. 0 ) return
+
+	  call mod_offline_init(nkn,nel,nlvdi)
+	  call off_init
+
 	  if( iwhat .eq. 1 ) then
-            if (iu .le. 0 ) then
-              iu = ifemop('.off','unform','new') !unit for writing offline
-              if( iu .le. 0 ) then
-                write(6,*) 'iu = ',iu
-                stop 'error stop offline: cannot open output file'
-              end if
-	      write(6,*) 'Start writing offline file'
+            iu = ifemop('.off','unform','new') !writing offline
+            if( iu .le. 0 ) then
+              write(6,*) 'iu = ',iu
+              stop 'error stop offline: cannot open output file'
             end if
+	    iunit = iu
+	    write(6,*) 'Start writing offline file'
 	  else
             call getfnm('offlin',name)
+	    if( name == ' ' ) then
+              write(6,*) '*** No offline file given'
+              stop 'error stop offline: cannot open input file'
+	    end if
             iu = ifileo(1,name,'unformatted','old')
             if( iu .le. 0 ) then
               write(6,*) '*** Cannot find offline file: '
-              write(6,*) name
-              stop
+              write(6,*) trim(name)
+              stop 'error stop offline: cannot open input file'
             end if
+	    iunit = iu
             write(6,*) '---------------------------------------------'
             write(6,*) '... performing offline from file: '
             write(6,*) name
             write(6,*) '---------------------------------------------'
 	  end if
-	  call off_init(dtr,ut,vt,ze,wn,zn,sn,tn)
-	  itoff = itmoff + idtoff
+
 	  ioffline = -idtoff
+	  bfirst = .false.
 	end if
+
+	if( it < itmoff ) return
 
 c-------------------------------------------------------------
 c do different modes
@@ -146,20 +192,21 @@ c	  accumulate and write data
 c	  -------------------------------------------------------------
 
 	  call get_timestep(dt)
-	  call off_accum(dt,dtr,ut,vt,ze,wn,zn,sn,tn)
+	  call off_accum(dt)
 
-	  if( icall .eq. 0 ) then
-	    call off_aver(dtr,ut,vt,ze,wn,zn,sn,tn)
-	    call off_write(iu,itmoff,ut,vt,ze,wn,zn,sn,tn)
-	    call off_init(dtr,ut,vt,ze,wn,zn,sn,tn)
+	  if( icall .eq. 0 ) then	!write first record
+	    if( bdebug ) write(6,*) 'offline writing: ',itmoff,mode,icall
+	    call off_aver
+	    call off_write(iunit,itmoff)
+	    call off_init
 	    icall = 1
 	  end if
 
 	  if( it .lt. itoff ) return
 
-	  call off_aver(dtr,ut,vt,ze,wn,zn,sn,tn)
-	  call off_write(iu,it,ut,vt,ze,wn,zn,sn,tn)
-	  call off_init(dtr,ut,vt,ze,wn,zn,sn,tn)
+	  call off_aver
+	  call off_write(iunit,it)
+	  call off_init
 	  itoff = itoff + idtoff
 
 	else if( mode .eq. 2 ) then
@@ -170,10 +217,10 @@ c	  -------------------------------------------------------------
 
 	  if( icall .eq. 0 ) then
 	    do ig=1,nintp
-	      call off_read(iu,ig,time,ut,vt,ze,wn,zn,sn,tn,ierr,iread)
+	      call off_read(iunit,ig,ierr)
 	      if( ierr .ne. 0 ) goto 97
 	    end do
-	    call can_do_offline(iread)
+	    call can_do_offline
 	    if( it .lt. time(1) ) goto 99
 	    call get_timestep(dt)
 	    if( it .eq. itmoff ) then
@@ -181,14 +228,14 @@ c	  -------------------------------------------------------------
 	    else
 	      itstart = max(it-nint(dt),itmoff)
 	    end if
-	    call off_intp_all(iu,nintp,itstart,time,ut,vt,ze,wn,zn,sn,tn)
+	    call off_intp_all(iunit,itstart)
 	    icall = 1
 	  end if
 
-	  call off_intp_all(iu,nintp,it,time,ut,vt,ze,wn,zn,sn,tn)
+	  call off_intp_all(iunit,it)
 
-	  !call off_check(1,time,ut,vt,ze,wn,zn,sn,tn)
-	  !call off_check(2,time,ut,vt,ze,wn,zn,sn,tn)
+	  !call off_check(1)
+	  !call off_check(2)
 
 	else
 
@@ -222,30 +269,28 @@ c****************************************************************
 c type: 1 hydro, 2 T/S, 4 turb, combinations are possible: 3,7
 c type == 0 -> any offline
 
+	use mod_offline
+
 	implicit none
 
 	integer type	!should we use this offline data?
 	logical boff	!data is available and should be used (return)
 
-	integer ioffline
-	common /ioffline/ioffline
-	save /ioffline/
+	integer ineed
 
-	integer iwhat
+	ineed = ioffline		!this is what we want (from idtoff)
 
-	iwhat = ioffline		!this is what we want (from idtoff)
-
-	if( iwhat .le. 0 ) then		!no offline
+	if( ineed .le. 0 ) then		!no offline
 	  boff = .false.
 	else if( type .eq. 0 ) then	!general
 	  boff = .true.
-	  !boff = iwhat .gt. 0
+	  !boff = ineed .gt. 0
 	else if( type .eq. 1 ) then	!hydro
-	  boff = mod(iwhat/1,2) .ne. 0
+	  boff = mod(ineed/1,2) .ne. 0
 	else if( type .eq. 2 ) then	!T/S
-	  boff = mod(iwhat/2,2) .ne. 0
+	  boff = mod(ineed/2,2) .ne. 0
 	else if( type .eq. 4 ) then	!turbulence
-	  boff = mod(iwhat/4,2) .ne. 0
+	  boff = mod(ineed/4,2) .ne. 0
 	else
 	  write(6,*) 'value for type not allowed: ',type
 	  stop 'error stop is_offline: type'
@@ -255,26 +300,22 @@ c type == 0 -> any offline
 
 c****************************************************************
 
-	subroutine can_do_offline(iread)
+	subroutine can_do_offline
+
+	use mod_offline
 
 	implicit none
 
-	integer iread		!this is what we get
+	logical bneed,bread
+	integer ineed,i
 
-	integer ioffline
-	common /ioffline/ioffline
-	save /ioffline/
-
-	logical bwhat,bread
-	integer iwhat,i
-
-	iwhat = ioffline	!this is what we want
+	ineed = ioffline	!this is what we want
 
 	i = 1
 	do while( i .le. 4 )
-	  bwhat = mod(iwhat/i,2) .ne. 0
+	  bneed = mod(ineed/i,2) .ne. 0
 	  bread = mod(iread/i,2) .ne. 0
-	  if( bwhat .and. .not. bread ) goto 99
+	  if( bneed .and. .not. bread ) goto 99
 	  i = i * 2
 	end do
 
@@ -290,34 +331,22 @@ c****************************************************************
 c****************************************************************
 c****************************************************************
 
-	subroutine off_intp_all(iu,nintp,it,time,ut,vt,ze,wn,zn,sn,tn)
+	subroutine off_intp_all(iu,it)
+
+	use mod_ts
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+	use mod_offline
 
 	implicit none
 
-	include 'param.h'
-
 	integer iu
-	integer nintp
 	integer it
-	integer time(4)
-	double precision ut(nlvdim,neldim,nintp)
-	double precision vt(nlvdim,neldim,nintp)
-	double precision ze(3,neldim,nintp)
-	double precision wn(0:nlvdim,nkndim,nintp)
-	double precision zn(nkndim,nintp)
-	double precision sn(nlvdim,nkndim,nintp)
-	double precision tn(nlvdim,nkndim,nintp)
-
-	include 'nbasin.h'
-
-	include 'levels.h'
-
-	include 'hydro_vel.h'
-	include 'hydro.h'
-	include 'ts.h'
 
 	logical boff,bhydro,bts
-	integer ierr,iread
+	integer ierr
 	integer ip,i,itnext
 
 	integer ieof
@@ -341,13 +370,14 @@ c	---------------------------------------------------------
 	do while( ieof .eq. 0 .and. it .gt. time(ip) )
 	  call off_next_record(iu,itnext,ieof)
 	  if( ieof .ne. 0 ) exit
-	  call off_copy(nintp,time,ut,vt,ze,wn,zn,sn,tn)
-	  call off_read(iu,nintp,time,ut,vt,ze,wn,zn,sn,tn,ierr,iread)
+	  call off_copy
+	  call off_read(iu,nintp,ierr)
 	end do
 
 	if( it .gt. time(nintp) ) goto 99
 
 	!write(67,*) it,(time(i),i=1,nintp)
+	!write(6,*) it,bhydro,bts,iwhat
 
 c	---------------------------------------------------------
 c	pre processing
@@ -372,16 +402,16 @@ c	---------------------------------------------------------
 	!end if
 
 	if( bhydro ) then
-	  call off_intp(nintp,it,time,nlvdim,neldim,ilhv,nel,ut,utlnv)
-	  call off_intp(nintp,it,time,nlvdim,neldim,ilhv,nel,vt,vtlnv)
-	  call off_intp(nintp,it,time,1,3*neldim,ilhv,3*nel,ze,zenv)
-	  call off_intp(nintp,it,time,nlvdim+1,nkndim,ilhkv,nkn,wn,wlnv)
-	  call off_intp(nintp,it,time,1,nkndim,ilhkv,nkn,zn,znv)
+	  call off_intp(nintp,it,time,nlvdi,nel,ilhv,nel,ut,utlnv)
+	  call off_intp(nintp,it,time,nlvdi,nel,ilhv,nel,vt,vtlnv)
+	  call off_intp(nintp,it,time,1,3*nel,ilhv,3*nel,ze,zenv)
+	  call off_intp(nintp,it,time,nlvdi+1,nkn,ilhkv,nkn,wn,wlnv)
+	  call off_intp(nintp,it,time,1,nkn,ilhkv,nkn,zn,znv)
 	end if
 
 	if( bts ) then
-	  call off_intp(nintp,it,time,nlvdim,nkndim,ilhkv,nkn,sn,saltv)
-	  call off_intp(nintp,it,time,nlvdim,nkndim,ilhkv,nkn,tn,tempv)
+	  call off_intp(nintp,it,time,nlvdi,nkn,ilhkv,nkn,sn,saltv)
+	  call off_intp(nintp,it,time,nlvdi,nkn,ilhkv,nkn,tn,tempv)
 	end if
 
 c	---------------------------------------------------------
@@ -413,18 +443,18 @@ c	---------------------------------------------------------
 
 c****************************************************************
 
-	subroutine off_intp(nintp,it,time,nlvdim,ndim,il,n,dval,rval)
+	subroutine off_intp(nintp,it,time,nlvddi,ndim,il,n,dval,rval)
 
 	implicit none
 
 	integer nintp
 	integer it
 	integer time(nintp)
-	integer nlvdim,ndim
+	integer nlvddi,ndim
 	integer il(ndim)
 	integer n
-	double precision dval(nlvdim,ndim,nintp)
-	real rval(nlvdim,ndim)
+	double precision dval(nlvddi,ndim,nintp)
+	real rval(nlvddi,ndim)
 
 	integer l,lmax,i,j
 	real x(4),y(4),t
@@ -443,7 +473,7 @@ c****************************************************************
 
 	do i=1,n
 	  lmax = 1
-	  if( nlvdim .gt. 1 ) lmax = il(i)
+	  if( nlvddi .gt. 1 ) lmax = il(i)
 	  do l=1,lmax
 	    do j=1,nintp
 	      y(j) = dval(l,i,j)
@@ -456,97 +486,79 @@ c****************************************************************
 
 c****************************************************************
 
-	subroutine off_intp4(it,time,ut,vt,ze,wn,zn)
+	subroutine off_intp4(it)
+
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+	use mod_offline
 
 	implicit none
 
-	include 'param.h'
-
 	integer it
-	integer time(4)
-	double precision ut(nlvdim,neldim,4)
-	double precision vt(nlvdim,neldim,4)
-	double precision ze(3,neldim,4)
-	double precision wn(0:nlvdim,nkndim,4)
-	double precision zn(nkndim,4)
 
-	include 'nbasin.h'
-
-	include 'levels.h'
-
-	include 'hydro_vel.h'
-	include 'hydro.h'
-
-	integer ie,ii,k,l,lmax,i,nintp
+	integer ie,ii,k,l,lmax,i,nintpol
 	real x(4),y(4),t
 
 	real intp_neville
 
-	nintp = 4
+	nintpol = 4
 
 	t = it
-	do i=1,nintp
+	do i=1,nintpol
 	  x(i) = time(i)
 	end do
 	
 	do ie=1,nel
 	  lmax = ilhv(ie)
 	  do l=1,lmax
-	    do i=1,nintp
+	    do i=1,nintpol
 	      y(i) = ut(l,ie,i)
 	    end do
-	    utlnv(l,ie) = intp_neville(nintp,x,y,t)
-	    do i=1,nintp
+	    utlnv(l,ie) = intp_neville(nintpol,x,y,t)
+	    do i=1,nintpol
 	      y(i) = vt(l,ie,i)
 	    end do
-	    vtlnv(l,ie) = intp_neville(nintp,x,y,t)
+	    vtlnv(l,ie) = intp_neville(nintpol,x,y,t)
 	  end do
 	  do ii=1,3
-	    do i=1,nintp
+	    do i=1,nintpol
 	      y(i) = ze(ii,ie,i)
 	    end do
-	    zenv(ii,ie) = intp_neville(nintp,x,y,t)
+	    zenv(ii,ie) = intp_neville(nintpol,x,y,t)
 	  end do
 	end do
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
 	  do l=1,lmax-1
-	    do i=1,nintp
+	    do i=1,nintpol
 	      y(i) = wn(l,k,i)
 	    end do
-	    wlnv(l,k) = intp_neville(nintp,x,y,t)
+	    wlnv(l,k) = intp_neville(nintpol,x,y,t)
 	  end do
-	  do i=1,nintp
+	  do i=1,nintpol
 	    y(i) = zn(k,i)
 	  end do
-	  znv(k) = intp_neville(nintp,x,y,t)
+	  znv(k) = intp_neville(nintpol,x,y,t)
 	end do
 
 	end
 
 c****************************************************************
 
-	subroutine off_intp2(it,time,ut,vt,ze,wn,zn)
+	subroutine off_intp2(it)
+
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+	use mod_offline
 
 	implicit none
 
-	include 'param.h'
-
 	integer it
-	integer time(2)
-	double precision ut(nlvdim,neldim,2)
-	double precision vt(nlvdim,neldim,2)
-	double precision ze(3,neldim,2)
-	double precision wn(0:nlvdim,nkndim,2)
-	double precision zn(nkndim,2)
-
-	include 'nbasin.h'
-
-	include 'levels.h'
-
-	include 'hydro_vel.h'
-	include 'hydro.h'
 
 	integer ie,ii,k,l,lmax
 	integer it1,it2
@@ -584,25 +596,13 @@ c****************************************************************
 c****************************************************************
 c****************************************************************
 
-	subroutine off_copy(nintp,time,ut,vt,ze,wn,zn,sn,tn)
+	subroutine off_copy
+
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+	use mod_offline
 
 	implicit none
-
-	include 'param.h'
-
-	integer nintp
-	integer time(1)
-	double precision ut(nlvdim,neldim,1)
-	double precision vt(nlvdim,neldim,1)
-	double precision ze(3,neldim,1)
-	double precision wn(0:nlvdim,nkndim,1)
-	double precision zn(nkndim,1)
-	double precision sn(nlvdim,nkndim,1)
-	double precision tn(nlvdim,nkndim,1)
-
-	include 'nbasin.h'
-
-	include 'levels.h'
 
 	integer ie,ii,k,l,lmax
 	integer ito,ifrom
@@ -642,24 +642,13 @@ c****************************************************************
 
 c****************************************************************
 	
-	subroutine off_init(dtr,ut,vt,ze,wn,zn,sn,tn)
+	subroutine off_init
+
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+	use mod_offline
 
 	implicit none
-
-	include 'param.h'
-
-	double precision dtr
-	double precision ut(nlvdim,neldim)
-	double precision vt(nlvdim,neldim)
-	double precision ze(3,neldim)
-	double precision wn(0:nlvdim,nkndim)
-	double precision zn(nkndim)
-	double precision sn(nlvdim,nkndim)
-	double precision tn(nlvdim,nkndim)
-
-	include 'nbasin.h'
-
-	include 'levels.h'
 
 	integer ie,ii,k,l,lmax
 
@@ -668,52 +657,41 @@ c****************************************************************
 	do ie=1,nel
 	  lmax = ilhv(ie)
 	  do l=1,lmax
-	    ut(l,ie) = 0.
-	    vt(l,ie) = 0.
+	    ut(l,ie,1) = 0.
+	    vt(l,ie,1) = 0.
 	  end do
 	  do ii=1,3
-	    ze(ii,ie) = 0.
+	    ze(ii,ie,1) = 0.
 	  end do
 	end do
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-	  do l=0,lmax
-	    wn(l,k) = 0.
-	    sn(l,k) = 0.
-	    tn(l,k) = 0.
+	  do l=1,lmax
+	    wn(l,k,1) = 0.
+	    sn(l,k,1) = 0.
+	    tn(l,k,1) = 0.
 	  end do
-	  zn(k) = 0.
-	  sn(lmax,k) = 0.
-	  tn(lmax,k) = 0.
+	  zn(k,1) = 0.
+	  wn(0,k,1) = 0.
 	end do
 
 	end
 
 c****************************************************************
 	
-	subroutine off_accum(dt,dtr,ut,vt,ze,wn,zn,sn,tn)
+	subroutine off_accum(dt)
+
+	use mod_ts
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+	use mod_offline
 
 	implicit none
 
-	include 'param.h'
-
 	real dt
-	double precision dtr
-	double precision ut(nlvdim,neldim)
-	double precision vt(nlvdim,neldim)
-	double precision ze(3,neldim)
-	double precision wn(0:nlvdim,nkndim)
-	double precision zn(nkndim)
-	double precision sn(nlvdim,nkndim)
-	double precision tn(nlvdim,nkndim)
-
-	include 'nbasin.h'
-
-	include 'levels.h'
-	include 'hydro_vel.h'
-	include 'hydro.h'
-	include 'ts.h'
 
 	integer ie,ii,k,l,lmax
 	double precision dtt
@@ -725,57 +703,44 @@ c****************************************************************
 	do ie=1,nel
 	  lmax = ilhv(ie)
 	  do l=1,lmax
-	    ut(l,ie) = ut(l,ie) + utlnv(l,ie) * dtt
-	    vt(l,ie) = vt(l,ie) + vtlnv(l,ie) * dtt
-	    ut(l,ie) = utlnv(l,ie)
-	    vt(l,ie) = vtlnv(l,ie)
+	    ut(l,ie,1) = ut(l,ie,1) + utlnv(l,ie) * dtt
+	    vt(l,ie,1) = vt(l,ie,1) + vtlnv(l,ie) * dtt
+	    ut(l,ie,1) = utlnv(l,ie)
+	    vt(l,ie,1) = vtlnv(l,ie)
 	  end do
 	  do ii=1,3
-	    ze(ii,ie) = ze(ii,ie) + zenv(ii,ie) * dtt
-	    ze(ii,ie) = zenv(ii,ie)
+	    ze(ii,ie,1) = ze(ii,ie,1) + zenv(ii,ie) * dtt
+	    ze(ii,ie,1) = zenv(ii,ie)
 	  end do
 	end do
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-	  do l=1,lmax-1
-	    wn(l,k) = wn(l,k) + wlnv(l,k) * dtt
-	    wn(l,k) = wlnv(l,k)
-	    sn(l,k) = sn(l,k) + saltv(l,k) * dtt
-	    sn(l,k) = saltv(l,k)
-	    tn(l,k) = tn(l,k) + tempv(l,k) * dtt
-	    tn(l,k) = tempv(l,k)
+	  do l=1,lmax
+	    wn(l,k,1) = wn(l,k,1) + wlnv(l,k) * dtt
+	    wn(l,k,1) = wlnv(l,k)
+	    sn(l,k,1) = sn(l,k,1) + saltv(l,k) * dtt
+	    sn(l,k,1) = saltv(l,k)
+	    tn(l,k,1) = tn(l,k,1) + tempv(l,k) * dtt
+	    tn(l,k,1) = tempv(l,k)
 	  end do
-	  zn(k) = zn(k) + znv(k) * dtt
-	  zn(k) = znv(k)
-	  sn(lmax,k) = sn(lmax,k) + saltv(lmax,k) * dtt
-	  sn(lmax,k) = saltv(lmax,k)
-	  tn(lmax,k) = tn(lmax,k) + tempv(lmax,k) * dtt
-	  tn(lmax,k) = tempv(lmax,k)
+	  zn(k,1) = zn(k,1) + znv(k) * dtt
+	  zn(k,1) = znv(k)
+	  wn(0,k,1) = wn(0,k,1) + wlnv(0,k) * dtt
+	  wn(0,k,1) = wlnv(0,k)
 	end do
 
 	end
 
 c****************************************************************
 	
-	subroutine off_aver(dtr,ut,vt,ze,wn,zn,sn,tn)
+	subroutine off_aver
+
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+	use mod_offline
 
 	implicit none
-
-	include 'param.h'
-
-	double precision dtr
-	double precision ut(nlvdim,neldim)
-	double precision vt(nlvdim,neldim)
-	double precision ze(3,neldim)
-	double precision wn(0:nlvdim,nkndim)
-	double precision zn(nkndim)
-	double precision sn(nlvdim,nkndim)
-	double precision tn(nlvdim,nkndim)
-
-	include 'nbasin.h'
-
-	include 'levels.h'
 
 	integer ie,ii,k,l,lmax
 	double precision rr
@@ -786,24 +751,23 @@ c****************************************************************
 	do ie=1,nel
 	  lmax = ilhv(ie)
 	  do l=1,lmax
-	    ut(l,ie) = ut(l,ie) * rr
-	    vt(l,ie) = vt(l,ie) * rr
+	    ut(l,ie,1) = ut(l,ie,1) * rr
+	    vt(l,ie,1) = vt(l,ie,1) * rr
 	  end do
 	  do ii=1,3
-	    ze(ii,ie) = ze(ii,ie) * rr
+	    ze(ii,ie,1) = ze(ii,ie,1) * rr
 	  end do
 	end do
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-	  do l=1,lmax-1
-	    wn(l,k) = wn(l,k) * rr
-	    sn(l,k) = sn(l,k) * rr
-	    tn(l,k) = tn(l,k) * rr
+	  do l=1,lmax
+	    wn(l,k,1) = wn(l,k,1) * rr
+	    sn(l,k,1) = sn(l,k,1) * rr
+	    tn(l,k,1) = tn(l,k,1) * rr
 	  end do
-	  zn(k) = zn(k) * rr
-	  sn(lmax,k) = sn(lmax,k) * rr
-	  tn(lmax,k) = tn(lmax,k) * rr
+	  zn(k,1) = zn(k,1) * rr
+	  wn(0,k,1) = wn(0,k,1) * rr
 	end do
 
 	end
@@ -812,33 +776,18 @@ c****************************************************************
 c****************************************************************
 c****************************************************************
 
-	subroutine off_check(ig,time,ut,vt,ze,wn,zn,sn,tn)
+	subroutine off_check(ig)
+
+	use mod_hydro_print
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+	use mod_offline
 
 	implicit none
 
-	include 'param.h'
-
 	integer ig
-	integer time(1)
-	double precision ut(nlvdim,neldim,1)
-	double precision vt(nlvdim,neldim,1)
-	double precision ze(3,neldim,1)
-	double precision wn(0:nlvdim,nkndim,1)
-	double precision zn(nkndim,1)
-	double precision sn(nlvdim,nkndim,1)
-	double precision tn(nlvdim,nkndim,1)
-
-	include 'nbasin.h'
-
-	include 'levels.h'
-
-
-	include 'hydro_vel.h'
-
-	include 'hydro_print.h'
-
-
-	include 'hydro.h'
 
 	integer ie,ii,k,l,lmax
 	integer ierr
@@ -915,75 +864,58 @@ c****************************************************************
 c****************************************************************
 c****************************************************************
 	
-	subroutine off_write(iu,it,ut,vt,ze,wn,zn,sn,tn)
+	subroutine off_write(iu,it)
+
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+	use mod_offline
 
 	implicit none
 
-	include 'param.h'
-
 	integer iu,it
-	double precision ut(nlvdim,neldim)
-	double precision vt(nlvdim,neldim)
-	double precision ze(3,neldim)
-	double precision wn(0:nlvdim,nkndim)
-	double precision zn(nkndim)
-	double precision sn(nlvdim,nkndim)
-	double precision tn(nlvdim,nkndim)
-
-	include 'nbasin.h'
-
-	include 'levels.h'
 
 	integer ie,ii,k,l,lmax
 
 	write(iu) it,nkn,nel,3
 	write(iu) (ilhv(ie),ie=1,nel)
 	write(iu) (ilhkv(k),k=1,nkn)
-	write(iu) ((ut(l,ie),l=1,ilhv(ie)),ie=1,nel)
-	write(iu) ((vt(l,ie),l=1,ilhv(ie)),ie=1,nel)
-	write(iu) ((ze(ii,ie),ii=1,3),ie=1,nel)
-	write(iu) ((wn(l,k),l=1,ilhkv(k)-1),k=1,nkn)
-	write(iu) (zn(k),k=1,nkn)
-	write(iu) ((sn(l,k),l=1,ilhkv(k)),k=1,nkn)
-	write(iu) ((tn(l,k),l=1,ilhkv(k)),k=1,nkn)
+	write(iu) ((ut(l,ie,1),l=1,ilhv(ie)),ie=1,nel)
+	write(iu) ((vt(l,ie,1),l=1,ilhv(ie)),ie=1,nel)
+	write(iu) ((ze(ii,ie,1),ii=1,3),ie=1,nel)
+	write(iu) ((wn(l,k,1),l=1,ilhkv(k)-1),k=1,nkn)
+	write(iu) (zn(k,1),k=1,nkn)
+	write(iu) ((sn(l,k,1),l=1,ilhkv(k)),k=1,nkn)
+	write(iu) ((tn(l,k,1),l=1,ilhkv(k)),k=1,nkn)
+
+	!write(122,*) it,ilhkv(1)
+	!write(122,'(5g14.6)') (tn(l,1,1),l=1,5)
 
 	end
 
 c****************************************************************
 
-	subroutine off_read(iu,ig,time,ut,vt,ze,wn,zn,sn,tn,ierr,iread)
+	subroutine off_read(iu,ig,ierr)
+
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+	use mod_offline
 
 	implicit none
 
-	include 'param.h'
-
 	integer iu,ig
-	integer time(1)
-	double precision ut(nlvdim,neldim,1)
-	double precision vt(nlvdim,neldim,1)
-	double precision ze(3,neldim,1)
-	double precision wn(0:nlvdim,nkndim,1)
-	double precision zn(nkndim,1)
-	double precision sn(nlvdim,nkndim,1)
-	double precision tn(nlvdim,nkndim,1)
 	integer ierr
-	integer iread
-
-	include 'nbasin.h'
-
-	include 'levels.h'
-
-	integer ilhaux(neldim)
-	integer ilhkaux(nkndim)
 
 	integer ie,ii,k,l,lmax,it
 	integer nknaux,nelaux
 	integer type
 
+	integer ilhaux(nel)
+	integer ilhkaux(nkn)
+
 	read(iu,err=99,end=98) it,nknaux,nelaux,iread
 	if( nkn .ne. nknaux .or. nel .ne. nelaux ) goto 97
 	if( iread .ne. 3 ) goto 96
-	!write(6,*) 'offline record read: ',it,ig
+	!write(6,*) 'offline record read: ',it,ig,iread
 	time(ig) = it
 	read(iu) (ilhaux(ie),ie=1,nel)
 	read(iu) (ilhkaux(k),k=1,nkn)

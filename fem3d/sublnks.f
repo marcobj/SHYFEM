@@ -52,17 +52,19 @@ c nel < 2*nkn
 c nli = nel + (1/2)*nel + nbn < nel + nkn + nbn <= nel + 2*nkn   so
 c nli < 2*nkn + nel
 
+	use mod_geom
+	use mod_geom_dynamic
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
 c arguments
         integer nnkn,nnel,nnbn,nnli,nnis,nnod
 c common
 	include 'param.h'
-	include 'nbasin.h'
-	include 'geom_dynamic.h'
-	include 'links.h'
 c local
         integer k,ie,n,i,ne
+	integer elems(maxlnk)
         logical bin
 c statement functions
         logical iskbnd,iskins,iseins
@@ -72,13 +74,13 @@ c statement functions
 
         nnod=0
         do k=1,nkn
-	  call set_elem_links(k,ne)
+	  call get_elems_around(k,maxlnk,ne,elems)
 
           n=0
-	  ie = lnk_elems(ne)
+	  ie = elems(ne)
           bin=iseins(ie)
           do i=1,ne
-	    ie = lnk_elems(i)
+	    ie = elems(i)
             if( iseins(ie) ) then
               if( .not. bin ) n=n+1
             end if
@@ -114,13 +116,14 @@ c administrates new topological routines
 c
 c ... iwegv has already been set
 
+	use mod_geom
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
+	include 'param.h'
 	include 'femtime.h'
-	include 'geom.h'
 c local
         character*80 nam,dir,file
         real wink
@@ -159,6 +162,11 @@ c total angle at node k
 c
 c k       node to links
 c
+	use mod_geom
+	use mod_geom_dynamic
+	use evgeom
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
 c arguments
@@ -166,21 +174,18 @@ c arguments
         integer k
 c common
 	include 'param.h'
-	include 'nbasin.h'
-	include 'geom_dynamic.h'
-	include 'ev.h'
-	include 'links.h'
 c local
         integer i,n,ie
+	integer elems(maxlnk)
         real w
 c functions
         integer ithis
 
-	call set_elem_links(k,n)
+	call get_elems_around(k,maxlnk,n,elems)
 
         w=0.
         do i=1,n
-          ie=lnk_elems(i)
+          ie=elems(i)
           if( iwegv(ie).eq.0 ) then
             w = w + ev(10+ithis(k,ie),ie)
           end if
@@ -198,15 +203,16 @@ c sets number of areas
 c
 c nar   number of areas (return)
 c
+	use mod_geom
+	use mod_geom_dynamic
+	use basin
+
         implicit none
 c
 c arguments
         integer nar
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'geom.h'
-	include 'geom_dynamic.h'
-	include 'basin.h'
+	include 'param.h'
 c local
         integer i,ie,ieo,ien,n1,n2
         logical btest
@@ -233,12 +239,14 @@ c
               n1=n1+1
 c              write(6,*) ieo,iwegv(ieo),i,ien,iwegv(ien)
 c              read(5,'(i10)') n
-              if(ien.gt.0.and.iwegv(ien).lt.3) then !possible to enter
+              if(ien.gt.0) then !possible to enter
+               if(iwegv(ien).lt.3) then !possible to enter
                 if(iwegv(ien).eq.0.or.iwegv(ieo).eq.3) then !may enter
                   i=inext( nen3v(mod(i,3)+1,ieo) , ien )
                   ieo=ien
                   n2=n2+1
                 end if
+               end if
               end if
             end do
             nar=nar+1
@@ -269,15 +277,16 @@ c sets total angle at boundary nodes
 c
 c wink  total angle (return)
 c
+	use mod_geom_dynamic
+	use evgeom
+	use basin
+
         implicit none
 c
 c arguments
         real wink
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'geom_dynamic.h'
-	include 'basin.h'
-	include 'ev.h'
+	include 'param.h'
 c local
         integer ie,ii,k
         real w
@@ -310,14 +319,15 @@ c computes statistics about area of submerged zones
 c
 c ... iwegv has already been set
 c
+	use mod_geom_dynamic
+	use evgeom
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 c
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
+	include 'param.h'
 	include 'femtime.h'
-	include 'geom_dynamic.h'
-	include 'ev.h'
 c local
         real arin,arout,artot,area
         integer ie

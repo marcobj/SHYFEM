@@ -39,8 +39,56 @@ c 21.01.2015	ggu	new routine compute_cartesian_coords()
 c 31.03.2015	ggu	new routines for internal coordinates
 c 19.04.2015	ggu	new routines for internal coordinates (distance)
 c 22.04.2015	ggu	bug fix in xi2xy - x/y were exchanged
+c 10.10.2015	ggu	bug fix in adjust_bc() - brown paper bag bug
+c 16.11.2015	ggu	new routine adjust_xi()
 c
 c***********************************************************
+
+c isphe_ev:
+c
+c -1	value not given -> try to determine automatically
+c  0	cartesian
+c  1	spherical (lat/lon)
+
+!==================================================================
+        module evgeom
+!==================================================================
+
+        implicit none
+
+	integer, parameter :: evdim = 19
+
+	integer, save, private :: nel_alloc = 0
+	integer, save :: isphe_ev = -1
+	logical, save :: init_ev = .false.
+
+	double precision, allocatable :: ev(:,:)
+
+!==================================================================
+        contains
+!==================================================================
+
+	subroutine ev_init(nel)
+
+	integer nel
+
+	if( nel == nel_alloc ) return
+
+	if( nel_alloc > 0 ) then
+	  deallocate(ev)
+	end if
+
+	nel_alloc = nel
+
+	if( nel > 0 ) then
+	  allocate(ev(evdim,nel))
+	end if
+
+	end subroutine ev_init
+
+!==================================================================
+        end module evgeom
+!==================================================================
 
 	subroutine set_ev
 
@@ -52,14 +100,15 @@ c revised on 31.08.88 by ggu (czv containes real chezy)
 c revised on 25.11.88 by ggu (czv eliminated)
 c revised on 28.01.92 by ggu (double precision, implicit none)
 
+	use basin
+	use evgeom
+
 	implicit none
 
+	include 'param.h'
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'ev.h'
-
-	include 'basin.h'
-
+	logical bdebug
+	integer iedebug
 	integer ie,i,kn1,kn2,kn3
 	integer isphe
         double precision one,two,four,twofour,rad
@@ -79,6 +128,9 @@ c revised on 28.01.92 by ggu (double precision, implicit none)
 	call check_spheric_ev	!checks and sets isphe_ev and init_ev
 	call get_coords_ev(isphe)
 
+	iedebug = 77
+	iedebug = 0
+
         one = 1.
         two = 2.
         four = 4.
@@ -90,6 +142,8 @@ c revised on 28.01.92 by ggu (double precision, implicit none)
         rad = 180./pi
 
 	do ie=1,nel
+
+	bdebug = ( iedebug == ie )
 
 	kn1=nen3v(1,ie)
 	kn2=nen3v(2,ie)
@@ -115,6 +169,14 @@ c revised on 28.01.92 by ggu (double precision, implicit none)
 	  y3=ygv(kn3)
 	end if
 
+	if( bdebug ) then
+	  write(6,*) '============ ev debug =================='
+	  write(6,*) ie,isphe
+	  write(6,*) x1,y1
+	  write(6,*) x2,y2
+	  write(6,*) x3,y3
+	end if
+
 	a1=x2*y3-x3*y2
 	a2=x3*y1-x1*y3
 	a3=x1*y2-x2*y1
@@ -132,10 +194,23 @@ c revised on 28.01.92 by ggu (double precision, implicit none)
 	a3=a3*aji
 	!aj=aj/twofour		!bug 5.2.2010
 
+	if( bdebug ) then
+	  write(6,*) aji
+	  write(6,*) b1,b2,b3
+	  write(6,*) c1,c2,c3
+	end if
+
 c natural coordinates in triangle:   xi(i) = a(i) + b(i)*x + c(i)*y    i=1,3
 
 	call adjust_bc(b1,b2,b3)
 	call adjust_bc(c1,c2,c3)
+
+	if( bdebug ) then
+	  write(6,*) aji
+	  write(6,*) b1,b2,b3
+	  write(6,*) c1,c2,c3
+	  write(6,*) '============ ev debug end =================='
+	end if
 
 	if(aj.le.0.) goto 99
 
@@ -195,39 +270,17 @@ c****************************************************************
 c****************************************************************
 c****************************************************************
 
-	blockdata ev_blockdata
-
-c initializes isphe_ev
-c
-c isphe_ev:
-c
-c -1	value not given -> try to determine automatically
-c  0	cartesian
-c  1	spherical (lat/lon)
-
-	implicit none
-
-	integer isphe_ev,init_ev
-	common /evcommon/ isphe_ev,init_ev
-	save /evcommon/
-	data isphe_ev,init_ev / -1 , 0 /
-
-	end
-
-c****************************************************************
-
 	subroutine is_init_ev(binit)
 
 c checks if ev module has been initialized
+
+	use evgeom
 
 	implicit none
 
 	logical binit
 
-	integer isphe_ev,init_ev
-	common /evcommon/ isphe_ev,init_ev
-	
-	binit = init_ev .gt. 0
+	binit = init_ev
 
 	end
 
@@ -237,13 +290,12 @@ c****************************************************************
 
 c sets type of coordinates to use with ev module
 
+	use evgeom
+
 	implicit none
 
 	integer isphe
 
-	integer isphe_ev,init_ev
-	common /evcommon/ isphe_ev,init_ev
-	
 	isphe_ev = isphe
 
 	end
@@ -254,13 +306,12 @@ c****************************************************************
 
 c gets type of coordinates that is used with ev module
 
+	use evgeom
+
 	implicit none
 
 	integer isphe
 
-	integer isphe_ev,init_ev
-	common /evcommon/ isphe_ev,init_ev
-	
 	isphe = isphe_ev
 
 	end
@@ -271,13 +322,12 @@ c****************************************************************
 
 c checks if coordinates are spherical (lat/lon)
 
+	use evgeom
+
 	implicit none
 
 	logical is_spherical
 
-	integer isphe_ev,init_ev
-	common /evcommon/ isphe_ev,init_ev
-	
 	is_spherical = isphe_ev .ne. 0
 
 	end
@@ -288,13 +338,12 @@ c****************************************************************
 
 c checks if coordinates are lat/lon
 
+	use basin
+	use evgeom
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-
-	integer isphe_ev,init_ev
-	common /evcommon/ isphe_ev,init_ev
 
 	logical bverbose
 	integer k,isphe
@@ -344,7 +393,7 @@ c checks if coordinates are lat/lon
 	end if
 
 	isphe_ev = isphe
-	init_ev = 1
+	init_ev = .true.
 
 	if( isphe == 1 ) then
 	  write(6,*) 'using lat/lon coordinates'
@@ -362,16 +411,16 @@ c****************************************************************
 
 c tests if ev is set up correctly
 
+	use basin, only : nkn,nel,ngr,mbw
+	use evgeom
+
 	implicit none
 
-c common
-	include 'nbasin.h'
-	include 'ev.h'
-c local
+
 	integer ie,ii,i,ip
 	real bmax,cmax,bs,cs,b,c
 	real alpha,atria
-c save&data
+
 	real eps
 	save eps
 	data eps /1.e-5/
@@ -446,8 +495,76 @@ c given x/y returns internal coordinates xi
 	  xi(ii) = a(ii) + b(ii)*x + c(ii)*y
 	end do
 
+	call adjust_xi(xi)
+
 	end
 	
+c***********************************************************
+
+	subroutine adjust_xi(xi)
+
+c adjusts internal coodinates xi
+
+	implicit none
+
+	double precision xi(3)
+
+	integer ii,it,is
+	double precision xisum,xiso,xiadj
+	double precision xiorig(3)
+
+	xisum = 0.
+	xiso = 0.
+	is = 0
+	it = 0
+
+	do ii=1,3
+	  xiorig(ii) = xi(ii)
+	  xiso = xiso + xi(ii)
+	  if( xi(ii) < 0. ) xi(ii) = 0.
+	  if( xi(ii) > 1. ) xi(ii) = 1.
+	  if( xi(ii) == 0. ) then
+	    is = is + ii
+	    it = it + 1
+	  end if
+	  xisum = xisum + xi(ii)
+	end do
+
+	if( it == 3 .or. abs(xiso-1.) > 1.e-8 ) then
+	  write(6,*) 'xi is wrong... cannot adjust'
+	  write(6,*) xiorig
+	  stop 'error stop adjust_xi'
+	end if
+
+	xiadj = (xisum-1.)/(3-it)
+
+	if( it == 2 ) then
+	  is = 6 - is
+	  xi(is) = 1.
+	else			!both for it == 1 and 2
+	  do ii=1,3
+	    if( ii /= is ) xi(ii) = xi(ii) - xiadj
+	  end do
+	end if
+
+	xiso = 0.
+	do ii=1,3
+	  xiso = xiso + xi(ii)
+	end do
+
+	if( abs(xiso-1.) > 1.e-8 ) then
+	  write(6,*) 'xi is still wrong... cannot adjust'
+	  write(6,*) xiorig
+	  stop 'error stop adjust_xi'
+	end if
+
+	!write(6,*) 'xi_adjust start...'
+	!write(6,*) xiorig
+	!write(6,*) xi
+	!write(6,*) 'xi_adjust end...'
+
+	end
+
 c***********************************************************
 
 	subroutine xi2xy(ie,x,y,xi)
@@ -500,10 +617,9 @@ c computes distance between two points given in internal coordinates
 c
 c the two points must be lying on the sides of the triangle
 
-	implicit none
+	use evgeom
 
-	include 'param.h'
-	include 'ev.h'
+	implicit none
 
 	integer ie			!element number
 	double precision xia(3)		!internal coordinates of point a
@@ -615,18 +731,16 @@ c returns a,b,c to compute xi
 c
 c natural coordinates in triangle:   xi(i) = a(i) + b(i)*x + c(i)*y    i=1,3
 
+	use basin
+	use evgeom
+
 	implicit none
 
 	integer ie
 
 	double precision a(3),b(3),c(3)
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'ev.h'
-
-	integer isphe_ev,init_ev
-	common /evcommon/ isphe_ev,init_ev
-	include 'basin.h'
+	include 'param.h'
 
 	integer ii
 	integer kn1,kn2,kn3
@@ -700,13 +814,14 @@ c***********************************************************
 
 	subroutine ev_make_center(ie,xm,ym)
 
+	use basin
+
 	implicit none
 
 	integer ie
 	double precision xm,ym
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ii,k
 
@@ -808,10 +923,10 @@ c adjusts b/c so that sum = 0
 	  v3 = -v2
 	else if( v2 .eq. 0. ) then
 	  v3 = v3 - vv/2.
-	  v1 = -v1
+	  v1 = -v3			!BUGFIX
 	else if( v3 .eq. 0. ) then
 	  v1 = v1 - vv/2.
-	  v2 = -v2
+	  v2 = -v1			!BUGFIX
 	else
 	  v1 = v1 - vv/3.
 	  v2 = v2 - vv/3.
@@ -833,17 +948,16 @@ c***********************************************************
 
 c returns area of element ie
 
+	use evgeom
+
 	implicit none
 
 	real area_elem
 	integer ie
 
-	include 'ev.h'
-
-	integer isphe_ev,init_ev
-	common /evcommon/ isphe_ev,init_ev
-
-	if( init_ev == 0 ) stop 'error stop area_elem: ev not set up'
+	if( .not. init_ev ) then
+	  stop 'error stop area_elem: ev not set up'
+	end if
 
 	area_elem = 12. * ev(10,ie)
 
@@ -855,17 +969,16 @@ c***********************************************************
 
 c returns aomega of element ie
 
+	use evgeom
+
 	implicit none
 
 	real aomega_elem
 	integer ie
 
-	include 'ev.h'
-
-	integer isphe_ev,init_ev
-	common /evcommon/ isphe_ev,init_ev
-
-	if( init_ev == 0 ) stop 'error stop aomega_elem: ev not set up'
+	if( .not. init_ev ) then
+	  stop 'error stop aomega_elem: ev not set up'
+	end if
 
 	aomega_elem = ev(10,ie)
 
@@ -877,17 +990,14 @@ c***********************************************************
 
 c returns weight for element ie - if ev is not setup, return 1
 
+	use evgeom
+
 	implicit none
 
 	real weight_elem
 	integer ie
 
-	include 'ev.h'
-
-	integer isphe_ev,init_ev
-	common /evcommon/ isphe_ev,init_ev
-
-	if( init_ev > 0 ) then
+	if( init_ev ) then
 	  weight_elem = ev(10,ie)
 	else
 	  weight_elem = 1.
@@ -905,9 +1015,9 @@ c computes gradient normal to given direction
 c
 c direction is given by the two nodes not identified by ii
 
-	implicit none
+	use evgeom
 
-	include 'ev.h'
+	implicit none
 
 	integer ie	!element number [1-nel]
 	integer ii	!node that is not part of the direction [1-3]
@@ -934,9 +1044,9 @@ c computes gradient tangent to given direction
 c
 c direction is given by the two nodes not identified by ii
 
-	implicit none
+	use evgeom
 
-	include 'ev.h'
+	implicit none
 
 	integer ie	!element number [1-nel]
 	integer ii	!node that is not part of the direction [1-3]
@@ -963,9 +1073,9 @@ c computes gradient normal to given direction
 c
 c direction is given by the two nodes not identified by ii
 
-	implicit none
+	use evgeom
 
-	include 'ev.h'
+	implicit none
 
 	integer ie		 !element number [1-nel]
 	integer ii		 !node that is not part of the direction [1-3]
@@ -992,9 +1102,9 @@ c computes gradient tangent to given direction
 c
 c direction is given by the two nodes not identified by ii
 
-	implicit none
+	use evgeom
 
-	include 'ev.h'
+	implicit none
 
 	integer ie		 !element number [1-nel]
 	integer ii		 !node that is not part of the direction [1-3]
@@ -1021,14 +1131,13 @@ c computes distance between (x1,y1) and (x2,y2)
 c
 c takes care of lat/lon coordinates
 
+	use evgeom
+
 	implicit none
 
 	real xin1,yin1
 	real xin2,yin2
 	real dx,dy
-
-        integer isphe_ev,init_ev
-        common /evcommon/ isphe_ev,init_ev
 
 	double precision xl1,yl1,xl2,yl2
 	double precision x1,y1,x2,y2
@@ -1059,14 +1168,13 @@ c***********************************************************
 
         subroutine compute_cartesian_coords(n,lon,lat,x,y)
 
+	use evgeom
+
 	implicit none
 
 	integer n		!total number of points to convert
 	real lon(n),lat(n)	!coordinates of points to convert
 	real x(n),y(n)		!converted cartesian coordinates (return)
-
-        integer isphe_ev,init_ev
-        common /evcommon/ isphe_ev,init_ev
 
 	integer i
 	double precision lambda0,phi0

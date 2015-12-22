@@ -18,30 +18,21 @@ c***************************************************************
 
 c reads file and writes time series to nc file
 
+	use mod_depth
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
         include 'param.h'
-	include 'evmain.h'
+	include 'simul.h'
 
 	integer ndsdim
 	parameter(ndsdim=1)
 
-	include 'basin.h'
-	include 'simul.h'
-
-
-	include 'levels.h'
-	include 'hydro.h'
-
-	include 'depth.h'
-
-	real haux(nkndim)
-	real uprv(nlvdim,nkndim)
-	real vprv(nlvdim,nkndim)
-
-	real var3d(nlvdim*nkndim)
-
-        integer nvers,nin,nlv
+        integer nvers,nin
         integer itanf,itend,idt,idtous
 	integer it,ie,i
         integer ierr,nread,ndry
@@ -103,15 +94,15 @@ c-----------------------------------------------------------------
         call nc_open_ts(ncid,nodes,date0,time0)
 	call nc_global(ncid,descrp)
 
-	std = 'sea_surface_height_correction_due_to_air_pressure_and_wind_at
-     +_high_frequency'
+	std = 'sea_surface_height_correction_due_to_air_pressure' //
+     +		'_and_wind_at_high_frequency'
 	units = 'm'
 	call nc_define_2d(ncid,'storm_surge',surge_id)
 	call nc_define_attr(ncid,'units',units,surge_id)
 	call nc_define_attr(ncid,'standard_name',std,surge_id)
 
-	std = 'sea_surface_height_amplitude_due_to_non_equilibrium_ocean_tid
-     +e'
+	std = 'sea_surface_height_amplitude_due_to_non_equilibrium' //
+     +		'_ocean_tide'
 	units = 'm'
 	call nc_define_2d(ncid,'astronomical_tide',tide_id)
 	call nc_define_attr(ncid,'units',units,tide_id)

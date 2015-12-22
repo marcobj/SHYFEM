@@ -27,6 +27,7 @@ c 03.09.2013  ggu     level_k2e -> level_k2e_sh, level_e2k -> level_e2k_sh
 c 05.03.2014  ggu     new read for ous and nos files (use date)
 c 20.10.2014  ggu     deleted is2d() and out reading routines
 c 10.02.2015  ggu     use different file units (more than one can be opened)
+c 14.09.2015  ggu     introduced bwind and bvel (for velocities)
 c
 c**********************************************************
 c**********************************************************
@@ -79,10 +80,11 @@ c******************************************************
 
 c resets mask data structure
 
+	use mod_plot2d
+
 	implicit none
 
 	include 'param.h'
-	include 'plot_aux.h'
 
         call init_dry_mask(bwater)
 	call make_dry_node_mask(bwater,bkwater)
@@ -95,12 +97,13 @@ c******************************************************
 
 c prepares simulation for use - computes wet and dry areas
 
+	use mod_plot2d
+	use mod_hydro
+	use levels
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'plot_aux.h'
-	include 'levels.h'
-	include 'hydro.h'
+	include 'param.h'
 
 	logical bshowdry
 	integer level
@@ -165,6 +168,10 @@ c******************************************************
 
 	subroutine set_dry_volume_mask(bkw,hdry)
 
+	use mod_plot2d
+	use mod_plot3d
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	logical bkw(1)
@@ -172,9 +179,7 @@ c******************************************************
 
 	include 'param.h'
 
-	include 'nbasin.h'
 
-	include 'plot_aux.h'
 
 	integer k,idry
 	real vol,area,h
@@ -213,16 +218,17 @@ c	hev			is set after basin read, newly set by 3d read
 c	ilhv			ilhv(ie) = 1 for 2d
 c	znv,utlnv,vtlnv 	-> set zenv, usnv, vsnv
 
+	use mod_hydro_plot
+	use mod_hydro_print
+	use mod_hydro
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
 
 
-	include 'hydro.h'
-	include 'basin.h'
-	include 'hydro_print.h'
-	include 'levels.h'
-	include 'hydro_plot.h'
 
 	integer k,ie,ii,l,lmax
 	real utot,vtot
@@ -270,14 +276,15 @@ c outdated -> do not call - arrays are set in outnext()
 c
 c	xv,zenv,usnv,vsnv -> set znv
 
+	use mod_hydro_print
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
+	include 'param.h'
 
-	include 'hydro.h'
-	include 'hydro_print.h'
-	include 'levels.h'
 
 	integer k,ie
 
@@ -336,19 +343,20 @@ c******************************************************
 
 	subroutine waveopen
 
+	use mod_depth
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
 	include 'simul.h'
-	include 'nbasin.h'
-	include 'nlevel.h'
-	include 'depth.h'
-	include 'levels.h'
 
 	include 'supout.h'
 
 	integer nknaux,nelaux,nlvaux
+	integer nknddi,nelddi,nlvddi
 	integer nvers,nvar
 	integer date,time
 
@@ -360,11 +368,14 @@ c open file
 
         call open_nos_type('.wav','old',nunit)
 
-        call read_nos_header(nunit,nkndim,neldim,nlvdim,ilhkv,hlv,hev)
-        call nos_get_params(nunit,nknaux,nelaux,nlvaux,nvar)
-        if( nkn .ne. nknaux ) goto 99
-        if( nel .ne. nelaux ) goto 99
+	call peek_nos_header(nunit,nknaux,nelaux,nlvaux,nvar)
+	if( nkn .ne. nknaux ) goto 99
+	if( nel .ne. nelaux ) goto 99
         nlv = nlvaux
+	call allocate_simulation
+	call get_dimension_post(nknddi,nelddi,nlvddi)
+        call read_nos_header(nunit,nknddi,nelddi,nlvddi,ilhkv,hlv,hev)
+
 	if( nvar .ne. 3 ) goto 99
 
 	call level_k2e_sh
@@ -394,22 +405,25 @@ c******************************************************
 
 	function wavenext(it)
 
+	use mod_hydro_plot
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	logical wavenext
 	integer it
 
-	include 'param.h' !COMMON_GGU_SUBST
+	include 'param.h'
 	include 'supout.h'
 
-	include 'nbasin.h'
 
-	include 'levels.h'
 
         integer ierr,nlvddi,ivar
+	real v1v(nkn)
+	real v2v(nkn)
+	real v3v(nkn)
 
-	include 'hydro_plot.h'
-	include 'aux_array.h'
 
 	call waveini
 	nunit = nunit_wave
@@ -562,6 +576,10 @@ c******************************************************
 
 c opens OUS file and reads header
 
+	use mod_depth
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
@@ -569,17 +587,14 @@ c opens OUS file and reads header
 	include 'supout.h'
 
 	include 'simul.h'
-	include 'nbasin.h'
-	include 'nlevel.h'
 
-	include 'depth.h'
-	include 'levels.h'
 
 	character*80 file
 
 	integer nvers
 	integer nknaux,nelaux,nlvaux,nvar
 	integer nknous,nelous,nlvous
+	integer nknddi,nelddi,nlvddi
 	integer ierr
         integer i,l
 	integer date,time
@@ -594,11 +609,13 @@ c open and read header
 
         call open_ous_type('.ous','old',nunit)
 
-        call read_ous_header(nunit,nkndim,neldim,nlvdim,ilhv,hlv,hev)
-        call ous_get_params(nunit,nknous,nelous,nlvous)
+	call peek_ous_header(nunit,nknous,nelous,nlvous)
 	if( nkn .ne. nknous ) goto 99
 	if( nel .ne. nelous ) goto 99
         nlv = nlvous
+	call allocate_simulation
+	call get_dimension_post(nknddi,nelddi,nlvddi)
+        call read_ous_header(nunit,nknddi,nelddi,nlvddi,ilhv,hlv,hev)
 
 	call level_e2k_sh			!computes ilhkv
         call init_sigma_info(nlv,hlv)
@@ -638,6 +655,9 @@ c******************************************************
 
 c reads next OUS record - is true if a record has been read, false if EOF
 
+	use mod_hydro
+	use levels
+
 	implicit none
 
 	logical ousnext		!true if record read, flase if EOF
@@ -646,18 +666,13 @@ c reads next OUS record - is true if a record has been read, false if EOF
         include 'param.h'
 
 	include 'supout.h'
-	include 'nlevel.h'
-	include 'levels.h'
-	include 'hydro.h'
 
 	integer ierr
-
-	if( nlvdim .ne. nlvdi ) stop 'error stop ousnext: nlvdim'
 
 	call ousini
 	nunit = nunit_ous
 
-	call rdous(nunit,it,nlvdim,ilhv,znv,zenv,utlnv,vtlnv,ierr)
+	call rdous(nunit,it,nlvdi,ilhv,znv,zenv,utlnv,vtlnv,ierr)
 
 c set return value
 
@@ -730,6 +745,10 @@ c******************************************************
 
 c opens NOS file and reads header
 
+	use mod_depth
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
@@ -739,17 +758,14 @@ c opens NOS file and reads header
 	include 'supout.h'
 
 	include 'simul.h'
-	include 'nbasin.h'
-	include 'nlevel.h'
 
-	include 'depth.h'
-	include 'levels.h'
 
 	character*80 file
 
 	integer nvers
 	integer nknaux,nelaux,nlvaux,nvar
 	integer nknnos,nelnos,nlvnos
+	integer nknddi,nelddi,nlvddi
 	integer date,time
 	integer ierr,l
 	integer ifemop
@@ -762,11 +778,13 @@ c open file
 
         call open_nos_type('.nos','old',nunit)
 
-        call read_nos_header(nunit,nkndim,neldim,nlvdim,ilhkv,hlv,hev)
-        call nos_get_params(nunit,nknnos,nelnos,nlvnos,nvar)
-        if( nkn .ne. nknnos ) goto 99
-        if( nel .ne. nelnos ) goto 99
+	call peek_nos_header(nunit,nknnos,nelnos,nlvnos,nvar)
+	if( nkn .ne. nknnos ) goto 99
+	if( nel .ne. nelnos ) goto 99
         nlv = nlvnos
+	call allocate_simulation
+	call get_dimension_post(nknddi,nelddi,nlvddi)
+        call read_nos_header(nunit,nknddi,nelddi,nlvddi,ilhkv,hlv,hev)
 
 	call level_k2e_sh
         call init_sigma_info(nlv,hlv)
@@ -803,6 +821,8 @@ c******************************************************
 
 c reads next NOS record - is true if a record has been read, false if EOF
 
+	use levels
+
 	implicit none
 
 	logical nosnext		!true if record read, flase if EOF
@@ -811,10 +831,8 @@ c reads next NOS record - is true if a record has been read, false if EOF
 	integer nlvddi		!dimension of vertical coordinate
 	real array(nlvddi,1)	!values for variable
 
-	include 'param.h' !COMMON_GGU_SUBST
+	include 'param.h'
 	include 'supout.h'
-	include 'nlevel.h'
-	include 'levels.h'
 
 	integer ierr
 
@@ -914,6 +932,10 @@ c******************************************************
 
 c opens FVL file and reads header
 
+	use mod_depth
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	character*(*) type
@@ -923,14 +945,10 @@ c opens FVL file and reads header
 	include 'supout.h'
 
 	include 'simul.h'
-	include 'nbasin.h'
-	include 'nlevel.h'
 
-	include 'depth.h'
-	include 'levels.h'
 
-        real hlv1(nlvdim), hev1(neldim)
-        integer ilhkv1(nkndim)
+        real hlv1(nlv), hev1(nel)
+        integer ilhkv1(nkn)
 
 	character*80 file
 
@@ -1014,16 +1032,16 @@ c******************************************************
 
 c reads next FVL record
 
+	use levels
+
 	implicit none
 
 	integer it		!time of record
 	integer nlvddi		!dimension of vertical coordinate
 	real array(nlvddi,1)	!values for variable
 
-	include 'param.h' !COMMON_GGU_SUBST
+	include 'param.h'
 	include 'supout.h'
-	include 'nlevel.h'
-	include 'levels.h'
 
 	integer ierr
 	integer ivar		!type of variable
@@ -1132,24 +1150,25 @@ c******************************************************
 
 c opens EOS file and reads header
 
+	use mod_depth
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	character*(*) type
 
-	include 'param.h' !COMMON_GGU_SUBST
+	include 'param.h'
 	include 'supout.h'
 
 	include 'simul.h'
-	include 'nbasin.h'
-	include 'nlevel.h'
 
-	include 'depth.h'
-	include 'levels.h'
 
 	character*80 file
 
 	integer nvers
 	integer nknaux,nelaux,nlvaux,nvar
+	integer nknddi,nelddi,nlvddi
 	integer ierr
 	integer ifemop
 
@@ -1188,9 +1207,11 @@ c read first header
 
 	if( nkn .ne. nknaux ) goto 99
 	if( nelaux .ne. 0 .and. nel .ne. nelaux ) goto 99
-	if( nlvdi .lt. nlvaux ) goto 99
 
 	nlv = nlvaux
+	call allocate_simulation
+	call get_dimension_post(nknddi,nelddi,nlvddi)
+	if( nlvddi .lt. nlv ) goto 99
 
 c read second header
 
@@ -1219,6 +1240,8 @@ c******************************************************
 
 c reads next EOS record - is true if a record has been read, false if EOF
 
+	use levels
+
 	implicit none
 
 	logical eosnext		!true if record read, flase if EOF
@@ -1227,10 +1250,8 @@ c reads next EOS record - is true if a record has been read, false if EOF
 	integer nlvddi		!dimension of vertical coordinate
 	real array(nlvddi,1)	!values for variable
 
-	include 'param.h' !COMMON_GGU_SUBST
+	include 'param.h'
 	include 'supout.h'
-	include 'nlevel.h'
-	include 'levels.h'
 
 	integer ierr
 
@@ -1269,12 +1290,13 @@ c******************************************************
 
 c computes max level at nodes from elements
 
+	use levels
+	use basin
+
 	implicit none
 
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'levels.h'
+	include 'param.h'
 
 	call level_e2k(nkn,nel,nen3v,ilhv,ilhkv)
 
@@ -1286,12 +1308,13 @@ c******************************************************
 
 c computes level at elems from nodes (not exact)
 
+	use levels
+	use basin
+
 	implicit none
 
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'levels.h'
+	include 'param.h'
 
 	call level_k2e(nkn,nel,nen3v,ilhkv,ilhv)
 
@@ -1403,25 +1426,26 @@ c******************************************************
 
 c opens FEM file and reads header
 
+	use mod_depth
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	character*(*) type
 
-	include 'param.h' !COMMON_GGU_SUBST
+	include 'param.h'
 	include 'supout.h'
 
 	include 'simul.h'
-	include 'nbasin.h'
-	include 'nlevel.h'
 
-	include 'depth.h'
-	include 'levels.h'
 
 	character*80 file
 
 	logical bformat,breg
 	integer nvers,np,it,lmax,ntype
 	integer nknaux,nelaux,nlvaux,nvar
+	integer nknddi,nelddi,nlvddi
 	integer ierr,l
 	integer datetime(2)
 	real regpar(7)
@@ -1473,10 +1497,13 @@ c read first header
 	if( .not. breg .and. nkn .ne. np ) goto 99
 	if( nkn .lt. np ) goto 99
 	if( breg .and. lmax > 1 ) goto 98
-	if( nlvdi .lt. lmax ) goto 99
+
+        nlv = lmax
+	call allocate_simulation
+	call get_dimension_post(nknddi,nelddi,nlvddi)
+	if( nlvddi .lt. lmax ) goto 99
 
 	it = nint(dtime)
-	nlv = lmax
 
 c read second header
 
@@ -1519,6 +1546,8 @@ c******************************************************
 
 c reads next FEM record - is true if a record has been read, false if EOF
 
+	use levels
+
 	implicit none
 
 	logical femnext			!true if record read, flase if EOF
@@ -1529,18 +1558,16 @@ c reads next FEM record - is true if a record has been read, false if EOF
 	integer nkn			!number of points needed
 	real array(nlvddi,nkn,1)	!values for variable
 
-	include 'param.h' !COMMON_GGU_SUBST
+	include 'param.h'
 	include 'supout.h'
-	include 'nlevel.h'
-	include 'levels.h'
-	include 'aux_array.h'
 
-	logical bfound,bformat,breg
+	logical bfound,bformat,breg,bwind,bvel
 	integer ierr
 	integer i,iv,ip
 	integer nvers,np,lmax,nvar,ntype
 	integer datetime(2)
 	real regpar(7)
+	real v1v(nkn)
 	double precision dtime
 	real fact
 	character*80 string
@@ -1570,7 +1597,7 @@ c reads next FEM record - is true if a record has been read, false if EOF
 
 	if( breg ) then
 	  write(6,*) 'plotting regular grid...'
-	  write(6,*) 'not yet ready for regular grid...'
+	  !write(6,*) 'not yet ready for regular grid...'
 	  !stop
 	end if
 
@@ -1596,7 +1623,9 @@ c reads next FEM record - is true if a record has been read, false if EOF
 	    if( ierr .ne. 0 ) goto 98
 	    call string2ivar(string,iv)
 	    bfound = iv .eq. ivar
-	    if( iv .eq. ivar .and. iv .eq. 21 ) then !wind -> must read y field
+	    bwind = iv .eq. 21
+	    bvel = iv .eq. 2
+	    if( bfound .and. ( bwind .or. bvel ) ) then
 	      ip = ip + 1
 	      if( ip .eq. 2 ) bfound = .false.
 	    end if
@@ -1605,6 +1634,7 @@ c reads next FEM record - is true if a record has been read, false if EOF
 
 	if( breg ) then
 	  write(6,*) 'interpolating from regular grid...'
+	  ip = min(2,ip)
 	  call fem_interpolate(nlvddi,nkn,np,ip,regpar,ilhkv,array)
 	  regp = regpar		!save for later
 	end if

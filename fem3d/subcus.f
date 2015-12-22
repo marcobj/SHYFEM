@@ -137,13 +137,14 @@ c*****************************************************************
 
 c computes total volume in basin
 
+	use mod_geom_dynamic
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	integer it
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-	include 'geom_dynamic.h'
+	include 'param.h'
 
 	integer iwet,ie
 	real area,voldry,volwet,vol,a,v
@@ -183,6 +184,9 @@ c*****************************************************************
 
 c test some nodes and elements
 
+	use mod_geom_dynamic
+	use mod_hydro
+
 	implicit none
 
 	integer it
@@ -191,9 +195,7 @@ c test some nodes and elements
 	integer ipint,ieint
 	integer n,ibase
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'geom_dynamic.h'
-	include 'hydro.h'
+	include 'param.h'
 
 	integer icall,k1,k2,ie1,ie2,ie3
 	save icall,k1,k2,ie1,ie2,ie3
@@ -225,6 +227,8 @@ c*****************************************************************
 
 c q-flux test
 
+	use mod_ts
+
 	implicit none
 
 	integer it
@@ -237,7 +241,6 @@ c q-flux test
 	integer ndim
 	parameter(ndim=5)
 
-	include 'ts.h'
 
 	integer nodes(ndim)
 	save nodes
@@ -254,6 +257,9 @@ c*****************************************************************
 
 c adjust depth at inlets -> must be called from cst routines
 
+	use mod_depth
+	use basin
+
 	implicit none
 
 	integer ie,ii,itype
@@ -261,9 +267,7 @@ c adjust depth at inlets -> must be called from cst routines
 	real getpar
 
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'depth.h'
+	include 'param.h'
 
 	write(6,*) 'adjusting depth at inlets...'
 
@@ -417,21 +421,22 @@ c*****************************************************************
 
 c channel output
 
+	use mod_ts
+	use mod_hydro_vel
+	use levels
+
 	implicit none
 
 	include 'param.h'
 
 	integer it
 
-	include 'levels.h'
-	include 'hydro_vel.h'
-	include 'ts.h'
  
-        real num(0:nlvdim)
-        real nuh(0:nlvdim)
-        real tk(0:nlvdim)
-        real ep(0:nlvdim)
-        real rl(0:nlvdim)
+        real num(0:nlvdi)
+        real nuh(0:nlvdi)
+        real tk(0:nlvdi)
+        real ep(0:nlvdi)
+        real rl(0:nlvdi)
 
 	logical berror
 	integer i,k,l,nlev,nlev1
@@ -517,13 +522,14 @@ c*****************************************************************
 
 c channel output
 
+	use mod_hydro_baro
+
 	implicit none
 
 	include 'param.h'
 
 	integer it
 
-	include 'hydro_baro.h'
 
 	integer ie,i
 	integer iunit
@@ -576,6 +582,12 @@ c*****************************************************************
 
 c channel velocity output
 
+	use mod_ts
+	use mod_hydro_print
+	use mod_hydro
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
@@ -583,11 +595,6 @@ c channel velocity output
 	integer it
 
 
-	include 'levels.h'
-	include 'hydro_print.h'
-	include 'basin.h'
-	include 'ts.h'
-	include 'hydro.h'
 
 	logical berror
 	logical b1,b2,b3,b4
@@ -634,9 +641,9 @@ c channel velocity output
 	  end if
 	end if
 
-	call nantest(nkn*nlvdim,uprv,'uprv')
-	call nantest(nkn*nlvdim,vprv,'vprv')
-	call nantest(nkn*nlvdim,tempv,'tempv')
+	call nantest(nkn*nlvdi,uprv,'uprv')
+	call nantest(nkn*nlvdi,vprv,'vprv')
+	call nantest(nkn*nlvdi,tempv,'tempv')
 
 	if( b1 ) then
 	write(92,*) it,ndim
@@ -688,6 +695,11 @@ c*****************************************************************
 
 c set up zeta and conc for mass conservation test
 
+	use mod_conz
+	use mod_hydro
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
@@ -695,10 +707,6 @@ c set up zeta and conc for mass conservation test
 	integer it
 
 
-	include 'levels.h'
-	include 'basin.h'
-	include 'conz.h'
-	include 'hydro.h'
 
 	integer k,ie,ii,n,ip,l
 	integer ntot,nlev
@@ -752,7 +760,7 @@ c set up zeta and conc for mass conservation test
 
 	end if
 
-	call massconc(1,cnv,nlvdim,res)
+	call massconc(1,cnv,nlvdi,res)
 	write(6,*) 'total dissolved mass: ',res
 	write(6,*) 'values: ',(cnv(1,kn(ii)),ii=1,5)
 
@@ -764,15 +772,17 @@ c*****************************************************************
 
 c mass conservation test
 
+	use mod_conz
+	use mod_geom_dynamic
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	integer it
 
 	include 'param.h'
 
-	include 'nbasin.h'
-	include 'geom_dynamic.h'
-	include 'conz.h'
 
 	real res
 	integer i,ie,iweg
@@ -782,7 +792,7 @@ c mass conservation test
 	  if(iwegv(ie) .ne. 0 ) iweg = iweg + 1
 	end do
 
-	call massconc(1,cnv,nlvdim,res)		!3D
+	call massconc(1,cnv,nlvdi,res)		!3D
 
 	write(6,*) 'total dissolved mass: ',it,res,iweg
 c	call debug_node(4179)
@@ -819,6 +829,11 @@ c*****************************************************************
 
 	subroutine hakanode(iunit,it,k)
 
+	use mod_ts
+	use mod_diff_visc_fric
+	use mod_hydro_print
+	use levels
+
 	implicit none
 
         integer iunit
@@ -827,10 +842,6 @@ c*****************************************************************
 
         include 'param.h'
 
-	include 'levels.h'
-	include 'ts.h'
-	include 'hydro_print.h'
-	include 'diff_visc_fric.h'
 
         integer nlev
 
@@ -881,7 +892,7 @@ c*****************************************************************
 
 	integer iunit
 	integer it,n
-	real val(1)
+	real val(n)
 
 	integer i
 
@@ -945,12 +956,13 @@ c*****************************************************************
 
 	subroutine close_inlets1
 
+	use mod_hydro
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
+	include 'param.h'
 	include 'femtime.h'
-	include 'hydro.h'
 c local
         integer ie,ii,k
 c	integer ibc,nbc
@@ -1108,6 +1120,12 @@ c*****************************************************************
 
 	subroutine node3d(iunit,it,k)
 
+	use mod_ts
+	use mod_hydro_print
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+
 	implicit none
 
         integer iunit
@@ -1116,11 +1134,6 @@ c*****************************************************************
 
         include 'param.h'
 
-	include 'levels.h'
-	include 'ts.h'
-	include 'hydro_print.h'
-	include 'hydro.h'
-	include 'hydro_vel.h'
 
         integer nlev
 	integer l
@@ -1150,15 +1163,16 @@ c*****************************************************************
 
 	subroutine lago(it)
 
+	use mod_hydro_print
+	use mod_hydro_vel
+	use levels
+
 	implicit none
 
 	integer it
 
 	include 'param.h'
 
-	include 'hydro_vel.h'
-	include 'levels.h'
-	include 'hydro_print.h'
 
 	logical berror
 	integer i,k
@@ -1196,15 +1210,16 @@ c*****************************************************************
 
 	subroutine aldo(it)
 
+	use mod_conz
+	use levels
+	use basin
+
 	implicit none
 
 	integer it
 
 	include 'param.h'
 
-	include 'levels.h'
-	include 'conz.h'
-	include 'basin.h'
 
 	integer l,k,lmax
         real x0,y0,x1,y1,x2,y2,x3,y3
@@ -1271,16 +1286,16 @@ c*****************************************************************
 
 c computes residence time online - one value for whole lagoon
 
+	use mod_conz, only : cnv
+	use levels
+	use basin
+
         implicit none
 
         include 'param.h'
 
 	include 'femtime.h'
 
-	include 'basin.h'
-	include 'levels.h'
-	include 'conz.h'
-	include 'aux_array.h'
 
         integer ie,ii,k,lmax,l,ia
         logical bnoret,breset,bstir
@@ -1291,10 +1306,14 @@ c computes residence time online - one value for whole lagoon
 	integer ifemop
 	integer iaout,itmin,idtreset
 	integer secsmonth
+	integer iconz
 	real dt,c0
 	real restime,restime1,restimec
 	real remnant,rlast
 	real resmed,resstd
+	real v1v(nkn)
+
+	real getpar
 
 	integer iu,it0,ndata
 	save iu,it0,ndata
@@ -1375,6 +1394,16 @@ c do not change anything after this point
 c------------------------------------------------------------
 
 	if( itmin .eq. -1 ) itmin = itanf
+
+c------------------------------------------------------------
+c can we run the routine?
+c------------------------------------------------------------
+
+	iconz = nint(getpar('iconz'))
+	if( iconz <= 0 ) then
+	  write(6,*) 'iconz = ',iconz
+	  stop 'error stop jamal: iconz must be 1'
+	end if
 
 c------------------------------------------------------------
 c is it time to run the routine?
@@ -1580,16 +1609,16 @@ c*****************************************************************
 
 c reset conz for fra
 
+	use mod_conz
+	use levels
+	use basin
+
         implicit none
 
         include 'param.h'
 
 	include 'femtime.h'
 
-	include 'basin.h'
-	include 'levels.h'
-	include 'conz.h'
-	include 'aux_array.h'
 
         integer ie,ii,k,lmax,l,ia
         logical bnoret,breset,bstir
@@ -1670,28 +1699,26 @@ c*****************************************************************
 
         subroutine sedimt
 
+	use mod_conz
+	use levels
+	use basin
+
         implicit none
 
         include 'param.h'
 
 	include 'femtime.h'
 
-	include 'basin.h'
-	include 'levels.h'
-	include 'conz.h'
-	include 'aux_array.h'
 
-	real conzs(nkndim)
-	save conzs
-	real conza(nkndim)
-	save conza
-	real conzh(nkndim)
-	save conzh
+	real, save, allocatable :: conzs(:)
+	real, save, allocatable :: conza(:)
+	real, save, allocatable :: conzh(:)
 
         integer ie,ii,k,lmax,l,ia
 	integer iunit
         logical bnoret
         real vol,conz,perc,wsink,dt,sed,h,r,cnew,rhos
+	real v1v(nkn)
         double precision mass,masss
         real volnode,depnode
 	real getpar
@@ -1724,15 +1751,13 @@ c------------------------------------------------------------
 
           write(6,*) 'initialization of routine sedimt: ',wsink
 
-	  do k=1,nkn
-	    conzs(k) = 0.
-	    conza(k) = 0.
-	    conzh(k) = 0.
-            lmax = ilhkv(k)
-            do l=1,lmax
-              cnv(l,k) = 0.
-            end do
-	  end do
+	  allocate(conzs(nkn))
+	  allocate(conza(nkn))
+	  allocate(conzh(nkn))
+	  conzs = 0.
+	  conza = 0.
+	  conzh = 0.
+	  cnv = 0.
 
 	  itstart = nint(getpar('tcust'))
 
@@ -1907,25 +1932,20 @@ c*****************************************************************
 
 	subroutine init_kreis
 
-	implicit none
+	use mod_depth
+	use mod_area
+	use mod_hydro_vel
+	use mod_hydro
+	use levels, only : nlvdi,nlv
+	use basin
 
-	include 'param.h'
+	implicit none
 
 	integer k,ie,ii,l
 	real pi,dcori,z0,r0,f,omega,grav
 	real aux,r02,r2
 	real x,y,z,u,v
-
-	include 'nlevel.h'
-
-	include 'basin.h'
-	include 'hydro.h'
-	include 'hydro_vel.h'
-
-	include 'depth.h'
-	include 'area.h'
-
-	include 'aux_array.h'
+	!real v1v(nkn)
 
 	pi = 4.*atan(1.)
 	dcori = 45.
@@ -1954,7 +1974,6 @@ c*****************************************************************
 	  end do
 	end do
 
-	!call setdepth(nlvdim,hdknv,hdenv,zenv,areakv)
 	call make_new_depth
 
 	do ie=1,nel
@@ -1969,8 +1988,8 @@ c*****************************************************************
 
 	call vtot
 	call uvint
-	call uvtop0(v1v)
-	call uvtopr(v1v)
+	call uvtop0
+	call uvtopr
 
 	end
 
@@ -1979,11 +1998,16 @@ c*****************************************************************
 c*****************************************************************
         subroutine bclevvar
 
+	use mod_depth
+	use mod_layer_thickness
+	use mod_hydro_vel
+	use mod_hydro
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none 
 
         include 'param.h' 
 
-	include 'nbasin.h'
 
 	include 'femtime.h'
 
@@ -2004,9 +2028,6 @@ c     !+         /!grid bati_gradino.grd
         integer ie,l,i
         logical berror          !true on return if error
         
-	include 'hydro_vel.h'
-	include 'hydro.h'
-	include 'depth.h'
 
         real u,v
         real ut,vt
@@ -2063,11 +2084,17 @@ c     !+         /!grid bati_gradino.grd
 c*****************************************************************
         subroutine bclevvar_ini !deb
 
+	use mod_internal
+	use mod_depth
+	use mod_layer_thickness
+	use mod_hydro_vel
+	use mod_hydro
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none 
 
         include 'param.h' 
 
-	include 'nbasin.h'
 
         integer edim
         parameter(edim = 20) !number of element near the open boundary
@@ -2087,13 +2114,9 @@ c    ! +     /!grid bati_gradino.grd
         integer ie,l,i,ii
         logical berror          !true on return if error
        
-	include 'hydro_vel.h'
-	include 'hydro.h'
-
-	include 'depth.h'
 
 
-	include 'internal.h'
+
 
         real u,v
         real ut,vt
@@ -2182,15 +2205,16 @@ c*****************************************************************
 
         subroutine tsinitdebora(it)
 
+	use mod_ts
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
         include 'param.h'
 
-	include 'nlevel.h'
 	integer ie,k,i,l,it
         integer itype
-	include 'basin.h'
-	include 'ts.h'
 
 	integer icall
 	save icall
@@ -2222,11 +2246,12 @@ c*****************************************************************
 
 	subroutine zinit
 
+	use mod_hydro
+	use basin
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'hydro.h'
+	include 'param.h'
 
 	integer k,ie,ii
 	real xmin,xmax,ymin,ymax
@@ -2280,6 +2305,10 @@ c****************************************************************
 
 	subroutine cprint(it)
 
+	use mod_conz
+	use mod_ts
+	use levels
+
 	implicit none
 
 	include 'param.h'
@@ -2289,9 +2318,6 @@ c****************************************************************
 	integer i,k,lmax,l
 	logical berror
 
-	include 'conz.h'
-	include 'ts.h'
-	include 'levels.h'
 
 	integer icall
 	save icall
@@ -2344,12 +2370,14 @@ c C(x,t) =  1/sqrt(4*pi*a*t) * exp( -x**2/(4*a*t) )		(n=1)
 c
 c C(x,t) =  1/(4*pi*a*t) * exp( -|x|**2/(4*a*t) )		(n=2)
 
+	use mod_conz
+	use levels, only : nlvdi,nlv
+
 	implicit none
 
 	include 'param.h'
 
 	include 'femtime.h'
-	include 'conz.h'
 
 	integer ndim
 	parameter (ndim=101)
@@ -2392,10 +2420,10 @@ c----------------------------------------------------------
 	  do k=kin,kin
 	    cnv(1,k) = c0
 	  end do
-	  call tsmass(cnv,+1,nlvdim,ctot)
+	  call tsmass(cnv,+1,nlvdi,ctot)
 	  write(6,*) 'diffus2d initialized (1): ',c0,ctot
 	  call cv_init(it0,k0,rk,c0,ct0,cnv)
-	  call tsmass(cnv,+1,nlvdim,ctot)
+	  call tsmass(cnv,+1,nlvdi,ctot)
 	  write(6,*) 'diffus2d initialized: ',it0,it,itanf,idt
 	  write(6,*) 'diffus2d initialized: ',c0,ctot,ct0
 	  ct0 = ctot/depth
@@ -2411,7 +2439,7 @@ c----------------------------------------------------------
 	if( mod(itt,idtfrq) .ne. 0 ) return
 
 	rk = getpar('chpar')
-	call tsmass(cnv,+1,nlvdim,ctot)
+	call tsmass(cnv,+1,nlvdi,ctot)
 	kin = ipint(k0)
 	c = cnv(1,kin)
 	write(6,*) 'diffus2d: ',c0,c,ctot,ct0
@@ -2534,15 +2562,16 @@ c****************************************************************
 
 c initializes cnv with analytic solution (2D)
 
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
 	include 'param.h'
 
 	integer it,k0
 	real rk,c0,ct0
-        real cv(nlvdim,nkndim)
-
-	include 'basin.h'
+        real cv(nlvdi,nkn)
 
 	integer i,k,kin
 	real x,y,dx,dy,r
@@ -2578,19 +2607,20 @@ c****************************************************************
 
 c extracts conz from array
 
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
 	include 'param.h'
 
-        real cv(nlvdim,nkndim)
+        real cv(nlvdi,nkn)
 	integer ndim
 	integer n
 	real xv(ndim)
 	real yv(ndim)
 	integer k0
 	real dx,phi
-
-	include 'basin.h'
 
 	integer i,kin0,ie,ip
 	real x0,y0
@@ -2695,16 +2725,17 @@ c****************************************************************
 
 	subroutine intp_on_node(ie,x,y,cv,zp)
 
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
 	include 'param.h'
 
 	integer ie
 	real x,y
-	real cv(nlvdim,nkndim)
+	real cv(nlvdi,nkn)
 	real zp
-
-	include 'basin.h'
 
 	integer ii,k
 	real z(3)
@@ -2728,17 +2759,18 @@ c****************************************************************
 
 c extracts conz from array
 
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
 	include 'param.h'
 
-        real cv(nlvdim,nkndim)
+        real cv(nlvdi,nkn)
 	integer ndim
 	real xv(ndim)
 	real yv(ndim)
 	integer k0,kmin,kmax,kstep
-
-	include 'basin.h'
 
 	integer i,k,kin
 	real x,y,dx,dy,dxy
@@ -2779,12 +2811,13 @@ c****************************************************************
 
 c test for horizontal diffusion algorithm
 
+	use mod_conz
+
 	implicit none
 
 	include 'param.h'
 
 	include 'femtime.h'
-	include 'conz.h'
 
 	integer k,k0,k1,i
 	real c0,cmed
@@ -2837,14 +2870,15 @@ c****************************************************************
 
 c viscosity algorithm
 
+	use mod_hydro_print
+	use levels, only : nlvdi,nlv
+
 	implicit none
 
 	include 'param.h'
 
 	include 'femtime.h'
-	include 'nlevel.h'
 
-	include 'hydro_print.h'
 
 	integer k,i,l
 
@@ -2880,22 +2914,22 @@ c for 1 dimension
 c
 c the solution is normalized, i.e.  int(C(x,t)dx) = 1 over the whole area
 
+	use mod_conz
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	integer mode
 
 	include 'param.h'
 
-	include 'nbasin.h'
 	include 'femtime.h'
-	include 'nlevel.h'
-	include 'conz.h'
-	include 'levels.h'
 
 	integer k,i,l,lc,lmax
 	integer it0
 	real c0,cmed,pi,a,t,aux,x2,cc,dc
-	real caux(nlvdim)
+	real caux(nlvdi)
 	save it0
 
 	real getpar
@@ -2952,20 +2986,22 @@ c****************************************************************
 
         subroutine uv_bottom
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         include 'param.h'
 
-	include 'nbasin.h'
-	include 'levels.h'
 
         integer k,l,m
         real u,v
         double precision uz,cdir
 
-        real rdebug(nkndim)
+        real rdebug(nkn)
+
         integer iudeb
-        save rdebug,iudeb
+        save iudeb
         data iudeb /0/
 
         do k = 1,nkn
@@ -2990,16 +3026,15 @@ c********************************************************************
 
 c writes node list for Malta Coastal Model
 
+	use mod_depth
+	use levels
+	use basin
+
 	implicit none
 
         include 'param.h'
 
-	include 'nlevel.h'
 
-	include 'levels.h'
-	include 'basin.h'
-	include 'depth.h'
-	include 'aux_array.h'
 
         integer k,l,ie,ii,i
 	integer nbc
@@ -3008,6 +3043,7 @@ c writes node list for Malta Coastal Model
 	real x0,y0,phi0
 	real pi,rad
 	real xfact,yfact
+	real v1v(nkn)
 
 	integer ibc,nnodes,kext
 	integer nkbnds,kbnds,ipext,nbnds
@@ -3139,11 +3175,13 @@ c********************************************************************
 
 c introduce le condizioni iniziali per la concentrazione
 
+	use mod_conz
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
         include 'param.h'
 
-	include 'conz.h'
 
 	integer ks
 
@@ -3152,7 +3190,7 @@ c introduce le condizioni iniziali per la concentrazione
         data icall / 0 /
 
 	ks = 4312
-        if( icall .eq. 0 .and. nkndim .ge. ks )then
+        if( icall .eq. 0 .and. nkn .ge. ks .and. ks > 0 ) then
           cnv(1,ks-1)=100.
           cnv(1,ks)=100.
        	  icall=1
@@ -3165,6 +3203,9 @@ c********************************************************************
         subroutine tvd_test(it)
 
 c introduce le condizioni iniziali per la concentrazione
+
+	use mod_conz
+	use basin
 
         implicit none
 
@@ -3181,8 +3222,6 @@ c introduce le condizioni iniziali per la concentrazione
 	real yco(ndim)
 	save nelems,iel,conz,yco
 
-	include 'basin.h'
-	include 'conz.h'
 
 	integer i,ii,ie,k,ien
 	integer igrad
@@ -3296,12 +3335,13 @@ c**********************************************************************
 
 	subroutine black_sea_nudge
 
+	use mod_ts
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
 	include 'param.h'
-
-	include 'basin.h'
-	include 'ts.h'
 
 	integer k,l
 	real xc1,yc1,xc2,yc2
@@ -3354,7 +3394,7 @@ c**********************************************************************
 
 	  if( tau .gt. 0. ) tau = 1. / tau
 
-	  do l=1,nlvdim
+	  do l=1,nlvdi
 	    rtauv(l,k) = tau
 	  end do
 	end do
@@ -3367,19 +3407,20 @@ c**********************************************************************
 
         subroutine ggu_ginevra
 
+	use mod_ts
+	use mod_diff_visc_fric
+	use mod_hydro_print
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-	include 'nbasin.h'
 	include 'femtime.h'
 
-	include 'hydro_print.h'
-	include 'ts.h'
-	include 'diff_visc_fric.h'
-	include 'hydro.h'
 
-	include 'levels.h'
 
 	integer ks,lmax,l
 
@@ -3456,15 +3497,16 @@ c**********************************************************************
 
         subroutine write_meteo
 
+	use mod_ts
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-	include 'nbasin.h'
 	include 'femtime.h'
 
-	include 'levels.h'
-	include 'ts.h'
 
 	integer l,k,lmax,ks
 	real qs,ta,rh,wb,uw,cc,p
@@ -3492,15 +3534,16 @@ c**********************************************************************
 
         subroutine limit_temp
 
+	use mod_ts
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-	include 'nbasin.h'
 	include 'femtime.h'
 
-	include 'levels.h'
-	include 'ts.h'
 
 	integer l,k,lmax
 	real tmin
@@ -3522,17 +3565,19 @@ c**********************************************************************
 
 c time of inundation for theseus
 
+	use mod_geom_dynamic
+	use mod_depth
+	use mod_layer_thickness
+	use mod_ts
+	use evgeom
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'ev.h'
 
 	include 'femtime.h'
 
-	include 'geom_dynamic.h'
-	include 'basin.h'
-	include 'depth.h'
-	include 'ts.h'
 
 	logical binit,blast
 	integer ie,n,k,ii
@@ -3542,13 +3587,12 @@ c time of inundation for theseus
 	real sedim_reed,sedim_salt
 	real sfact
 
-	integer idry(neldim)
-	save idry
+	integer, save, allocatable :: idry(:)
+	double precision, save, allocatable :: salt_aver_k(:)
+	real, save, allocatable :: salt_aver_e(:)
+
 	real sedim_save
 	save sedim_save
-	double precision salt_aver_k(nkndim)
-	real salt_aver_e(neldim)
-	save salt_aver_k,salt_aver_e
 	integer isum
 	save isum
 
@@ -3569,9 +3613,16 @@ c first call
 c-----------------------------------------
 
 	if( icall .eq. 0 ) then
+	  allocate(idry(nel))
+	  allocate(salt_aver_k(nkn))
+	  allocate(salt_aver_e(nel))
+
+	  idry = 0.
+	  salt_aver_k = 0.
+	  salt_aver_e = smed
+
 	  area = 0.
 	  do ie=1,nel
-	    idry(ie) = 0
 	    area = area + ev(10,ie)
 	  end do
 	  area = area * 12.
@@ -3582,12 +3633,6 @@ c-----------------------------------------
 	    sedim_save = -sedim_save
 	    binit = .true.		! initialize hev from file
 	  end if
-	  do k=1,nkn
-	    salt_aver_k(k) = 0.
-	  end do
-	  do ie=1,nel
-	    salt_aver_e(ie) = smed
-	  end do
 	  isum = 0
 	end if
 
@@ -3707,15 +3752,16 @@ c**********************************************************************
 
         subroutine init_ts
 
+	use mod_ts
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-	include 'nbasin.h'
 	include 'femtime.h'
 
-	include 'levels.h'
-	include 'ts.h'
 
 c	integer ndim
 c	parameter (ndim=10)	!must be at least the number of layers used
@@ -3770,14 +3816,14 @@ c**********************************************************************
 
 	subroutine fluid_mud
 
+	use mod_meteo
+	use mod_fluidmud
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
 	include 'param.h'
-
-
-	include 'basin.h'
-	include 'meteo_aux.h'
-	include 'fluidmud.h'
 
 	integer k,l,lmax
 
@@ -3788,7 +3834,7 @@ c**********************************************************************
 	if( icall .eq. 10 ) then
 	  write(6,*) '********** fluid mud concentration initialized'
 	  do k=1,nkn
-	    lmax = nlvdim
+	    lmax = nlvdi
 	    do l=1,lmax
 	      mudc(l,k) = l*10.
 	      if( 2*(l/2) .eq. l ) mudc(l,k) = 0.
@@ -3834,14 +3880,15 @@ c**********************************************************************
 
 	subroutine conz_decay_curonian
 
+	use mod_conz
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
 
 
-	include 'basin.h'
-	include 'conz.h'
-	include 'levels.h'
 
 	integer k,l,lmax
 	real tau1,tau2,aux1,aux2,aux
@@ -3902,4 +3949,51 @@ c**********************************************************************
 	end
 
 c**********************************************************************
+
+        subroutine set_yaron
+
+c momentum input for yaron
+
+        use mod_internal
+        use mod_layer_thickness
+        use evgeom
+        use levels
+        use basin
+
+        implicit none
+
+        integer kin,lin,ie,ii,k,lmax,nelem
+        real rnx,rny,rfact,q,area,h,fact
+
+        kin = 3935
+        kin = 2088
+        kin = 0
+        lin = 8
+        nelem = 6
+        nelem = 4
+        rnx = -1
+        rny = 0.
+        rfact = 1.1
+        q = 10.
+
+        if( kin .le. 0 ) return
+
+        do ie=1,nel
+          lmax = ilhv(ie)
+          area = 12. * ev(10,ie)
+          do ii=1,3
+            k = nen3v(ii,ie)
+            if( k .eq. kin .and. lmax .le. lin ) then
+              h = hdeov(lin,ie)
+              fact = rfact * q*q / (h*area*sqrt(area)*nelem)
+              write(17,*) 'yaron: ',ie,k,fact,fxv(lin,ie)
+              fxv(lin,ie) = fxv(lin,ie) - fact * rnx
+              fyv(lin,ie) = fyv(lin,ie) - fact * rny
+            end if
+          end do
+        end do
+
+        end
+
+c*******************************************************************
 

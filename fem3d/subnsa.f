@@ -220,6 +220,14 @@ c the special name ivar# can be used to directtly give the variable number #
           iv = 3
         else if( string(is:ie4) .eq. 'bath' ) then
           iv = 5
+        else if( string(is:ie5) .eq. 'depth' ) then
+          iv = 5
+        else if( string(is:ie3) .eq. 'cur' ) then
+          iv = 6
+        else if( string(is:ie5) .eq. 'speed' ) then
+          iv = 6
+        else if( string(is:ie3) .eq. 'dir' ) then
+          iv = 7
         else if( string(is:ie4) .eq. 'conc' ) then
           iv = 10
         else if( string(is:ie4) .eq. 'conz' ) then
@@ -252,6 +260,8 @@ c the special name ivar# can be used to directtly give the variable number #
           iv = 80
         else if( string(is:ie3) .eq. 'ice' ) then
           iv = 85
+!        else if( string(is:ie3) .eq. 'age' ) then
+!          iv = 98
         else if( string(is:ie3) .eq. 'wrt' ) then
           iv = 99
         else if( string(is:ie5) .eq. 'renew' ) then
@@ -273,6 +283,7 @@ c the special name ivar# can be used to directtly give the variable number #
         else
           write(6,*) '*** string2ivar: cannot find string description: '
           write(6,*) string
+          write(6,*) is,isb,ie3,ie4,ie5
           !if( string(1:3) .eq. 'fem' ) stop 'error.....'
         end if
 
@@ -295,6 +306,8 @@ c******************************************************
           string = 'mass field'
         else if( iv .eq. 1 ) then
           string = 'water level'
+        else if( iv .eq. 2 ) then
+          string = 'velocity'
         else if( iv .eq. 5 ) then
           string = 'bathymetry'
         else if( iv .eq. 10 ) then
@@ -311,6 +324,8 @@ c******************************************************
           string = 'rain'
         else if( iv .eq. 85 ) then
           string = 'ice cover'
+!        else if( iv .eq. 98 ) then
+!          string = 'age'
         else if( iv .eq. 99 ) then
           string = 'renewal time'
         else if( iv .eq. 335 ) then

@@ -21,11 +21,15 @@ c fino al successivo punto interno allo stesso elemento
 c se entro il time step il body esce dall''elemento 
 c si passa alla successiva subroutine con time
 
+	use mod_lagrange
+	use mod_geom
+	use mod_hydro_vel
+	use levels, only : nlvdi,nlv
+	use basin
+
         implicit none
         
 	include 'param.h' 
-	include 'lagrange.h'
-	include 'nlevel.h'
  
 	real time	!total time to travel
 	integer bdy	!number of body
@@ -40,11 +44,8 @@ c si passa alla successiva subroutine con time
  
         real deltat ! frazione di time step body si muove in ie
  
-	include 'geom.h'
 
-	include 'basin.h'
 
-	include 'hydro_vel.h'
 
 	real v_ent ! valore mediato tra velocita' int e out
 	real v_int ! modulo della velocita' di entrata
@@ -59,7 +60,7 @@ c si passa alla successiva subroutine con time
 	integer l0,l1,addl,lmax
 	real ztime,lb,subtime,layd
 	real w
-	real hl(nlvdim)
+	real hl(nlvdi)
 	real a_int,a_out
         real in_d,ou_d
 	integer in_dm,in_dx,ou_dm,ou_dx
@@ -99,6 +100,7 @@ c inizializzazione parametri
 
 	nnm=nnm+1
         fsum=0
+	lb = lybdy
 
 c==========================================================
 c INDIVIDUAZIONE CASI
@@ -509,7 +511,7 @@ c          write(lunit,*) 'track orig',bdy
 	 call getalfa(l_out,ou_d,ou_dm,ou_dx,a_out)
          call getzvel(ie,zn0,l0,l_int,l_out,a_int,a_out,w)
 	 if( blgrsurf ) w = 0.
-	 lmax = nlvdim
+	 lmax = nlvdi
          call lagr_layer_thickness(ie,lmax,hl)
          layd=hl(l0)
 
@@ -624,10 +626,15 @@ c da un punto sul lato dell''elemento ie
 c questa subroutine e'' chiamata ogni qualvolta un body
 c nello stesso timestep arriva in un nuovo elemento
 
+	use mod_lagrange
+	use mod_geom
+	use mod_hydro_vel
+	use levels
+	use basin
+
         implicit none
         
 	include 'param.h' 
-	include 'lagrange.h' 
 
 	real time	!total time to travel
 	integer bdy	!number of body
@@ -642,14 +649,9 @@ c nello stesso timestep arriva in un nuovo elemento
 
         real deltat ! frazione di time step body si muove in ie
  
-	include 'geom.h'
 
-	include 'basin.h'
 
-	include 'hydro_vel.h'
 
-	include 'levels.h'
-	include 'nlevel.h'
 
 	real v_ent ! valore mediato tra velocita' int e out
 	real v_int ! modulo della velocita' di entrata
@@ -664,7 +666,7 @@ c nello stesso timestep arriva in un nuovo elemento
         integer l0,l1,addl,lmax
         real ztime,lb,subtime,layd
         real w
-        real hl(nlvdim)
+        real hl(nlvdi)
         real a_int,a_out
 	real in_d,ou_d
         integer in_dm,in_dx,ou_dm,ou_dx
@@ -698,6 +700,7 @@ c inizializzazione parametri
 	nl = 0
 	ng = 0
 	ps = 0
+	lb = lybdy
 
 	lmax = ilhv(ie)
 
@@ -1004,7 +1007,7 @@ c calcolo distanza massima percorribile all''interno di elemento
 	call getalfa(l_out,ou_d,ou_dm,ou_dx,a_out)
         call getzvel(ie,zn0,l0,l_int,l_out,a_int,a_out,w)
 	if( blgrsurf ) w = 0.
-	lmax = nlvdim
+	lmax = nlvdi
         call lagr_layer_thickness(ie,lmax,hl)
         layd=hl(l0)
 

@@ -24,28 +24,24 @@ c*****************************************************************
 
 c sets up geometrical arrays
 
+	use mod_geom
+	use basin
+
         implicit none
 
-c common
-	include 'param.h'
-
-	include 'basin.h'
-	include 'links.h'
-	include 'geom_aux.h'
-c local
 	logical bverbose
         integer i,n
         integer nli,nbn,nin,nis,ngrd,ngrd1,ngrd2
         integer nlkdi
 
+	bverbose = .true.
 	bverbose = .false.
 
 c-------------------------------------------------------------
 c get dimension for link array
 c-------------------------------------------------------------
 
-	call getdim('nlkdim',nlkdi)
-	write(6,*) 'set_geom: nlkdim = ',nlkdi
+	nlkdi = 3*nel+2*nkn
 	if( ngr .gt. maxlnk ) goto 98
 
 c-------------------------------------------------------------
@@ -111,53 +107,20 @@ c-------------------------------------------------------------
 
 c*****************************************************************
 
-	subroutine update_geom
-
-c updates geometrical array (ieltv)
-
-        implicit none
-
-c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'nbasin.h'
-
-	include 'geom_dynamic.h'
-	include 'geom.h'
-c local
-        integer n
-
-c-------------------------------------------------------------
-c update ieltv
-c-------------------------------------------------------------
-
-        call update_ielt(nel,inodv,ieltv)
-
-c-------------------------------------------------------------
-c end of routine
-c-------------------------------------------------------------
-
-	end
-
-c*****************************************************************
-
 	subroutine check_geom
 
 c checks geometrical arrays
 
+	use mod_geom
+	use basin
+
         implicit none
-
-c common
-	include 'param.h'
-	include 'nbasin.h'
-
-	include 'links.h'
-	include 'geom_aux.h'
 
 c-------------------------------------------------------------
 c check static arrays
 c-------------------------------------------------------------
 
-        call checklenk(nkn,ilinkv,lenkv)
+        call checklenk(nkn,ilinkv,lenkv,nen3v)
         call checklink(nkn,ilinkv,linkv)
 
         call checkkant(nkn,kantv)
@@ -177,15 +140,15 @@ c*****************************************************************
 
 c checks various subroutines
 
+	use mod_geom
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
-
-	include 'param.h'
-        include 'links.h'
-
-	include 'nbasin.h'
 
 	integer k,n,ne,ipf,ipl,ibase
 	integer nl,i,ip,ie1,ie2,nn,k1,k2
+	integer nodes(maxlnk)
+	integer elems(maxlnk)
 
 c-------------------------------------------------------------
 c check element index
@@ -194,7 +157,7 @@ c-------------------------------------------------------------
 	do k=1,nkn
 	  call get_elem_linkp(k,ipf,ipl)
 	  call get_elem_links(k,n,ibase)
-	  call set_elem_links(k,ne)
+	  call get_elems_around(k,maxlnk,ne,elems)
 	  nl = ipl-ipf+1
 	  if( n .ne. ne .or. nl .ne. ne ) goto 99
 	  if( ipf .ne. ibase + 1 ) goto 96
@@ -203,7 +166,7 @@ c-------------------------------------------------------------
 	    ip = ipf + i - 1
 	    if( ibase + i .ne. ip ) goto 98
 	    ie1 = lenkv(ibase+i)
-	    ie2 = lnk_elems(i)
+	    ie2 = elems(i)
 	    if( ie1 .ne. ie2 ) goto 97
 	  end do
 	end do
@@ -215,7 +178,7 @@ c-------------------------------------------------------------
 	do k=1,nkn
 	  call get_node_linkp(k,ipf,ipl)
 	  call get_node_links(k,n,ibase)
-	  call set_node_links(k,nn)
+	  call get_nodes_around(k,maxlnk,nn,nodes)
 	  nl = ipl-ipf+1
 	  if( n .ne. nn .or. nl .ne. nn ) goto 89
 	  if( ipf .ne. ibase + 1 ) goto 86
@@ -224,7 +187,7 @@ c-------------------------------------------------------------
 	    ip = ipf + i - 1
 	    if( ibase + i .ne. ip ) goto 88
 	    k1 = linkv(ibase+i)
-	    k2 = lnk_nodes(i)
+	    k2 = nodes(i)
 	    if( k1 .ne. k2 ) goto 87
 	  end do
 	end do
@@ -268,189 +231,18 @@ c-------------------------------------------------------------
 	stop 'error stop check_subs: total number of elements'
 	end
 
-c*****************************************************************
-c
-        subroutine setnod
-c
-c sets (dynamic) array inodv
-c
-c inodv 
-c	 0: internal node  
-c	>0: open boundary node
-c       -1: boundary node  
-c	-2: out of system
-c
-c if open boundary node, inodv(k) is number of boundary (ggu 15.11.2001)
-c
-        implicit none
-c
-c parameter
-	real winmax
-	parameter(winmax=359.8)
-c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'geom_dynamic.h'
-	include 'basin.h'
-	include 'ev.h'
-c local
-        integer ie,ii,k,n
-        integer ibc,ibtyp
-	integer nbc
-c functions
-        integer ipext
-	integer itybnd,nkbnds,kbnds,nbnds
-c equivalence
-        real winkv(nkn)
-
-	ii = 0
-c
-c initialize array to hold angles
-c
-        do k=1,nkn
-          winkv(k)=0.
-        end do
-c
-c sum angles
-c
-        do ie=1,nel
-          if(iwegv(ie).eq.0) then !element is in system
-            do ii=1,3
-              k=nen3v(ii,ie)
-              winkv(k)=winkv(k)+ev(10+ii,ie)
-            end do
-          end if
-	end do
-c
-c set up inodv
-c
-        do k=1,nkn
-          if(winkv(k).gt.winmax) then     !internal node
-            inodv(k)=0
-          else if(winkv(k).eq.0.) then  !out of system
-            inodv(k)=-2
-          else                          !boundary node
-            inodv(k)=-1
-          end if
-        end do
-c
-c now mark open boundary nodes
-c
-	nbc = nbnds()
-
-	do ibc=1,nbc
-          ibtyp = itybnd(ibc)
-	  n = nkbnds(ibc)
-          if(ibtyp.ge.3) then       !$$ibtyp3	!$$ibtyp4
-            do ii=1,n
-              k=kbnds(ibc,ii)
-              if(inodv(k).eq.-1) inodv(k)=ibc
-            end do
-          else if(ibtyp.gt.0) then
-            do ii=1,n
-              k=kbnds(ibc,ii)
-              if(inodv(k).ne.-1) goto 99
-              inodv(k)=ibc
-            end do
-          end if
-        end do
-c
-        return
-   99   continue
-        write(6,*) 'error for open boundary node'
-	write(6,*) ibc,n,ii,k,ipext(k),inodv(k)
-        if( inodv(k) .eq. 0 ) then
-          write(6,*) 'the node is an inner node'
-        else if( inodv(k) .eq. -2 ) then
-          write(6,*) 'the node is not in the system (dry)'
-        else
-          write(6,*) 'the node has already been flagged as an'
-          write(6,*) 'open boundary node (listed twice?)'
-        end if
-        write(6,*) 'external node number : ',ipext(k)
-        write(6,*) 'boundary flag : ',inodv(k)
-        stop 'error stop setnod : open boundary node'
-        end
-
-c****************************************************************
-c****************************************************************
-c****************************************************************
-c****************************************************************
-
-	function is_internal_node(k)
-
-	implicit none
-
-	logical is_internal_node
-	integer k
-
-	include 'param.h'
-	include 'geom_dynamic.h'
-
-	is_internal_node = inodv(k) .eq. 0
-
-	end
-
-c****************************************************************
-
-	function is_boundary_node(k)
-
-	implicit none
-
-	logical is_boundary_node
-	integer k
-
-	include 'param.h'
-	include 'geom_dynamic.h'
-
-	is_boundary_node = inodv(k) .ne. 0 .and. inodv(k) .ne. -2
-
-	end
-
-c****************************************************************
-
-	function is_open_boundary_node(k)
-
-	implicit none
-
-	logical is_open_boundary_node
-	integer k
-
-	include 'param.h'
-	include 'geom_dynamic.h'
-
-	is_open_boundary_node = inodv(k) .gt. 0
-
-	end
-
-c****************************************************************
-
-	function is_dry_node(k)
-
-	implicit none
-
-	logical is_dry_node
-	integer k
-
-	include 'param.h'
-	include 'geom_dynamic.h'
-
-	is_dry_node = inodv(k) .eq. -2
-
-	end
-
 c****************************************************************
 c****************************************************************
 c****************************************************************
 
         subroutine print_bound_nodes(nkn,aux)
 
+	use mod_geom
+
         implicit none
 
         integer nkn
         real aux(nkn)
-
-	include 'param.h'
-	include 'geom.h'
 
         integer ib,k,kn,kstart
 

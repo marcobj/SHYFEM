@@ -11,8 +11,11 @@ fembin=$FEMDIR/fembin
 subject="new SHYFEM file $file"
 shyfemdir="0B742mznAzyDPbGF2em5NMjZYdHc"
 link="https://drive.google.com/folderview?id=$shyfemdir&usp=sharing"
+gitlink="https://github.com/SHYFEM-model/shyfem"
 tmpfile=tmp.tmp
 #fembin=./fembin
+
+emails="gmail shyfem shyfem_aux shyfem_user"
 
 #------------------------------------------------------------------
 
@@ -29,15 +32,12 @@ mail="YES"
 if [ "$1" = "-no_mail" ]; then
   mail="NO"
   shift
-elif [ "$1" = "-all_mail" ]; then
-  mail="ALL"
-  shift
 fi
 
 file=$1
 
 if [ $# -eq 0 ]; then
-  echo "Usage: mail_shyfem.sh [-no_mail|-all_mail] tar-file"
+  echo "Usage: mail_shyfem.sh [-no_mail] tar-file"
   exit 1
 elif [ ! -f "$file" ]; then
   echo "*** no such file: $file ...aborting"
@@ -52,6 +52,8 @@ echo ""								>> $tmpfile
 echo "a new shyfem file $file is available for download."	>> $tmpfile
 echo "Please use the following link to download the file:"	>> $tmpfile
 echo "$link"							>> $tmpfile
+echo "Alternatively you can get the code directly from:"	>> $tmpfile
+echo "$gitlink"							>> $tmpfile
 echo ""								>> $tmpfile
 echo "Release notes:"						>> $tmpfile
 $fembin/extract_release.pl $FEMDIR/RELEASE_NOTES		>> $tmpfile
@@ -84,15 +86,16 @@ status=$?
 
 [ "$mail" = "NO" ] && exit 0
 
-#echo "sending mail to gmail..."
-#gmutt -auto -s "$subject" -i $tmpfile gmail
-echo "sending mail to shyfem..."
-gmutt -auto -s "$subject" -i $tmpfile shyfem
-
-[ "$mail" = "YES" ] && exit 0
-
-echo "sending mail to shyfem_aux..."
-gmutt -auto -s "$subject" -i $tmpfile shyfem_aux
+for email in $emails
+do
+  echo ""
+  echo "using email $email"
+  mutt -A $email
+  answer=`YesNo "Do you want to email to these addresses?"`
+  [ "$answer" = "y" ] || continue
+  echo "sending mail to $email..."
+  gmutt -auto -s "$subject" -i $tmpfile $email
+done
 
 #------------------------------------------------------------------
 

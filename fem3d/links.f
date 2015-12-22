@@ -9,15 +9,16 @@ c revision log :
 c
 c 10.08.2003    ggu	new routines for ieltv, kantv
 c 18.10.2005    ggu	more debug output, new routines get_link, get_lenk
-c 06.04.2009    ggu	changed nlidim to nlkdim
+c 06.04.2009    ggu	changed nlidim to nlkddi
 c 30.03.2011    ggu	bverbose introduced
 c 30.05.2015    ggu	new subroutine mklenkii to compute lenkiiv
+c 02.12.2015    ggu	routines get_link() and get_lenk() deleted
 c
 c****************************************************************
 c****************************************************************
 c****************************************************************
 
-        subroutine mklenk(nlkdim,nkn,nel,nen3v,ilinkv,lenkv)
+        subroutine mklenk(nlkddi,nkn,nel,nen3v,ilinkv,lenkv)
 
 c sets up vector with element links and a pointer to it
 c
@@ -32,12 +33,12 @@ c links of node n           : ( lenkv ( ilinkv(n)+i ), i=1,nl )
         implicit none
 
 c arguments
-        integer nlkdim
+        integer nlkddi
         integer nkn
         integer nel
-        integer nen3v(3,1)
-        integer ilinkv(1)
-        integer lenkv(1)
+        integer nen3v(3,nel)
+        integer ilinkv(nkn+1)
+        integer lenkv(*)
 c local
         logical binside
         integer nloop
@@ -78,7 +79,7 @@ c-------------------------------------------------------------------
         end do
         ilinkv(nkn+1)=n
 
-        if( n .gt. nlkdim ) goto 98
+        if( n .gt. nlkddi ) goto 98
 
 c-------------------------------------------------------------------
 c now enter the element numbers of the links
@@ -202,7 +203,7 @@ c-------------------------------------------------------------------
 c check structure
 c-------------------------------------------------------------------
 
-	call checklenk(nkn,ilinkv,lenkv)
+	call checklenk(nkn,ilinkv,lenkv,nen3v)
 
 c-------------------------------------------------------------------
 c end of routine
@@ -213,9 +214,9 @@ c-------------------------------------------------------------------
         write(6,*) 'node: ',k,'  nkn: ',nkn
         stop 'error stop mklenk : internal error (2)'
    98   continue
-        write(6,*) n,nlkdim
+        write(6,*) n,nlkddi
         write(6,*) nkn,nel,2*nkn+nel
-        stop 'errro stop mklenk: nlkdim'
+        stop 'errro stop mklenk: nlkddi'
    99   continue
         !write(6,*) k,ilinkv(k),ip,ip1
         write(6,*) 'node: ',k
@@ -228,7 +229,7 @@ c-------------------------------------------------------------------
 
 c****************************************************************
 
-        subroutine checklenk(nkn,ilinkv,lenkv)
+        subroutine checklenk(nkn,ilinkv,lenkv,nen3v)
 
 c checks structure of lenkv
 
@@ -236,13 +237,15 @@ c checks structure of lenkv
 
 c arguments
         integer nkn
-        integer ilinkv(1)
-        integer lenkv(1)
+        integer ilinkv(nkn+1)
+        integer lenkv(*)
+	integer nen3v(3,*)
 c local
 	integer nbnd,nnull
 	integer k,k0,k1,ie,ie0,ie1
 	integer ip,ip0,ip1
 	integer i
+	integer ipp,ii
 	integer kbhnd,knext,kthis
 	logical bverbose
 
@@ -283,6 +286,10 @@ c-------------------------------------------------------------------
               write(6,*) ie0,(kthis(i,ie0),i=1,3)
               write(6,*) ie1,(kthis(i,ie1),i=1,3)
               write(6,*) (lenkv(i),i=ip0,ip1)
+	      do ipp=ip0,ip1
+		ie = lenkv(ipp)
+		write(6,*) ie,(nen3v(ii,ie),ii=1,3)
+	      end do
               stop 'error stop checklenk: structure of lenkv (3)'
             end if
           end do
@@ -311,7 +318,7 @@ c****************************************************************
 c****************************************************************
 c****************************************************************
 
-        subroutine mklenkii(nlkdim,nkn,nel,nen3v,ilinkv,lenkv,lenkiiv)
+        subroutine mklenkii(nlkddi,nkn,nel,nen3v,ilinkv,lenkv,lenkiiv)
 
 c sets up vector lenkiiv
 c
@@ -326,13 +333,13 @@ c links of node n           : ( lenkv ( ilinkv(n)+i ), i=1,nl )
         implicit none
 
 c arguments
-        integer nlkdim
+        integer nlkddi
         integer nkn
         integer nel
-        integer nen3v(3,1)
-        integer ilinkv(1)
-        integer lenkv(1)
-        integer lenkiiv(1)
+        integer nen3v(3,nel)
+        integer ilinkv(nkn+1)
+        integer lenkv(*)
+        integer lenkiiv(*)
 c local
         integer ie,i,n,k,ii,ibase
 
@@ -340,7 +347,7 @@ c-------------------------------------------------------------------
 c compute the vertec number for elements connected to node k
 c-------------------------------------------------------------------
 
-	do i=1,nlkdim
+	do i=1,nlkddi
 	  lenkiiv(i) = 0
 	end do
 
@@ -388,9 +395,9 @@ c linkv     link to node numbers
 
 c arguments
         integer nkn
-        integer ilinkv(1)
-        integer lenkv(1)
-        integer linkv(1)
+        integer ilinkv(nkn+1)
+        integer lenkv(*)
+        integer linkv(*)
 c local
         integer ie,k
         integer ip,ip0,ip1
@@ -445,8 +452,8 @@ c checks structure of lenkv
 
 c arguments
         integer nkn
-        integer ilinkv(1)
-        integer linkv(1)
+        integer ilinkv(nkn+1)
+        integer linkv(*)
 c local
 	integer k,k1,i
 	integer ip,ip0,ip1
@@ -515,10 +522,10 @@ c makes vector kantv
 
 c arguments
         integer nkn
-        integer ilinkv(1)
-        integer lenkv(1)
-        integer linkv(1)
-        integer kantv(2,1)
+        integer ilinkv(nkn+1)
+        integer lenkv(*)
+        integer linkv(*)
+        integer kantv(2,nkn)
 c local
 	integer k
 	integer ip,ip0,ip1
@@ -559,7 +566,7 @@ c checks structure of kantv
 
 c arguments
         integer nkn
-        integer kantv(2,1)
+        integer kantv(2,nkn)
 c local
 	integer k,k1,k2
 	integer nbnd,nint
@@ -616,10 +623,10 @@ c makes vector ieltv (without open boundary nodes)
 
 c arguments
         integer nkn,nel
-        integer ilinkv(1)
-        integer lenkv(1)
-        integer linkv(1)
-        integer ieltv(3,1)
+        integer ilinkv(nkn+1)
+        integer lenkv(*)
+        integer linkv(*)
+        integer ieltv(3,nel)
 c local
 	integer k,ie,ii
 	integer ip,ip0,ip1
@@ -681,7 +688,7 @@ c checks structure of ieltv
 
 c arguments
         integer nel
-        integer ieltv(3,1)
+        integer ieltv(3,nel)
 c local
 	integer k,ie,ii
 	integer kn,inn,ien,ienn
@@ -762,8 +769,8 @@ c updates vector ieltv with open boundary nodes
 
 c arguments
         integer nel
-        integer ibound(1)	! >0 => open boundary node
-        integer ieltv(3,1)
+        integer ibound(*)	! >0 => open boundary node
+        integer ieltv(3,nel)
 c local
 	integer k,ie,ii,i
 	integer ip,ip0,ip1
@@ -807,7 +814,7 @@ c initializes dxv,dyv
 
 c arguments
         integer nkn
-	real dxv(1),dyv(1)
+	real dxv(nkn),dyv(nkn)
 c local
 	integer k,ie,ii,i
 	integer ip,ip0,ip1
@@ -825,62 +832,6 @@ c------------------------------------------------------------------
 c-------------------------------------------------------------------
 c end of routine
 c-------------------------------------------------------------------
-
-	end
-
-c****************************************************************
-c****************************************************************
-c****************************************************************
-
-	subroutine get_link(k,ilinkv,linkv,n,ibase)
-
-c returns number of neibor-nodes and base pointer into linkv
-c
-c to loop over the neibor nodes, use similar:
-c
-c	call get_link(k,ilinkv,linkv,n,ibase)
-c	do i=1,n
-c	  kn = linkv(ibase+i)		!kn is number of neibor node
-c	end do
-
-	implicit none
-
-	integer k
-        integer ilinkv(1)
-        integer linkv(1)
-	integer n		!return
-	integer ibase		!return
-
-	n = ilinkv(k+1)-ilinkv(k)
-	ibase = ilinkv(k)
-
-	end
-
-c****************************************************************
-
-	subroutine get_lenk(k,ilinkv,lenkv,n,ibase)
-
-c returns number of neibor-elements and base pointer into lenkv
-c
-c to loop over the neibor elements, use similar:
-c
-c	call get_lenk(k,ilinkv,lenkv,n,ibase)
-c	do i=1,n
-c	  ien = lenkv(ibase+i)		!ien is number of neibor element
-c	end do
-
-	implicit none
-
-	integer k
-        integer ilinkv(1)
-        integer lenkv(1)
-	integer n		!return
-	integer ibase		!return
-
-	n = ilinkv(k+1)-ilinkv(k)
-	ibase = ilinkv(k)
-
-	if( lenkv(ibase+n) .le. 0 ) n = n - 1
 
 	end
 

@@ -25,8 +25,8 @@ ps:
 	dvips -o $(DOC).ps $(DOC)
 
 final:
-	cp shyfem.ps final
 	cp shyfem.pdf final
+	#cp shyfem.ps final
 
 #--------------------------------
 
@@ -40,6 +40,10 @@ dvi:	tex latex bibtex
 	latex $(DOC)
 
 post:	ps pdf
+
+list:
+	pwd; ls
+depend:
 
 #--------------------------------
 

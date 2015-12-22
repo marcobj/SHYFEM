@@ -30,6 +30,9 @@ c 25.03.2011    ggu     new parameters iheat,hdecay,botabs
 c 29.04.2014    ccf     read qsens, qlat, long from file
 c 16.06.2014	ccf	new routine heatcoare, which also update wind stress
 c 20.06.2014	ccf	new routine for computing sea surface skin temperature
+c 18.09.2015	ccf	do not compute heat fluxes in dry nodes
+c 18.09.2015	ccf	checks only for levdbg > 2
+c 26.10.2015    ggu     critical omp sections introduced (eliminated data race)
 c
 c notes :
 c
@@ -110,23 +113,24 @@ c*****************************************************************************
 
 c computes new temperature (forced by heat flux) - 3d version
 
+	use mod_meteo
+	use mod_ts
+	use levels
+
 	implicit none
 
-        include 'param.h'
         include 'subqfxm.h'
-        include 'meteo.h'
 
 	integer it
 	real dt
 	integer nkn
 	integer nlvddi
-	real temp(nlvddi,1)
+	real temp(nlvddi,nkn)
 	double precision dq	!total energy introduced [(W/m**2)*dt*area = J]
 
-	include 'levels.h'
-	include 'ts.h'
 
 c local
+        integer levdbg
 	logical bdebug
 	integer k
 	integer l,lmax,kspec
@@ -144,9 +148,10 @@ c local
 	real area
 
 	double precision ddq
-	real dtw(nkndim)	!Warm layer temp. diff
-	real tws(nkndim)	!Skin temperature (deg C)
-	save dtw,tws
+
+	real, save, allocatable :: dtw(:)	!Warm layer temp. diff
+	real, save, allocatable :: tws(:)	!Skin temperature (deg C)
+
 	real hb			!depth of modelled T in first layer [m]
 	real usw		!surface friction velocity [m/s]
 	real rad		!Net shortwave flux 
@@ -158,10 +163,12 @@ c functions
 	integer ifemopa
 	logical bwind
 	save bwind
+	logical is_dry_node
 c save
 	integer n93,icall
 	save n93,icall
 	data n93,icall / 0 , 0 /
+	save bdebug
 
 	call qflux_compute(yes)
 	if( yes .le. 0 ) return
@@ -175,21 +182,20 @@ c botabs	1. ->	bottom absorbs remaining radiation
 c		0. ->	everything is absorbed in last layer
 c---------------------------------------------------------
 
-	!iheat = 1
-	!hdecay = 0.
-	!botabs = 0.
 	iheat = nint(getpar('iheat'))
 	hdecay = getpar('hdecay')
 	botabs = getpar('botabs')
 
 	if( icall .eq. 0 ) then
+!$OMP CRITICAL
 	  write(6,*) 'qflux3d: iheat,hdecay,botabs: '
      +				,iheat,hdecay,botabs  
+!$OMP END CRITICAL
 
-	  do k = 1,nkn
-	    dtw(k) = 0.
-	    tws(k) = temp(1,k)
-	  end do
+	  allocate(dtw(nkn))
+	  allocate(tws(nkn))
+	  dtw = 0.
+	  tws(:) = temp(1,:)
 
           itdrag = nint(getpar('itdrag'))
 	  bwind = itdrag .eq. 4
@@ -198,6 +204,10 @@ c---------------------------------------------------------
             write(6,*) 'Use itdrag = 4 only with iheat = 6'
             stop 'error stop qflux3d: itdrag'
 	  end if
+
+          levdbg = nint(getpar('levdbg'))
+	  bdebug = levdbg .ge. 2 
+
 	end if
 	icall = 1
 
@@ -214,10 +224,16 @@ c---------------------------------------------------------
 c loop over nodes
 c---------------------------------------------------------
 
-	bdebug = .false.
         ddq = 0.
 
 	do k=1,nkn
+
+	  if (is_dry_node(k)) then	!do not compute is node is dry
+	    dtw(k)   = 0.
+	    tws(k)   = temp(1,k)
+	    evapv(k) = 0.
+	    cycle
+	  end if
 
 	  tm = temp(1,k)
 	  salt = saltv(1,k)
@@ -255,15 +271,7 @@ c---------------------------------------------------------
 	    stop 'error stop qflux3d: value for iheat not allowed'
 	  end if
 
-	  bdebug = k .eq. 0 .and. it .ge. 378989200
-	  if( bdebug ) then
-	    write(6,*) iheat,k
-	    write(6,*) ta,p,uw
-	    write(6,*) tb,ur,cc,tm
-	    write(6,*) qsens,qlat,qlong,evap
-	  end if
-
-	  call check_heat(k,tm,qsens,qlat,qlong,evap)
+	  if (bdebug) call check_heat(k,tm,qsens,qlat,qlong,evap)
 
           qrad = - ( qlong + qlat + qsens )
 	  rtot = qs + qrad
@@ -278,7 +286,8 @@ c---------------------------------------------------------
 		if( l .eq. lmax ) qsbottom = botabs * qsbottom
 	    end if
             call heat2t(dt,hm,qs-qsbottom,qrad,albedo,tm,tnew)
-	    !call check_heat2(k,l,qs,qsbottom,qrad,albedo,tm,tnew)
+            if (bdebug) call check_heat2(k,l,qs,qsbottom,qrad,
+     +					 albedo,tm,tnew)
 	    tnew = max(tnew,tfreeze)
 	    temp(l,k) = tnew
 	    albedo = 0.
@@ -304,13 +313,9 @@ c	  ---------------------------------------------------------
 	  evap = evap / rhow			!evaporation in m/s
 	  evapv(k) = evap			!positive if loosing mass
 
-	  !if( k .eq. 100 ) write(6,*) 'qflux3d: ',qrad,qs,dt,hm,tm,tnew
-
           ddq = ddq + rtot * dt * area
 
 	end do
-
-	!call check2Dr(nlvdi,nlvdi,nkn,temp,-10.,+50.,'qflux','tempv')
 
 	dq = ddq
 

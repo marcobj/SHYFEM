@@ -38,13 +38,12 @@ c******************************************
 
 c gets coordinates x/y for node k
 
+	use basin
+
 	implicit none
 
 	integer k
 	real x,y
-
-	include 'param.h'
-	include 'basin.h'
 
 	x = xgv(k)
 	y = ygv(k)
@@ -57,15 +56,14 @@ c******************************************
 
 c gets coordinates x/y for element ie
 
+	use basin
+
 	implicit none
 
 	integer ie
 	real x(3), y(3)
 
 	integer k,ii
-
-	include 'param.h'
-	include 'basin.h'
 
 	do ii=1,3
 	  k = nen3v(ii,ie)
@@ -83,14 +81,13 @@ c area for element ie
 c
 c double precision version - bug fix 07.07.2011
 
+	use basin
+
 	implicit none
 
 c arguments
 	real areael
 	integer ie
-c common
-	include 'param.h'
-	include 'basin.h'
 c local
 	integer kn1,kn2,kn3
 	real*8 x1,x2,x3,y1,y2,y3
@@ -125,19 +122,19 @@ c******************************************
 
 c area for finite volume k
 
+	use mod_geom
+	use evgeom
+	use basin
+
 	implicit none
 
 c arguments
 	real areavl
 	integer k
-c common
-	include 'param.h'
-	include 'links.h'
-	include 'basin.h'
-	include 'ev.h'
 c local
 	logical blink
 	integer ie,ii,i,nl
+	integer elems(maxlnk)
 	real area
 
 	blink = .true.
@@ -145,10 +142,10 @@ c local
 
 	if( blink ) then
 
-	  call set_elem_links(k,nl)
+	  call get_elems_around(k,maxlnk,nl,elems)
 
           do i=1,nl
-            ie=lnk_elems(i)
+            ie=elems(i)
             area=area+ev(10,ie)
           end do
 
@@ -180,20 +177,20 @@ c
 c discharge into node n:     Q = 12 * aj * ( b(n)*U + c(n)*V )
 c volume difference:         dV = dt * Q
 
+	use mod_geom
+	use mod_hydro_baro
+	use evgeom
+	use basin
+
         implicit none
 
 c arguments
         real flxnod
         integer k
-c common
-	include 'param.h'
-	include 'hydro_baro.h'
-	include 'basin.h'
-	include 'ev.h'
-	include 'links.h'
 c local
         real flux
         integer i,nl,ie,ii
+	integer elems(maxlnk)
         logical blink
 c function
         integer ithis
@@ -207,10 +204,10 @@ c statement function
 
         if( blink ) then
 
-	  call set_elem_links(k,nl)
+	  call get_elems_around(k,maxlnk,nl,elems)
 
           do i=1,nl
-            ie=lnk_elems(i)
+            ie=elems(i)
             ii=ithis(k,ie)
             flux = flux + fflux(ii,ie)
           end do
@@ -240,19 +237,19 @@ c
 c	pot = (g/2) * rho * area * z*z
 c	kin = (1/2) * rho * area * (U*U+V*V)/H
 
+	use mod_depth
+	use mod_hydro_baro
+	use mod_hydro
+	use evgeom
+	use basin
+
 	implicit none
 
 	integer ielem		!element (0 for total energy - all elements)
 	real kenerg		!kinetic energy (return)
 	real penerg		!potential energy relative to z=0 (return)
 
-	include 'param.h'
 	include 'pkonst.h'
-	include 'basin.h'
-	include 'hydro.h'
-	include 'depth.h'
-	include 'hydro_baro.h'
-	include 'ev.h'
 
 	integer ie,ii,ie1,ie2
 	double precision aj,pot,kin,z,zz
@@ -292,20 +289,20 @@ c
 c	pot = (g/2) * rho * area * z*z
 c	kin = (1/2) * rho * area * (U*U+V*V)/H
 
+	use mod_layer_thickness
+	use mod_ts
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 	real kenergy		!kinetic energy (return)
 	real penergy		!potential energy relative to z=0 (return)
 	integer ia_ignore	!area code to be ignored
 
-	include 'param.h'
-	include 'ev.h'
-	include 'basin.h'
 	include 'pkonst.h'
-	include 'levels.h'
-	include 'depth.h'
-	include 'hydro.h'
-	include 'ts.h'
 
 	integer ie,ii,l,lmax,ia,k
 	double precision area,pot,kin,z,zz
@@ -355,16 +352,16 @@ c	kin = (1/2) * rho * area * (U*U+V*V)/H
 
 c***************************************************************
 
-        subroutine stmima(a,nkn,nlvdim,ilhkv,amin,amax)
+        subroutine stmima(a,nkn,nlvddi,ilhkv,amin,amax)
 
 c computes min/max of 3d field
 
         implicit none
 
 c arguments
-        integer nkn,nlvdim
-        real a(nlvdim,1)
-        integer ilhkv(1)
+        integer nkn,nlvddi
+        real a(nlvddi,nkn)
+        integer ilhkv(nkn)
         real amin,amax
 c local
         integer lmax,k,l
@@ -388,16 +385,14 @@ c**********************************************************************
 
 c copies concentrations from node value to element value (only wet areas)
 
+	use mod_geom_dynamic
+	use evgeom
+	use basin
+
         implicit none
 
-        real cn(1)
-        real ce(3,1)
-
-
-	include 'param.h'
-	include 'basin.h'
-	include 'geom_dynamic.h'
-	include 'ev.h'
+        real cn(nkn)
+        real ce(3,nel)
 
         integer ie,ii,k
 

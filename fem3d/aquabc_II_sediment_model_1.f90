@@ -363,7 +363,9 @@ subroutine SEDIMENT_MODEL_1 &
     !End of new variables for DIC and ALK
 
     
-    
+    CONSIDER_INORG_C_DERIVATIVE = 0	!avoid compiler warnings
+    CONSIDER_ALKALNITY_DERIVATIVE = 0	!avoid compiler warnings
+
     
     !**************************************************************************
     !*                                                                        *
@@ -2300,6 +2302,8 @@ function SED_MOD_1_ALUKAS_MOLDI_C(SVARNO, T, SAL, TVAR) result(MOL_DIFF)
     
     double precision MOL_DIFF
     
+    MOL_DIFF = 0.
+
     TK = T + 273.16
     
     !NH4N

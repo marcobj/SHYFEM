@@ -191,12 +191,18 @@ c******************************************************************
 
 c writes and administers ets file
 
+	use mod_waves
+	use mod_depth
+	use mod_ts
+	use mod_hydro_print
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
 	use ets
 
 	implicit none
 
 	include 'param.h'
-	include 'waves.h'
 
 	integer it
 
@@ -206,18 +212,10 @@ c writes and administers ets file
 	character*80 title,femver
 
 	include 'simul.h'
-	include 'nbasin.h'
-	include 'nlevel.h'
-	include 'levels.h'
-	include 'depth.h'
 
-	include 'hydro.h'
-	include 'hydro_print.h'
-	include 'ts.h'
 
-	real waves(4,nkndim)
-
-        integer il4kv(nkndim)
+	real waves(4,nkn)
+        integer il4kv(nkn)
 
 	integer ifemop
 	real getpar
@@ -248,7 +246,7 @@ c writes and administers ets file
                 if(nbext.le.0) goto 77
 		ia_out(4) = nbext
 
-		allocate( outets(nlvdim,nets) )
+		allocate( outets(nlvdi,nets) )
 
 		nvers = 1
 		nvar = 5
@@ -298,23 +296,23 @@ c writes and administers ets file
         end if
 
 	ivar = 6
-	call routets(nlvdim,ilhkv,uprv,outets)
-        call ets_write_record(nbext,it,ivar,nlvdim,ilets,outets,ierr)
+	call routets(nlvdi,ilhkv,uprv,outets)
+        call ets_write_record(nbext,it,ivar,nlvdi,ilets,outets,ierr)
         if(ierr.ne.0.) goto 79
 
 	ivar = 7
-	call routets(nlvdim,ilhkv,vprv,outets)
-        call ets_write_record(nbext,it,ivar,nlvdim,ilets,outets,ierr)
+	call routets(nlvdi,ilhkv,vprv,outets)
+        call ets_write_record(nbext,it,ivar,nlvdi,ilets,outets,ierr)
         if(ierr.ne.0.) goto 79
 
 	ivar = 11
-	call routets(nlvdim,ilhkv,saltv,outets)
-        call ets_write_record(nbext,it,ivar,nlvdim,ilets,outets,ierr)
+	call routets(nlvdi,ilhkv,saltv,outets)
+        call ets_write_record(nbext,it,ivar,nlvdi,ilets,outets,ierr)
         if(ierr.ne.0.) goto 79
 
 	ivar = 12
-	call routets(nlvdim,ilhkv,tempv,outets)
-        call ets_write_record(nbext,it,ivar,nlvdim,ilets,outets,ierr)
+	call routets(nlvdi,ilhkv,tempv,outets)
+        call ets_write_record(nbext,it,ivar,nlvdi,ilets,outets,ierr)
         if(ierr.ne.0.) goto 79
 
 	return
@@ -339,6 +337,9 @@ c******************************************************************
 
 	subroutine ets_setup
 
+	use coordinates
+	use mod_depth
+	use levels
 	use ets
 
 	implicit none
@@ -347,9 +348,6 @@ c******************************************************************
 
 	integer i,k
 
-	include 'levels.h'
-	include 'depth.h'
-	include 'tides.h'
 
 	do i=1,nets
 	  k = nkets(i)

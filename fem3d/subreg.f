@@ -71,6 +71,7 @@ c 10.10.2012	ggu	new routine fm2am2d() and fm2am3d()
 c 26.10.2012	ggu	bug fix: do not access not existing storage
 c 30.05.2014	ggu	in av2amk() do not interpolate for flag values
 c 07.07.2014	ggu	new routine intp_reg()
+c 25.09.2015	ggu	new routines intp_reg_nodes(), intp_reg_elems()
 c
 c notes :
 c
@@ -162,6 +163,8 @@ c pxareg,pyareg         coordinates of lower left point of matrix
 c pxdreg,pydreg         grid size of matrix
 c pzlreg                value of z for land points
 
+	use basin
+
 	implicit none
 
 c arguments
@@ -173,7 +176,6 @@ c parameter
 	parameter ( eps = 1.d-14 )
 c common
 	include 'param.h'
-	include 'basin.h'
 	include 'reg.h'
 c local
 	integer i,j,ii,iii,ie,k,kn,iin
@@ -270,6 +272,8 @@ c pxareg,pyareg         coordinates of lower left point of matrix
 c pxdreg,pydreg         grid size of matrix
 c pzlreg                value of z for land points
 
+	use basin
+
 	implicit none
 
 c arguments
@@ -282,7 +286,6 @@ c parameter
 	parameter ( eps = 1.d-14 )
 c common
 	include 'param.h'
-	include 'basin.h'
 	include 'reg.h'
 c local
 	integer i,j,ii,iii,ie,k,kn,iin
@@ -417,6 +420,8 @@ c	    am(i,j) = a
 c	  end do
 c	end do
 	        
+	use basin
+
 	implicit none
 
 c arguments
@@ -429,7 +434,6 @@ c parameter
 	parameter ( eps = 1.d-14 )
 c common
 	include 'param.h'
-	include 'basin.h'
 c pxareg,pyareg         coordinates of lower left point of matrix
 c pxdreg,pydreg         grid size of matrix
 c pzlreg                value of z for land points
@@ -546,6 +550,8 @@ c************************************************
 
 c interpolation 3d of fem values to regular grid using fm matrix
 
+	use basin
+
         implicit none
 
 	integer nlvdi			!vertical dimension of fem array
@@ -556,7 +562,6 @@ c interpolation 3d of fem values to regular grid using fm matrix
         real am(nlv,nx,ny)		!interpolated values (return)
 
 	include 'param.h'
-	include 'basin.h'
 
 	include 'reg.h'
 
@@ -721,17 +726,15 @@ c
 c
 	return
 	end
-c
+
+c****************************************************************
+c****************************************************************
 c****************************************************************
 
-	subroutine intp_reg(nx,ny,x0,y0,dx,dy,flag,regval,femval,ierr)
+	subroutine intp_reg_nodes(nx,ny,x0,y0,dx,dy,flag,regval
+     +				,femval,ierr)
 
-c interpolation of regular array onto fem grid
-c
-c ierr:
-c		0	no errors
-c		< 0	interpolation out of domain (extrapolation)
-c		> 0	values of flag used in interpolation
+	use basin
 
 	implicit none
 
@@ -739,13 +742,78 @@ c		> 0	values of flag used in interpolation
 	real x0,y0,dx,dy
 	real flag
 	real regval(nx,ny)
-	real femval(*)		!interpolated values on fem grid (return)
+	real femval(nkn)	!interpolated values on fem grid (return)
+	integer ierr		!error code (return)
+
+	call intp_reg(nx,ny,x0,y0,dx,dy,flag,regval
+     +				,nkn,xgv,ygv,femval,ierr)
+
+	end
+
+c****************************************************************
+
+	subroutine intp_reg_elems(nx,ny,x0,y0,dx,dy,flag,regval
+     +				,femval,ierr)
+
+	use basin
+
+	implicit none
+
+	integer nx,ny
+	real x0,y0,dx,dy
+	real flag
+	real regval(nx,ny)
+	real femval(nel)	!interpolated values on fem grid (return)
+	integer ierr		!error code (return)
+
+	integer ie,ii,k
+	real x,y
+	real xp(nel),yp(nel)
+
+	do ie=1,nel
+	  x = 0.
+	  y = 0.
+	  do ii=1,3
+	    k = nen3v(ii,ie)
+	    x = x + xgv(k)
+	    y = y + ygv(k)
+	  end do
+	  xp(ie) = x / 3.
+	  yp(ie) = y / 3.
+	end do
+
+	call intp_reg(nx,ny,x0,y0,dx,dy,flag,regval
+     +				,nel,xp,yp,femval,ierr)
+
+	end
+
+c****************************************************************
+
+	subroutine intp_reg(nx,ny,x0,y0,dx,dy,flag,regval
+     +				,np,xp,yp,femval,ierr)
+
+c interpolation of regular array onto fem grid
+c
+c ierr:
+c		0	no errors
+c		< 0	interpolation out of domain (extrapolation)
+c		> 0	flag found in interpolation data
+
+	implicit none
+
+	integer nx,ny
+	real x0,y0,dx,dy
+	real flag
+	real regval(nx,ny)
+	integer np		!number of fem points
+	real xp(np)
+	real yp(np)
+	real femval(np)		!interpolated values on fem grid (return)
 	integer ierr		!error code (return)
 
 	include 'param.h'
-	include 'basin.h'
 
-	logical bextra
+	logical bextra,bout,bflag
 	integer k
 	integer imin,jmin
 	integer iflag,iout
@@ -755,12 +823,15 @@ c		> 0	values of flag used in interpolation
 	iflag = 0	!used flag for interpolation
 	iout = 0	!used outside point for interpolation
 
+	imin = 0
+	jmin = 0
+
 	xn = x0 + (nx-1)*dx
 	yn = y0 + (ny-1)*dy
 
-	do k=1,nkn
-	    xx = xgv(k)
-	    yy = ygv(k)
+	do k=1,np
+	    xx = xp(k)
+	    yy = yp(k)
  
 	    femval(k) = flag
  
@@ -782,27 +853,37 @@ c		> 0	values of flag used in interpolation
 	    if( imin.lt.1 .or. jmin.lt.1 ) goto 99
 	    if( imin+1.gt.nx .or. jmin+1.gt.ny ) goto 99
 
-	    z1 = regval(imin,jmin)
-	    z2 = regval(imin+1,jmin)
-	    z3 = regval(imin+1,jmin+1)
-	    z4 = regval(imin,jmin+1)
-
-	    if( z1.eq.flag .or. z2.eq.flag ) iflag = iflag + 1
-	    if( z3.eq.flag .or. z4.eq.flag ) iflag = iflag + 1
-
 	    x1 = x0+(imin-1)*dx
 	    y1 = y0+(jmin-1)*dy
 	    t = (xx-x1)/dx
 	    u = (yy-y1)/dy
 
-	    if( u.gt.1. .or. u.lt.0. ) iout = iout + 1
-	    if( t.gt.1. .or. t.lt.0. ) iout = iout + 1
+	    bout = .false.
+	    if( u.gt.1. .or. u.lt.0. ) bout = .true.
+	    if( t.gt.1. .or. t.lt.0. ) bout = .true.
+	    if( bout ) then
+	      iout = iout + 1
+	      cycle
+	    end if
+
+	    z1 = regval(imin,jmin)
+	    z2 = regval(imin+1,jmin)
+	    z3 = regval(imin+1,jmin+1)
+	    z4 = regval(imin,jmin+1)
+
+	    bflag = .false.
+	    if( z1.eq.flag .or. z2.eq.flag ) bflag = .true.
+	    if( z3.eq.flag .or. z4.eq.flag ) bflag = .true.
+	    if( bflag ) then
+	      iflag = iflag + 1
+	      cycle
+	    end if
 
 	    femval(k)=(1-t)*(1-u)*z1+t*(1-u)*z2+t*u*z3+(1-t)*u*z4
 	end do
  
 	ierr = 0
-	if( iout .gt. 0 ) ierr = -iout
+	if( iout .gt. 0 ) ierr = - iout - iflag
 	if( iflag .gt. 0 ) ierr = iflag
 
 	return
@@ -825,6 +906,8 @@ c pxareg,pyareg         coordinates of lower left point of matrix
 c pxdreg,pydreg         grid size of matrix
 c pzlreg                value of z for land points
 c
+	use basin
+
 	implicit none
 c
 c arguments
@@ -833,7 +916,6 @@ c arguments
 	real am(ip,jp)
 c common
 	include 'param.h'
-	include 'basin.h'
 	include 'reg.h'
 c local
 	logical bextra
@@ -853,9 +935,6 @@ c local
 	    jmin=(yy-pyareg)/pydreg
 	    imin=imin+1
 	    jmin=jmin+1
-
-	    !if( imin.lt.1 .or. jmin.lt.1 ) goto 1
-	    !if( imin+1.gt.ip .or. jmin+1.gt.jp ) goto 1
 
 	    if( bextra ) then
 	      if( imin.lt.1 ) imin = 1
@@ -880,8 +959,16 @@ c local
 	    t=(xx-x1)/pxdreg
 	    u=(yy-y1)/pydreg
 
-	if( u.gt.1. .or. u.lt.0. ) write(6,*) 'error am2av',u,t,k
-	if( t.gt.1. .or. t.lt.0. ) write(6,*) 'error am2av',u,t,k
+	    if( u.gt.1. .or. u.lt.0. ) then
+	      write(6,*) 'error am2av',u,t,k
+	      u = min(1.,u)
+	      u = max(0.,u)
+	    end if
+	    if( t.gt.1. .or. t.lt.0. ) then
+	      write(6,*) 'error am2av',u,t,k
+	      t = min(1.,t)
+	      t = max(0.,t)
+	    end if
 
 	    av(k)=(1-t)*(1-u)*z1+t*(1-u)*z2+t*u*z3+(1-t)*u*z4
 
@@ -974,6 +1061,8 @@ c pxareg,pyareg         coordinates of lower left point of matrix
 c pxdreg,pydreg         grid size of matrix
 c pzlreg                value of z for land points
 c
+	use basin
+
 	implicit none
 c
 c arguments
@@ -982,7 +1071,6 @@ c arguments
 	real am(ip,jp)
 c common
 	include 'param.h'
-	include 'basin.h'
 	include 'reg.h'
 c local
 c	integer i,j,ii,iii,ie,k,kn,iin
@@ -1050,6 +1138,9 @@ c makes mask for dry and wet areas - zenv must be available
 c
 c bwater is elementwise mask:	true = water point
 
+	use mod_hydro
+	use basin
+
 	implicit none
 
 c arguments
@@ -1057,9 +1148,7 @@ c arguments
 	real zv(1)
 	real href,hzoff
 c common
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'basin.h'
-	include 'hydro.h'
+	include 'param.h'
 c local
 	integer itot,itot1
 	integer ie,ii
@@ -1092,12 +1181,13 @@ c initializes mask for water points
 c
 c bwater is elementwise mask:	true = water point
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 c arguments
 	logical bwater(1)
 c common
-	include 'nbasin.h'
 c local
 	integer ie
 
@@ -1115,6 +1205,8 @@ c makes mask for water points (level)
 c
 c bwater is elementwise mask:	true = water point
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 c arguments
@@ -1122,7 +1214,6 @@ c arguments
 	integer ilhv(1)
 	integer level
 c common
-	include 'nbasin.h'
 c local
 	integer ie,nedry
 
@@ -1147,6 +1238,8 @@ c makes node mask from element mask
 c
 c bwater is elementwise mask:	true = water point
 
+	use basin
+
 	implicit none
 
 c arguments
@@ -1154,7 +1247,6 @@ c arguments
 	logical bkwater(1)
 c common
 	include 'param.h'
-	include 'basin.h'
 c local
 	integer ie,ii,k
 	integer nndry,nedry
@@ -1194,6 +1286,8 @@ c makes elem mask from node mask
 c
 c bwater is elementwise mask:	true = water point
 
+	use basin
+
 	implicit none
 
 c arguments
@@ -1201,7 +1295,6 @@ c arguments
 	logical bkwater(1)
 c common
 	include 'param.h'
-	include 'basin.h'
 c local
 	integer ie,ii,k
 	integer nedry
@@ -1331,6 +1424,8 @@ c result is in zp
 c
 c needs array ev
 
+	use evgeom
+
         integer ie      !element
         real z(3)       !values on nodes
         real xp,yp      !coordinates of point
@@ -1339,7 +1434,6 @@ c needs array ev
         integer ii
         double precision zh,a,b,c,w
 
-	include 'ev.h'
 
         zh=0.
         do ii=1,3
@@ -1416,18 +1510,19 @@ c finds element for point (xp,yp) starting from ieold
 c
 c uses data structure ev and ieltv
 
+	use mod_geom
+	use evgeom
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-	include 'param.h' !COMMON_GGU_SUBST
-	include 'ev.h'
+	include 'param.h'
 
 	integer ieold
 	real xp,yp
 	integer ielem	!element number on return
 
-	include 'nbasin.h'
 
-	include 'geom.h'
 
 	logical binit,bdebug
 	integer ie,ii,iside,lmax,loop
@@ -1502,13 +1597,14 @@ c******************************************************
 
 c finds element for point (xp,yp) starting from ieold
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	integer ieold
 	real xp,yp
 	integer ielem	!element number on return
 
-	include 'nbasin.h'
 
 	logical in_element
 	integer iem,iep
@@ -1574,12 +1670,13 @@ c******************************************************
 
 c finds element for point (xp,yp)
 
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	real xp,yp
 	integer ielem	!element number on return
 
-	include 'nbasin.h'
 
 	integer ie
 	logical in_element
@@ -1601,6 +1698,8 @@ c******************************************************
 
 c checks if point (xp,yp) is in element ie
 
+	use basin
+
 	implicit none
 
 	logical in_element
@@ -1608,7 +1707,6 @@ c checks if point (xp,yp) is in element ie
 	real xp,yp
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ii,k,in
 	real xmin,ymin,xmax,ymax
@@ -1644,13 +1742,14 @@ c******************************************************
 
 c returns x,y of vertices of element ie
 
+	use basin
+
 	implicit none
 
 	integer ie
 	real x(3), y(3)
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ii,k
 
@@ -1668,6 +1767,8 @@ c******************************************************
 
 c returns s at vertices of element ie
 
+	use basin
+
 	implicit none
 
 	integer ie
@@ -1675,7 +1776,6 @@ c returns s at vertices of element ie
 	real s(3)
 
 	include 'param.h'
-	include 'basin.h'
 
 	integer ii,k
 

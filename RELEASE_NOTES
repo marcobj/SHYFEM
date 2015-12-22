@@ -1,4 +1,223 @@
 
+18.12.2015    VERS_7_3_17
+
+	shybas interpolation is working now
+	grid can now delete double node in line
+	distribution prepared for bounds check
+	changes in compiler options in Rules.make
+
+16.12.2015    VERS_7_3_16
+
+	3d matrix solution routines introduced
+	poisson equation setup
+	code optimization (newtra.f and subgotm.f)
+	in restart routines allocate conz data structures
+	lnk_elems and lnk_nodes eliminated
+	no open boundaries case is now ok
+	small bug fixes
+	mpi project started
+
+16.11.2015    VERS_7_3_15
+
+	omp version finalized
+	some update to lagrangian module
+	after testing this will become stable 7.4.0 and testing 7.5.0
+
+16.11.2015    VERS_7_3_14
+
+	new module for lagrangian (not completely finished)
+	new routine adjust_xi
+
+09.11.2015    VERS_7_3_13
+
+	tracer newly structured
+	more on omp parallel
+
+05.11.2015    VERS_7_3_12
+
+	manual integrated
+
+05.11.2015    VERS_7_3_11
+
+	velocity nudging finished
+	restart revisited
+	allow for initial output with itm...
+	offline checked
+	initializationf from file for u,v,z
+
+26.10.2015    VERS_7_3_10
+
+	for parallel version data races eliminated
+
+23.10.2015    VERS_7_3_9
+
+	parallel code working (Eric)
+
+22.10.2015    VERS_7_3_8
+
+	documentation merged
+
+22.10.2015    VERS_7_3_7
+
+	minor improvements
+	new Eric routines
+
+14.10.2015    VERS_7_3_6
+
+	new parts on shy file format introduced
+	minor modifications
+
+13.10.2015    VERS_7_3_5
+
+	Bug fix introduced in 7.3.2 (handle_projection called too early)
+
+12.10.2015    VERS_7_3_4
+
+	Pull request Pardiso (Marco Bajo) handled
+
+12.10.2015    VERS_7_3_3
+
+	severe bug fix in adjust_bc() (subnev.f)
+	many fixes for floating point exceptions
+	fluid mud integrated
+	new post processing flx files
+	some bug fix in femadj
+
+10.10.2015    VERS_7_3_2
+
+	Pull request from Christian handled:
+	changes in tidal forcing integrated (tidef)
+	new module coordinates
+	new module projection
+	switched names between subcoord.f and subproj.f
+
+02.10.2015    VERS_7_3_1
+
+	this is the first release of the develop branch 7.3
+	new routine shybas now handling all info/elab on basin
+	some enhancements in subgrd.f
+
+30.09.2015    VERS_7_2_6
+
+	scalar computation now with new OMP code (Eric)
+	faster domain_clusterization
+	some fix in optintp.f
+	allow again for ambient value with scalars
+
+29.09.2015    VERS_7_2_5
+
+	nudging of surface velocities finished
+	bug fix with projection (not using isphe)
+	bug fix so shyfem can be used with no boundary
+	output now also double precision
+
+23.09.2015    VERS_7_2_4
+
+	in shyelab more files can be given now
+	time step (idt) can now be fractional
+
+18.09.2015    VERS_7_2_3
+
+	new names for hydro routines
+	more aux variables shifted into routines
+	advective terms stored in momentx/yv and not in aux arrays
+	austau() eliminated
+	code for subset creation integrated (eric)
+	two bug fixes:
+		zeqv was not always initialized in tideini
+		in coo_init n==0 was not checked
+
+14.09.2015    VERS_7_2_2
+
+	more options for shyelab, new file formats added
+	plotting velocities from fem files
+
+31.07.2015    VERS_7_2_1
+
+	major release
+
+	transition to allocatable objects finished
+	no need to change Rules.make, model should compile "out of the box"
+	some routines renamed (shyfem, shypre, shyelab)
+	routines now want input files on command line
+	post processing routines are still not completely ready
+	the following modules still do not work:
+		waves, sediments, lagrangian
+		fluidmud, atoxi
+		biological reactors (bio3d, aquabc, bfm)
+		boxes
+
+31.07.2015    VERS_7_1_84
+
+	minor changes
+
+30.07.2015    VERS_7_1_83
+
+	transition to allocatable objects finished
+	new names for some routines
+		ht	->	shyfem
+		vp	->	shypre
+		ousinf	->	shyelab
+		nosinf	->	shyelab
+	routines now want input files on command line
+		(example: shyfem nador.str)
+	post processing routines are still not completely ready
+	please have a look at shyelab for dealing with NOS and OUS files
+	plotting is still through plots
+
+24.07.2015    VERS_7_1_82
+
+	only dependency on fixed dimensions is nbcdim
+	some auxiliary programs are running
+	grd treatment has been completely revised
+	dealt with compilation errors in femadj and femspline
+
+20.07.2015    VERS_7_1_81
+
+	no need for setting dimensions anymore
+	Rules.make file has not to be changed in most cases
+	files have been cleaned from automatic comments
+
+17.07.2015    VERS_7_1_80
+
+	first release based on modules and allocatable arrays
+	this is still an experimental release
+	only a limited number of programs are working:
+		ht, vp, plotsim (plots)
+	all other programs (mostly post processing) still have to be upgraded
+	in this case please use an older version
+	the following modules still do not work in the new version:
+		waves, sediments, lagrangian
+		fluidmud, atoxi
+		biological reactors (bio3d, aquabc, bfm)
+		boxes
+
+17.07.2015    VERS_7_1_53
+
+	new intermediate release ... do not use ...
+
+17.07.2015    VERS_7_1_52
+
+	new intermediate release ... do not use ...
+
+13.07.2015    VERS_7_1_51
+
+	new intermediate release ... do not use ...
+
+10.07.2015    VERS_7_1_50
+
+	this is a big release of changes
+	nobody should really use this version
+	this is only used to prepare the new major version with
+		modules instead of common blocks (inludes)
+		and arrays allocated on the heap
+	most of the conversion has been finished, but some points
+		still have to be done
+	some files will not be converted before the next major release:
+		lagrange
+		box
+		bfm
+
 05.06.2015    VERS_7_1_12
 
 	some more work for transition to module structure

@@ -25,6 +25,7 @@ c 22.10.2012    ggu     dxmin introduced to plot arrow every dxmin distance
 c 24.10.2012    ggu     bsmooth introduced for smooth bottom plotting
 c 05.03.2014    ggu     bug fix for reference vector
 c 22.12.2014    ggu     new routine integrate_flux()
+c 02.12.2015    ggu     bug fix in integrate_flux() - dx was used twice
 c
 c************************************************************************
 
@@ -32,25 +33,25 @@ c************************************************************************
 
 c plots section
 
+	use mod_depth
+	use levels
+	use basin
+
 	implicit none
 
         include 'param.h'
 
 	logical bvel			!plot velocities
-	real sv(nlvdim,nkndim)		!scalar to be plotted
+	real sv(nlvdi,nkn)		!scalar to be plotted
 
 	integer nldim
 	parameter (nldim=200)
 
-	include 'depth.h'
-	include 'basin.h'
-	include 'levels.h'
-	include 'nlevel.h'
 
 c elems(1) is not used, etc..
 
-	real val(0:2*nlvdim,nldim)	!scalar value along line
-	real vel(3,0:2*nlvdim,nldim)	!projected velocities along line
+	real val(0:2*nlvdi,nldim)	!scalar value along line
+	real vel(3,0:2*nlvdi,nldim)	!projected velocities along line
 	integer nodes(nldim)		!nodes along line
 	integer elems(nldim)		!elements along line
 	integer lelems(nldim)		!levels in element
@@ -59,7 +60,7 @@ c elems(1) is not used, etc..
 	real dxy(2,nldim)		!direction of projection line
 	real xy(nldim)			!linear distance
 
-	real ya(2,0:nlvdim)
+	real ya(2,0:nlvdi)
 	real xbot(2*nldim+2)
 	real ybot(2*nldim+2)
 
@@ -80,7 +81,7 @@ c elems(1) is not used, etc..
 	real vmin,vmax
 	real vhmin,vhmax
 	real wscale,vv
-	real flux
+	real flux,area
 	real rrlmax,rrdmax,x,y,xtick,ytick,ylast,rdist,rmax,xs
 	real h1,h2,yb1,yb2,yt1,yt2,yt,yb
 	real ytaux,ymid
@@ -224,8 +225,8 @@ c----------------------------------------------------------------
 c compute fluxes
 c----------------------------------------------------------------
 
-	call integrate_flux(n,xy,lelems,helems,hlv,val,flux)
-	write(111,*) it,flux
+	call integrate_flux(n,xy,lelems,helems,hlv,val,flux,area)
+	!write(111,*) it,flux,area
 
 c----------------------------------------------------------------
 c set viewport
@@ -279,6 +280,8 @@ c	hvmax == rdmax
 c--------------------------------------------------------------------
 c plot scalar
 c--------------------------------------------------------------------
+
+	ib = 0
 
 	do i=2,n
 	  ltot = lelems(i)
@@ -1025,6 +1028,9 @@ c in vel is normal/tangential/vertical velocity
 c in val is scalar velocity used for overlay
 c modes: 0=use normal vel   1=use tangent vel   as scalar velocity
  
+	use mod_hydro_print
+	use levels, only : nlvdi,nlv
+
 	implicit none
 
 	include 'param.h'
@@ -1035,12 +1041,10 @@ c modes: 0=use normal vel   1=use tangent vel   as scalar velocity
 	integer lnodes(n)		!total nuber of layers
 	integer ilhkv(1)		!number of layers in node
 	real dxy(2,n)			!direction of line (for projection)
-	real vel(3,0:2*nlvdim,n)	!projected velocities along line (ret)
-	real val(0:2*nlvdim,n)		!scalar velocity for overlay (ret)
+	real vel(3,0:2*nlvdi,n)		!projected velocities along line (ret)
+	real val(0:2*nlvdi,n)		!scalar velocity for overlay (ret)
 	real vmin,vmax			!min/max of scalar vel (ret)
 	real vhmin,vhmax		!min/max of tangent vel (ret)
-
-	include 'hydro_print.h'
 
 	integer i,k,l,lmax,llayer
 	real ut,un,w
@@ -1095,9 +1099,11 @@ c modes: 0=use normal vel   1=use tangent vel   as scalar velocity
 
 c************************************************************************
 
-	subroutine integrate_flux(n,xy,lelems,helems,hlv,val,flux)
+	subroutine integrate_flux(n,xy,lelems,helems,hlv,val,flux,area)
 
 c computes flux through section
+
+	use levels, only : nlvdi,nlv
 
 	implicit none
 
@@ -1108,17 +1114,19 @@ c computes flux through section
 	integer lelems(n)		!total nuber of layers
 	real helems(2,n)		!depth elems
 	real hlv(*)			!depth structure
-	real val(0:2*nlvdim,n)		!scalar velocity for overlay (ret)
+	real val(0:2*nlvdi,n)		!scalar velocity for overlay (ret)
 	real flux			!computed flux (return)
+	real area
 
 	integer i,l,ltot,lc,ivert
 	real dx,dh1,dh2,thick,value,hvmax
-	real ya(2,0:nlvdim)
-	double precision acum
+	real ya(2,0:nlvdi)
+	double precision acum,darea
 
 	ivert = 0
 	hvmax = 10000.
 	acum = 0.
+	darea = 0.
 
 	do i=2,n
 	  ltot = lelems(i)
@@ -1132,11 +1140,13 @@ c computes flux through section
 	    dh1 = ya(1,l) - ya(1,l-1)
 	    dh2 = ya(2,l) - ya(2,l-1)
 	    thick = 0.5 * dx * ( dh1 + dh2 )
-	    acum = acum + thick * dx * value
+	    darea = darea + thick
+	    acum = acum + thick * value
 	  end do
 	end do
 
 	flux = acum
+	area = darea
 
 	end
 
@@ -1168,6 +1178,8 @@ c************************************************************************
 
 c inserts scalar values into matrix section
 
+	use levels, only : nlvdi,nlv
+
 	implicit none
 
 	include 'param.h'
@@ -1176,8 +1188,8 @@ c inserts scalar values into matrix section
 	integer nodes(n)
 	integer lnodes(n)
 	integer ilhkv(1)		!number of layers in node
-	real sv(nlvdim,1)
-	real values(0:2*nlvdim,n)
+	real sv(nlvdi,1)
+	real values(0:2*nlvdi,n)
 	real vmin,vmax
 
 	integer i,k,lmax,l,llayer

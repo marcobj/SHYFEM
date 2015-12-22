@@ -17,6 +17,7 @@ c 14.07.2011    ggu     new routine output_stability_node()
 c 21.06.2012    ggu&ccf variable vertical sinking velocity integrated
 c 08.04.2014    ggu	use rlin to determine advective stability
 c 20.05.2015    ggu	always compute stability, call to conzstab changed
+c 20.10.2015    ggu	in output_stability() bug that icall was not adjouned
 c
 c*****************************************************************
 c*****************************************************************
@@ -48,22 +49,22 @@ c*****************************************************************
 
 c computes stability index
 
+	!use mod_conz
+	use mod_diff_visc_fric
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
         include 'param.h'
 
 	real robs
 	real wsink
-	real wsinkv(0:nlvdim,nkndim)
+	real wsinkv(0:nlvdi,nkn)
         real rkpar
         real azpar
         real rindex
-        real saux(nlvdim,nkndim)
-
-	include 'nlevel.h'
-
-	include 'conz.h'
-	include 'diff_visc_fric.h'
+        real saux(nlvdi,nkn)
 
         real adpar,aapar
         real difmol
@@ -109,6 +110,9 @@ c*****************************************************************
 
 c gets stability index (if necessary computes it)
 
+	use levels, only : nlvdi,nlv
+	use basin
+
         implicit none
 
 	include 'param.h'
@@ -116,11 +120,11 @@ c gets stability index (if necessary computes it)
 	real dt
 	real robs
 	real wsink
-	real wsinkv(0:nlvdim,nkndim)
+	real wsinkv(0:nlvdi,nkn)
         real rkpar
         real rindex
         integer istot
-	real saux(nlvdim,nkndim)
+	real saux(nlvdi,nkn)
 
 	real azpar
 	logical exist_stability
@@ -165,6 +169,9 @@ c*****************************************************************
 
 c gets stability index (if necessary computes it)
 
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
 	include 'param.h'
@@ -172,14 +179,11 @@ c gets stability index (if necessary computes it)
         real dt
 	real robs
 	real wsink
-	real wsinkv(0:nlvdim,nkndim)
+	real wsinkv(0:nlvdi,nkn)
         real rkpar
         real rindex
         integer istot
-	real saux(nlvdim,nkndim)
-
-	include 'nlevel.h'
-	include 'nbasin.h'
+	real saux(nlvdi,nkn)
 
 	integer ia,iustab
 	integer l,k
@@ -369,6 +373,9 @@ c mode = 0		normal call, compute stability
 c mode = 1		error call, compute stability and write error message
 c mode = 2		eliminate elements with r>rindex
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
 	include 'param.h'
@@ -377,16 +384,15 @@ c mode = 2		eliminate elements with r>rindex
         real dt			!time step to be used
         real rindex		!stability index (return)
 
-	include 'nlevel.h'
-	include 'nbasin.h'
-
-	include 'aux_array.h'
-	include 'levels.h'
-
 	integer ie,l,lmax,iweg
         real rkpar,azpar,ahpar,rlin
 	real dindex,aindex,tindex,sindex
 	real rmax
+
+	logical openmp_in_parallel
+
+	real, allocatable :: sauxe1(:,:)
+	real, allocatable :: sauxe2(:,:)
 
 	real getpar
 	logical is_i_nan
@@ -396,12 +402,9 @@ c mode = 2		eliminate elements with r>rindex
 	ahpar = getpar('ahpar')
 	rlin = getpar('rlin')
 
-	do ie=1,nel
-	  do l=1,nlv
-	    sauxe1(l,ie) = 0.
-	    sauxe2(l,ie) = 0.
-	  end do
-	end do
+	allocate(sauxe1(nlvdi,nel),sauxe2(nlvdi,nel))
+	sauxe1 = 0.
+	sauxe2 = 0.
 
 	rmax = 1.e+30
 	if( mode .eq. 2 ) rmax = rindex
@@ -412,7 +415,9 @@ c mode = 2		eliminate elements with r>rindex
 	call momentum_advective_stability(rlin,aindex,sauxe1)
 	call momentum_viscous_stability(ahpar,dindex,sauxe2)
 
-        call output_stability(dt,sauxe1,sauxe2)	!in case write to file
+	if( .not. openmp_in_parallel() ) then
+          call output_stability(dt,sauxe1,sauxe2)	!in case write to file
+	end if
 
 	aindex = aindex*dt
 	dindex = dindex*dt
@@ -445,6 +450,8 @@ c mode = 2		eliminate elements with r>rindex
 
 	rindex = tindex
 
+	deallocate(sauxe1,sauxe2)
+
 	!write(6,*) 'rindex = ',rindex,aindex,dindex
 
         end
@@ -455,18 +462,17 @@ c*****************************************************************
 
 c outputs stability index for hydro timestep (internal) (error handling)
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
 	include 'param.h'
 
         real dt
-	real sauxe1(nlvdim,neldim)
-	real sauxe2(nlvdim,neldim)
-	real sauxn(nlvdim,nkndim)
-
-	include 'nlevel.h'
-	include 'nbasin.h'
-	include 'levels.h'
+	real sauxe1(nlvdi,nel)
+	real sauxe2(nlvdi,nel)
+	real sauxn(nlvdi,nkn)
 
 	logical bnos
 	integer ie,l,lmax
@@ -523,16 +529,16 @@ c set ifnos in order to have output to nos file
 	end if
 
 	if( ifnos .gt. 0 .and. mod(icall,ifnos) .eq. 0 ) then
-	  call e2n3d_minmax(+1,nlvdim,sauxe1,sauxn)
+	  call e2n3d_minmax(+1,nlvdi,sauxe1,sauxn)
 	  call conwrite(iustab,'.sta',1,778,nlvdi,sauxn)
-	  call e2n3d_minmax(+1,nlvdim,sauxe2,sauxn)
+	  call e2n3d_minmax(+1,nlvdi,sauxe2,sauxn)
 	  call conwrite(iustab,'.sta',1,778,nlvdi,sauxn)
 	  do ie=1,nel
 	    do l=1,nlv
 	      sauxe1(l,ie) = sauxe1(l,ie) + sauxe2(l,ie)
 	    end do
 	  end do
-	  call e2n3d_minmax(+1,nlvdim,sauxe1,sauxn)
+	  call e2n3d_minmax(+1,nlvdi,sauxe1,sauxn)
 	  call conwrite(iustab,'.sta',1,778,nlvdi,sauxn)
 	end if
 
@@ -544,25 +550,25 @@ c*****************************************************************
 
 c outputs stability index for hydro timestep (internal)
 
+	use levels
+	use basin
+
         implicit none
 
 	include 'param.h'
 
         real dt
-	real cwrite(nlvdim,nkndim)
+	real cwrite(nlvdi,nkn)
 
-	include 'nlevel.h'
-	include 'basin.h'
-	include 'levels.h'
-
-	real smax(nkndim)
-	save smax
+	real, save, allocatable :: smax(:)
 
 	logical bnos
 	integer ie,ii,k,l,lmax
-	integer ia,id,it
+	integer ia,id
 	real sindex,smin
 	logical has_output,next_output,is_over_output
+
+	include 'femtime.h'
 
 	integer icall,iustab,ia_out(4)
 	save icall,iustab,ia_out
@@ -578,8 +584,11 @@ c outputs stability index for hydro timestep (internal)
 	  if( .not. has_output(ia_out) ) icall = -1
 	  if( icall .lt. 0 ) return
 	  call open_scalar_file(ia_out,1,1,'.stb')
+	  allocate(smax(nkn))
 	  smax = 0.
 	end if
+
+	icall = icall + 1
 
 	if( .not. is_over_output(ia_out) ) return 
 
@@ -592,19 +601,17 @@ c outputs stability index for hydro timestep (internal)
 	end do
 
 	if( next_output(ia_out) ) then
-	  smin = 1./dt
 	  do k=1,nkn				!convert to time step
-	    if( smax(k) .le. smin ) then
-	      smax(k) = dt
-	    else
+	    if( smax(k) > 0 ) then
 	      smax(k) = 1./smax(k)
-	    end if
+	      if( smax(k) > dt_orig ) smax(k) = dt_orig
+	    else
+	      smax(k) = dt_orig
+	    end if 
 	  end do
 	  call write_scalar_file(ia_out,778,1,smax)
 	  smax = 0.
 	end if
-
-	icall = icall + 1
 
 	end
 
@@ -614,30 +621,31 @@ c*****************************************************************
 
 c outputs stability index for hydro timestep (internal)
 
+	use levels
+	use basin
+
         implicit none
 
 	include 'param.h'
 
         real dt
-	real sauxe1(nlvdim,neldim)	!advective stability index
-	real sauxe2(nlvdim,neldim)	!diffusive stability index
+	real sauxe1(nlvdi,nel)	!advective stability index
+	real sauxe2(nlvdi,nel)	!diffusive stability index
 
-	include 'nlevel.h'
-	include 'basin.h'
-	include 'levels.h'
-
-	real smax(nkndim)
-	save smax
+	real, save, allocatable :: smax(:)
 
 	logical bnos
 	integer ie,ii,k,l,lmax
-	integer ia,id,it
+	integer ia,id
 	real sindex,smin
+	real sx,sn
 	logical next_output,has_output,is_over_output
 
-	integer icall,iustab,ia_out(4)
-	save icall,iustab,ia_out
-	data icall,iustab /0,0/
+	include 'femtime.h'
+
+	integer icall,ia_out(4)
+	save icall,ia_out
+	data icall /0/
 
 	real getpar
 
@@ -654,8 +662,13 @@ c	itmsti = -1
 	  if( .not. has_output(ia_out) ) icall = -1
 	  if( icall .lt. 0 ) return
 	  call open_scalar_file(ia_out,1,1,'sti')
+	  allocate(smax(nkn))
 	  smax = 0.
 	end if
+
+	icall = icall + 1
+
+	!write(111,*) 'sti: ',it,t_act,ia_out
 
 	if( .not. is_over_output(ia_out) ) return 
 
@@ -671,19 +684,17 @@ c	itmsti = -1
 	end do
 
 	if( next_output(ia_out) ) then
-	  smin = 1./dt
 	  do k=1,nkn				!convert to time step
-	    if( smax(k) .le. smin ) then
-	      smax(k) = dt
-	    else
+	    if( smax(k) > 0 ) then
 	      smax(k) = 1./smax(k)
-	    end if
+	      if( smax(k) > dt_orig ) smax(k) = dt_orig
+	    else
+	      smax(k) = dt_orig
+	    end if 
 	  end do
 	  call write_scalar_file(ia_out,779,1,smax)
 	  smax = 0.
 	end if
-
-	icall = icall + 1
 
 	end
 
@@ -695,14 +706,17 @@ c*****************************************************************
 
 c tests parallel implementation
 
+	use levels, only : nlvdi,nlv
+	use basin
+
 	implicit none
 
 	include 'param.h'
 
 	real dt,rkpar,azpar,rindex
 	real robs,wsink
-	real wsinkv(0:nlvdim,nkndim)
-	real saux(nlvdim,nkndim)
+	real wsinkv(0:nlvdi,nkn)
+	real saux(nlvdi,nkn)
 
 	azpar = 0.
 	rkpar = 0.

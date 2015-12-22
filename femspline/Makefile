@@ -10,7 +10,18 @@ include ../Rules.make
 
 #------------------------------------------------------
 
-OBJS =	subgrd.o subscn.o subfil.o subsss.o hash.o spline.o sort.o subver.o
+FEMBIN    = $(FEMDIR)/fembin
+
+LIBFEM  = fem
+
+LIBFS   = -L$(DIRLIB) -l$(LIBFEM)
+LIBIFS  = $(DIRLIB)/lib$(LIBFEM).a
+
+#------------------------------------------------------
+
+OBJS =	subscn.o subfil.o subsss.o hash.o spline.o sort.o subver.o 
+OBJS =	subscn.o subfil.o subsss.o hash.o spline.o sort.o
+	
 SOBJS =  sgauss.o
 VOBJS =  subrnd.o
 
@@ -27,8 +38,8 @@ all: gridr gridf grids
 
 fem: gridr
 
-gridr:	gridr.o $(OBJS)
-	$(LINKER) $(LFLAGS) -o $@ $@.o $(OBJS)
+gridr:	gridr.o $(OBJS) $(LIBIFS)
+	$(LINKER) $(LFLAGS) -o $@ $@.o $(OBJS) $(LIBFS)
 
 sss:	sss.o $(SOBJS)
 	$(LINKER) $(LFLAGS) -o $@ $@.o $(SOBJS)
@@ -38,6 +49,13 @@ ven:	ven.o $(VOBJS)
 
 circle:	circle.o $(VOBJS)
 	$(LINKER) $(LFLAGS) -o $@ $@.o $(VOBJS)
+
+#------------------------------------------------------
+
+list:
+	pwd; ls
+
+depend:
 
 #------------------------------------------------------
 

@@ -19,25 +19,25 @@ c***************************************************************
 
 c extracts single nodes from NOS file -> creates time series
 
+	use mod_depth
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 
 	include 'param.h'
-	include 'basin.h'
-	include 'evmain.h'
 
 c--------------------------------------------------
 
 	character*80 title
 
 
-	include 'nlevel.h'
-	include 'levels.h'
-	include 'depth.h'
 
-	real hl(nlvdim)
-	real haux(nkndim)
-	real cv(nkndim)
-	real cv3(nlvdim,nkndim)
+	real, allocatable :: hl(:)
+	real, allocatable :: haux(:)
+	real, allocatable :: cv(:)
+	real, allocatable :: cv3(:,:)
 
 	character*80 format
 	integer nread,ierr
@@ -59,9 +59,8 @@ c---------------------------------------------------------------
 
 	integer ndim
 	integer nnodes
-	parameter( ndim = nkndim )
-	integer nodes(ndim)	!node numbers
-	integer nodese(ndim)	!external node numbers
+	integer, allocatable :: nodes(:)	!node numbers
+	integer, allocatable :: nodese(:)	!external node numbers
 
 c---------------------------------------------------------------
 c initialize params
@@ -73,9 +72,12 @@ c---------------------------------------------------------------
 c open simulation and basin
 c---------------------------------------------------------------
 
-	if(iapini(3,nkndim,neldim,0).eq.0) then
+	if(iapini(3,0,0,0).eq.0) then
 		stop 'error stop : iapini'
 	end if
+
+	call ev_init(nel)
+	call mod_depth_init(nkn,nel)
 
 	call set_ev
 
@@ -100,8 +102,15 @@ c---------------------------------------------------------------
 	write(6,*)
 
 	if( nkn .ne. nknnos .or. nel .ne. nelnos ) goto 94
+	nlvdi = nlv
 
-        call dimnos(nin,nkndim,neldim,nlvdim)
+	allocate(hl(nlvdi))
+	allocate(haux(nkn))
+	allocate(cv(nkn))
+	allocate(cv3(nlvdi,nkn))
+
+        call dimnos(nin,nkn,nel,nlvdi)
+	call levels_init(nkn,nel,nlv)
 
 	call rsnos(nin,ilhkv,hlv,hev,ierr)
         if(ierr.ne.0) goto 100
@@ -117,9 +126,16 @@ c---------------------------------------------------------------
 c get nodes to extract from STDIN
 c---------------------------------------------------------------
 
+	ndim = nkn
+	allocate(nodes(ndim))
+	allocate(nodese(ndim))
         call get_nodes_from_stdin(ndim,nnodes,nodes,nodese)
 
 	if( nnodes .le. 0 ) goto 95
+
+	write(6,*) nnodes
+	write(6,*) (nodes(i),i=1,nnodes)
+	write(6,*) (nodese(i),i=1,nnodes)
 
 c---------------------------------------------------------------
 c loop on input records
@@ -127,7 +143,7 @@ c---------------------------------------------------------------
 
   300   continue
 
-	call rdnos(nin,it,ivar,nlvdim,ilhkv,cv3,ierr)
+	call rdnos(nin,it,ivar,nlvdi,ilhkv,cv3,ierr)
 
         if(ierr.gt.0) write(6,*) 'error in reading file : ',ierr
         if(ierr.ne.0) goto 100
@@ -155,7 +171,7 @@ c	---------------------------------------------------------
 
 	  z = 0.
 	  h = hkv(k)
-	  call write_profile_c(it,k,ke,lmax,ivar,h,z
+	  call write_profile_c(it,i,k,ke,lmax,ivar,h,z
      +				,cv3(1,k),hlv,hl)
 	end do
 
@@ -245,39 +261,4 @@ c handles unit numbers for files of single variables
 	end
 
 c***************************************************************
-
-	subroutine write_profile_c(it,k,ke,lmax,ivar,h,z,c,hlv,hl)
-
-	implicit none
-
-	integer it,k,ke
-	integer lmax
-	integer ivar
-	real z,h
-	real c(1)
-	real hlv(1)
-	real hl(1)
-
-	logical bcenter
-	integer l
-	integer nlvaux,nsigma
-	real hsigma
-	real uv
-	
-	bcenter = .true.	!depth at center of layer ?
-
-        call get_sigma_info(nlvaux,nsigma,hsigma)
-
-	call get_layer_thickness(lmax,nsigma,hsigma,z,h,hlv,hl)
-	call get_bottom_of_layer(bcenter,lmax,z,hl,hl)	!orig hl is overwritten
-
-        write(82,*) it,ke,k,lmax,ivar
-	do l=1,lmax
-          write(82,*) hl(l),c(l)
-	end do
-
-	end
-
-c***************************************************************
-
 

@@ -29,7 +29,7 @@ c		special version for cohesive sediments with factor
 c
 c-------------------------------------------------------------
 c
-c subroutine scal3sh(what,cnv,nlvbnd,rcv,cobs,robs,rkpar
+c subroutine scal3sh(what,cnv,nlvddi,rcv,cobs,robs,rkpar
 c					,wsink,wsinkv,rload,load
 c     +                                 ,difhv,difv,difmol)
 c		shell for scalar T/D
@@ -70,9 +70,6 @@ c
 c subroutine stb_histo(it,nlvddi,nkn,ilhkv,cwrite)
 c		writes histogram info about stability index
 c
-c subroutine const3d_setup
-c		sets up constant 3D array
-c
 c-------------------------------------------------------------
 c
 c notes:
@@ -109,7 +106,7 @@ c 05.12.2001    ggu     variable horizontal diffusion, limit on dif.coef.
 c 11.10.2002    ggu     file cleaned, t/shdif are set equal
 c 11.10.2002    ggu     con3sh removed, conzstab better commented
 c 14.10.2002    ggu     rstot re-introduced as rstol
-c 09.09.2003    ggu     call to scal3sh changed -> new arg nlvbnd
+c 09.09.2003    ggu     call to scal3sh changed -> new arg nlvddi
 c 10.03.2004    ggu     call conwrite() to write stability param to nos file
 c 13.03.2004    ggu     new boundary conditions through flux (cbound)
 c 15.10.2004    ggu     boundary conditions back to old
@@ -163,7 +160,7 @@ c 16.02.2011    ggu     pass robs to info_stability()
 c 23.03.2011    ggu     new parameter itvdv
 c 25.03.2011    ggu     error check for aapar and itvdv
 c 01.06.2011    ggu     wsink for stability integrated
-c 12.07.2011    ggu     run over nlv, not nlvdim, vertical_flux() for lmax>1
+c 12.07.2011    ggu     run over nlv, not nlvddi, vertical_flux() for lmax>1
 c 15.07.2011    ggu     call vertical_flux() anyway (BUG)
 c 21.06.2012    ggu&ccf variable vertical sinking velocity integrated
 c 03.12.2013    ggu&deb bug fix for horizontal diffusion
@@ -172,6 +169,9 @@ c 10.07.2014    ggu     only new file format allowed
 c 20.10.2014    ggu     accept ids from calling routines
 c 22.10.2014    ccf     load in call to scal3sh
 c 20.05.2015    ggu     accumulate over nodes (for parallel version)
+c 30.09.2015    ggu     routine cleaned, no reals in conz3d
+c 26.10.2015    ggu     critical omp sections introduced (eliminated data race)
+c 26.10.2015    ggu     mass check only for levdbg > 2
 c
 c*********************************************************************
 
@@ -182,30 +182,29 @@ c*********************************************************************
 
 c shell for scalar (for parallel version)
 
-	implicit none
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
 
-        include 'param.h'
+	implicit none
 
         character*(*) what
 	integer ivar
-        real scal(nlvdim,nkndim)
-        integer ids(nbcdim)
+        real scal(nlvdi,nkn)
+        integer ids(*)
         real rkpar
 	real wsink
-        real difhv(nlvdim,1)
-	real difv(0:nlvdim,1)
+        real difhv(nlvdi,nel)
+	real difv(0:nlvdi,nkn)
         real difmol
 
-	include 'nbasin.h'
 	include 'femtime.h'
-	include 'nlevel.h'
 
-	include 'const_aux.h'
+	!include 'const_aux.h'
 
-        real r3v(nlvdim,nkndim)
-        real caux(0:nlvdim,nkndim)
-	real load(nlvdim,nkndim)	!load [kg/s]
-	real cobs(nlvdim,nkndim)	!load [kg/s]
+        real r3v(nlvdi,nkn)
+        real caux(0:nlvdi,nkn)
+	real load(nlvdi,nkn)	!load [kg/s]
+	real cobs(nlvdi,nkn)	!load [kg/s]
 
 	double precision dtime
 	real robs,rload
@@ -214,7 +213,6 @@ c shell for scalar (for parallel version)
 
 	robs = 0.
 	rload = 0.
-	!call const3d_setup
 	caux = 1.
 	cobs = 1.
 	load = 1.
@@ -223,12 +221,14 @@ c--------------------------------------------------------------
 c make identifier for variable
 c--------------------------------------------------------------
 
+!$OMP CRITICAL
 	whatvar = what
 	if( ivar .ne. 0 ) then
           write(whataux,'(i2)') ivar
           whatvar = what // '_' // whataux
 	end if
         iwhat = ichanm(whatvar)
+!$OMP END CRITICAL
 
 c--------------------------------------------------------------
 c transfer boundary conditions of var ivar to 3d matrix r3v
@@ -237,14 +237,14 @@ c--------------------------------------------------------------
 	dtime = it
 
 	call bnds_trans_new(whatvar(1:iwhat)
-     +			,ids,dtime,ivar,nkn,nlv,nlvdim,r3v)
+     +			,ids,dtime,ivar,nkn,nlv,nlvdi,r3v)
 
 c--------------------------------------------------------------
 c do advection and diffusion
 c--------------------------------------------------------------
 
         call scal3sh(whatvar(1:iwhat)
-     +				,scal,nlvdim
+     +				,scal,nlvdi
      +                          ,r3v,cobs,robs
      +				,rkpar,wsink,caux,rload,load
      +                          ,difhv,difv,difmol)
@@ -265,32 +265,30 @@ c*********************************************************************
 
 c shell for scalar with nudging (for parallel version)
 
-	implicit none
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
 
-        include 'param.h'
+	implicit none
 
         character*(*) what
 	integer ivar
-        real scal(nlvdim,nkndim)
-        integer ids(nbcdim)
+        real scal(nlvdi,nkn)
+        integer ids(*)
         real rkpar
 	real wsink
-        real difhv(nlvdim,1)
-	real difv(0:nlvdim,1)
+        real difhv(nlvdi,nel)
+	real difv(0:nlvdi,nkn)
         real difmol
-	real sobs(nlvdim,1)		!observations
+	real sobs(nlvdi,nkn)		!observations
 	real robs
 
-	include 'nbasin.h'
 	include 'femtime.h'
-	include 'nlevel.h'
-	include 'levels.h'
 
-	include 'const_aux.h'
+	!include 'const_aux.h'
 
-        real r3v(nlvdim,nkndim)
-        real caux(0:nlvdim,nkndim)
-	real load(nlvdim,nkndim)	!load [kg/s]
+        real r3v(nlvdi,nkn)
+        real caux(0:nlvdi,nkn)
+	real load(nlvdi,nkn)	!load [kg/s]
 
 	integer ierr,l,k,lmax
 	real eps
@@ -300,7 +298,6 @@ c shell for scalar with nudging (for parallel version)
 	character*10 whatvar,whataux
 
 	rload = 0.
-	!call const3d_setup
 	caux = 1.
 	load = 1.
 
@@ -322,14 +319,14 @@ c--------------------------------------------------------------
 	dtime = it
 
 	call bnds_trans_new(whatvar(1:iwhat)
-     +			,ids,dtime,ivar,nkn,nlv,nlvdim,r3v)
+     +			,ids,dtime,ivar,nkn,nlv,nlvdi,r3v)
 
 c--------------------------------------------------------------
 c do advection and diffusion
 c--------------------------------------------------------------
 
         call scal3sh(whatvar(1:iwhat)
-     +				,scal,nlvdim
+     +				,scal,nlvdi
      +                          ,r3v,sobs,robs
      +				,rkpar,wsink,caux,rload,load
      +                          ,difhv,difv,difmol)
@@ -351,29 +348,28 @@ c shell for scalar (for parallel version)
 c
 c special version with factor for BC, variable sinking velocity and loads
 
-	implicit none
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
 
-        include 'param.h'
+	implicit none
 
         character*(*) what
 	integer ivar
 	real fact			!factor for boundary condition
-        real scal(nlvdim,nkndim)
-        integer ids(nbcdim)
+        real scal(nlvdi,nkn)
+        integer ids(*)
         real rkpar
 	real wsink
-	real wsinkv(0:nlvdim,nkndim)
+	real wsinkv(0:nlvdi,nkn)
 	real rload			!load factor (1 for load given)
-	real load(nlvdim,nkndim)	!load [kg/s]
-        real difhv(nlvdim,1)
-	real difv(0:nlvdim,1)
+	real load(nlvdi,nkn)		!load [kg/s]
+        real difhv(nlvdi,nel)
+	real difv(0:nlvdi,nkn)
         real difmol
 
-	include 'nbasin.h'
 	include 'femtime.h'
-	include 'nlevel.h'
 
-        real r3v(nlvdim,nkndim)
+        real r3v(nlvdi,nkn)
 
 	double precision dtime
 	real robs
@@ -400,7 +396,7 @@ c--------------------------------------------------------------
 	dtime = it
 
 	call bnds_trans_new(whatvar(1:iwhat)
-     +			,ids,dtime,ivar,nkn,nlv,nlvdim,r3v)
+     +			,ids,dtime,ivar,nkn,nlv,nlvdi,r3v)
 
 c--------------------------------------------------------------
 c multiply boundary condition with factor
@@ -415,7 +411,7 @@ c do advection and diffusion
 c--------------------------------------------------------------
 
         call scal3sh(whatvar(1:iwhat)
-     +				,scal,nlvdim
+     +				,scal,nlvdi
      +                          ,r3v,scal,robs
      +				,rkpar,wsink,wsinkv,rload,load
      +                          ,difhv,difv,difmol)
@@ -434,8 +430,6 @@ c sets boundary conditions for scalar - not used anymore - to be deleted
 
 	implicit none
 
-        include 'param.h'
-
         character*(*) what
 	real t
 	real bnd3(1,1)
@@ -450,30 +444,32 @@ c*********************************************************************
 c*********************************************************************
 c*********************************************************************
 
-	subroutine scal3sh(what,cnv,nlvbnd,rcv,cobs,robs,rkpar
+	subroutine scal3sh(what,cnv,nlvddi,rcv,cobs,robs,rkpar
      +					,wsink,wsinkv,rload,load
      +					,difhv,difv,difmol)
 
 c shell for scalar T/D
 
+	use mod_hydro_print
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
-c parameter
-        include 'param.h'
 c arguments
         character*(*) what
-        real cnv(nlvdim,nkndim)
-	integer nlvbnd		!vertical dimension of boundary condition
-        real rcv(nlvbnd,1)	!boundary condition (value of scalar)
-	real cobs(nlvdim,1)	!observations (for nudging)
+        real cnv(nlvddi,nkn)
+	integer nlvddi		!vertical dimension
+        real rcv(nlvddi,nkn)	!boundary condition (value of scalar)
+	real cobs(nlvddi,nkn)	!observations (for nudging)
 	real robs		!use nudging
         real rkpar
 	real wsink
-	real wsinkv(0:nlvdim,nkndim)
+	real wsinkv(0:nlvddi,nkn)
 	real rload
-	real load(nlvdim,nkndim)	!load [kg/s]
-        real difhv(nlvdim,1)
-	real difv(0:nlvdim,1)
+	real load(nlvddi,nkn)		!load [kg/s]
+        real difhv(nlvddi,nel)
+	real difv(0:nlvddi,nkn)
         real difmol
 c parameters
 	integer istot_max
@@ -482,18 +478,15 @@ c parameters
 	!parameter ( istot_max = 300 )
 	parameter ( istot_max = 1000 )
 c common
-	include 'nbasin.h'
 	include 'femtime.h'
 	include 'mkonst.h'
-	include 'nlevel.h'
-	include 'hydro_print.h'
 
 c local
-        real saux(nlvdim,nkndim)		!aux array
-        real sbflux(nlvdim,nkndim)		!flux boundary conditions
-        real sbconz(nlvdim,nkndim)		!conz boundary conditions
-	real gradxv(nlvdim,nkndim)		!gradient in x for tvd
-	real gradyv(nlvdim,nkndim)		!gradient in y for tvd
+        real saux(nlvddi,nkn)		!aux array
+        real sbflux(nlvddi,nkn)		!flux boundary conditions
+        real sbconz(nlvddi,nkn)		!conz boundary conditions
+	real gradxv(nlvddi,nkn)		!gradient in x for tvd
+	real gradyv(nlvddi,nkn)		!gradient in y for tvd
 
 	logical btvd,btvd1
 	integer isact
@@ -501,6 +494,7 @@ c local
 	integer itvd
 	integer itvdv
 	integer iuinfo
+	integer levdbg
         real dt
 	real eps
         real sindex
@@ -514,8 +508,6 @@ c-------------------------------------------------------------
 c start of routine
 c-------------------------------------------------------------
 
-	if(nlvdim.ne.nlvdi) stop 'error stop scal3sh: level dimension'
-
 c-------------------------------------------------------------
 c initialization
 c-------------------------------------------------------------
@@ -525,10 +517,13 @@ c-------------------------------------------------------------
 	aapar=getpar('aapar')
 	itvd=nint(getpar('itvd'))	!horizontal tvd scheme
 	itvdv=nint(getpar('itvdv'))	!vertical tvd scheme
+	levdbg = nint(getpar('levdbg'))
 	btvd = itvd .gt. 0
 	btvd1 = itvd .eq. 1
 
+!$OMP CRITICAL
         call getinfo(iuinfo)  !unit number of info file
+!$OMP END CRITICAL
 
 	eps = 1.e-5
 	eps = 1.e-4
@@ -543,7 +538,9 @@ c-------------------------------------------------------------
 	saux = 0.
 	call make_stability(dt,robs,wsink,wsinkv,rkpar,sindex,istot,saux)
 
+!$OMP CRITICAL
         write(iuinfo,*) 'stability_',what,':',it,sindex,istot
+!$OMP END CRITICAL
 
         if( istot .gt. istot_max ) then
 	    call info_stability(dt,robs,wsink,wsinkv,rkpar
@@ -574,16 +571,18 @@ c-------------------------------------------------------------
 c transport and diffusion
 c-------------------------------------------------------------
 
-	call massconc(-1,cnv,nlvdim,massold)
+
+	call massconc(-1,cnv,nlvddi,massold)
 
 	do isact=1,istot
 
 	  call make_scal_flux(what,rcv,cnv,sbflux,sbconz,ssurface)
 	  !call check_scal_flux(what,cnv,sbconz)
 
-	  if( btvd1 ) call tvd_grad_3d(cnv,gradxv,gradyv,saux,nlvdi)
+	  if( btvd1 ) call tvd_grad_3d(cnv,gradxv,gradyv,saux,nlvddi)
 
-          call conz3d(
+          call conz3d_omp(
+          !call conz3d_orig(
      +           cnv
      +          ,saux
      +          ,dt
@@ -595,30 +594,27 @@ c-------------------------------------------------------------
      +		,rload,load
      +		,azpar,adpar,aapar
      +          ,istot,isact
-     +          ,nlvdi,nlv
+     +          ,nlvddi,nlv
      +               )
 
 	  call assert_min_max_property(cnv,saux,sbconz,gradxv,gradyv,eps)
 
-          call bndo_setbc(it,what,nlvdi,cnv,rcv,uprv,vprv)
+          call bndo_setbc(it,what,nlvddi,cnv,rcv,uprv,vprv)
 
 	end do
-
-        !if( what .eq. 'salt' ) call check_scal_bounds(cnv,0.,60.,eps,.true.)
-        !if( what .eq. 'conz' ) call check_scal_bounds(cnv,0.,100.,eps,.true.)
 
 c-------------------------------------------------------------
 c check total mass
 c-------------------------------------------------------------
 
-	call massconc(+1,cnv,nlvdim,mass)
-	massdiff = mass - massold
-
-	write(iuinfo,1000) 'scal3sh_',what,':'
+	if( levdbg > 2 ) then
+	  call massconc(+1,cnv,nlvddi,mass)
+	  massdiff = mass - massold
+!$OMP CRITICAL
+	  write(iuinfo,1000) 'scal3sh_',what,':'
      +                          ,it,niter,mass,massold,massdiff
-
-	!check_set_unit(6)
-	!call check_elem(9914)
+!$OMP END CRITICAL
+	end if
 
 c-------------------------------------------------------------
 c end of routine
@@ -631,7 +627,7 @@ c-------------------------------------------------------------
 
 c**************************************************************
 
-        subroutine conz3d(cn1,co1
+        subroutine conz3d_orig(cn1,co1
      +			,ddt
      +                  ,rkpar,difhv,difv
      +			,difmol,cbound
@@ -702,52 +698,44 @@ c the solution is normalized, i.e.  int(C(x,t)dx) = 1 over the whole area
 c
 c DPGGU -> introduced double precision to stabilize solution
 
+	use mod_bound_geom
+	use mod_geom
+	use mod_depth
+	use mod_layer_thickness
+	use mod_diff_aux
+	use mod_bound_dynamic
+	use mod_area
+	use mod_ts
+	use mod_hydro_vel
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 c
-c parameters
-        include 'param.h'
 c arguments
 	integer nlvddi,nlev
-        real cn1(nlvddi,1),co1(nlvddi,1)		!DPGGU
-        real difv(0:nlvddi,1)
-        real difhv(nlvddi,1)
+        real cn1(nlvddi,nkn),co1(nlvddi,nkn)		!DPGGU
+        real difv(0:nlvddi,nkn)
+        real difhv(nlvddi,nel)
 	real difmol
-        real cbound(nlvddi,1)
+        real cbound(nlvddi,nkn)
 	integer itvd
 	integer itvdv
-	real gradxv(nlvddi,1)
-	real gradyv(nlvddi,1)
-	real cobs(nlvddi,1)
+	real gradxv(nlvddi,nkn)
+	real gradyv(nlvddi,nkn)
+	real cobs(nlvddi,nkn)
 	real robs
 	real wsink
-	real wsinkv(0:nlvddi,1)
+	real wsinkv(0:nlvddi,nkn)
 	real rload
-        real load(nlvddi,1)                      !ccf_load
-        real ddt,rkpar,azpar,adpar,aapar			!$$azpar
+        real load(nlvddi,nkn)                      !ccf_load
+        real ddt,rkpar
+        real azpar,adpar,aapar			!$$azpar
 	integer istot,isact
 c common
 	include 'femtime.h'
-	include 'ev.h'
-	!include 'hydro_print.h'
-	include 'nlevel.h'
-	include 'levels.h'
-	include 'ts.h'
-	include 'geom.h'
-
-	include 'hydro.h'
-
-	include 'depth.h'
- 
- 
-	include 'area.h'
-
-	include 'diff_aux.h'
-
-	include 'basin.h'
-	include 'hydro_vel.h'
-
-	include 'bound_dynamic.h'
-
 c local
 	logical bdebug,bdebug1,debug,btvdv
 	integer k,ie,ii,l,iii,ll,ibase
@@ -758,8 +746,8 @@ c local
 	integer kn(3)
         integer ip(3,3)
         integer n,i,ipp
-        real rkmin,rkmax
-        real mflux,qflux,cconz
+	integer elems(maxlnk)
+        double precision mflux,qflux,cconz
 	double precision loading
 	double precision wws
 	double precision us,vs
@@ -774,13 +762,11 @@ c local
 	double precision rso,rsn,rsot,rsnt,rstot
 	double precision hn,ho
 
-	double precision cn(nlvdim,nkndim)		!DPGGU	!FIXME
-	double precision co(nlvdim,nkndim)
-	double precision cdiag(nlvdim,nkndim)
-	double precision clow(nlvdim,nkndim)
-	double precision chigh(nlvdim,nkndim)
-
-c	double precision explh(nlvdim,nlkdim)
+	double precision cn(nlvddi,nkn)		!DPGGU	!FIXME
+	double precision co(nlvddi,nkn)
+	double precision cdiag(nlvddi,nkn)
+	double precision clow(nlvddi,nkn)
+	double precision chigh(nlvddi,nkn)
 
 	double precision cexpl
 	double precision cbm,ccm
@@ -789,55 +775,44 @@ c	double precision explh(nlvdim,nlkdim)
 	double precision flux_tot,flux_tot1,flux_top,flux_bot
         double precision wdiff(3),waux
 c local (new)
-	double precision clc(nlvdim,3), clm(nlvdim,3), clp(nlvdim,3)
-	double precision cle(nlvdim,3)
+	double precision clc(nlvddi,3), clm(nlvddi,3), clp(nlvddi,3)
+	double precision cle(nlvddi,3)
 
-	double precision cclc(nlvdim,3,neldim)
-	double precision cclm(nlvdim,3,neldim)
-	double precision cclp(nlvdim,3,neldim)
-	double precision ccle(nlvdim,3,neldim)
+	double precision cclc(nlvddi,3,nel)
+	double precision cclm(nlvddi,3,nel)
+	double precision cclp(nlvddi,3,nel)
+	double precision ccle(nlvddi,3,nel)
 
-	double precision cl(0:nlvdim+1,3)
-	double precision wl(0:nlvdim+1,3)
-	double precision vflux(0:nlvdim+1,3)
-	double precision cob(0:nlvdim+1,3)
-	double precision rtau(0:nlvdim+1,3)
+	double precision cl(0:nlvddi+1,3)
+	double precision wl(0:nlvddi+1,3)
+	double precision vflux(0:nlvddi+1,3)
+	double precision cob(0:nlvddi+1,3)
+	double precision rtau(0:nlvddi+1,3)
 
-	double precision hdv(0:nlvdim+1)
-	double precision haver(0:nlvdim+1)
-	double precision hnew(0:nlvdim+1,3)
-	double precision hold(0:nlvdim+1,3)
-	double precision htnew(0:nlvdim+1,3)
-	double precision htold(0:nlvdim+1,3)
-	double precision present(0:nlvdim+1)
+	double precision hdv(0:nlvddi+1)
+	double precision haver(0:nlvddi+1)
+	double precision hnew(0:nlvddi+1,3)
+	double precision hold(0:nlvddi+1,3)
+	double precision htnew(0:nlvddi+1,3)
+	double precision htold(0:nlvddi+1,3)
+	double precision present(0:nlvddi+1)
 
-	double precision cauxn(nlvdim)	!FIXME
-	double precision cauxd(nlvdim)
-	double precision cauxh(nlvdim)
-	double precision cauxl(nlvdim)
+	double precision cauxn(nlvddi)	!FIXME
+	double precision cauxd(nlvddi)
+	double precision cauxh(nlvddi)
+	double precision cauxl(nlvddi)
 c tvd
 	logical btvd,bgradup
 	integer ic,kc,id,kd,ippp
 	integer ies
 	integer iext
-	real term,fact
-	real conc,cond,conf,conu
-	real gcx,gcy,dx,dy
-	real u,v
-	real rf,psi
-	real grad
 	double precision fls(3)
-        real alfa,dis
-        real vel
-        real gdx,gdy
 
 c functions
 c	integer ipint,ieint
 	integer ipext
+	integer ithis
 
-	include 'testbndo.h'
-
-        if(nlvdim.ne.nlvddi) stop 'error stop conz3d: level dimension'
         if(nlv.ne.nlev) stop 'error stop conzstab: level'
 
 c----------------------------------------------------------------
@@ -1278,18 +1253,11 @@ c----------------------------------------------------------------
 ! cn(l),clow(l),chigh(l),cdiag(l) (one dimensional arrays over the vertical)
 
 	do k=1,nkn
-	  n = ilinkv(k+1)-ilinkv(k)
-	  ibase = ilinkv(k)
-	  if( lenkv(ibase+n) .le. 0 ) n = n - 1
+	  call get_elems_around(k,maxlnk,n,elems)
 	  ilevel = ilhkv(k)
 	  do i=1,n
-	    ie = lenkv(ibase+i)
-	    !ii = lenkiiv(ibase+i)
-	    !the next 4 lines are a hack, they will disappear in the new dist
-	    ii = 0
-	    if( nen3v(1,ie) == k ) ii = 1
-	    if( nen3v(2,ie) == k ) ii = 2
-	    if( nen3v(3,ie) == k ) ii = 3
+	    ie = elems(i)
+	    ii = ithis(k,ie)
 	    if( ii == 0 .or. nen3v(ii,ie) /= k ) then
 	      stop 'error stop: cannot find ii...'
 	    end if
@@ -1448,45 +1416,34 @@ c the solution is normalized, i.e.  int(C(x,t)dx) = 1 over the whole area
 c
 c DPGGU -> introduced double precision to stabilize solution
 
+	use mod_bound_geom
+	use mod_depth
+	use mod_layer_thickness
+	use mod_diff_aux
+	use mod_bound_dynamic
+	use mod_area
+	use mod_ts
+	use mod_hydro_vel
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+
 	implicit none
 c
-c parameters
-        include 'param.h'
 c arguments
 	integer nlvddi,nlev
-        !real cn1(nlvddi,1),co1(nlvddi,1)		!DPGGU
-        real difv(0:nlvddi,1)
-        real difhv(nlvddi,1)
+        !real cn1(nlvddi,nkn),co1(nlvddi,nkn)		!DPGGU
+        real difv(0:nlvddi,nkn)
+        real difhv(nlvddi,nel)
 	real difmol
         real ddt,rkpar,azpar,adpar,aapar			!$$azpar
 	real robs,wsink
-	real wsinkv(0:nlvddi,1)
+	real wsinkv(0:nlvddi,nkn)
 	integer istot,isact
 c common
 	include 'femtime.h'
 	include 'mkonst.h'
-
-	include 'basin.h'
-	include 'ev.h'
-	!include 'hydro_print.h'
-	include 'hydro_vel.h'
-	include 'nlevel.h'
-	include 'levels.h'
-
-	include 'hydro.h'
-
-	include 'bound_dynamic.h'
-
-	include 'depth.h'
- 
- 
-	include 'area.h'
-
-	include 'diff_aux.h'
-
-	include 'aux_array.h'
-
-	include 'ts.h'
 
 c local
 	logical bdebug,bdebug1,debug
@@ -1496,7 +1453,6 @@ c local
 	integer itot,isum	!$$flux
 	logical berror
 	integer kn(3)
-        real rkmin,rkmax
         real sindex,rstol
 	double precision us,vs
 	double precision az,azt
@@ -1519,12 +1475,20 @@ c local
 c------------------------------------------------------------
 c big arrays
 c------------------------------------------------------------
-	double precision cn(nlvdim,nkndim)		!DPGGU	!FIXME
-	double precision co(nlvdim,nkndim)
-	double precision cdiag(nlvdim,nkndim)
-	double precision clow(nlvdim,nkndim)
-	double precision chigh(nlvdim,nkndim)
-        real cwrite(nlvdim,nkndim)
+	!double precision cn(nlvddi,nkn)		!DPGGU	!FIXME
+	!double precision co(nlvddi,nkn)
+	!double precision cdiag(nlvddi,nkn)
+	!double precision clow(nlvddi,nkn)
+	!double precision chigh(nlvddi,nkn)
+        !real cwrite(nlvddi,nkn)
+        !real saux(nlvddi,nkn)
+	double precision, allocatable :: cn(:,:)
+	double precision, allocatable :: co(:,:)
+	double precision, allocatable :: cdiag(:,:)
+	double precision, allocatable :: clow(:,:)
+	double precision, allocatable :: chigh(:,:)
+        real, allocatable :: cwrite(:,:)
+        real, allocatable :: saux(:,:)
 c------------------------------------------------------------
 c end of big arrays
 c------------------------------------------------------------
@@ -1533,15 +1497,15 @@ c------------------------------------------------------------
 	double precision fw(3),fd(3)
 	double precision fl(3)
 c local (new)
-	double precision clc(nlvdim,3), clm(nlvdim,3), clp(nlvdim,3)
-	!double precision cl(0:nlvdim+1,3)
-	double precision wl(0:nlvdim+1,3)
+	double precision clc(nlvddi,3), clm(nlvddi,3), clp(nlvddi,3)
+	!double precision cl(0:nlvddi+1,3)
+	double precision wl(0:nlvddi+1,3)
 c
-	double precision hdv(0:nlvdim+1)
-	double precision haver(0:nlvdim+1)
-	double precision hnew(0:nlvdim+1,3)
-	double precision hold(0:nlvdim+1,3)
-	double precision present(0:nlvdim+1)
+	double precision hdv(0:nlvddi+1)
+	double precision haver(0:nlvddi+1)
+	double precision hnew(0:nlvddi+1,3)
+	double precision hold(0:nlvddi+1,3)
+	double precision present(0:nlvddi+1)
 
         integer kstab
 	real dtorig
@@ -1550,14 +1514,20 @@ c
         !save iustab
         !data iustab /0/
 c functions
-	logical is_zeta_bound
+	logical is_zeta_bound,openmp_in_parallel
 	real getpar
-	include 'testbndo.h'
 
 	!write(6,*) 'conzstab called...'
 
-        if(nlvdim.ne.nlvddi) stop 'error stop conzstab: level dimension'
         if(nlv.ne.nlev) stop 'error stop conzstab: level'
+
+c-----------------------------------------------------------------
+c allocation
+c-----------------------------------------------------------------
+
+	allocate(cn(nlvddi,nkn),co(nlvddi,nkn),cdiag(nlvddi,nkn))
+	allocate(clow(nlvddi,nkn),chigh(nlvddi,nkn))
+	allocate(cwrite(nlvddi,nkn),saux(nlvddi,nkn))
 
 c-----------------------------------------------------------------
 c initialization
@@ -1870,7 +1840,7 @@ c-----------------------------------------------------------------
 		  cwrite(l,k) = aux1		!save for write
                   aux2 = chigh(l,k) / voltot
                   stabadv = max(stabadv,aux2)
-		  saux1(l,k) = aux2		!for adv. stab.
+		  saux(l,k) = aux2		!for adv. stab.
                   aux3 = clow(l,k) / voltot
                   stabdiff = max(stabdiff,aux3)
                   aux4 = cn(l,k) / voltot
@@ -1892,13 +1862,13 @@ c		  end if
 
             else
 		  cwrite(l,k) = 0
-		  saux1(l,k) = 0.
+		  saux(l,k) = 0.
             end if
 	   end do
           else
 	   do l=1,ilevel
 		  cwrite(l,k) = 0
-		  saux1(l,k) = 0.
+		  saux(l,k) = 0.
            end do
           end if
 	end do
@@ -1920,7 +1890,9 @@ c-----------------------------------------------------------------
         sindex = stabind
 
 	call get_orig_timestep(dtorig)
-	call output_stability_node(dtorig,cwrite)
+	if( .not. openmp_in_parallel() ) then
+	  call output_stability_node(dtorig,cwrite)
+	end if
 
 c        if( .false. ) then
 c        !if( idt .le. 3 ) then
@@ -1929,6 +1901,14 @@ c          call conwrite(iustab,'.stb',1,777,nlvddi,cwrite)
 c        end if
 
 c        call stb_histo(it,nlvddi,nkn,ilhkv,cwrite)
+
+c-----------------------------------------------------------------
+c allocation
+c-----------------------------------------------------------------
+
+	deallocate(cn,co,cdiag)
+	deallocate(clow,chigh)
+	deallocate(cwrite,saux)
 
 c-----------------------------------------------------------------
 c end of routine
@@ -1947,28 +1927,23 @@ c*****************************************************************
 
 c computes total mass of conc
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 c arguments
 	integer mode
 	integer nlvddi
-	real cn(nlvddi,1)
+	real cn(nlvddi,nkn)
 	real mass
-c parameter
-        include 'param.h'
 c common
-	include 'nbasin.h'
 	include 'femtime.h'
-	include 'levels.h'
 c local
 	integer k,l,lmax
         double precision vol
 	double precision sum,masstot
 	real volnode
-
-	if(nlvdim.ne.nlvddi) then
-	  stop 'error stop : level dimension in massconc'
-	end if
 
         masstot = 0.
 
@@ -1994,17 +1969,16 @@ c**************************************************************
 
 c checks if scalar is out of bounds
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none
 
-        include 'param.h'
-
-        real cnv(nlvdim,1)
+        real cnv(nlvdi,nkn)
         real cmin,cmax
 	real eps
 	logical bstop		!stop simulation if true
 
-	include 'nbasin.h'
-	include 'levels.h'
 
 	logical berror
         integer k,l,lmax,kext
@@ -2043,23 +2017,22 @@ c*****************************************************************
 
 c checks min/max property
 
+	use mod_bound_geom
+	use mod_bound_dynamic
+	use levels
+	use basin
+
 	implicit none
 
-	include 'param.h'
-	include 'testbndo.h'
-
-        real cnv(nlvdim,nkndim)			!new concentration
-        real cov(nlvdim,nkndim)			!old concentration
-        real sbconz(nlvdim,nkndim)		!conz boundary conditions
-	real rmin(nlvdim,nkndim)		!aux arrray to contain min
-	real rmax(nlvdim,nkndim)		!aux arrray to contain max
+        real cnv(nlvdi,nkn)			!new concentration
+        real cov(nlvdi,nkn)			!old concentration
+        real sbconz(nlvdi,nkn)		!conz boundary conditions
+	real rmin(nlvdi,nkn)		!aux arrray to contain min
+	real rmax(nlvdi,nkn)		!aux arrray to contain max
 	real eps
 
 	include 'femtime.h'
 
-	include 'basin.h'
-	include 'bound_dynamic.h'
-	include 'levels.h'
 
 	logical bwrite,bstop
 	integer k,ie,l,ii,lmax,ierr
@@ -2148,6 +2121,8 @@ c---------------------------------------------------------------
 	  lmax = ilhkv(k)
 	  do l=1,lmax
 	    c = cnv(l,k)
+	    !rm1 = rmin(l,k)
+	    !rm2 = rmax(l,k)
 	    if( c .lt. rmin(l,k) .or. c .gt. rmax(l,k) ) then
 	      amin = rmin(l,k)
 	      amax = rmax(l,k)
@@ -2199,8 +2174,8 @@ c writes histogram info about stability index
 
         integer it
         integer nlvddi,nkn
-        integer ilhkv(1)
-        real cwrite(nlvddi,1)
+        integer ilhkv(nkn)
+        real cwrite(nlvddi,nkn)
 
         integer ndim
         parameter(ndim=11)
@@ -2234,34 +2209,3 @@ c writes histogram info about stability index
 
 c*****************************************************************
 
-        subroutine const3d_setup
-
-c sets up constant 3D array
-
-        implicit none
-
-        include 'param.h'
-
-	include 'nbasin.h'
-
-	include 'const_aux.h'
-
-        integer k,l
-
-        integer icall
-        save icall
-        data icall /0/
-
-        if( icall .gt. 0 ) return
-
-        do k=1,nkn
-          do l=0,nlvdim
-            const3d(l,k) = 1.
-          end do
-        end do
-
-        icall = 1
-
-        end
-
-c*****************************************************************

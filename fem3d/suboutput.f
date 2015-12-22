@@ -65,6 +65,10 @@ c 05.03.2014    ggu     new routines get_last/first_time()
 c 10.04.2014    ccf     new section "wrt" for water renewal time
 c 29.10.2014    ggu     do_() routines transfered from newpri.f
 c 10.11.2014    ggu     time management routines transfered to this file
+c 23.09.2015    ggu     new routine convert_time_d() for double
+c 24.09.2015    ggu     new file for double precision version
+c 20.10.2015    ggu     new routines to set/get unit
+c 04.11.2015    ggu     allow for initial output in adjust_itmidt()
 c
 c************************************************************
 c
@@ -84,13 +88,16 @@ c sets-up output frequency and first output
 	integer idtout		!time step for output
 	integer itout		!first output
 
+	logical binit
+
+	binit = ( itmout /= -1 )		!output initial time?
+
 	if( itmout .eq. -1 ) itmout = itanf
 	if( itmout .lt. itanf ) itmout = itanf
-	!if( idtout .lt. idt .and. idtout .gt. 0 ) idtout = idt
 
 	itout = itmout
-	if( itmout .eq. itanf ) itout = itout + idtout
-	if( itout .gt. itend ) idtout = 0
+	if( itmout .eq. itanf .and. .not. binit ) itout = itout + idtout
+	if( itout .gt. itend .and. idtout .gt. 0 ) idtout = 0
 
 	end
 
@@ -266,6 +273,32 @@ c writes info on ia_output
 	write(6,*) has_output(ia_out)
 	write(6,*) next_output(ia_out)
 	write(6,*) '------ info_output end ------'
+
+	end
+
+c********************************************************************
+
+	subroutine set_unit_output(ia_out,iunit)
+
+	implicit none
+
+	integer ia_out(4)
+	integer iunit
+
+	ia_out(4) = iunit
+
+	end
+
+c********************************************************************
+
+	subroutine get_unit_output(ia_out,iunit)
+
+	implicit none
+
+	integer ia_out(4)
+	integer iunit
+
+	iunit = ia_out(4)
 
 	end
 

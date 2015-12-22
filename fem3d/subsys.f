@@ -113,6 +113,8 @@ c 30.05.2014	ggu	new default for dragco, new metpnt
 c 20.10.2014	ggu	new default for date (-1)
 c 01.12.2014	ccf	wave parameters moved to subwave.f
 c 06.05.2015	ccf	new parameters itmoff and offlin
+c 29.09.2015	ggu	new boundary file surfvel
+c 29.09.2015	ggu	new initial file uvinit, new flgrst
 c
 c************************************************************************
 
@@ -219,11 +221,24 @@ c			first time record after |itrst|. Therefore, the
 c			value of 2 will guarantee that the program will not
 c			abort and continue running, but it might not
 c			be doing what you intended. (Default 0)
+c |flgrst|		This variable indicateswhich variables are read
+c			from the restart file. By default all available
+c			variables are read and used. If some variables
+c			are not wanted (because, e.g., you want to restart
+c			from a different T/S field), this fact can be indicated
+c			in |flgrst|. 1 indicates restart of hydro values,
+c			10 the depth values, 100 T/S values, 1000 the tracer
+c			concentration, 10000 vertical velocities and
+c			100000 the ecological variables. Therefore, a value
+c			of 10111 indicates a restart of everything except
+c			the tracer and the ecological values. The default
+c			value for |flgrst| is -1, which means 111111.
 
 	call addpar('idtrst',0.)
 	call addpar('itmrst',-1.)
 	call addpar('itrst',0.)
 	call addpar('ityrst',0.)
+	call addpar('flgrst',-1.)
 
 c |idtres|, |itmres|	Time step and start time for writing to file RES,
 c			the file containing residual hydrodynamic data.
@@ -451,12 +466,10 @@ c		2 uses an f-plane approximation where the
 c		Coriolis parameter $f$ is kept constant over the
 c		whole domain. (Default 0)
 c |dlat|	Average latitude of the basin. This is used to
-c		compute the Coriolis parameter $f$. If not given
-c		the latitude in the basin file is used. If given
-c		the value of |dlat| in the input parameter file
-c		effectively substitues the value given in the
-c		basin file. This parameter is not used if spherical
-c		coordinates are used (|isphe|=1). (Default 0)
+c		compute the Coriolis parameter $f$. This parameter 
+c		is not used if spherical coordinates are used 
+c		(|isphe|=1) or if a coordinate 	projection is set 
+c		(|iproj| $>$0). (Default 0)
 c |isphe|	If 0 a cartesian coordinate system is used,
 c		if 1 the coordinates are in the spherical system (lat/lon).
 c		Please note that in case of spherical coordinates the
@@ -542,6 +555,54 @@ c \input{P_wind.tex}
 	call addpar('dragco',2.5e-3)
 	call addpar('wsmax',50.)
 	call addpar('wslim',-1.)
+
+cc------------------------------------------------------------------------
+
+c DOCS  meteo                      Meteo and heat flux parameters
+
+c The next parameters deal with the heat and meteo forcing.
+
+c |iheat|	The type of heat flux algorithm (Default 1):
+c		\begin{description}
+c		\item[1] As in the AREG model
+c		\item[2] As in the POM model
+c		\item[3] Following A. Gill
+c		\item[4] Following Dejak
+c		\item[5] As in the GOTM model
+c		\item[6] Using the COARE3.0 module
+c		\item[7] Read  sensible, latent and longwave fluxes from file
+c		\end{description}
+
+	call addpar('iheat',1.)		!type of heat flux routine
+
+c |hdecay|	Depth of e-folding decay of radiation [m]. If |hdecay| = 0 
+c		everything is absorbed in first layer (Default 0).
+
+	call addpar('hdecay',0.)	!depth of e-folding decay of radiation
+
+c |botabs|	Heat absorption at bottom [fraction] (Default 0).
+c		\begin{description}
+c		\item[=0] everything is absorbed in last layer
+c		\item[=1] bottom absorbs remaining radiation
+c		\end{description}
+
+	call addpar('botabs',0.)	!heat absorption at bottom
+
+c |albedo|	General albedo (Default 0.06).
+
+	call addpar('albedo',0.06)	!general albedo
+
+c |albed4|	Albedo for temp below 4 degrees (Default 0.06).
+
+	call addpar('albed4',0.06)	!albedo for temp below 4 degrees
+
+c |imreg| 	Regular meteo data (Default 0).
+
+	call addpar('imreg',0.)		!regular meteo data
+
+c |ievap| 	Compute evaporation mass flux (Default 0).
+
+	call addpar('ievap',0.)		!compute evaporation mass flux
 
 cc------------------------------------------------------------------------
 
@@ -658,6 +719,26 @@ c		if you think there are stability problems. (Default 1)
 
 cc------------------------------------------------------------------------
 
+c DOCS	VAR		Various parameters
+c
+c The next parameters describe various parameters not related to
+c the above parameters.
+
+c |tauvel|	If you have velocity observations given in file
+c		|surfvel| then you can specify the relaxation
+c		parameter $\tau$ in the variable |tauvel|. (Default 0,
+c		which means no assimilation of velocities)
+
+	call addpar('tauvel',0.)	!horizontal TVD scheme?
+
+c |rtide|	If |rtide| = 1 the model calculates equilibrium tidal 
+c		potential and load tides and uses these to force the 
+c		free surface (Default 0).
+
+	call addpar('rtide',0.)
+
+cc------------------------------------------------------------------------
+
 c DOCS	ST	Temperature and salinity
 c
 c The next parameters deal with the transport and diffusion
@@ -762,27 +843,6 @@ cc------------------------------------------------------------------------
 
 cc------------------------------------------------------------------------
 
-cc meteo and heat flux
-cc
-cc iheat         type of heat flux routine
-cc               1=areg  2=pom  3=gill  4=dejak  5=gotm
-cc hdecay        depth of e-folding decay of radiation [m]
-cc               0. ->   everything is absorbed in first layer
-cc botabs        heat absorption at bottom [fraction]
-cc               1. ->   bottom absorbs remaining radiation
-cc               0. ->   everything is absorbed in last layer
-
-	call addpar('imreg',0.)		!regular meteo data
-	call addpar('ievap',0.)		!compute evaporation mass flux
-
-	call addpar('iheat',1.)		!type of heat flux routine
-	call addpar('hdecay',0.)	!depth of e-folding decay of radiation
-	call addpar('botabs',0.)	!heat absorption at bottom
-	call addpar('albedo',0.06)	!general albedo
-	call addpar('albed4',0.06)	!albedo for temp below 4 degrees
-
-cc------------------------------------------------------------------------
-
 cc biological reactor
 
 	call addpar('ibio',0.)		!run biological reactor
@@ -792,10 +852,6 @@ cc toxicological routines from ARPAV
 	call addpar('itoxi',0.)		!run toxicological routines
 
 cc------------------------------------------------------------------------
-
-cc equilibrium tide
-
-	call addpar('rtide',0.)		!compute with equilibrium tide
 
 cc call routines in flux.f
 
@@ -807,6 +863,11 @@ cc custom call
 
 	call addpar('icust',0.)		!call custom routine
 	call addpar('tcust',0.)		!time for custom routine
+
+	call addpar('ishyff',0.)	!shyfem file format
+					!0=old 1=new 2=both
+
+	call addpar('ipoiss',0.)	!solve poisson equation
 
 cc rain
 
@@ -827,11 +888,9 @@ c************************************************************************
 
 c $lagrg section
 
-c DOCS	START	S_lagrg
+c DOCS	START	P_lagrg
 c
-c DOCS	COMPULS		Lagrangian Module
-
-c This part describes the use of the Lagrangian Module.
+c This section describes the use of the Lagrangian Particle Module.
 c The lagrangian particles can be released inside a specified area with a
 c regular distribution. The area is defined in the file |lagra|.
 c The amount of particles released and the
@@ -869,6 +928,14 @@ c		\item[3] 3d lagrangian
 c		\end{description}
 
 	call addpar('ilagr',0.)         !LAGR
+
+c |nbdymax|	Maximum numbers of particles that can be in the domain.
+c		This should be the maximum number of particles
+c		that can be created and inserted. Use 0 to not limit
+c		the number of particles (on your own risk). This
+c		parameter must be set and has no default.
+
+        call addpar('nbdymax',-1.)
 
 c |nbdy|	Total numbers of particles to be released in the domain each
 c		time a release of particles takes place. 
@@ -911,12 +978,20 @@ c			whole lagrangian simulation period.
 
 c |ipvert|	Set the vertical distribution of particles:
 c		\begin{description}
-c		\item[0] realase one particle in surface layer
-c		\item[$>$0] realase n particles regularly
-c		\item[$<$0] realase n particles randomly
+c		\item[0] releases one particles only in surface layer
+c		\item[$>$0] release n particles regularly
+c		\item[$<$0] release n particles randomly
 c		\end{description}
 
         call addpar('ipvert',0.)
+
+c |linbot| Set the bottom layer for vertical releases
+
+         call addpar('linbot',0.)
+
+cc |lintop| Set the top layer for vertical releases
+
+cc        call addpar('lintop',0.) !todo
 
 c |lagra|	File name that contains closed lines of the area where
 c		the particles have to be released. If not given, the particles
@@ -951,11 +1026,9 @@ c************************************************************************
 
 c $wrt section
 
-c DOCS  START   S_wrt
+c DOCS  START   P_wrt
 c
-c DOCS  COMPULS         Water Renewal Time module
-
-c Computes water renewal time online.
+c Parameters for computing water renewal time.
 c During runtime if writes a .jas file with timeseries of total tracer
 c concentration in the basin and WRT computed according to different methods.
 c Nodal values of computed WRT are written in the .wrt file.
@@ -1054,26 +1127,70 @@ c************************************************************************
 
 	subroutine nlsinh_proj
 
-c Parameters for projection
-
 	implicit none
+
+c $proj section
+
+c DOCS  START   P_proj
+c
+c The parameter sets in this section handle the projection from cartesian to
+c geographical coordinate system. If |iproj| $>$0 the projected geographical 
+c coordinates can be used for computing spatially variable Coriolis parameter 
+c and tidal potential even if the basin is in cartesian coordinate system 
+c (|isphe| = 0) .
+c
+c Please find all details here below.
 
         call sctpar('proj')             !sets default section
         call sctfnm('proj')
 
-cc iproj:  0=none  1=GB  2=UTM  3=CPP  4=non-std UTM
+c |iproj|	Switch that indicates the type of projection
+c		(default 0):
+c		\begin{description}
+c		\item[0] do nothing
+c		\item[1] Gauss-Boaga (GB)
+c		\item[2] Universal Transverse Mercator (UTM)
+c		\item[3] Equidistant cylindrical (CPP)
+c		\item[4] UTM non standard
+c		\end{description}
 
-	call addpar('iproj',0.)		!type of projection
+	call addpar('iproj',0.)
 
-	call addpar('c_fuse',0.)	!fuse for GB (1 or 2)
-	call addpar('c_zone',0.)	!zone for UTM (1-60)
-	call addpar('c_lamb',0.)	!central meridian for non-std UTM
-	call addpar('c_x0',0.)		!x0 for GB and UTM
-	call addpar('c_y0',0.)		!y0 for GB and UTM
-	call addpar('c_skal',0.9996)	!scale factor for non-std UTM
-	call addpar('c_phi',0.)		!central parallel for CPP
-	call addpar('c_lon0',0.)	!longitude origin for CPP
-	call addpar('c_lat0',0.)	!latitude origin for CPP
+c |c\_fuse|	Fuse for GB (1 or 2, default 0)
+
+	call addpar('c_fuse',0.)
+
+c |c\_zone|	Zone for UTM (1-60, default 0)
+
+	call addpar('c_zone',0.)
+
+c |c\_lamb|	Central meridian for non-std UTM (default 0)
+
+	call addpar('c_lamb',0.)
+
+c |c\_x0|	x0 for GB and UTM (default 0)
+
+	call addpar('c_x0',0.)
+
+c |c\_y0|	y0 for GB and UTM (default 0)
+
+	call addpar('c_y0',0.)
+
+c |c\_skal|	Scale factor for non-std UTM (default 0.9996)
+
+	call addpar('c_skal',0.9996)
+
+c |c\_phi|	Central parallel for CPP (default 0.9996)
+
+	call addpar('c_phi',0.)
+
+c |c\_lon0|	Longitude origin for CPP (default 0)
+	call addpar('c_lon0',0.)
+
+c |c\_lat0|	Latitude origin for CPP (default 0)
+	call addpar('c_lat0',0.)
+
+c DOCS  END
 
 	end
 
@@ -1166,8 +1283,6 @@ c This subroutine defines the simulation wave parameter
 
 c DOCS  START   P_wave
 c
-c DOCS  COMPULS         Parameters in the waves section
-c 
 c The following parameters activate the wind wave module and define
 c which kind of wind wave model has to be used.
 !c |waves|      Wave module section name.
@@ -2124,7 +2239,8 @@ c
 c The following strings enable the specification of files
 c that account for initial conditions or forcing.
 c
-c |zinit|	File with initial water level distribution.
+c |zinit|	Name of file containing initial conditions for water level
+c |uvinit|	Name of file containing initial conditions for velocity
 c |wind|	File with wind data. The file may be either
 c		formatted or unformatted. For the format of the unformatted
 c		file please see the section where the WIN
@@ -2143,6 +2259,8 @@ c |qflux|	File with heat flux data. This file must be in
 c		a special format to account for the various parameters
 c		that are needed by the heat flux module to run. Please
 c		refer to the information on the file |qflux|.
+c |surfvel|	File with surface velocities from observation. These
+c		data can be used for assimilation into the model.
 c |ice|		File with ice cover. The values range from 0 (no ice cover)
 c		to 1 (complete ice cover).
 c |restrt|	Name of the file if a restart is to be performed. The
@@ -2161,9 +2279,12 @@ c		with the parameter |idtoff| greater than 0.
 
 
 	call addfnm('zinit',' ')
+        call addfnm('uvinit',' ')
+
 	call addfnm('wind',' ')
         call addfnm('rain',' ')
         call addfnm('qflux',' ')
+        call addfnm('surfvel',' ')
         call addfnm('ice',' ')
 
 	call addfnm('restrt',' ')
@@ -2235,4 +2356,3 @@ cc for model aquabc (curonian)
         end
 
 c************************************************************************
-

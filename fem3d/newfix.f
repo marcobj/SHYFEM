@@ -26,22 +26,18 @@ c*****************************************************************
 
 c initialization of bclfix routines
 
+	use mod_bclfix
+	use mod_internal
+	use basin
+
         implicit none 
-
-        include 'param.h' 
-        include 'bclfix.h' 
-
-	include 'basin.h'
-
-	include 'aux_array.h'
-
-	include 'internal.h'
 
 	real tnudge	!relaxation time for nudging [s]
 
         integer ie,l,i,ii,k,n,nn,nf
 	integer ibc,nodes
 	integer nbc
+	integer iflag(nkn)
        
 	integer nkbnds,kbnds,nbnds
 	integer ieext
@@ -80,13 +76,11 @@ c------------------------------------------------------------------
 	  ! flag boundary nodes
 	  !------------------------------------------------------------------
 
-          do k=1,nkn
-            v1v(k) = 0.
-          end do
+	  iflag = 0
 
 	  do i=1,nodes
 	    k = kbnds(ibc,i)
-	    v1v(k) = 1.
+	    iflag(k) = 1
 	  end do
 
 	  !------------------------------------------------------------------
@@ -98,7 +92,7 @@ c------------------------------------------------------------------
 	    n = 0
 	    do ii=1,3
 	      k = nen3v(ii,ie)
-	      if( v1v(k) .ne. 0. ) then
+	      if( iflag(k) .ne. 0 ) then
 	        n = n + 1
 	        ielfix(n,ie) = k
 	      end if
@@ -162,34 +156,28 @@ c*****************************************************************
 
 c fix or nudge  velocities on open boundaries
 
+	use mod_bclfix
+	use mod_internal
+	use mod_geom_dynamic
+	use mod_layer_thickness
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
         implicit none 
 
         include 'param.h' 
-        include 'bclfix.h' 
-
-	include 'nbasin.h'
 
 	include 'femtime.h'
-
-	include 'nlevel.h'
-
-	include 'bound_names.h'
-
-	include 'geom_dynamic.h'
-
-	include 'internal.h'
-	include 'hydro_vel.h'
-	include 'hydro.h'
-	include 'depth.h'
-
-	include 'levels.h'
 
 	real tnudge	!relaxation time for nudging [s]
 	real tramp	!time for smooth init
 
         integer ie,l,i,k,ii,n
 	integer lmax
-        real u(nlvdim),v(nlvdim)
+	integer nbc
+        real u(nlvdi),v(nlvdi)
         real h,t
         real alpha
 	real uexpl,vexpl
@@ -197,9 +185,10 @@ c fix or nudge  velocities on open boundaries
 	integer nintp,nvar
 	real cdef(2)
         double precision dtime0,dtime
-        integer idvel(nbcdim)
-        save idvel
+        integer, save, allocatable :: idvel(:)
         character*10 what
+
+	integer nbnds
 
 	integer icall
 	save icall
@@ -220,6 +209,10 @@ c------------------------------------------------------------------
 
           if( icall .eq. -1 ) return
 
+          nbc = nbnds()
+          allocate(idvel(nbc))
+	  idvel = 0
+
           dtime0  = itanf
           nintp   = 2
           nvar    = 2
@@ -237,8 +230,8 @@ c------------------------------------------------------------------
         dtime = it
 
         call bnds_read_new(what,idvel,dtime)
-        call bnds_trans_new(what,idvel,dtime,1,nkn,nlv,nlvdim,ubound)
-        call bnds_trans_new(what,idvel,dtime,2,nkn,nlv,nlvdim,vbound)
+        call bnds_trans_new(what,idvel,dtime,1,nkn,nlv,nlvdi,ubound)
+        call bnds_trans_new(what,idvel,dtime,2,nkn,nlv,nlvdi,vbound)
 
 c------------------------------------------------------------------
 c simulate smooth initial discharge with tramp

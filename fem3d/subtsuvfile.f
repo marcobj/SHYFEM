@@ -28,11 +28,11 @@ c*******************************************************************
 	  call iff_set_description(iunit(1),0,name)
 	end
 
-	subroutine ts_next_record(it,iunit,nkn,nlv,value)
+	subroutine ts_next_record(it,iunit,nlvddi,nkn,nlv,value)
 	include 'param.h'
 	integer iunit(3)
-	real value(nlvdim,nkn)
-	  call ts_next_record_1(it,iunit,nkn,nlv,value)
+	real value(nlvddi,nkn)
+	  call ts_next_record_1(it,iunit,nlvddi,nkn,nlv,value)
 	end
 
 	subroutine ts_file_close(info)
@@ -74,8 +74,10 @@ c opens T/S file
 	nodes = 0
 	vconst = 0.
 
+!$OMP CRITICAL
 	call iff_init(dtime,file,nvar,nexp,lexp,nintp
      +                                  ,nodes,vconst,id)
+!$OMP END CRITICAL
 
 	iunit(1) = id
 
@@ -87,7 +89,7 @@ c opens T/S file
 
 c*******************************************************************	
 
-	subroutine ts_next_record_1(it,iunit,nkn,nlv,value)
+	subroutine ts_next_record_1(it,iunit,nlvddi,nkn,nlv,value)
 
 	use intp_fem_file
 
@@ -97,9 +99,10 @@ c*******************************************************************
 
 	integer it
 	integer iunit(3)
+	integer nlvddi
 	integer nkn
 	integer nlv
-	real value(nlvdim,nkn)
+	real value(nlvddi,nkn)
 
 	integer id,ldim,ndim,ivar
         real vmin,vmax
@@ -119,7 +122,7 @@ c--------------------------------------------------------------
 	dtime = it
 	ivar = 1
 	ndim = nkn
-	ldim = nlvdim
+	ldim = nlvddi
 
 	!write(6,*)'reading T/S values', it,dtime
 
@@ -130,7 +133,7 @@ c--------------------------------------------------------------
 c some statistics
 c--------------------------------------------------------------
 
-        call conmima(nlvdim,value,vmin,vmax)
+        call conmima(nlvddi,value,vmin,vmax)
 
         !write(6,*) 'min/max: ',vmin,vmax
 

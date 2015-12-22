@@ -8,7 +8,7 @@ c
 c	subroutine iniflx
 c
 c	subroutine rfflx	(iunit,nvers
-c     +				,nscdim,kfxdim,nlvdim
+c     +				,nscddi,nfxddi,nlvddi
 c     +				,nsect,kfluxm,idtflx,nlmax
 c     +				,kflux
 c     +				,nlayers
@@ -18,12 +18,13 @@ c     +				,nsect,kfluxm,idtflx,nlmax
 c     +				,kflux
 c     +				,nlayers
 c     +				)
-c	subroutine rdflx(iunit,it,nlvdim,nsect,nlayers,fluxes,ierr)
-c	subroutine wrflx(iunit,it,nlvdim,nsect,nlayers,fluxes)
+c	subroutine rdflx(iunit,it,nlvddi,nsect,nlayers,fluxes,ierr)
+c	subroutine wrflx(iunit,it,nlvddi,nsect,nlayers,fluxes)
 c
 c revision log :
 c
 c 18.10.2011	ggu	created from subnos.f
+c 10.10.2015	ggu	new routines for new flx framework
 c
 c************************************************************
 
@@ -39,14 +40,11 @@ c parameters
 c common
 	integer mtype,maxver,vers
 	common /flxcom/ mtype,maxver,vers
+	save /flxcom/
 c local
 	integer i,n
 c save
-	logical binit
-	save binit
-	save /flxcom/
-c data
-	data binit /.false./
+	logical, save :: binit = .false.
 
 	if( binit ) return
 
@@ -64,14 +62,11 @@ c************************************************************
 c************************************************************
 c************************************************************
 
-	subroutine rfflx	(iunit,nvers
-     +				,nscdim,kfxdim,nlvdim
+	subroutine infoflx	(iunit,nvers
      +				,nsect,kfluxm,idtflx,nlmax
-     +				,kflux
-     +				,nlayers
      +				)
 
-c reads first record of FLX file
+c reads first info record of FLX file
 c
 c nvers		on entry maximal version that can be read
 c		-> must be an input, used to check the corectness
@@ -82,10 +77,7 @@ c		on return actual version read
 
 c arguments
 	integer iunit,nvers
-	integer nscdim,kfxdim,nlvdim
 	integer nsect,kfluxm,idtflx,nlmax
-	integer kflux(1)
-	integer nlayers(1)
 c common
 	integer mtype,maxver,vers
 	common /flxcom/ mtype,maxver,vers
@@ -127,12 +119,355 @@ c next records
 	   stop 'error stop rfflx: internal error (1)'
 	end if
 
-	if( nsect .gt. nscdim ) then
-	  write(6,*) 'nscdim,nsect: ',nscdim,nsect
-	  stop 'error stop rfflx: dimension nscdim'
-	else if( kfluxm .gt. kfxdim ) then
-	  write(6,*) 'kfxdim,kfluxm: ',kfxdim,kfluxm
-	  stop 'error stop rfflx: dimension kfxdim'
+	return
+   99	continue
+	write(6,*) 'rfflx: Error encountered while'
+	write(6,*) 'reading record number ',irec
+	write(6,*) 'of FLX file header'
+	write(6,*) 'nvers = ',nvers
+	stop 'error stop rfflx: error 99'
+   98	continue
+	write(6,*) 'rfflx: Version not recognized : ',nvers
+	stop 'error stop rfflx: error 98'
+   97	continue
+	write(6,*) 'rfflx: Wrong type of file : ',ntype
+	write(6,*) 'Expected ',mtype
+	stop 'error stop rfflx: error 97'
+   96	continue
+	write(6,*) 'rfflx: Cannot rewind file for unit : ',iunit
+	stop 'error stop rfflx: error 96'
+   95	continue
+	write(6,*) 'rfflx: Old function call ',nvers
+	write(6,*) 'nvers = ',nvers,'   maxver = ',maxver
+	write(6,*) 'Please adjust call to rfflx and recompile'
+	stop 'error stop rfflx: error 95'
+   91	continue
+	write(6,*) 'rfflx: File is empty'
+	stop 'error stop rfflx: error 91'
+	end
+
+c************************************************************
+c************************************************************
+c************************************************************
+
+	function check_flx_file(file)
+
+	implicit none
+
+        logical check_flx_file
+        character*(*) file
+
+        integer nb,nvers,ierr
+	integer nsect,kfluxm,nlmax
+        integer ifileo
+
+        check_flx_file = .false.
+
+        nb = ifileo(0,file,'unform','old')
+        if( nb .le. 0 ) return
+	call flx_check_header(nb,nvers,nsect,kfluxm,nlmax,ierr)
+        close(nb)
+
+        check_flx_file = ierr == 0
+
+	end
+
+c*********************************************************
+
+	subroutine flx_is_flx_file(iunit,nvers)
+
+	implicit none
+
+	integer iunit,nvers
+
+	integer ierr
+	integer nsect,kfluxm,nlmax
+
+	call flx_check_header(iunit,nvers,nsect,kfluxm,nlmax,ierr)
+
+	if( ierr .ne. 0 ) nvers = 0
+
+	rewind(iunit)
+
+	end
+
+c*********************************************************
+c*********************************************************
+c*********************************************************
+
+	subroutine flx_peek_header(iunit,nvers,nsect,kfluxm,nlmax)
+
+	implicit none
+
+	integer iunit,nvers
+	integer nsect,kfluxm,nlmax
+
+	integer ierr
+
+	call flx_check_header(iunit,nvers,nsect,kfluxm,nlmax,ierr)
+	if( ierr .ne. 0 ) then
+	  stop 'error stop flx_peek_header: error reading header'
+	end if
+
+	rewind(iunit)
+
+	end
+
+c*********************************************************
+
+	subroutine flx_peek_record(iunit,nvers,it,ierr)
+
+	implicit none
+
+	integer iunit,nvers,it,ierr
+
+	integer ios
+
+	read(iunit,iostat=ios)  it
+	ierr = ios
+
+	backspace(iunit)
+
+	end
+
+c*********************************************************
+
+	subroutine flx_check_header(iunit,nvers,nsect,kfluxm,nlmax,ierr)
+
+c checks version of flx file and returns number of points
+
+	implicit none
+
+	integer iunit,nvers
+	integer nsect,kfluxm,nlmax
+	integer ierr
+
+	integer mtype,maxver,vers
+	common /flxcom/ mtype,maxver,vers
+
+	integer kaux,ios,i,it,j
+	integer iaux,idtflx,ntype
+	real haux,tt,xaux
+	character*80 title
+
+	call iniflx
+
+	nvers = 0
+	nsect = 0
+	kfluxm = 0
+	nlmax = 0
+	ierr = -1
+
+	read(iunit,iostat=ierr) ntype,nvers
+	if( ierr .ne. 0 ) return
+	!write(6,*) ierr,ntype,nvers
+
+	ierr = 97
+	if( ntype .ne. mtype ) return
+	ierr = 99
+	if( nvers .le. 0 .or. nvers .gt. maxver ) return
+	vers = nvers
+	!write(6,*) ierr,ntype,nvers
+
+c next records
+
+	if( nvers .le. 3 ) then
+	   read(iunit,iostat=ierr)	 nsect,kfluxm,idtflx
+	   nlmax = 0
+	else if( nvers .ge. 4 ) then
+	   read(iunit,iostat=ierr)	 nsect,kfluxm,idtflx,nlmax
+	else
+	   stop 'error stop flx_check_header: internal error (1)'
+	end if
+	!write(6,*) ierr,nsect,kfluxm,idtflx,nlmax
+	if( ierr .ne. 0 ) return
+
+	read(iunit,iostat=ierr)	(iaux,i=1,kfluxm)
+	if( ierr .ne. 0 ) return
+
+	if( nvers .le. 2 ) then
+	else if( nvers .eq. 3 ) then
+	  read(iunit,iostat=ierr)	nlmax,(iaux,i=1,nsect)
+	else if( nvers .ge. 4 ) then
+	  read(iunit,iostat=ierr)	(iaux,i=1,nsect)
+	end if
+	if( ierr .ne. 0 ) return
+
+	read(iunit,iostat=ierr)  it
+	if( ierr .ne. 0 ) return
+
+	ierr = 0
+
+	end
+
+c*********************************************************
+c*********************************************************
+c*********************************************************
+
+	subroutine flx_read_header(iunit,nscddi,nfxddi,nlvddi
+     +				,nvers
+     +				,nsect,kfluxm,idtflx,nlmax
+     +                          ,kflux,nlayers
+     +				)
+
+	implicit none
+
+	integer iunit
+	integer nscddi,nfxddi,nlvddi
+	integer nvers
+	integer nsect,kfluxm,idtflx,nlmax
+	integer kflux(kfluxm)
+	integer nlayers(nsect)
+
+	call iniflx
+
+	call rfflx		(iunit,nvers
+     +				,nscddi,nfxddi,nlvddi
+     +				,nsect,kfluxm,idtflx,nlmax
+     +				,kflux
+     +				,nlayers
+     +				)
+
+	end
+
+c*********************************************************
+
+	subroutine flx_read_record(iunit,nvers,it
+     +			,nlvddi,nsect,ivar
+     +			,nlayers,fluxes,ierr)
+
+	implicit none
+
+	integer iunit,nvers,it
+	integer nlvddi,nsect,ivar
+	integer nlayers(nsect)
+	real fluxes(0:nlvddi,3,nsect)
+	integer ierr
+
+	call rdflx(iunit,it,nlvddi,nsect,ivar,nlayers,fluxes,ierr)
+
+	end
+
+c*********************************************************
+
+	subroutine flx_write_header(iunit
+     +				,nvers
+     +				,nsect,kfluxm,idtflx,nlmax
+     +                          ,kflux,nlayers
+     +				)
+
+	implicit none
+
+	integer iunit
+	integer nvers
+	integer nsect,kfluxm,idtflx,nlmax
+	integer kflux(kfluxm)
+	integer nlayers(nsect)
+
+	call iniflx
+
+	call wfflx		(iunit,nvers
+     +				,nsect,kfluxm,idtflx,nlmax
+     +				,kflux
+     +				,nlayers
+     +				)
+
+	end
+
+c*********************************************************
+
+	subroutine flx_write_record(iunit,nvers,it
+     +				,nlvddi,nsect,ivar
+     +				,nlayers,fluxes)
+
+	implicit none
+
+	integer iunit,nvers,it
+	integer nlvddi,nsect,ivar
+	integer nlayers(nsect)
+	real fluxes(0:nlvddi,3,nsect)
+
+	call wrflx(iunit,it,nlvddi,nsect,ivar,nlayers,fluxes)
+
+	end
+
+c*********************************************************
+c*********************************************************
+c*********************************************************
+
+c************************************************************
+c************************************************************
+c************************************************************
+
+	subroutine rfflx	(iunit,nvers
+     +				,nscddi,nfxddi,nlvddi
+     +				,nsect,kfluxm,idtflx,nlmax
+     +				,kflux
+     +				,nlayers
+     +				)
+
+c reads first record of FLX file
+c
+c nvers		on entry maximal version that can be read
+c		-> must be an input, used to check the corectness
+c		.. of the call parameters
+c		on return actual version read
+
+	implicit none
+
+c arguments
+	integer iunit,nvers
+	integer nscddi,nfxddi,nlvddi
+	integer nsect,kfluxm,idtflx,nlmax
+	integer kflux(kfluxm)
+	integer nlayers(nsect)
+c common
+	integer mtype,maxver,vers
+	common /flxcom/ mtype,maxver,vers
+c local
+	integer ntype,irec,i
+
+c initialize
+
+	call iniflx
+
+c control newest version number for call
+
+	if( maxver .ne. nvers ) goto 95
+
+c rewind file
+
+	rewind(iunit,err=96)
+
+c first record - find out what version
+
+	irec = 1
+	read(iunit,end=91,err=99) ntype,nvers
+
+c control version number and type of file
+
+	if( ntype .ne. mtype ) goto 97
+	if( nvers .le. 0 .or. nvers .gt. maxver ) goto 98
+	vers = nvers
+
+c next records
+
+	irec = 2
+	if( nvers .le. 3 ) then
+	   read(iunit,err=99)	 nsect,kfluxm,idtflx
+	   nlmax = 0
+	else if( nvers .ge. 4 ) then
+	   read(iunit,err=99)	 nsect,kfluxm,idtflx,nlmax
+	else
+	   stop 'error stop rfflx: internal error (1)'
+	end if
+
+	if( nsect .gt. nscddi ) then
+	  write(6,*) 'nscddi,nsect: ',nscddi,nsect
+	  stop 'error stop rfflx: dimension nscddi'
+	else if( kfluxm .gt. nfxddi ) then
+	  write(6,*) 'nfxddi,kfluxm: ',nfxddi,kfluxm
+	  stop 'error stop rfflx: dimension nfxddi'
 	end if
 
 	irec = 3
@@ -149,9 +484,9 @@ c next records
 	  read(iunit,err=99)	(nlayers(i),i=1,nsect)
 	end if
 
-	if( nlmax .gt. nlvdim ) then
-	  write(6,*) 'nlvdim,nlmax: ',nlvdim,nlmax
-	  stop 'error stop rfflx: dimension nlvdim'
+	if( nlmax .gt. nlvddi ) then
+	  write(6,*) 'nlvddi,nlmax: ',nlvddi,nlmax
+	  stop 'error stop rfflx: dimension nlvddi'
 	end if
 
 	return
@@ -200,8 +535,8 @@ c		.. of the call parameters
 c arguments
 	integer iunit,nvers
 	integer nsect,kfluxm,idtflx,nlmax
-	integer kflux(1)
-	integer nlayers(1)
+	integer kflux(kfluxm)
+	integer nlayers(nsect)
 c common
 	integer mtype,maxver,vers
 	common /flxcom/ mtype,maxver,vers
@@ -231,7 +566,7 @@ c control newest version number for call
 
 c************************************************************
 
-	subroutine rdflx(iunit,it,nlvdim,nsect,ivar,nlayers,fluxes,ierr)
+	subroutine rdflx(iunit,it,nlvddi,nsect,ivar,nlayers,fluxes,ierr)
 
 c reads data record of FLX file
 
@@ -239,11 +574,11 @@ c reads data record of FLX file
 
 c arguments
 	integer iunit,it
-	integer nlvdim
+	integer nlvddi
 	integer nsect
 	integer ivar
-	integer nlayers(1)
-	real fluxes(0:nlvdim,3,1)
+	integer nlayers(nsect)
+	real fluxes(0:nlvddi,3,nsect)
 	integer ierr
 c common
 	integer mtype,maxver,vers
@@ -289,7 +624,7 @@ c local
 
 c************************************************************
 
-	subroutine wrflx(iunit,it,nlvdim,nsect,ivar,nlayers,fluxes)
+	subroutine wrflx(iunit,it,nlvddi,nsect,ivar,nlayers,fluxes)
 
 c writes data record of FLX file
 
@@ -297,11 +632,11 @@ c writes data record of FLX file
 
 c arguments
 	integer iunit,it
-	integer nlvdim
+	integer nlvddi
 	integer nsect
 	integer ivar
-	integer nlayers(1)
-	real fluxes(0:nlvdim,3,1)
+	integer nlayers(nsect)
+	real fluxes(0:nlvddi,3,nsect)
 c common
 	integer mtype,maxver,vers
 	common /flxcom/ mtype,maxver,vers

@@ -55,7 +55,7 @@ c 11.11.2011    ggu     restructured ts_next_record() and diagnostic()
 c 22.11.2011    ggu     bug fix in ts_file_open() -> bhashl
 c 02.12.2011    ggu     adapt ts_file_open() for barotropic version (ihashl)
 c 27.01.2012    deb&ggu changes for hybrid in ts_file_open,ts_next_record
-c 10.02.2012    ggu     bug in call to ts_next_record (called with nlvdim)
+c 10.02.2012    ggu     bug in call to ts_next_record (called with nlvddi)
 c 23.02.2012    ccf     do noy check depth structure
 c 09.03.2012    deb     bug fix in ts_next_record: ilhkv was real
 c 31.10.2012    ggu     open and next_record transfered to subtsuvfile.f
@@ -64,6 +64,8 @@ c 25.03.2014    ggu     new offline
 c 10.07.2014    ggu     only new file format allowed
 c 20.10.2014    ggu     pass ids to scal_adv()
 c 10.02.2015    ggu     call to bnds_read_new() introduced
+c 15.10.2015    ggu     added new calls for shy file format
+c 26.10.2015    ggu     bug fix for parallel code (what was not set)
 c
 c*****************************************************************
 
@@ -75,6 +77,14 @@ c mode : =0 initialize  >0 normal call
 c
 c written 09.01.94 by ggu  (from scratch)
 c
+	use mod_layer_thickness
+	use mod_ts
+	use mod_diff_visc_fric
+	use mod_hydro_print
+	use mod_hydro
+	use levels
+	use basin
+
 	implicit none
 c
 c parameter
@@ -85,19 +95,6 @@ c common
 	include 'femtime.h'
 	include 'pkonst.h'
 	include 'mkonst.h'
-	include 'nlevel.h'
-
-	include 'ts.h'
-	include 'hydro_print.h'
-	include 'levels.h'
-	include 'aux_array.h'
-	include 'hydro.h'
-	include 'depth.h'
-	include 'diff_visc_fric.h'
-	include 'basin.h'
-
-                      
-	include 'bound_names.h'
 
 c local
 	logical debug
@@ -114,7 +111,9 @@ c local
 	integer idtext,itmext
 	integer imin,imax
 	integer nintp,nvar
-	real cdef(1),t
+	integer nbc
+	integer id
+	real cdef(1)
 	real xmin,xmax
         integer itemp,isalt
 	real salref,temref,sstrat,tstrat
@@ -130,15 +129,20 @@ c local
 	integer isact,l,k,lmax
 	integer kspec
 	integer icrst
+	integer ishyff
 	real stot,ttot,smin,smax,tmin,tmax,rmin,rmax
 	double precision v1,v2,mm
+	character*80 file
 	character*4 what
 c functions
 c	real sigma
 	real getpar
 	double precision scalcont,dq
 	integer iround
-	logical has_restart,has_output,next_output
+	integer nbnds
+	logical rst_use_restart
+	logical has_output,next_output
+	logical has_output_d,next_output_d
 
 	integer tid
 	!integer openmp_get_thread_num
@@ -146,11 +150,10 @@ c	real sigma
 	double precision theatold,theatnew
 	double precision theatconv1,theatconv2,theatqfl1,theatqfl2
 c save
-        integer ia_out(4)
-        save ia_out
+        integer, save :: ia_out(4)
+        double precision, save :: da_out(4)
 
-	integer idtemp(nbcdim),idsalt(nbcdim)
-	save idtemp,idsalt
+	integer, save, allocatable :: idtemp(:),idsalt(:)
 
         integer ninfo
         save ninfo
@@ -169,11 +172,10 @@ c----------------------------------------------------------
 c parameter setup and check
 c----------------------------------------------------------
 
-	if(nlvdim.ne.nlvdi) stop 'error stop barocl: nlvdi'
-
 	if(icall.eq.-1) return
 
         call is_offline(2,boff)
+        !if( boff ) write(6,*) 'TS reading from offline...'
         if( boff ) return
 
 	levdbg = nint(getpar('levdbg'))
@@ -181,6 +183,9 @@ c----------------------------------------------------------
 	binfo = .true.
         bgdebug = .false.
 	binitial_nos = .true.
+
+	dtime = t_act
+	ishyff = nint(getpar('ishyff'))
 
 c----------------------------------------------------------
 c initialization
@@ -190,7 +195,10 @@ c----------------------------------------------------------
 
 		ibarcl=iround(getpar('ibarcl'))
 		if(ibarcl.le.0) icall = -1
-		if(ibarcl.gt.4) goto 99
+		if(ibarcl.gt.4) then
+		  write(6,*) 'Value of ibarcl not allowed: ',ibarcl
+	          stop 'error stop barocl: ibarcl'
+		end if
 		if(icall.eq.-1) return
 
 		badvect = ibarcl .ne. 2
@@ -208,18 +216,18 @@ c		--------------------------------------------
 c		initialize saltv,tempv
 c		--------------------------------------------
 
-		if( .not. has_restart(3) ) then	!no restart of T/S values
+		if( .not. rst_use_restart(3) ) then	!no restart of T/S values
 		  call conini(nlvdi,saltv,salref,sstrat,hdkov)
 		  call conini(nlvdi,tempv,temref,tstrat,hdkov)
 
 		  if( ibarcl .eq. 1 .or. ibarcl .eq. 3) then
-		    call ts_init(itanf,nlv,nkn,tempv,saltv)
+		    call ts_init(itanf,nlvdi,nlv,nkn,tempv,saltv)
 		  else if( ibarcl .eq. 2 ) then
-		    call ts_diag(itanf,nlv,nkn,tempv,saltv)
+		    call ts_diag(itanf,nlvdi,nlv,nkn,tempv,saltv)
 		  else if( ibarcl .eq. 4 ) then		!interpolate to T/S
-	  	    call ts_nudge(itanf,nlv,nkn,tempv,saltv)
+	  	    call ts_nudge(itanf,nlvdi,nlv,nkn,tempv,saltv)
 		  else
-		    goto 99
+	            stop 'error stop barocl: internal error (1)'
 		  end if
 		end if
 
@@ -234,6 +242,12 @@ c		--------------------------------------------
 c		--------------------------------------------
 c		initialize open boundary conditions
 c		--------------------------------------------
+
+		nbc = nbnds()
+		allocate(idtemp(nbc))
+		allocate(idsalt(nbc))
+		idtemp = 0
+		idsalt = 0
 
 		dtime0 = itanf
                 nintp = 2
@@ -271,16 +285,31 @@ c		--------------------------------------------
 		if( isalt .gt. 0 ) nvar = nvar + 1
 
 		call init_output('itmcon','idtcon',ia_out)
-		!call set_output_frequency(itmcon,idtcon,ia_out) !alternatively
-
+		if( ishyff == 1 ) ia_out = 0
 		if( has_output(ia_out) ) then
 		  call open_scalar_file(ia_out,nlv,nvar,'nos')
-		  if( binitial_nos ) then
+		  if( next_output(ia_out) ) then
 		    if( isalt .gt. 0 ) then
 		      call write_scalar_file(ia_out,11,nlvdi,saltv)
 		    end if
-		    if( isalt .gt. 0 ) then
+		    if( itemp .gt. 0 ) then
 		      call write_scalar_file(ia_out,12,nlvdi,tempv)
+		    end if
+		  end if
+		end if
+
+		call init_output_d('itmcon','idtcon',da_out)
+		if( ishyff == 0 ) da_out = 0
+		if( has_output_d(da_out) ) then
+		  call shy_make_output_name('.ts.shy',file)
+		  call shy_open_output_file(file,1,nlv,nvar,2,id)
+		  da_out(4) = id
+		  if( next_output_d(da_out) ) then
+		    if( isalt .gt. 0 ) then
+		      call shy_write_scalar_record(id,dtime,11,nlvdi,saltv)
+		    end if
+		    if( itemp .gt. 0 ) then
+		      call shy_write_scalar_record(id,dtime,12,nlvdi,tempv)
 		    end if
 		  end if
 		end if
@@ -297,8 +326,6 @@ c----------------------------------------------------------
 c normal call
 c----------------------------------------------------------
 
-	t = it
-	dtime = t
 	wsink = 0.
 	robs = 0.
 	if( bobs ) robs = 1.
@@ -307,9 +334,9 @@ c----------------------------------------------------------
 	thpar=getpar('thpar')
 
 	if( ibarcl .eq. 2 ) then
-	  call ts_diag(it,nlv,nkn,tempv,saltv)
+	  call ts_diag(it,nlvdi,nlv,nkn,tempv,saltv)
 	else if( ibarcl .eq. 4 ) then
-	  call ts_nudge(it,nlv,nkn,tobsv,sobsv)
+	  call ts_nudge(it,nlvdi,nlv,nkn,tobsv,sobsv)
 	end if
 
 c----------------------------------------------------------
@@ -318,60 +345,67 @@ c----------------------------------------------------------
 
 	if( badvect ) then
 
-!$OMP PARALLEL PRIVATE(tid)
-!$OMP SECTIONS
-!$OMP SECTION
-
 	  call openmp_get_thread_num(tid)
 	  !write(6,*) 'number of thread of temp: ',tid
 
           if( itemp .gt. 0 ) then
 		what = 'temp'
-		dtime = it
 	        call bnds_read_new(what,idtemp,dtime)
-		!call check_layers(what//' after bnd',tempv)
+	  end if
+          if( isalt .gt. 0 ) then
+		what = 'salt'
+	        call bnds_read_new(what,idsalt,dtime)
+	  end if
+	  
+!$OMP TASK PRIVATE(what,dtime) FIRSTPRIVATE(thpar,wsink,robs,itemp,it) 
+!$OMP&     SHARED(idtemp,tempv,difhv,difv,difmol,tobsv) DEFAULT(NONE)
+!$OMP&     IF(itemp > 0)
+
+          if( itemp .gt. 0 ) then
+		what = 'temp'
                 call scal_adv_nudge(what,0
      +                          ,tempv,idtemp
      +                          ,thpar,wsink
      +                          ,difhv,difv,difmol,tobsv,robs)
-		!call check_layers(what//' after adv',tempv)
 	  end if
 
-!$OMP SECTION
+!$OMP END TASK
 
-	  call openmp_get_thread_num(tid)
-	  !write(6,*) 'number of thread of salt: ',tid
+!	  call openmp_get_thread_num(tid)
+!	  !write(6,*) 'number of thread of salt: ',tid
+
+!$OMP TASK PRIVATE(what,dtime) FIRSTPRIVATE(shpar,wsink,robs,isalt,it) 
+!$OMP&     SHARED(idsalt,saltv,difhv,difv,difmol,sobsv) DEFAULT(NONE)
+!$OMP&     IF(isalt > 0)
 
           if( isalt .gt. 0 ) then
 		what = 'salt'
-		dtime = it
-	        call bnds_read_new(what,idsalt,dtime)
-		!call check_layers(what//' after bnd',tempv)
                 call scal_adv_nudge(what,0
      +                          ,saltv,idsalt
      +                          ,shpar,wsink
      +                          ,difhv,difv,difmol,sobsv,robs)
-		!call check_layers(what//' after adv',tempv)
           end if
 
-!$OMP END SECTIONS NOWAIT
-!$OMP END PARALLEL
+!$OMP END TASK
+!$OMP TASKWAIT
 
 	end if
 
-c----------------------------------------------------------
-c compute total mass
-c----------------------------------------------------------
-
 	if( binfo ) then
-	  call tsmass(saltv,+1,nlvdim,stot) 
-	  call tsmass(tempv,+1,nlvdim,ttot) 
-	  write(ninfo,*) 'total_mass_T/S: ',it,ttot,stot
-
-          call conmima(nlvdi,saltv,smin,smax)
-          call conmima(nlvdi,tempv,tmin,tmax)
-          write(ninfo,2020) 'tsmima: ',it,tmin,tmax,smin,smax
- 2020	  format(a,i10,4f8.2)
+          if( itemp .gt. 0 ) then
+  	    call tsmass(tempv,+1,nlvdi,ttot) 
+      	    call conmima(nlvdi,tempv,tmin,tmax)
+!$OMP CRITICAL
+  	    write(ninfo,*) 'temp: ',it,ttot,tmin,tmax
+!$OMP END CRITICAL
+	  end if
+          if( isalt .gt. 0 ) then
+  	    call tsmass(saltv,+1,nlvdi,stot) 
+       	    call conmima(nlvdi,saltv,smin,smax)
+!$OMP CRITICAL
+  	    write(ninfo,*) 'salt: ',it,stot,smin,smax
+!$OMP END CRITICAL
+	  end if
 	end if
 
 c----------------------------------------------------------
@@ -407,14 +441,20 @@ c----------------------------------------------------------
 	  end if
 	end if
 
+	if( next_output_d(da_out) ) then
+	  id = nint(da_out(4))
+	  if( isalt .gt. 0 ) then
+	    call shy_write_scalar_record(id,dtime,11,nlvdi,saltv)
+	  end if
+	  if( itemp .gt. 0 ) then
+	    call shy_write_scalar_record(id,dtime,12,nlvdi,tempv)
+	  end if
+	end if
+
 c----------------------------------------------------------
 c end of routine
 c----------------------------------------------------------
 
-	return
-   99	continue
-	write(6,*) 'Value of ibarcl not allowed: ',ibarcl
-	stop 'error stop barocl: ibarcl'
 	end
 
 c********************************************************
@@ -471,6 +511,11 @@ c in rhov()   is rho_prime (=sigma_prime)
 c
 c brespv() and rhov() are given at node and layer interface
 
+	use mod_layer_thickness
+	use mod_ts
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	real resid
@@ -480,13 +525,8 @@ c common
 
 	include 'femtime.h'
 
-	include 'nbasin.h'
 	include 'pkonst.h'
-	include 'nlevel.h'
-	include 'levels.h'
-	include 'ts.h'
 
-	include 'depth.h'
 
 c local
 	logical bdebug,debug,bsigma
@@ -561,32 +601,32 @@ c*******************************************************************
 
 c checks values of t/s/rho
 
+	use mod_ts
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
-	include 'nbasin.h'
-	include 'ts.h'
-	include 'levels.h'
-	include 'nlevel.h'
 
 	real smin,smax,tmin,tmax,rmin,rmax
 	character*30 text
 
 	text = '*** tsrho_check'
 
-	call stmima(saltv,nkn,nlvdim,ilhkv,smin,smax)
-	call stmima(tempv,nkn,nlvdim,ilhkv,tmin,tmax)
-	call stmima(rhov,nkn,nlvdim,ilhkv,rmin,rmax)
+	call stmima(saltv,nkn,nlvdi,ilhkv,smin,smax)
+	call stmima(tempv,nkn,nlvdi,ilhkv,tmin,tmax)
+	call stmima(rhov,nkn,nlvdi,ilhkv,rmin,rmax)
 
 	write(6,*) 'S   min/max: ',smin,smax
 	write(6,*) 'T   min/max: ',tmin,tmax
 	write(6,*) 'Rho min/max: ',rmin,rmax
 
 	write(6,*) 'checking for Nans...'
-        call check2Dr(nlvdim,nlv,nkn,saltv,-1.,+70.,text,'saltv')
-        call check2Dr(nlvdim,nlv,nkn,tempv,-30.,+70.,text,'tempv')
-        call check2Dr(nlvdim,nlv,nkn,rhov,-2000.,+2000.,text,'rhov')
+        call check2Dr(nlvdi,nlv,nkn,saltv,-1.,+70.,text,'saltv')
+        call check2Dr(nlvdi,nlv,nkn,tempv,-30.,+70.,text,'tempv')
+        call check2Dr(nlvdi,nlv,nkn,rhov,-2000.,+2000.,text,'rhov')
 
 	end
 
@@ -594,17 +634,18 @@ c*******************************************************************
 c*******************************************************************	
 c*******************************************************************	
 
-	subroutine ts_diag(it,nlv,nkn,tempv,saltv)
+	subroutine ts_diag(it,nlvddi,nlv,nkn,tempv,saltv)
 
 	implicit none
 
 	include 'param.h'
 
 	integer it
+	integer nlvddi
 	integer nlv
 	integer nkn
-	real tempv(nlvdim,nkn)
-	real saltv(nlvdim,nkn)
+	real tempv(nlvddi,nkn)
+	real saltv(nlvddi,nkn)
 
 	character*80 tempf,saltf
 	integer iutemp(3),iusalt(3)
@@ -626,24 +667,25 @@ c*******************************************************************
 	  icall = 1
 	end if
 
-        call ts_next_record(it,iutemp,nkn,nlv,tempv)
-        call ts_next_record(it,iusalt,nkn,nlv,saltv)
+        call ts_next_record(it,iutemp,nlvddi,nkn,nlv,tempv)
+        call ts_next_record(it,iusalt,nlvddi,nkn,nlv,saltv)
 
 	end
 
 c*******************************************************************	
 
-	subroutine ts_nudge(it,nlv,nkn,tobsv,sobsv)
+	subroutine ts_nudge(it,nlvddi,nlv,nkn,tobsv,sobsv)
 
 	implicit none
 
 	include 'param.h'
 
 	integer it
+	integer nlvddi
 	integer nlv
 	integer nkn
-	real tobsv(nlvdim,nkn)
-	real sobsv(nlvdim,nkn)
+	real tobsv(nlvddi,nkn)
+	real sobsv(nlvddi,nkn)
 
 	character*80 tempf,saltf
 	integer iutemp(3),iusalt(3)
@@ -665,24 +707,25 @@ c*******************************************************************
 	  icall = 1
 	end if
 
-        call ts_next_record(it,iutemp,nkn,nlv,tobsv)
-        call ts_next_record(it,iusalt,nkn,nlv,sobsv)
+        call ts_next_record(it,iutemp,nlvddi,nkn,nlv,tobsv)
+        call ts_next_record(it,iusalt,nlvddi,nkn,nlv,sobsv)
 
 	end
 
 c*******************************************************************	
 
-	subroutine ts_intp(it,nlv,nkn,tobsv,sobsv,tempf,saltf)
+	subroutine ts_intp(it,nlvddi,nlv,nkn,tobsv,sobsv,tempf,saltf)
 
 	implicit none
 
 	include 'param.h'
 
 	integer it
+	integer nlvddi
 	integer nlv
 	integer nkn
-	real tobsv(nlvdim,1)
-	real sobsv(nlvdim,1)
+	real tobsv(nlvddi,1)
+	real sobsv(nlvddi,1)
 	character*80 tempf,saltf
 
 	integer iutemp(3),iusalt(3)
@@ -690,11 +733,10 @@ c*******************************************************************
 	integer ittold,itsold,ittnew,itsnew
 	save ittold,itsold,ittnew,itsnew
 
-	real toldv(nlvdim,nkndim)
-	real soldv(nlvdim,nkndim)
-	real tnewv(nlvdim,nkndim)
-	real snewv(nlvdim,nkndim)
-	save toldv,soldv,tnewv,snewv
+	real, save, allocatable :: toldv(:,:)
+	real, save, allocatable :: soldv(:,:)
+	real, save, allocatable :: tnewv(:,:)
+	real, save, allocatable :: snewv(:,:)
 
 	logical bdebug
 	integer icall
@@ -715,13 +757,18 @@ c-------------------------------------------------------------
 	  call ts_file_open(tempf,it,nkn,nlv,iutemp)
 	  call ts_file_open(saltf,it,nkn,nlv,iusalt)
 
+	  allocate(toldv(nlvddi,nkn))
+	  allocate(soldv(nlvddi,nkn))
+	  allocate(tnewv(nlvddi,nkn))
+	  allocate(snewv(nlvddi,nkn))
+
 	  write(6,*) 'ts_intp: initializing T/S'
-	  call ts_next_record(ittold,iutemp,nkn,nlv,toldv)
-	  call ts_next_record(itsold,iusalt,nkn,nlv,soldv)
+	  call ts_next_record(ittold,iutemp,nlvddi,nkn,nlv,toldv)
+	  call ts_next_record(itsold,iusalt,nlvddi,nkn,nlv,soldv)
 	  write(6,*) 'ts_intp: first record read ',ittold,itsold
 
-	  call ts_next_record(ittnew,iutemp,nkn,nlv,tnewv)
-	  call ts_next_record(itsnew,iusalt,nkn,nlv,snewv)
+	  call ts_next_record(ittnew,iutemp,nlvddi,nkn,nlv,tnewv)
+	  call ts_next_record(itsnew,iusalt,nlvddi,nkn,nlv,snewv)
 	  write(6,*) 'ts_intp: second record read ',ittnew,itsnew
 
 	  if( ittold .ne. itsold ) goto 98
@@ -738,12 +785,12 @@ c-------------------------------------------------------------
 	do while( it .gt. ittnew )
 
 	  ittold = ittnew
-	  call copy_record(nkn,nlvdim,nlv,toldv,tnewv)
+	  call copy_record(nkn,nlvddi,nlv,toldv,tnewv)
 	  itsold = itsnew
-	  call copy_record(nkn,nlvdim,nlv,soldv,snewv)
+	  call copy_record(nkn,nlvddi,nlv,soldv,snewv)
 
-	  call ts_next_record(ittnew,iutemp,nkn,nlv,tnewv)
-	  call ts_next_record(itsnew,iusalt,nkn,nlv,snewv)
+	  call ts_next_record(ittnew,iutemp,nlvddi,nkn,nlv,tnewv)
+	  call ts_next_record(itsnew,iusalt,nlvddi,nkn,nlv,snewv)
 	  write(6,*) 'ts_intp: new record read ',ittnew,itsnew
 
 	  if( ittnew .ne. itsnew ) goto 98
@@ -754,9 +801,9 @@ c-------------------------------------------------------------
 c interpolate to new time step
 c-------------------------------------------------------------
 
-	call intp_record(nkn,nlvdim,nlv,ittold,ittnew,it
+	call intp_record(nkn,nlvddi,nlv,ittold,ittnew,it
      +				,toldv,tnewv,tobsv)
-	call intp_record(nkn,nlvdim,nlv,itsold,itsnew,it
+	call intp_record(nkn,nlvddi,nlv,itsold,itsnew,it
      +				,soldv,snewv,sobsv)
 
 c-------------------------------------------------------------
@@ -774,7 +821,7 @@ c-------------------------------------------------------------
 
 c*******************************************************************	
 
-	subroutine ts_init(it0,nlv,nkn,tempv,saltv)
+	subroutine ts_init(it0,nlvddi,nlv,nkn,tempv,saltv)
 
 c initialization of T/S from file
 
@@ -783,10 +830,11 @@ c initialization of T/S from file
 	include 'param.h'
 
         integer it0
+        integer nlvddi
         integer nlv
         integer nkn
-        real tempv(nlvdim,nkn)
-        real saltv(nlvdim,nkn)
+        real tempv(nlvddi,nkn)
+        real saltv(nlvddi,nkn)
 
         character*80 tempf,saltf
 
@@ -801,7 +849,7 @@ c initialization of T/S from file
 	  write(6,*) 'ts_init: opening file for T'
 	  call ts_file_open(tempf,itt,nkn,nlv,iutemp)
 	  call ts_file_descrp(iutemp,'temp init')
-          call ts_next_record(itt,iutemp,nkn,nlv,tempv)
+          call ts_next_record(itt,iutemp,nlvddi,nkn,nlv,tempv)
 	  call ts_file_close(iutemp)
           write(6,*) 'temperature initialized from file ',tempf
 	end if
@@ -811,7 +859,7 @@ c initialization of T/S from file
 	  write(6,*) 'ts_init: opening file for S'
 	  call ts_file_open(saltf,its,nkn,nlv,iusalt)
 	  call ts_file_descrp(iusalt,'salt init')
-          call ts_next_record(its,iusalt,nkn,nlv,saltv)
+          call ts_next_record(its,iusalt,nlvddi,nkn,nlv,saltv)
 	  call ts_file_close(iusalt)
           write(6,*) 'salinity initialized from file ',saltf
 	end if
@@ -820,18 +868,18 @@ c initialization of T/S from file
 
 c*******************************************************************	
 
-	subroutine intp_record(nkn,nlvdim,nlv,itold,itnew,it
+	subroutine intp_record(nkn,nlvddi,nlv,itold,itnew,it
      +				,voldv,vnewv,vintpv)
 
 c interpolates records to actual time
 
 	implicit none
 
-	integer nkn,nlvdim,nlv
+	integer nkn,nlvddi,nlv
 	integer itold,itnew,it
-	real voldv(nlvdim,1)
-	real vnewv(nlvdim,1)
-	real vintpv(nlvdim,1)
+	real voldv(nlvddi,1)
+	real vnewv(nlvddi,1)
+	real vintpv(nlvddi,1)
 
 	integer k,l
 	real rt
@@ -848,15 +896,15 @@ c interpolates records to actual time
 
 c*******************************************************************	
 
-	subroutine copy_record(nkn,nlvdim,nlv,voldv,vnewv)
+	subroutine copy_record(nkn,nlvddi,nlv,voldv,vnewv)
 
 c copies new record to old one
 
 	implicit none
 
-	integer nkn,nlvdim,nlv
-	real voldv(nlvdim,1)
-	real vnewv(nlvdim,1)
+	integer nkn,nlvddi,nlv
+	real voldv(nlvddi,1)
+	real vnewv(nlvddi,1)
 
 	integer k,l
 
@@ -876,6 +924,8 @@ c*******************************************************************
 
 c accessor routine to get T/S
 
+	use mod_ts
+
         implicit none
 
         integer k,l
@@ -883,7 +933,6 @@ c accessor routine to get T/S
 
 	include 'param.h'
 
-	include 'ts.h'
 
         t = tempv(l,k)
         s = saltv(l,k)
@@ -894,16 +943,15 @@ c******************************************************************
 
 	subroutine check_layers(what,vals)
 
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
 	implicit none
 
 	include 'param.h'
 
 	character*(*) what
-	real vals(nlvdim,nkndim)
-
-	include 'nbasin.h'
-	include 'nlevel.h'
-	include 'levels.h'
+	real vals(nlvdi,nkn)
 
 	integer l,k,lmax
 	real valmin,valmax

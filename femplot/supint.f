@@ -349,6 +349,8 @@ c**********************************************************
 
 c extract level from 3d array (nodes)
 
+	use levels
+
 	implicit none
 
 	integer level		!level to extract
@@ -358,7 +360,6 @@ c extract level from 3d array (nodes)
 	real p2(nkn)		!2d array filled on return
 
 	include 'param.h'
-	include 'levels.h'
 
 	call extlev(level,nlvddi,nkn,ilhkv,p3,p2)
 
@@ -370,6 +371,8 @@ c**********************************************************
 
 c extract level from 3d array (elements)
 
+	use levels
+
 	implicit none
 
 	integer level		!level to extract
@@ -379,7 +382,6 @@ c extract level from 3d array (elements)
 	real p2(nel)		!2d array filled on return
 
 	include 'param.h'
-	include 'levels.h'
 
 	call extlev(level,nlvddi,nel,ilhv,p3,p2)
 
@@ -444,6 +446,8 @@ c integrate over water column
 
 	integer i,l,lmax
 	real value
+
+	lmax = 0
 
 	do i=1,n
 	  lmax = ilv(i)
