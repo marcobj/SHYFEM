@@ -27,6 +27,7 @@ c 08.01.2015	ggu	new version for nrdvec*()
 c 05.02.2015	ggu	program completely rewritten (modules introduced)
 c 08.02.2015	ggu	accept also '!' and '#' for end comment on line
 c 12.05.2015	ggu	new char table
+c 01.02.2016	ggu	bug in nls_insert_variable() -> new char variable
 c
 c notes :
 c
@@ -145,6 +146,40 @@ c******************************************************************
         end if
 
 	end subroutine nls_alloc
+
+c******************************************************************
+c******************************************************************
+c******************************************************************
+
+	function nls_is_nls_file(file)
+
+	logical nls_is_nls_file
+	character*(*) file
+
+	integer nsect,iunit
+	integer ifileo
+	integer num
+	character*80 section		!section name
+	character*80 extra		!extra information
+
+	nls_is_nls_file = .false.
+	nsect = 0
+
+	iunit = ifileo(0,file,'form','old')
+	if( iunit <= 0 ) return
+
+	call nls_init(iunit)
+
+	do while( nls_next_section(section,num,extra) )
+	  call nls_skip_section
+	  nsect = nsect + 1
+	end do
+
+	close(iunit)
+
+	nls_is_nls_file = ( nsect > 0 )
+
+	end function nls_is_nls_file
 
 c******************************************************************
 c******************************************************************
@@ -651,6 +686,7 @@ c does not handle vectors (yet)
 	double precision value
 
 	integer itspar,iscpar
+        character*80 section
 
 	nls_insert_variable = nls_next_item(name,value,text)
 
@@ -681,11 +717,11 @@ c does not handle vectors (yet)
    94   continue
         write(6,*) 'parameter is in wrong section:'
         write(6,*) 'parameter type:  ',nls_insert_variable
-        write(6,*) 'parameter name:    ',name(1:len_trim(name))
-        write(6,*) 'section: ',sect(1:len_trim(sect))
-        write(6,*) 'text:    ',text(1:len_trim(text))
-        call get_sect_of(name,sect)
-        write(6,*) 'section found: ',sect(1:len_trim(sect))
+        write(6,*) 'parameter name:    ',trim(name)
+        write(6,*) 'section: ',trim(sect)
+        write(6,*) 'text:    ',trim(text)
+        call get_sect_of(name,section)
+        write(6,*) 'section for this name found: ',trim(section)
         if( nls_insert_variable .ge. 3 ) call prifnm(6)
         if( nls_insert_variable .le. 2 ) call pripar(6)
         stop 'error stop nls_insert_variable: wrong section'

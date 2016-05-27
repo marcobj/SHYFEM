@@ -31,6 +31,13 @@ endif
 
 #---------------------------------------------------------------
 
+ifndef ($(SHYFEMDIR))
+        SHYFEMDIR := $(HOME)/shyfem
+endif
+export SHYFEMDIR
+
+#---------------------------------------------------------------
+
 FEMDIR    = .
 DIRLIB    = $(FEMDIR)/femlib
 FEMSRC    = $(FEMDIR)/fem3d
@@ -92,7 +99,7 @@ default:
 
 all: fem doc
 
-fem: checkv directories links
+fem: checkv directories links test_executable
 	$(FEMBIN)/recursivemake $@ $(FEMDIRS)
 	@femcheck/check_compilation.sh -quiet
 
@@ -119,14 +126,15 @@ param:
 
 directories:
 	-mkdir -p tmp
+	if [ ! -f ./tmp/Makefile ]; then cp ./femdummy/Makefile ./tmp; fi
 	-mkdir -p femlib/mod
 
 links:
 	-rm -f bin lib
 	-ln -sf fembin bin
 	-ln -sf femlib lib
-	@#[ ! -d ./femregress ] && -ln -sf femdummy femregress
-	if test ! -d ./femregress; then ln -s femdummy femregress; fi
+	@#[ ! -d ./femregress ] && -ln -fs femdummy femregress
+	if test ! -d ./femregress; then ln -fs femdummy femregress; fi
 
 #---------------------------------------------------------------
 # cleaning
@@ -175,6 +183,7 @@ help:
 	@echo "check_compilation   checks if all executables have compiled"
 	@echo "modified            finds files changed after installation"
 	@echo "changed_zip         zips files changed after installation"
+	@echo "make_executable     makes scripts executable"
 
 first_time:
 	@echo 'Recommended use if you see shyfem for the first time:'
@@ -328,6 +337,21 @@ compiler_version:
 
 last_commit:
 	@gittags | tail -1
+
+shyfemdir:
+	@echo "shyfemdir: $(SHYFEMDIR)"
+
+#---------------------------------------------------------------
+# check if routines are executable
+#---------------------------------------------------------------
+
+test_executable:
+	@if [ ! -x fembin/make_executable.sh ]; then make make_executable; fi
+
+make_executable:
+	@echo "making programs executable"
+	chmod +x fembin/*
+	fembin/make_executable.sh
 
 #---------------------------------------------------------------
 # compatibility checks

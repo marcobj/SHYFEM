@@ -6,36 +6,36 @@
 #
 #--------------------------------------------------------------
 
-$basedir = "~/fem/";
-$tagdir   = ".git/refs/tags";
+@tags = `git show-ref --tags`;
 
-$dir = $basedir . $tagdir;
-
-$tags = `cd $dir; ls *`;
-@tags = split(/\s+/,$tags);
-
-foreach $tag (@tags) {
-  $ref = `cat $dir/$tag`;
-  chomp $ref;
-  $tags{$ref} = $tag;
-  #print "$ref  $tag\n";
+foreach $line (@tags) {
+  chomp $line;
+  my ($hash,$tag) = split(/\s+/,$line);
+  $tag =~ s|^refs/tags/||;
+  $tags{$hash} = $tag;
+  #print "$hash  $tag\n";
 }
 
-$coms = `git log --pretty=oneline`;
+#exit;
+
+#$coms = `git log --pretty=oneline`;
+$coms = `git log --format="%H %ct %s"`;
 @coms = split(/\n+/,$coms);
 @lines = ();
 
 foreach $com (@coms) {
-  ($hash,@mess) = split(/\s+/,$com);
+  ($hash,$udate,@mess) = split(/\s+/,$com);
   $mess = join(" ",@mess);
+  $date = format_date($udate);
   $shorthash = substr($hash,0,10);
-  $shortmess = substr($mess,0,55);
+  #$shortmess = substr($mess,0,55);
+  $shortmess = substr($mess,0,44);
   $tag = format_tag($tags{$hash});
   if( $tagsonly ) {
     $tag =~ s/^\s+$//;
     push(@lines,$tag) if( $tag );
   } else {
-    my $line = "$shorthash $tag $shortmess";
+    my $line = "$shorthash $date $tag $shortmess";
     push(@lines,$line);
   }
   #print "$line\n";
@@ -49,7 +49,7 @@ foreach my $line (reverse @lines) {
 
 sub format_tag {
 
-  my ($tag,$size) = shift;
+  my ($tag,$size) = @_;
 
   $tag = "      " unless( $tag );
 
@@ -58,16 +58,19 @@ sub format_tag {
   return $line;
 }
 
-sub get_object {
+sub format_date {
 
-  my $tag = shift;
+  my $utime = shift;
 
-  open(TAG,"<$dir/$tag") || die "cannot open file: $dir/$tag";
-  my $ref = <TAG>;
-  close(TAG);
+  my ($sec, $min, $hour, $day, $mon, $year, $wday, $yday, $isdst) = 
+      localtime($udate);
 
-  chomp($ref);
+  $year += 1900;
+  $mon += 1;
 
-  return $ref;
+  $mon = "0$mon" if $mon < 10;
+  $day = "0$day" if $day < 10;
+
+  $date = "$year-$mon-$day";
 }
 

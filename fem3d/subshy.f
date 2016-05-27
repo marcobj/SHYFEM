@@ -47,7 +47,7 @@
           real, allocatable :: xgv(:)
           real, allocatable :: ygv(:)
           real, allocatable :: hm3v(:,:)
-          integer, allocatable :: hlv(:)
+          real, allocatable :: hlv(:)
           integer, allocatable :: ilhv(:)
           integer, allocatable :: ilhkv(:)
 
@@ -190,19 +190,24 @@
 !******************************************************************
 !******************************************************************
 
-	function shy_open_file(file)
+	function shy_open_file(file,status)
 
 	integer shy_open_file
 	character*(*) file
+	character*(*), optional :: status
 
 	integer iunit,ios
+	character*20 stat
+
+	stat = 'unknown'
+	if( present(status) ) stat = status
 
 	shy_open_file = 0
 
 	call shy_get_file_unit(iunit)
 	if( iunit == 0 ) return
 
-	open(iunit,file=file,status='unknown',form='unformatted'
+	open(iunit,file=file,status=stat,form='unformatted'
      +				,iostat=ios)
 	if( ios /= 0 ) return
 
@@ -302,6 +307,8 @@
 
 	integer id
 
+	if( id <= 0 ) return
+
 	close(pentry(id)%iunit)
 	pentry(id)%iunit = 0
 	call shy_dealloc_arrays(id)
@@ -316,33 +323,61 @@
 	logical shy_are_compatible
 	integer id1,id2
 
+	integer nk,ne
+	character*20 serr
+
 	shy_are_compatible = .false.
+	nk = pentry(id1)%nkn
+	ne = pentry(id1)%nel
 
-	if( pentry(id1)%nkn /= pentry(id2)%nkn ) return 
-	if( pentry(id1)%nel /= pentry(id2)%nel ) return 
-	if( pentry(id1)%nlv /= pentry(id2)%nlv ) return 
-	if( pentry(id1)%npr /= pentry(id2)%npr ) return 
-	if( pentry(id1)%nvar /= pentry(id2)%nvar ) return 
-	if( pentry(id1)%date /= pentry(id2)%date ) return 
-	if( pentry(id1)%time /= pentry(id2)%time ) return 
+	serr = 'parameters'
+	if( pentry(id1)%nkn /= pentry(id2)%nkn ) goto 99 
+	if( pentry(id1)%nel /= pentry(id2)%nel ) goto 99 
+	if( pentry(id1)%nlv /= pentry(id2)%nlv ) goto 99 
+	if( pentry(id1)%npr /= pentry(id2)%npr ) goto 99 
+	if( pentry(id1)%nvar /= pentry(id2)%nvar ) goto 99 
+	if( pentry(id1)%date /= pentry(id2)%date ) goto 99 
+	if( pentry(id1)%time /= pentry(id2)%time ) goto 99 
 
-	if( .not. all(pentry(id1)%nen3v==pentry(id2)%nen3v) ) return
-	if( .not. all(pentry(id1)%xgv==pentry(id2)%xgv) ) return
-	if( .not. all(pentry(id1)%ygv==pentry(id2)%ygv) ) return
-	if( .not. all(pentry(id1)%hm3v==pentry(id2)%hm3v) ) return
+	serr = 'nen3v'
+	if( .not. all(pentry(id1)%nen3v==pentry(id2)%nen3v) ) goto 99
+	serr = 'xgv'
+	if( .not. all(pentry(id1)%xgv==pentry(id2)%xgv) ) goto 99
+	serr = 'ygv'
+	if( .not. all(pentry(id1)%ygv==pentry(id2)%ygv) ) goto 99
+	serr = 'hm3v'
+	!call shy_diff_internal_r(3*ne,pentry(id1)%hm3v,pentry(id2)%hm3v)
+	!if( .not. all(pentry(id1)%hm3v==pentry(id2)%hm3v) ) goto 99
 
 	!still to be finished
 	!deallocate(pentry(id)%ipev)
 	!deallocate(pentry(id)%ipv)
 	!deallocate(pentry(id)%iarv)
 	!deallocate(pentry(id)%iarnv)
+	serr = 'hlv'
+	if( .not. all(pentry(id1)%hlv==pentry(id2)%hlv) ) goto 99
 	!deallocate(pentry(id)%hlv)
 	!deallocate(pentry(id)%ilhv)
 	!deallocate(pentry(id)%ilhkv)
 
 	shy_are_compatible = .true.
 
+	return
+  99	continue
+	write(6,*) 'error checking ',serr
+	return
 	end function shy_are_compatible
+
+!************************************************************
+
+	subroutine shy_diff_internal_r(n,r1,r2)
+	integer n
+	real r1(n),r2(n)
+	integer i
+	do i=1,n
+	  write(6,*) r1(i),r2(i),r2(i)-r1(i)
+	end do
+	end
 
 !************************************************************
 
@@ -368,6 +403,11 @@
 
 	integer id
 
+	character*80 file
+
+	call shy_get_filename(id,file)
+
+        write(6,*) 'filename  : ',trim(file)
         write(6,*) 'iunit     : ',pentry(id)%iunit
         write(6,*) 'nvers     : ',pentry(id)%nvers
         write(6,*) 'nkn,nel   : ',pentry(id)%nkn,pentry(id)%nel
@@ -376,6 +416,8 @@
         write(6,*) 'date,time : ',pentry(id)%date,pentry(id)%time
         write(6,*) 'title     : ',trim(pentry(id)%title)
         write(6,*) 'femver    : ',trim(pentry(id)%femver)
+
+        write(6,*) 'hlv       : ',pentry(id)%hlv
 
 	end subroutine shy_info
 
@@ -398,6 +440,25 @@
 
 !************************************************************
 !************************************************************
+!************************************************************
+
+	function shy_exist_file(file)
+
+	logical shy_exist_file
+	character*(*) file
+
+	integer iunit
+
+	shy_exist_file = .false.
+
+	iunit = shy_open_file(file,'old')
+	if( iunit .le. 0 ) return
+
+	shy_exist_file = .true.
+	close(iunit)
+
+	end function shy_exist_file
+
 !************************************************************
 
 	function shy_is_shy_file_by_name(file)
@@ -431,6 +492,8 @@
 
 	read(iunit,iostat=ios) ntype,nvers
 
+	!write(6,*) 'shy_is_shy_file: ',ios,ntype,nvers
+
 	if( ios /= 0 ) return
 	if( ntype .ne. shytype ) return
 	if( nvers .lt. minvers .or. nvers .gt. maxvers ) return
@@ -439,6 +502,38 @@
 	rewind(iunit)
 
 	end function shy_is_shy_file_by_unit
+
+!************************************************************
+!************************************************************
+!************************************************************
+
+	subroutine shy_convert_2d(id)
+
+	integer id
+
+	pentry(id)%nlv = 1
+
+	deallocate(pentry(id)%hlv)
+	allocate(pentry(id)%hlv(1))
+
+	pentry(id)%hlv(1) = 10000.
+	pentry(id)%ilhv = 1
+	pentry(id)%ilhkv = 1
+
+	end subroutine shy_convert_2d
+
+!************************************************************
+
+	subroutine shy_convert_1var(id)
+
+	integer id
+
+	pentry(id)%nvar = 1
+
+	end subroutine shy_convert_1var
+
+!************************************************************
+!************************************************************
 
 !************************************************************
 !************************************************************
@@ -788,7 +883,7 @@
 
 	integer iunit
 	integer i,k,ie,l,j
-	integer, pointer :: il(:)
+	integer, allocatable :: il(:)
 
 	iunit = pentry(id)%iunit
 
@@ -806,6 +901,7 @@
 	else
 	  write(6,*) n,pentry(id)%nkn,pentry(id)%nel
 	  write(6,*) 'cannot determine layer pointer'
+	  call shy_info(id)
 	  stop 'error stop shy_read_record: layer pointer'
 	end if
 
@@ -818,10 +914,9 @@
      +			,l=1,il(i) )
      +			,i=1,n )
 	else
-	  read(iunit,iostat=ierr) ((( c(l,j+m*(i-1))
-     +			,l=1,il(i) )
-     +			,j=1,m )
-     +			,i=1,n )
+	  read(iunit,iostat=ierr) (( c(l,i)
+     +			,l=1,il(1+(i-1)/m) )
+     +			,i=1,n*m )
 	end if
 	deallocate(il)
 
@@ -974,10 +1069,9 @@
      +			,l=1,il(i) )
      +			,i=1,n )
 	else
-	  write(iunit,iostat=ierr) ((( c(l,j+m*(i-1))
-     +			,l=1,il(i) )
-     +			,j=1,m )
-     +			,i=1,n )
+	  write(iunit,iostat=ierr) (( c(l,i)
+     +			,l=1,il(1+(i-1)/m) )
+     +			,i=1,n*m )
 	end if
 	deallocate(il)
 

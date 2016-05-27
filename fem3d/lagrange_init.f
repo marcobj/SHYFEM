@@ -12,6 +12,7 @@ c 11.03.2010    ggu	in lgr_init_line() check if at least one line is read
 c 06.10.2011    ggu	in check_elements() initialize iout, icheck (bug)
 c 16.02.2012    ggu	bug fix reading lines
 c 20.05.2015    ccf	give type to released particles
+c 15.02.2016    ggu	handle negative areas (line given clockwise)
 c
 c*******************************************************************
 
@@ -82,6 +83,10 @@ c particles in different polygons have different types
 	logical lagbound_read_next
 
 	call lagbound_get_area(tot_area)
+	if( tot_area < 0. ) then
+	  write(6,*) 'area inside line: ',tot_area
+	  stop 'error stop lgr_init_line: negative area'
+	end if
         dxy = sqrt( tot_area / npoints )
 
 	write(6,*) 'lgr_init_line: ',npoints,tot_area,dxy
@@ -134,6 +139,7 @@ c computes area of polygon(s)
 
 	do while( lagbound_read_next(iunit,ndim,n,x,y) )
 	  area = areapoly(n,x,y)
+	  if( area < 0. ) area = -area	!in case line is given clockwise
 	  areatot = areatot + area
 	  if( debug ) then
 	    write(6,*) 'new line ',n,area
@@ -266,8 +272,6 @@ c flags elements which are in/out-side or at border of line
 	integer n
 	real x(1),y(1)
 	integer iflag(1)
-
-	include 'param.h'
 
 	logical inpoly
 	logical debug
@@ -441,8 +445,6 @@ c release in partial area
 	integer n
 	real x(1),y(1)
 
-	include 'param.h'
-
 	integer iflag(nel)
 
 	integer ie,i,j
@@ -546,9 +548,6 @@ c release in total area
 	implicit none
 
 	real dxy
-
-	!include 'param.h'
-	!include 'lagrange.h'
 
 	integer ie,i,j
 	integer nin,iin

@@ -13,6 +13,7 @@ c 23.03.2011    ggu     compute real u/v-min/max of first level
 c 21.01.2013    ggu     restructured
 c 25.01.2013    ggu     regular and fem outout in one routine
 c 20.02.2013    ggu     choose period implemented
+c 27.04.2016    mbj     adapted to new framework
 c
 c***************************************************************
 
@@ -28,30 +29,21 @@ c reads ous file and writes NetCDF file
 
 	implicit none
 
-        include 'param.h'
-
 c-------------------------------------------------
 
-	integer nxdim,nydim
-	parameter (nxdim=400,nydim=400)
+	character*80 title
 
-        character*80 title
+	real, allocatable :: uprv(:,:)
+	real, allocatable :: vprv(:,:)
+	real, allocatable :: ut2v(:)
+	real, allocatable :: vt2v(:)
+	real, allocatable :: u2v(:)
+	real, allocatable :: v2v(:)
 
-
-
-	real uprv(nlvdim,nkndim)
-	real vprv(nlvdim,nkndim)
-	real ut2v(neldim)
-	real vt2v(neldim)
-	real u2v(neldim)
-	real v2v(neldim)
-
-	real haux(nkndim)
-
-	real var3d(nlvdim*nkndim)
+	real, allocatable :: var3d(:)
 
         integer nvers,nin,lmax,l
-        integer itanf,itend,idt,idtous
+        integer itanf,itend,idt
 	integer it,ie,i
         integer ierr,nread,ndry
 	integer irec,maxrec,iwrite
@@ -64,14 +56,14 @@ c-------------------------------------------------
 	real vmin,vmax
 	real flag
 
-	integer nx,ny
-	real xlon(nxdim)
-	real ylat(nydim)
-	real depth(nxdim,nydim)
-	real value2d(nxdim,nydim)
-	real value3d(nlvdim,nxdim,nydim)
-	real vnc3d(nxdim,nydim,nlvdim)
-	real fm(4,nxdim,nydim)
+	integer nx,ny,nxymax
+	real, allocatable :: xlon(:)
+	real, allocatable :: ylat(:)
+	real, allocatable :: depth(:,:)
+	real, allocatable :: value2d(:,:)
+	real, allocatable :: fm(:,:,:)
+	real, allocatable :: value3d(:,:,:)
+	real, allocatable :: vnc3d(:,:,:)
 	real x0,y0,dx,dy
 
 	logical breg
@@ -89,7 +81,6 @@ c-------------------------------------------------
 
 	character*80 units,std
 
-c	integer rdous,rfous
 	integer iapini,ideffi
 
 	call shyfem_copyright('ous2nc - netcdf output')
@@ -100,6 +91,8 @@ c-----------------------------------------------------------------
 
 	maxrec = 2		!max number of records to be written
 	maxrec = 0		!max number of records to be written (0 -> all)
+	nxymax = 0		!max size of regular grid (0 -> any)
+	nxymax = 400		!max size of regular grid (0 -> any)
 
 	it0 = 0			!subtract from it (hack)
 
@@ -116,13 +109,18 @@ c-----------------------------------------------------------------
 	irec = 0
 	iwrite = 0
 
-	if(iapini(3,nkndim,neldim,0).eq.0) then
-		stop 'error stop : iapini'
-	end if
+	call ap_init(.false.,3,0,0)
+
+c-----------------------------------------------------------------
+c Init modules
+c-----------------------------------------------------------------
+
+	call ev_init(nel)
+	call mod_depth_init(nkn,nel)
 
 	call set_ev
 
-	call makehkv_minmax(hkv,haux,1)
+	call makehkv_minmax(hkv,1)
 	call makehev(hev)
 
 c-----------------------------------------------------------------
@@ -132,11 +130,15 @@ c-----------------------------------------------------------------
 	if( bdate ) call read_date_and_time(date0,time0)
 	call dtsini(date0,time0)
 
-	call get_dimensions(nxdim,nydim,nx,ny,x0,y0,dx,dy,xlon,ylat)
+	call get_dimensions(nx,ny,x0,y0,dx,dy)
         breg = nx .gt. 0 .and. ny .gt. 0          !regular output
-	write(6,*) 'breg: ',breg
         if( breg ) then
           write(6,*) 'NETCDF output: regular ',dx,dy,nx,ny
+	  if( nxymax > 0 .and. max(nx,ny) > nxymax ) goto 95
+	  allocate(xlon(nx),ylat(ny))
+	  allocate(depth(nx,ny),value2d(nx,ny))
+	  allocate(fm(4,nx,ny))
+	  call set_reg_xy(nx,ny,x0,y0,dx,dy,xlon,ylat)
           call setgeo(x0,y0,dx,dy,flag)
           call av2fm(fm,nx,ny)
         else
@@ -146,21 +148,47 @@ c-----------------------------------------------------------------
 	call get_period(iperiod,its,ite,nfreq)
 
 c-----------------------------------------------------------------
-c read header of simulation
+c first read of ous file to get the dimensions
 c-----------------------------------------------------------------
 
 	call open_ous_type('.ous','old',nin)
 
-        call read_ous_header(nin,nkndim,neldim,nlvdim,ilhv,hlv,hev)
+	call ous_is_ous_file(nin,nvers)
+	if( nvers .le. 0 ) then
+          write(6,*) 'nvers: ',nvers
+          stop 'error stop ouselab: not a valid ous file'
+        end if
+
+	call peek_ous_header(nin,nknous,nelous,nlv)
+
+        if( nkn /= nknous .or. nel /= nelous ) goto 94
+
+c-----------------------------------------------------------------
+c allocate arrays
+c-----------------------------------------------------------------
+
+	call levels_init(nkn,nel,nlv)
+	call mod_hydro_init(nkn,nel,nlv)
+
+	allocate(uprv(nlv,nkn),vprv(nlv,nkn))
+	allocate(ut2v(nel),vt2v(nel),u2v(nel),v2v(nel))
+	allocate(var3d(nlv*nkn))
+
+	if( breg ) allocate(value3d(nlv,nx,ny),vnc3d(nx,ny,nlv))
+
+c-----------------------------------------------------------------
+c read header of simulation
+c-----------------------------------------------------------------
+
+        call read_ous_header(nin,nkn,nel,nlv,ilhv,hlv,hev)
         call ous_get_params(nin,nknous,nelous,nlv)
+	call ous_get_title(nin,title)
 	call ous_get_date(nin,date,time)
 	if( date .gt. 0 ) then
 	  date0 = date
 	  time0 = time
 	  call dtsini(date0,time0)
 	end if
-
-	if( nkn .ne. nknous .or. nel .ne. nelous ) goto 94
 
 	call init_sigma_info(nlv,hlv)
 	call level_e2k(nkn,nel,nen3v,ilhv,ilhkv)
@@ -197,7 +225,7 @@ c-----------------------------------------------------------------
 
   300   continue
 
-	call ous_read_record(nin,it,nlvdim,ilhv,znv,zenv,utlnv,vtlnv,ierr)
+	call ous_read_record(nin,it,nlv,ilhv,znv,zenv,utlnv,vtlnv,ierr)
 
 	it = it - it0
 
@@ -213,15 +241,15 @@ c-----------------------------------------------------------------
 	if( .not. bwrite ) goto 300
 
 	call mima(znv,nknous,zmin,zmax)
-        call comp_barotropic(nel,nlvdim,ilhv,utlnv,vtlnv,ut2v,vt2v)
+        call comp_barotropic(nel,nlv,ilhv,utlnv,vtlnv,ut2v,vt2v)
 	call comp_vel2d(nel,hev,zenv,ut2v,vt2v,u2v,v2v
      +				,umin,vmin,umax,vmax)
 	call compute_volume(nel,zenv,hev,volume)
 
-c        call debug_write_node(0,it,nread,nkndim,neldim,nlvdim,nkn,nel,nlv
+c        call debug_write_node(0,it,nread,nkn,nel,nlv,nkn,nel,nlv
 c     +          ,nen3v,zenv,znv,utlnv,vtlnv)
 
-        call transp2vel(nel,nkn,nlv,nlvdim,hev,zenv,nen3v
+        call transp2vel(nel,nkn,nlv,nlv,hev,zenv,nen3v
      +                          ,ilhv,hlv,utlnv,vtlnv
      +                          ,uprv,vprv)
 
@@ -235,20 +263,20 @@ c     +          ,nen3v,zenv,znv,utlnv,vtlnv)
 	  call fm2am2d(znv,nx,ny,fm,value2d)
           call nc_write_data_2d_reg(ncid,z_id,iwrite,nx,ny,value2d)
 
-	  call fm2am3d(nlvdim,ilhv,uprv,lmax,nx,ny,fm,value3d)
+	  call fm2am3d(nlv,ilhv,uprv,lmax,nx,ny,fm,value3d)
 	  call nc_rewrite_3d_reg(lmax,nx,ny,value3d,vnc3d)
 	  call nc_write_data_3d_reg(ncid,u_id,iwrite,lmax,nx,ny,vnc3d)
 
-	  call fm2am3d(nlvdim,ilhv,vprv,lmax,nx,ny,fm,value3d)
+	  call fm2am3d(nlv,ilhv,vprv,lmax,nx,ny,fm,value3d)
 	  call nc_rewrite_3d_reg(lmax,nx,ny,value3d,vnc3d)
           call nc_write_data_3d_reg(ncid,v_id,iwrite,lmax,nx,ny,vnc3d)
 	else
           call nc_write_data_2d(ncid,z_id,iwrite,nkn,znv)
 
-	  call nc_compact_3d(nlvdim,nlv,nkn,uprv,var3d)
+	  call nc_compact_3d(nlv,nlv,nkn,uprv,var3d)
           call nc_write_data_3d(ncid,u_id,iwrite,nlv,nkn,var3d)
 
-	  call nc_compact_3d(nlvdim,nlv,nkn,vprv,var3d)
+	  call nc_compact_3d(nlv,nlv,nkn,vprv,var3d)
           call nc_write_data_3d(ncid,v_id,iwrite,nlv,nkn,var3d)
 	end if
 
@@ -274,10 +302,15 @@ c-----------------------------------------------------------------
 
         stop
    94   continue
-        write(6,*) 'incompatible simulation and basin'
-        write(6,*) 'nkn: ',nkn,nknous
-        write(6,*) 'nel: ',nel,nelous
-        stop 'error stop ous2nc: nkn,nel'
+        write(6,*) 'incompatible basin and simulation'
+        write(6,*) 'nkn,nknous: ',nkn,nknous
+        write(6,*) 'nel,nelous: ',nel,nelous
+        stop 'error stop ous2nc: parameter mismatch'
+   95   continue
+        write(6,*) 'regular grid too big'
+        write(6,*) 'nx,ny: ',nx,ny,'   nxymax: ',nxymax
+        write(6,*) 'please increase nxymax or set to zero for any size'
+        stop 'error stop nos2nc: size regular grid'
         end
 
 c******************************************************************

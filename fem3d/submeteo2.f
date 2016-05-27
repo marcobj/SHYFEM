@@ -22,6 +22,8 @@ c 20.05.2014    ggu	new routines for new file format
 c 30.04.2015    ggu	ice integrated
 c 04.05.2015    ggu	bug in ice eliminated
 c 12.05.2015    ggu	introduced ia_icefree for icefree elements
+c 08.01.2016    ggu	bug fix in meteo_convert_wind_data() - no wind bug
+c 10.03.2016    ggu	check for pressure to be in reasonable bounds
 c
 c notes :
 c
@@ -134,6 +136,7 @@ c DOCS  END
 	integer, save :: irtype
 	integer, save :: ihtype
 	integer, save :: ictype
+	integer, save :: ia_icefree		!area type which is ice free
 	real, save :: wsmax,wslim,dragco,roluft,rowass
 	real, save :: pfact = 1.
 	real, save :: wfact = 1.
@@ -468,6 +471,7 @@ c DOCS  END
 	if( nvar == 3 ) then
 	  call iff_get_var_description(id,3,string)
 	  if( string == ' ' ) string = papa
+	  call iff_set_var_description(id,3,string)
 	  if( string == papa ) then
 	    pfact = 1.
 	  else if( string == pamb ) then
@@ -527,24 +531,31 @@ c DOCS  END
 	logical bnowind,bstress,bspeed
 	integer k
 	integer itact
-	real cd,wxymax,txy,wspeed,wdir,fact,fice
+	real cd,wxymax,txy,wspeed,wdir,fact,fice,aice
+	real pmin,pmax
 
 	bnowind = iwtype == 0
 	bstress = iwtype == 2
 	bspeed = iwtype > 2
 	cd = dragco
 	wxymax = 0.
+	aice = 1.       !ice cover for momentum: 1: use  0: do not use
 	
 !	---------------------------------------------------------
 !	convert wind
 !	---------------------------------------------------------
 
         if( bnowind ) then              !no wind
-	  !nothing to be done
+	  ws = 0.
+	  wx = 0.
+	  wy = 0.
+	  tx = 0.
+	  ty = 0.
+	  pp = pstd
         else if( bstress ) then         !data is stress -> normalize it
           if( cd .le. 0 ) cd = dstd
           do k=1,n
-	    fice = 1. - cice(k)
+	    fice = 1. - aice*cice(k)
             tx(k) = fice * wfact * wx(k)
             ty(k) = fice * wfact * wy(k)
             txy = sqrt( tx(k)**2 + ty(k)**2 )
@@ -570,7 +581,7 @@ c DOCS  END
 	  end if
 
           do k=1,n
-	    fice = 1. - cice(k)
+	    fice = 1. - aice*cice(k)
 	    !if( k .eq. 1000 ) write(6,*) 'ice: ',k,fice
             wspeed = ws(k)
             wxymax = max(wxymax,wspeed)
@@ -592,9 +603,9 @@ c DOCS  END
 
 	if( wslim > 0 .and. wxymax > wslim ) then !artificially limit wind speed
 	  call get_act_time(itact)
-	  write(111,*) 'limiting wind speed: ',itact,wxymax
+	  !write(111,*) 'limiting wind speed: ',itact,wxymax
           do k=1,n
-	    fice = 1. - cice(k)
+	    fice = 1. - aice*cice(k)
             wspeed = ws(k)
 	    if( wspeed <= wslim ) cycle
 	    ws(k) = wslim
@@ -628,10 +639,17 @@ c DOCS  END
 !	convert pressure
 !	---------------------------------------------------------
 
-	if( pfact /= 1. ) then
-          do k=1,n
-	    pp(k) = pfact * pp(k)
-	  end do
+	if( pfact /= 1. ) pp = pfact * pp
+
+	pmin = minval(pp)
+	pmax = maxval(pp)
+
+	if( pmin /= 0 .or. pmax /= 0. ) then
+	  if( pmin < 85000 .or. pmax > 110000 ) then
+	    write(6,*) 'pmin,pmax: ',pmin,pmax
+	    write(6,*) 'pressure values out of range'
+	    stop 'error stop meteo_convert_wind_data: pressure'
+	  end if
 	end if
 
 !	---------------------------------------------------------
@@ -729,6 +747,8 @@ c convert rain from mm/day to m/s
 
 	character*60 string
 
+	real getpar
+
 !	---------------------------------------------------------
 !	check nvar and get parameters
 !	---------------------------------------------------------
@@ -764,6 +784,24 @@ c convert rain from mm/day to m/s
 	end if
 
 !	---------------------------------------------------------
+!	handle ice free areas
+!	---------------------------------------------------------
+
+	ia_icefree = -1		!this does not change ice cover
+
+	if( ictype /= 0 ) then	!ice file has been opened
+	  ia_icefree = nint(getpar('iaicef'))
+	  if( ia_icefree == -99 ) then
+	    write(6,*) 'ice file has been opened'
+	    write(6,*) 'but parameter iaicef has not been set'
+	    write(6,*) 'please set iaicef to the area code that'
+	    write(6,*) 'indicates ice free conditions'
+	    write(6,*) 'if no such areas exist please set iaicef=-1'
+	    stop 'error stop meteo_set_ice_data: iaicef'
+	  end if
+	end if
+
+!	---------------------------------------------------------
 !	remember values and write to monitor
 !	---------------------------------------------------------
 
@@ -793,18 +831,14 @@ c convert ice data (nothing to do)
 
 	integer id
 	integer n
-	real r(n)
+	real r(n)	!ice concentration
 
 	include 'param.h'
 	include 'femtime.h'
 
 	integer k,ie,ii,ia
-	integer ia_icefree
 	double precision racu,rorig
 	double precision rice,rarea,area
-
-	ia_icefree = -1		!this does not change ice cover
-	ia_icefree = 0
 
 	racu = 0.
 	do k=1,n

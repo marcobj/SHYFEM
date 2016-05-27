@@ -6,6 +6,8 @@
 ! 15.07.2015	ggu	written from scratch
 ! 22.09.2015	ggu	new routine open_shy_file()
 ! 10.10.2015	ggu	code added to handle FLX routines
+! 22.02.2016	ggu	handle catmode
+! 15.04.2016	ggu	handle gis files with substitution of colon
 !
 !************************************************************
 
@@ -31,8 +33,8 @@
 	logical, save :: bsplit
 	logical, save :: b2d
 
-	logical, save :: bmem
-	logical, save :: bask
+	logical, save :: bmem		= .false.
+	logical, save :: bask		= .false.
 	logical, save :: bverb
 	logical, save :: bwrite
 	logical, save :: bquiet
@@ -50,11 +52,11 @@
 
 	logical, save :: bopen
 
-	logical, save :: btmin
-	logical, save :: btmax
+	!logical, save :: btmin
+	!logical, save :: btmax
 	logical, save :: binclusive
-	double precision, save :: atmin
-	double precision, save :: atmax
+	!double precision, save :: atmin
+	!double precision, save :: atmax
 
 	logical, save :: bthreshold
 	double precision, save :: threshold
@@ -62,39 +64,45 @@
 	integer, save :: nodesp
 	integer, save :: nnodes = 0
 	integer, save, allocatable :: nodes(:)
+	integer, save, allocatable :: nodese(:)
 
-	real, save :: fact
+	real, save :: fact			= 1
 
 	integer, save :: istep
 	integer, save :: mode
 	integer, save :: modeb
 
-	integer, save :: date = 0
-	integer, save :: time = 0
-	integer, save :: datetime(2)
+	!integer, save :: date = 0
+	!integer, save :: time = 0
+	!integer, save :: datetime(2) = 0
 
-        character*80, save :: infile
-        character*80, save :: stmin,stmax
-        character*80, save :: nodefile
-        character*10, save :: outformat
+	integer, save :: catmode = 0
 
-        INTERFACE elabutil_check_time
-        MODULE PROCEDURE elabutil_check_time_i,elabutil_check_time_d
-        END INTERFACE
+        character*80, save :: infile		= ' '
+        character*80, save :: stmin		= ' '
+        character*80, save :: stmax		= ' '
+        character*80, save :: nodefile		= ' '
+        character*10, save :: outformat		= ' '
 
 !====================================================
 	contains
 !====================================================
 
-	subroutine elabutil_init(type)
+	subroutine elabutil_init(type,what)
 
 	use clo
 
 	character*(*) type
+	character*(*), optional :: what
 
-	call elabutil_set_options(type)
+	character*80 program
+
+	program = 'shyelab'
+	if( present(what) ) program = what
+
+	call elabutil_set_options(type,program)
 	call clo_parse_options
-	call elabutil_get_options(type)
+	call elabutil_get_options(type,program)
 
 	binitialized = .true.
 
@@ -102,24 +110,25 @@
 
 !************************************************************
 
-	subroutine elabutil_set_options(type)
+	subroutine elabutil_set_options(type,program)
 
 	use clo
 
 	character*(*) type
+	character*(*) program
 
 	if( binitialized ) return
 
 	if( type == 'SHY' ) then
-          call clo_init('shyelab','shy-file','3.0')
+          call clo_init(program,'shy-file','3.0')
 	else if( type == 'NOS' ) then
-          call clo_init('noselab','nos-file','3.0')
+          call clo_init(program,'nos-file','3.0')
 	else if( type == 'OUS' ) then
-          call clo_init('ouselab','ous-file','3.0')
+          call clo_init(program,'ous-file','3.0')
 	else if( type == 'EXT' ) then
-          call clo_init('extelab','ext-file','3.0')
+          call clo_init(program,'ext-file','3.0')
 	else if( type == 'FLX' ) then
-          call clo_init('extelab','flx-file','3.0')
+          call clo_init(program,'flx-file','3.0')
 	else
 	  write(6,*) 'type : ',trim(type)
 	  stop 'error stop elabutil_set_options: unknown type'
@@ -129,7 +138,7 @@
 
         call clo_add_sep('what to do (only one of these may be given)')
 
-        call clo_add_option('out',.false.,'writes new nos file')
+        call clo_add_option('out',.false.,'writes new shy file')
         call clo_add_option('averbas',.false.,'average over basin')
         call clo_add_option('aver',.false.,'average over records')
         call clo_add_option('averdir',.false.,'average for directions')
@@ -148,8 +157,8 @@
         call clo_add_sep('options in/output')
 
         !call clo_add_option('basin name',' ','name of basin to be used')
-	call clo_add_option('mem',.false.,'if no file given use memory')
-        call clo_add_option('ask',.false.,'ask for simulation')
+	!call clo_add_option('mem',.false.,'if no file given use memory')
+        !call clo_add_option('ask',.false.,'ask for simulation')
         call clo_add_option('verb',.false.,'be more verbose')
         call clo_add_option('write',.false.,'write min/max of values')
         call clo_add_option('quiet',.false.,'do not be verbose')
@@ -161,22 +170,26 @@
      +				,'extract vars at nodes given in file')
 	call clo_add_option('freq n',0.,'frequency for aver/sum/min/max')
         call clo_add_option('tmin time',' '
-     +                          ,'only process starting from time')
+     +                  ,'only process starting from time')
         call clo_add_option('tmax time',' '
-     +                          ,'only process up to time')
-        call clo_add_option('inclusive',.false.,'include time period')
+     +                  ,'only process up to time')
+        call clo_add_option('inclusive',.false.
+     +			,'output includes whole time period given')
 
         call clo_add_option('outformat form','native','output format')
+
+        call clo_add_option('catmode cmode',0.,'concatenation mode')
 
 	end subroutine elabutil_set_options
 
 !************************************************************
 
-	subroutine elabutil_get_options(type)
+	subroutine elabutil_get_options(type,program)
 
 	use clo
 
 	character*(*) type
+	character*(*) program
 
 	if( binitialized ) return
 
@@ -199,8 +212,8 @@
         call clo_get_option('node',nodesp)
         call clo_get_option('nodes',nodefile)
 
-        call clo_get_option('mem',bmem)
-        call clo_get_option('ask',bask)
+        !call clo_get_option('mem',bmem)
+        !call clo_get_option('ask',bask)
         call clo_get_option('verb',bverb)
         call clo_get_option('write',bwrite)
         call clo_get_option('quiet',bquiet)
@@ -211,6 +224,8 @@
         call clo_get_option('inclusive',binclusive)
 
         call clo_get_option('outformat',outformat)
+
+        call clo_get_option('catmode',catmode)
 
         if( .not. bask .and. .not. bmem ) call clo_check_files(1)
         call clo_get_file(1,infile)
@@ -236,9 +251,10 @@
         bnode = nodesp > 0
         bnodes = nodefile .ne. ' '
 
-        boutput = bout .or. bsplit .or. b2d
+        boutput = bout .or. b2d
 	boutput = boutput .or. outformat /= 'native'
         !btrans is added later
+	if( bsumvar ) boutput = .false.
 
         bneedbasin = b2d .or. baverbas .or. bnode .or. bnodes
 	bneedbasin = bneedbasin .or. outformat == 'gis'
@@ -252,109 +268,27 @@
 	end subroutine elabutil_get_options
 
 !************************************************************
-!************************************************************
-!************************************************************
 
-	subroutine elabutil_date_and_time
+	subroutine elabutil_check_options
 
-        bdate = date .gt. 0
-        if( bdate ) call dtsini(date,time)
-        datetime(1) = date
-        datetime(2) = time
+	integer ic
 
-        atmin = 0.
-        atmax = 0.
-        btmin = stmin .ne. ' '
-        btmax = stmax .ne. ' '
-        if( btmin ) call fem_file_string2time(stmin,atmin)
-        if( btmax ) call fem_file_string2time(stmax,atmax)
+	ic = count( (/b2d,bsplit,bsumvar,btrans/) )
 
-        if( bverb ) then
-          write(6,*) 'time limits: '
-          write(6,*) stmin(1:len_trim(stmin)),btmin,atmin
-          write(6,*) stmax(1:len_trim(stmax)),btmax,atmax
-        end if
-
-	end subroutine elabutil_date_and_time
-
-!************************************************************
-
-	function elabutil_check_time_i(it,itnew,itold)
-
-! integer version
-
-	logical elabutil_check_time_i
-	integer it,itnew,itold
-
-	double precision dtime,dtimenew,dtimeold
-
-        dtime = it
-	dtimenew = itnew
-	dtimeold = itold
-
-	elabutil_check_time_i = 
-     +		elabutil_check_time_d(dtime,dtimenew,dtimeold)
-
-	end function elabutil_check_time_i
-
-!************************************************************
-
-	function elabutil_check_time_d(dtime,dtimenew,dtimeold)
-
-! double version (relativ)
-
-	logical elabutil_check_time_d
-	double precision dtime,dtimenew,dtimeold
-
-	double precision atime,atimenew,atimeold
-
-        call fem_file_convert_time(datetime,dtime,atime)
-        call fem_file_convert_time(datetime,dtimenew,atimenew)
-        call fem_file_convert_time(datetime,dtimeold,atimeold)
-
-	elabutil_check_time_d =
-     +		elabutil_check_time_a(atime,atimenew,atimeold)
-
-	end function elabutil_check_time_d
-
-!************************************************************
-
-	function elabutil_check_time_a(atime,atimenew,atimeold)
-
-! double version (absolute)
-
-	logical elabutil_check_time_a
-	double precision atime,atimenew,atimeold
-
-	logical bdebug
-	logical btimew
-
-	bdebug = .true.
-	bdebug = .false.
-        btimew = .true.
-
-        if( btmin ) btimew = btimew .and. atime >= atmin
-        if( btmax ) btimew = btimew .and. atime <= atmax
-
-	elabutil_check_time_a = btimew
-
-	if( bdebug ) then
-	  write(6,*) 'exclusive..........',btimew,binclusive
-	  write(6,*) 'exclusive..........',atmin,atime,atmax
+	if( ic > 1 ) then
+	  write(6,*) 'Only one of the following options can be given:'
+	  write(6,*) '-2d -split -sumvar'
+	  write(6,*) '-aver -sum -min -max -std -rms'
+	  write(6,*) '-threshold -averdir'
+	  stop 'error stop elabutil_check_options: incompatible options'
 	end if
 
-	if( .not. binclusive ) return
+	end subroutine elabutil_check_options
 
-        if( btmin ) then
-	  btimew = btimew .or. (atime < atmin .and. atmin < atimenew)
-	end if
-        if( btmax ) then
-	  btimew = btimew .or. (atimeold < atmax .and. atmax < atime)
-	end if
+!************************************************************
+!************************************************************
+!************************************************************
 
-	elabutil_check_time_a = btimew
-
-	end function elabutil_check_time_a
 
 !************************************************************
 !************************************************************
@@ -364,33 +298,54 @@
 
 	integer nvar
 
+	integer ic
+
         mode = 0
         btrans = .false.
+
+	ic = count( (/baver,bsum,bmin,bmax,bstd,brms
+     +				,bthreshold,baverdir/) )
+
+	if( ic > 1 ) then
+	  write(6,*) 'Only one of the following options can be given:'
+	  write(6,*) '-aver -sum -min -max -std -rms'
+	  write(6,*) '-threshold -averdir'
+	  stop 'error stop elabutil_set_averaging: incompatible options'
+	end if
 
         if( baver ) mode = 1
         if( bsum )  mode = 2
         if( bmin )  mode = 3
         if( bmax )  mode = 4
-        if( bsumvar )  mode = 2
         if( bstd )  mode = 5
         if( brms )  mode = 6
         if( bthreshold )  mode = 7
         if( baverdir ) mode = 8
 
-        if( mode > 0 ) then     !prepare for averaging
+        if( mode > 0 ) then             !prepare for averaging
           btrans = .true.
           if( bsumvar ) then            !sum over variables
+	    if( ifreq /= 0 ) then
+	      write(6,*) 'For option -sumvar cannot use value for -freq'
+	      write(6,*) 'freq = ',ifreq
+	      stop 'error stop elabutil_set_averaging: freq'
+	    end if
             istep = 1
-            ifreq = nvar
-          else if( nvar > 1 ) then
-            write(6,*) 'file contains different variables: ',nvar
-	    stop 'error stop noselab: averaging only with one variable'
           else if( ifreq .ge. 0 ) then  !normal averaging
             istep = 1
           else                          !accumulate every -ifreq record
             istep = -ifreq
             ifreq = 0
           end if
+	end if
+
+        if( bsumvar ) then            !sum over variables
+	  if( ifreq /= 0 ) then
+	    write(6,*) 'For option -sumvar cannot use value for -freq'
+	    write(6,*) 'freq = ',ifreq
+	    stop 'error stop elabutil_set_averaging: freq'
+	  end if
+          istep = 1
 	end if
 
 	end subroutine elabutil_set_averaging
@@ -405,13 +360,18 @@ c***************************************************************
             nnodes = 0
             call get_node_list(nodefile,nnodes,nodes)
             allocate(nodes(nnodes))
+            allocate(nodese(nnodes))
             call get_node_list(nodefile,nnodes,nodes)
           else if( bnode ) then
             nnodes = 1
             allocate(nodes(nnodes))
+            allocate(nodese(nnodes))
             nodes(1) = nodesp
           end if
 
+	  if( nnodes <= 0 ) return
+ 
+	  nodese = nodes
           write(6,*) 'nodes: ',nnodes,(nodes(i),i=1,nnodes)
           call convert_internal_nodes(nnodes,nodes)
 
@@ -421,22 +381,67 @@ c***************************************************************
 
 c***************************************************************
 
-	subroutine write_nodes(dtime,ivar,nlvddi,cv3)
+	subroutine write_nodes(dtime,ivar,cv3)
+
+	use levels
 
 	double precision dtime
 	integer ivar
-	integer nlvddi
-	real cv3(nlvddi,*)
+	real cv3(nlvdi,*)
 
 	integer j,node,it
 
+	if( nnodes <= 0 ) return
+
         do j=1,nnodes
           node = nodes(j)
-          it = dtime
+          it = nint(dtime)
           call write_node(j,node,cv3,it,ivar)
         end do
 
 	end subroutine write_nodes
+
+c***************************************************************
+
+	subroutine write_nodes_vel(dtime,znv,uprv,vprv)
+
+	use levels
+	use mod_depth
+
+	double precision dtime
+	real znv(*)
+	real uprv(nlvdi,*)
+	real vprv(nlvdi,*)
+
+	integer j,ki,ke,lmax,it,l,k
+	real z,h
+	real hl(nlvdi)
+	real u(nlvdi),v(nlvdi)
+
+	if( nnodes <= 0 ) return
+
+        do j=1,nnodes
+          ki = nodes(j)
+          ke = nodese(j)
+	  lmax = ilhkv(ki)
+          it = nint(dtime)
+          write(79,*) it,j,ke,ki,lmax
+          write(79,*) znv(ki)
+          write(79,*) (uprv(l,ki),l=1,lmax)
+          write(79,*) (vprv(l,ki),l=1,lmax)
+
+          z = 0.
+          z = znv(ki)
+          h = hkv(ki)
+	  u = uprv(:,ki)
+	  v = vprv(:,ki)
+          call write_profile_uv(it,j,ki,ke,lmax,h,z
+     +				,u,v,hlv,hl)
+        end do
+
+	write(80,*) it,(znv(nodes(k)),k=1,nnodes)
+
+	end subroutine write_nodes_vel
 
 !====================================================
 	end module elabutil
@@ -760,6 +765,41 @@ c rnull         invalid value
 
 c***************************************************************
 
+        subroutine shy_write_aver(dtime,ivar,cmin,cmax,cmed,vtot)
+
+c writes basin average to file
+
+        implicit none
+
+        double precision dtime
+        integer ivar
+        real cmin,cmax,cmed,vtot
+
+	integer it
+        real totmass
+
+	it = nint(dtime)
+        totmass = cmed * vtot
+
+        !write(6,1234) it,ivar,cmin,cmed,cmax,totmass
+        write(100+ivar,1235) it,cmin,cmed,cmax,totmass
+        write(100,1236) it,vtot
+
+        write(6,2234) dtime,ivar,cmin,cmed,cmax,totmass
+        write(200+ivar,2235) dtime,cmin,cmed,cmax,totmass
+        write(200,2236) dtime,vtot
+
+	return
+ 1234   format(i10,i10,3f12.4,e14.6)
+ 1235   format(i10,3f12.4,e14.6)
+ 1236   format(i10,e14.6)
+ 2234   format(f15.2,i10,3f12.4,e14.6)
+ 2235   format(f15.2,3f12.4,e14.6)
+ 2236   format(f15.2,e14.6)
+        end
+
+c***************************************************************
+
         subroutine write_aver(it,ivar,cmin,cmax,cmed,vtot)
 
 c writes basin average to file
@@ -775,10 +815,12 @@ c writes basin average to file
 
         write(6,1234) it,ivar,cmin,cmed,cmax,totmass
         write(100+ivar,1235) it,cmin,cmed,cmax,totmass
-        write(100,'(i10,e14.6)') it,vtot
+        write(100,1236) it,vtot
 
- 1234   format(2i10,3f12.4,e14.6)
+	return
+ 1234   format(i10,i10,3f12.4,e14.6)
  1235   format(i10,3f12.4,e14.6)
+ 1236   format(i10,e14.6)
         end
 
 c***************************************************************
@@ -808,6 +850,8 @@ c***************************************************************
 	ke = ipext(ki)
 	lmax = ilhkv(ki)
 
+	write(1,*) it,cv3(1,ki)
+
         write(4,*) it,i,ke,ki,lmax,ivar
         write(4,*) (cv3(l,ki),l=1,lmax)
 
@@ -819,6 +863,29 @@ c***************************************************************
         h = hkv(ki)
         call write_profile_c(it,i,ki,ke,lmax,ivar,h,z
      +				,cv3(1,ki),hlv,hl)
+
+        end
+
+c***************************************************************
+
+        subroutine write_2d_all_nodes(nnodes,nodes,cv2,it,ivar)
+
+        implicit none
+
+	integer nnodes
+	integer nodes(nnodes)
+        real cv2(*)
+        integer it
+        integer ivar
+
+        integer iunit,i
+
+	if( nnodes <= 0 ) return
+
+	iunit = 200 + ivar
+
+        write(iunit,1000) it,(cv2(nodes(i)),i=1,nnodes)
+ 1000	format(i11,30g14.6)
 
         end
 
@@ -840,11 +907,17 @@ c***************************************************************
 
 c***************************************************************
 
-        subroutine write_profile_c(it,i,ki,ke,lmax,ivar,h,z,c,hlv,hl)
+	subroutine write_node_vel
+
+	end
+
+c***************************************************************
+
+        subroutine write_profile_c(it,j,ki,ke,lmax,ivar,h,z,c,hlv,hl)
 
         implicit none
 
-        integer it,i,ki,ke
+        integer it,j,ki,ke
         integer lmax
         integer ivar
         real z,h
@@ -865,9 +938,44 @@ c***************************************************************
         call get_layer_thickness(lmax,nsigma,hsigma,z,h,hlv,hl)
         call get_bottom_of_layer(bcenter,lmax,z,hl,hl)  !orig hl is overwritten
 
-        write(2,*) it,i,ke,ki,lmax,ivar
+        write(2,*) it,j,ke,ki,lmax,ivar
         do l=1,lmax
           write(2,*) hl(l),c(l)
+        end do
+
+        end
+
+c***************************************************************
+
+        subroutine write_profile_uv(it,j,ki,ke,lmax,h,z,u,v,hlv,hl)
+
+        implicit none
+
+        integer it,j,ki,ke
+        integer lmax
+        real z,h
+        real u(1)
+        real v(1)
+        real hlv(1)
+        real hl(1)
+
+        logical bcenter
+        integer l
+        integer nlvaux,nsigma
+        real hsigma
+        real uv
+
+        bcenter = .true.        !depth at center of layer ?
+
+        call get_sigma_info(nlvaux,nsigma,hsigma)
+
+        call get_layer_thickness(lmax,nsigma,hsigma,z,h,hlv,hl)
+        call get_bottom_of_layer(bcenter,lmax,z,hl,hl)  !orig hl is overwritten
+
+        write(82,*) it,j,ke,ki,lmax,z
+        do l=1,lmax
+          uv = sqrt( u(l)**2 + v(l)**2 )
+          write(82,*) hl(l),u(l),v(l),uv
         end do
 
         end
@@ -899,6 +1007,34 @@ c***************************************************************
 
 c***************************************************************
 
+	subroutine ilhk2e(nkn,nel,nen3v,ilhkv,ilhv)
+
+c create ilhv -> result is not exact and must be adjusted
+
+	implicit none
+
+	integer nkn,nel
+	integer nen3v(3,nel)
+	integer ilhkv(nkn)
+	integer ilhv(nel)
+
+	integer ie,ii,k,lmax
+
+	ilhv = 0
+
+	do ie=1,nel
+	  lmax = 0
+	  do ii=1,3
+	    k = nen3v(ii,ie)
+	    lmax = max(lmax,ilhkv(k))
+	  end do
+	  ilhv(ie) = lmax
+	end do
+
+	end
+
+c***************************************************************
+
         subroutine open_shy_file(file,status,nunit)
 
 c open SHY file
@@ -922,10 +1058,186 @@ c nunit is 0 if no other file exists
 
         if( nunit .le. 0 ) then
           write(6,*) 'file: ',trim(file)
-          stop 'error stop open_next_shy_file: opening file'
+          stop 'error stop open_shy_file: opening file'
         end if
 
         end
 
 c***************************************************************
 
+	function concat_cycle(it,itold,itstart,nrec)
+
+	use elabutil
+
+c decides if with concatenation we have to use record or not
+
+	implicit none
+
+	logical concat_cycle
+	integer it,itold,itstart
+	integer nrec
+
+	concat_cycle = .false.
+
+        !write(66,*) 'ggu: ',it,itold,itstart,nrec
+
+        if( catmode < 0 .and. nrec /= 1 ) then
+          if( it <= itold ) then
+            write(6,*) 'skipping record: ',it
+            it = itold
+	    concat_cycle = .true.
+          end if
+        else if( catmode > 0 .and. itstart /= -1 ) then
+          if( it >= itstart ) then
+            write(6,*) 'skipping record: ',it
+	    concat_cycle = .true.
+          end if
+        end if
+
+	end
+
+c***************************************************************
+c***************************************************************
+c***************************************************************
+
+        subroutine gis_write_record(nb,it,ivar,nlvddi,ilhkv,cv)
+
+c writes one record to file nb (3D)
+
+        use basin
+
+        implicit none
+
+        integer nb,it,ivar,nlvddi
+        integer ilhkv(nlvddi)
+        real cv(nlvddi,*)
+
+        integer k,l,lmax
+	integer nout
+        real x,y
+	character*80 format,name
+	character*20 line,dateline
+	character*3 var
+
+	integer ifileo
+
+	call dtsgf(it,dateline)
+	call gis_subst_colon(dateline,line)
+	call i2s0(ivar,var)
+
+	name = 'extract_'//var//'_'//line//'.gis'
+        nout = ifileo(60,name,'form','new')
+	!write(6,*) 'writing: ',trim(name)
+
+        write(nout,*) it,nkn,ivar,dateline
+
+	lmax = 1
+
+        do k=1,nkn
+          if( nlvddi > 1 ) lmax = ilhkv(k)
+          x = xgv(k)
+          y = ygv(k)
+
+	  write(format,'(a,i5,a)') '(i10,2g14.6,i5,',lmax,'g14.6)'
+          write(nout,format) k,x,y,lmax,(cv(l,k),l=1,lmax)
+        end do
+
+	close(nout)
+
+        end
+
+c***************************************************************
+
+        subroutine gis_write_hydro(it,nlvddi,ilhkv,zv,uv,vv)
+
+c writes one record to file (3D)
+
+        use basin
+
+        implicit none
+
+        integer it,nlvddi
+        integer ilhkv(nlvddi)
+        real zv(nkn)
+        real uv(nlvddi,nkn)
+        real vv(nlvddi,nkn)
+
+        integer k,l,lmax,nn,i
+	integer nout
+        real x,y
+	character*80 format,name
+	character*20 line,dateline
+	character*3 var
+
+	integer ifileo
+
+	call dtsgf(it,dateline)
+	call gis_subst_colon(dateline,line)
+
+	name = 'extract_hydro_'//line//'.gis'
+        nout = ifileo(60,name,'form','new')
+	!write(6,*) 'writing: ',trim(name)
+
+        write(nout,*) it,nkn,0,dateline
+
+	lmax = 1
+
+        do k=1,nkn
+          if( nlvddi > 1 ) lmax = ilhkv(k)
+          x = xgv(k)
+          y = ygv(k)
+
+	  nn = 1 + 2*lmax
+	  write(format,'(a,i5,a)') '(i10,2g14.6,i5,',nn,'g14.6)'
+          write(nout,format) k,x,y,lmax,zv(k)
+     +			,(uv(l,k),vv(l,k),l=1,lmax)
+        end do
+
+	close(nout)
+
+        end
+
+c***************************************************************
+
+	subroutine gis_subst_colon(line_old,line_new)
+
+	implicit none
+
+	character*(*) line_old,line_new
+
+	integer n,i
+
+	n = min(len(line_old),len(line_new))
+	line_new = line_old
+
+	do i=1,n
+	  if( line_new(i:i) == ':' ) line_new(i:i) = '_'
+	  if( line_new(i:i) == ' ' ) line_new(i:i) = '_'
+	end do
+
+	end
+
+c***************************************************************
+
+        subroutine gis_write_connect
+
+c writes connectivity
+
+        use basin
+
+        implicit none
+
+	integer ie,ii
+
+	open(1,file='connectivity.gis',form='formatted',status='unknown')
+
+	write(1,*) nel
+	do ie=1,nel
+	  write(1,*) ie,(nen3v(ii,ie),ii=1,3)
+	end do
+
+	close(1)
+
+	end
+
+c***************************************************************

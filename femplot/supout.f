@@ -84,10 +84,32 @@ c resets mask data structure
 
 	implicit none
 
-	include 'param.h'
+        bwater = .true.
+        bkwater = .true.
 
-        call init_dry_mask(bwater)
-	call make_dry_node_mask(bwater,bkwater)
+        end
+
+c******************************************************
+
+        subroutine adjust_no_plot_area
+
+        use basin
+	use mod_plot2d
+
+        implicit none
+
+        integer ie
+        integer ianopl
+	real getpar
+
+        ianopl = nint(getpar('ianopl'))
+	if( ianopl < 0 ) return
+
+        write(6,*) 'applying no plot mask for area code = ',ianopl
+
+        do ie=1,nel
+          if( iarv(ie) == ianopl ) bwater(ie) = .false.
+        end do
 
         end
 
@@ -102,8 +124,6 @@ c prepares simulation for use - computes wet and dry areas
 	use levels
 
 	implicit none
-
-	include 'param.h'
 
 	logical bshowdry
 	integer level
@@ -158,6 +178,10 @@ c set bshowdry = .false. if you want to plot all areas
 
 	end if
 
+        call adjust_no_plot_area
+	call make_dry_node_mask(bwater,bkwater)	!copy elem to node mask
+        call info_dry_mask(bwater,bkwater)
+
 c---------------------------------------------------
 c end of routine
 c---------------------------------------------------
@@ -176,10 +200,6 @@ c******************************************************
 
 	logical bkw(1)
 	real hdry
-
-	include 'param.h'
-
-
 
 	integer k,idry
 	real vol,area,h
@@ -200,101 +220,6 @@ c******************************************************
 	end do
 
 	write(6,*) 'min/max depth: ',hhmin,hhmax,hdry,idry
-
-	end
-
-c******************************************************
-
-	subroutine from3to2
-
-c sets up 2D data structures from 3D
-c
-c -> do not use anymore !!!!! (outdated) , may be deleted
-c
-c	nlv,nlvdi    		nlv=1 for 2d
-c	hlv			hlv(1) = 10000 for 2d
-c
-c	hev			is set after basin read, newly set by 3d read
-c	ilhv			ilhv(ie) = 1 for 2d
-c	znv,utlnv,vtlnv 	-> set zenv, usnv, vsnv
-
-	use mod_hydro_plot
-	use mod_hydro_print
-	use mod_hydro
-	use levels
-	use basin
-
-	implicit none
-
-	include 'param.h'
-
-
-
-	integer k,ie,ii,l,lmax
-	real utot,vtot
-
-c we do not use xv anymore
-
-	do k=1,nkn
-	  xv(1,k) = 0.
-	  xv(2,k) = 0.
-	  xv(3,k) = znv(k)
-	end do
-
-c we already have read zenv from file ous
-
-	do ie=1,nel
-	  do ii=1,3
-	    k = nen3v(ii,ie)
-	    zenv(ii,ie) = znv(k)
-	  end do
-	end do
-
-c interpolation is now done in plo3vel
-
-	do ie=1,nel
-	  utot = 0.
-	  vtot = 0.
-	  lmax = ilhv(ie)
-	  do l=1,lmax
-	    utot = utot + utlnv(l,ie)
-	    vtot = vtot + vtlnv(l,ie)
-	  end do
-	  usnv(ie) = utot
-	  vsnv(ie) = vtot
-	end do
-
-	end
-
-c******************************************************
-
-	subroutine from2to3
-
-c sets up 3D data structures from 2D
-c
-c outdated -> do not call - arrays are set in outnext()
-c
-c	xv,zenv,usnv,vsnv -> set znv
-
-	use mod_hydro_print
-	use mod_hydro
-	use levels
-	use basin, only : nkn,nel,ngr,mbw
-
-	implicit none
-
-	include 'param.h'
-
-
-	integer k,ie
-
-	do k=1,nkn
-	  znv(k) = xv(3,k)
-	end do
-
-	do ie=1,nel
-	  ilhv(ie) = 1
-	end do
 
 	end
 
@@ -349,10 +274,7 @@ c******************************************************
 
 	implicit none
 
-	include 'param.h'
-
 	include 'simul.h'
-
 	include 'supout.h'
 
 	integer nknaux,nelaux,nlvaux
@@ -372,7 +294,7 @@ c open file
 	if( nkn .ne. nknaux ) goto 99
 	if( nel .ne. nelaux ) goto 99
         nlv = nlvaux
-	call allocate_simulation
+	call allocate_simulation(0)
 	call get_dimension_post(nknddi,nelddi,nlvddi)
         call read_nos_header(nunit,nknddi,nelddi,nlvddi,ilhkv,hlv,hev)
 
@@ -414,10 +336,7 @@ c******************************************************
 	logical wavenext
 	integer it
 
-	include 'param.h'
 	include 'supout.h'
-
-
 
         integer ierr,nlvddi,ivar
 	real v1v(nkn)
@@ -446,9 +365,9 @@ c******************************************************
 	wavenext = .true.
 
 	if( iwave .eq. 0 ) then
-	  call polar2xy(nkn,v1v,v3v,uv,vv)
+	  call polar2xy(nkn,v1v,v3v,uvnode,vvnode)
 	else
-	  call polar2xy(nkn,v2v,v3v,uv,vv)
+	  call polar2xy(nkn,v2v,v3v,uvnode,vvnode)
 	end if
 
 	call ptime_set_itime(it)
@@ -582,12 +501,8 @@ c opens OUS file and reads header
 
 	implicit none
 
-	include 'param.h'
-
 	include 'supout.h'
-
 	include 'simul.h'
-
 
 	character*80 file
 
@@ -613,7 +528,7 @@ c open and read header
 	if( nkn .ne. nknous ) goto 99
 	if( nel .ne. nelous ) goto 99
         nlv = nlvous
-	call allocate_simulation
+	call allocate_simulation(0)
 	call get_dimension_post(nknddi,nelddi,nlvddi)
         call read_ous_header(nunit,nknddi,nelddi,nlvddi,ilhv,hlv,hev)
 
@@ -662,8 +577,6 @@ c reads next OUS record - is true if a record has been read, false if EOF
 
 	logical ousnext		!true if record read, flase if EOF
 	integer it		!time of record
-
-        include 'param.h'
 
 	include 'supout.h'
 
@@ -751,14 +664,10 @@ c opens NOS file and reads header
 
 	implicit none
 
-	include 'param.h'
-
 	character*(*) type
 
 	include 'supout.h'
-
 	include 'simul.h'
-
 
 	character*80 file
 
@@ -776,13 +685,17 @@ c initialize routines
 
 c open file
 
-        call open_nos_type('.nos','old',nunit)
+	if( type /= ' ' ) then
+          call open_nos_type(type,'old',nunit)
+	else
+          call open_nos_type('.nos','old',nunit)
+	end if
 
 	call peek_nos_header(nunit,nknnos,nelnos,nlvnos,nvar)
 	if( nkn .ne. nknnos ) goto 99
 	if( nel .ne. nelnos ) goto 99
         nlv = nlvnos
-	call allocate_simulation
+	call allocate_simulation(0)
 	call get_dimension_post(nknddi,nelddi,nlvddi)
         call read_nos_header(nunit,nknddi,nelddi,nlvddi,ilhkv,hlv,hev)
 
@@ -831,7 +744,6 @@ c reads next NOS record - is true if a record has been read, false if EOF
 	integer nlvddi		!dimension of vertical coordinate
 	real array(nlvddi,1)	!values for variable
 
-	include 'param.h'
 	include 'supout.h'
 
 	integer ierr
@@ -940,12 +852,8 @@ c opens FVL file and reads header
 
 	character*(*) type
 
-        include 'param.h'
-
 	include 'supout.h'
-
 	include 'simul.h'
-
 
         real hlv1(nlv), hev1(nel)
         integer ilhkv1(nkn)
@@ -1040,7 +948,6 @@ c reads next FVL record
 	integer nlvddi		!dimension of vertical coordinate
 	real array(nlvddi,1)	!values for variable
 
-	include 'param.h'
 	include 'supout.h'
 
 	integer ierr
@@ -1158,11 +1065,8 @@ c opens EOS file and reads header
 
 	character*(*) type
 
-	include 'param.h'
 	include 'supout.h'
-
 	include 'simul.h'
-
 
 	character*80 file
 
@@ -1209,7 +1113,7 @@ c read first header
 	if( nelaux .ne. 0 .and. nel .ne. nelaux ) goto 99
 
 	nlv = nlvaux
-	call allocate_simulation
+	call allocate_simulation(0)
 	call get_dimension_post(nknddi,nelddi,nlvddi)
 	if( nlvddi .lt. nlv ) goto 99
 
@@ -1250,7 +1154,6 @@ c reads next EOS record - is true if a record has been read, false if EOF
 	integer nlvddi		!dimension of vertical coordinate
 	real array(nlvddi,1)	!values for variable
 
-	include 'param.h'
 	include 'supout.h'
 
 	integer ierr
@@ -1295,9 +1198,6 @@ c computes max level at nodes from elements
 
 	implicit none
 
-
-	include 'param.h'
-
 	call level_e2k(nkn,nel,nen3v,ilhv,ilhkv)
 
 	end
@@ -1312,9 +1212,6 @@ c computes level at elems from nodes (not exact)
 	use basin
 
 	implicit none
-
-
-	include 'param.h'
 
 	call level_k2e(nkn,nel,nen3v,ilhkv,ilhv)
 
@@ -1434,11 +1331,8 @@ c opens FEM file and reads header
 
 	character*(*) type
 
-	include 'param.h'
 	include 'supout.h'
-
 	include 'simul.h'
-
 
 	character*80 file
 
@@ -1469,7 +1363,7 @@ c open file
                 write(6,*) 'File opened :'
                 inquire(nunit,name=file)
                 write(6,*) file
-                write(6,*) 'Reading file ...'
+                write(6,*) 'Reading FEM file ...'
 	end if
 
 c read first header
@@ -1495,11 +1389,12 @@ c read first header
 	end if
 
 	if( .not. breg .and. nkn .ne. np ) goto 99
-	if( nkn .lt. np ) goto 99
+	!if( nkn .lt. np ) goto 99
 	if( breg .and. lmax > 1 ) goto 98
 
         nlv = lmax
-	call allocate_simulation
+	call allocate_simulation(nel)
+	!if( breg ) call reallocate_2d_arrays(np) !re-allocate with minimum np
 	call get_dimension_post(nknddi,nelddi,nlvddi)
 	if( nlvddi .lt. lmax ) goto 99
 
@@ -1558,7 +1453,6 @@ c reads next FEM record - is true if a record has been read, false if EOF
 	integer nkn			!number of points needed
 	real array(nlvddi,nkn,1)	!values for variable
 
-	include 'param.h'
 	include 'supout.h'
 
 	logical bfound,bformat,breg,bwind,bvel
@@ -1567,9 +1461,11 @@ c reads next FEM record - is true if a record has been read, false if EOF
 	integer nvers,np,lmax,nvar,ntype
 	integer datetime(2)
 	real regpar(7)
-	real v1v(nkn)
 	double precision dtime
+	real, allocatable :: p3read(:,:,:)
+	real, allocatable :: v1v(:)
 	real fact
+	real vmin,vmax
 	character*80 string
 
 	integer fem_file_regular
@@ -1594,12 +1490,18 @@ c reads next FEM record - is true if a record has been read, false if EOF
 
 	breg = fem_file_regular(ntype) > 0
 	if( .not. breg .and. np .ne. nkn ) goto 99
+	if( breg .and. lmax > 1 ) goto 98
 
 	if( breg ) then
 	  write(6,*) 'plotting regular grid...'
 	  !write(6,*) 'not yet ready for regular grid...'
 	  !stop
+	  allocate(p3read(nlvddi,np,2),v1v(np))
+	else
+	  allocate(p3read(nlvddi,nkn,2),v1v(nkn))
 	end if
+	write(6,*) 'p3read allocated: ',nlvddi,nkn,np,2
+	p3read = 0.
 
 	!it = nint(dtime)
 	call ptime_set_date_time(datetime(1),datetime(2))
@@ -1615,11 +1517,12 @@ c reads next FEM record - is true if a record has been read, false if EOF
      +                          ,string,ierr)
 	    if( ierr .ne. 0 ) goto 98
 	  else
+	    write(6,*) 'reading data: ',breg,nlvddi,nkn,np,ip
             call fem_file_read_data(iformat,nunit
      +                          ,nvers,np,lmax
      +				,string
      +                          ,ilhkv,v1v
-     +                          ,nlvddi,array(1,1,ip),ierr)
+     +                          ,nlvddi,p3read(1,1,ip),ierr)
 	    if( ierr .ne. 0 ) goto 98
 	    call string2ivar(string,iv)
 	    bfound = iv .eq. ivar
@@ -1632,12 +1535,24 @@ c reads next FEM record - is true if a record has been read, false if EOF
 	  end if
 	end do
 
-	if( breg ) then
-	  write(6,*) 'interpolating from regular grid...'
-	  ip = min(2,ip)
-	  call fem_interpolate(nlvddi,nkn,np,ip,regpar,ilhkv,array)
-	  regp = regpar		!save for later
+	if( ip == 3 ) then
+	  v1v = sqrt( p3read(1,:,1)**2 + p3read(1,:,2)**2 )
+	  vmin = minval(v1v)
+	  vmax = maxval(v1v)
+	  write(6,*) 'speed: ',vmin,vmax
 	end if
+
+	if( breg ) then
+	  write(6,*) 'interpolating from regular grid... ',ip
+	  ip = min(2,ip)
+	  call fem_interpolate(nlvddi,nkn,np,ip,regpar,ilhkv
+     +					,p3read,array)
+	  regp = regpar		!save for later
+	else
+	  array = p3read
+	end if
+
+	deallocate(p3read,v1v)
 
 	if( bfound ) then
 	  call level_k2e_sh
@@ -1663,8 +1578,10 @@ c end
 
 	return
    98	continue
-	write(6,*) 'error reading or skipping data'
-	stop 'error stop femnext: read error'
+	write(6,*) 'error in parameters : regular - lmax'
+	write(6,*) 'the file is regular and 3D'
+	write(6,*) 'Cannot handle interpolation yet'
+	stop 'error stop femopen'
    99	continue
 	write(6,*) 'nkn,np: ',nkn,np
 	stop 'error stop femnext: np different from nkn'
@@ -1692,7 +1609,8 @@ c******************************************************
 
 c******************************************************
 
-	subroutine fem_interpolate(nlvddi,nkn,np,ip,regpar,ilhkv,array)
+	subroutine fem_interpolate(nlvddi,nkn,np,ip,regpar,ilhkv
+     +			,p3reg,array)
 
 c interpolates from a regular grid (only for 2D)
 
@@ -1701,9 +1619,10 @@ c interpolates from a regular grid (only for 2D)
 	integer nlvddi,nkn,np,ip
 	real regpar(7)
 	integer ilhkv(nkn)
+	real p3reg(nlvddi,np,ip)
 	real array(nlvddi,nkn,ip)
 
-	integer i,ivar
+	integer i,ivar,j
 	integer nx,ny
 	real x0,y0,dx,dy,flag
 	real areg(np)
@@ -1719,20 +1638,103 @@ c interpolates from a regular grid (only for 2D)
 	ilhkv = 1		!works only for 2D
 
 	call setgeo(x0,y0,dx,dy,flag)
-
+	
 	do ivar=1,ip
 	  do i=1,np
-	    areg(i) = array(1,i,ivar)
+	    areg(i) = p3reg(1,i,ivar)
 	  end do
+	  !write(6,*) 'reg: ',(areg(j),j=1,np,np/10)
 
 	  call am2av(areg,afem,nx,ny)
 
 	  do i=1,nkn
 	    array(1,i,ivar) = afem(i)
 	  end do
+	  !write(6,*) 'fem: ',(afem(j),j=1,nkn,nkn/10)
 	end do
 
 	end
 
-c******************************************************
+c*****************************************************************
+c*****************************************************************
+c*****************************************************************
+
+	subroutine allocate_simulation(npd)
+
+	use mod_plot3d
+	use mod_hydro_print
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
+	implicit none
+
+	integer npd
+
+	integer np
+	real flag
+
+	nlvdi = nlv
+	np = max(2*nel,npd)
+
+	call levels_init(nkn,nel,nlvdi)
+	call mod_hydro_init(nkn,nel,nlvdi)
+	call mod_hydro_vel_init(nkn,nel,nlvdi)
+	call mod_hydro_print_init(nkn,nlvdi)
+	call mod_plot3d_init(nkn,nel,nlvdi,np)
+
+	call mkareafvl			!area of finite volumes
+
+        call get_flag(flag)
+	p3 = flag
+
+	write(6,*) 'allocate_simulation: ',nkn,nel,nlvdi,np
+
+	end
+
+c*****************************************************************
+c*****************************************************************
+c*****************************************************************
+
+	subroutine get_dimension_post(nknddi,nelddi,nlvddi)
+
+	implicit none
+
+	integer nknddi,nelddi,nlvddi
+
+	call get_dimension_post_2d(nknddi,nelddi)
+	call get_dimension_post_3d(nlvddi)
+
+	end
+
+c*****************************************************************
+
+	subroutine get_dimension_post_2d(nknddi,nelddi)
+
+	use basin
+
+	implicit none
+
+	integer nknddi,nelddi
+
+	call basin_get_dimension(nknddi,nelddi)
+
+	end
+
+c*****************************************************************
+
+	subroutine get_dimension_post_3d(nlvddi)
+
+	use levels
+
+	implicit none
+
+	integer nlvddi
+
+	call levels_get_dimension(nlvddi)
+
+	end
+
+c*****************************************************************
 

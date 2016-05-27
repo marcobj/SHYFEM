@@ -27,6 +27,7 @@ NPOBJS  = supbas.o supiso.o supdep.o supano.o supcol.o \
 		supint.o supver.o col.o suplag.o \
 		suplin.o suplin1.o \
 		mod_plot2d.o mod_plot3d.o mod_hydro_plot.o \
+		plotutil.o
 
 LPOBJS = subfil.o subbas.o links.o sublnku.o subnsu.o	# not used anymore
 LPOBJS = 
@@ -46,8 +47,8 @@ LIBIPS  = $(DIRLIB)/lib$(LIBPOST).a
 
 SPECIAL = Makefile VERSION COMMIT
 
-EXES    = plotsim plotcolb windrose testdash \
-		reg2fem line_nodes
+EXE_AUX = plotcolb windrose testdash reg2fem
+EXES    = plotsim line_nodes shyplot
 
 MAKEDEPEND = $(FEMBIN)/mkdp.pl
 
@@ -55,9 +56,12 @@ MAKEDEPEND = $(FEMBIN)/mkdp.pl
 
 default: fem
 
-fem: plotsim line_nodes
+fem: $(EXES) links
 
 all: $(EXES)
+
+shyplot:  shyplot.o $(PSOBJS) $(LIBIFS) $(LIBIPS)
+	$(LINKER) $(LFLAGS) $@.o $(PSOBJS) $(LIBFS) $(LIBPS) -o $@
 
 plotsim:  plotsim.o $(PSOBJS) $(LIBIFS) $(LIBIPS)
 	$(LINKER) $(LFLAGS) $@.o $(PSOBJS) $(LIBFS) $(LIBPS) -o $@
@@ -98,6 +102,9 @@ reg2fem: reg2fem.o $(RGFOBJS) $(LIBIFS)
 line_nodes: line_nodes.o $(LPOBJS) $(LIBIFS)
 	$(LINKER) $(LFLAGS) $@.o $(LPOBJS) $(LIBFS) -o $@
 
+links:
+	@$(FEMBIN)/symlink $(FEMBIN) $(EXES)
+
 #------------------------------------------------------------
 
 cleanall: clean cleanzip cleandiff
@@ -133,6 +140,9 @@ cleandiff:
 cleanzip:
 	-rm -f $(DIR).zip
 	-rm -f save.zip
+
+cleanlinks:
+	@$(FEMBIN)/symlink -remove $(FEMBIN) $(EXES)
 
 #------------------------------------------------------------
 
@@ -175,68 +185,85 @@ strip:	$(EXES)
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-col.o: color.h
-lagxitest.o: ../femlib/mod/evgeom.mod ../femlib/mod/basin.mod \
-		param.h 
-line_nodes.o: ../femlib/mod/mod_geom.mod param.h \
-		../femlib/mod/basin.mod 
 ../femlib/mod/mod_hydro_plot.mod: mod_hydro_plot.o
+../femlib/mod/mod_plot.mod: supint.o
 ../femlib/mod/mod_plot2d.mod: mod_plot2d.o
 ../femlib/mod/mod_plot3d.mod: mod_plot3d.o
-plotsim.o: ../femlib/mod/mod_plot3d.mod \
-		../femlib/mod/mod_plot2d.mod \
-		../femlib/mod/mod_geom.mod \
-		../femlib/mod/mod_hydro_vel.mod pkonst.h \
-		../femlib/mod/mod_depth.mod \
-		../femlib/mod/mod_hydro_plot.mod \
-		../femlib/mod/mod_hydro_print.mod \
-		../femlib/mod/levels.mod ../femlib/mod/evgeom.mod \
-		../femlib/mod/mod_hydro.mod mkonst.h \
-		../femlib/mod/basin.mod param.h 
-supano.o: simul.h param.h ../femlib/mod/basin.mod color.h legend.h
-supbas.o: ../femlib/mod/basin.mod param.h supout.h \
-		../femlib/mod/mod_geom.mod 
-supcol.o: color.h
-supdep.o: ../femlib/mod/mod_plot2d.mod ../femlib/mod/mod_depth.mod \
-		../femlib/mod/mod_hydro.mod \
-		../femlib/mod/evgeom.mod ../femlib/mod/levels.mod \
-		param.h ../femlib/mod/basin.mod 
-supint.o: ../femlib/mod/levels.mod param.h
-supiso.o: color.h param.h ../femlib/mod/basin.mod
-suplag.o: color.h param.h ../femlib/mod/basin.mod \
-		../femlib/mod/mod_plot2d.mod 
-suplin.o: ../femlib/mod/mod_depth.mod ../femlib/mod/levels.mod \
-		../femlib/mod/mod_hydro_print.mod color.h \
-		../femlib/mod/basin.mod param.h 
-suplin1.o: ../femlib/mod/mod_plot3d.mod \
-		../femlib/mod/mod_plot2d.mod \
-		../femlib/mod/mod_hydro_vel.mod param.h \
-		../femlib/mod/basin.mod \
-		../femlib/mod/mod_hydro.mod \
-		../femlib/mod/evgeom.mod \
-		../femlib/mod/mod_hydro_print.mod \
-		../femlib/mod/levels.mod 
-supout.o: simul.h ../femlib/mod/mod_depth.mod \
-		../femlib/mod/mod_hydro_plot.mod \
-		../femlib/mod/mod_hydro.mod \
+../femlib/mod/plotutil.mod: plotutil.o
+col.o: color.h
+lagxitest.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
+		param.h 
+line_nodes.o: ../femlib/mod/basin.mod ../femlib/mod/mod_geom.mod \
+		param.h 
+plotsim.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
-		../femlib/mod/mod_hydro_print.mod param.h \
-		../femlib/mod/basin.mod \
-		../femlib/mod/mod_plot2d.mod \
-		../femlib/mod/mod_plot3d.mod supout.h 
-supsim.o: ../femlib/mod/mod_geom.mod ../femlib/mod/mod_plot2d.mod \
-		../femlib/mod/mod_plot3d.mod \
-		../femlib/mod/mod_hydro_vel.mod \
-		../femlib/mod/mod_hydro_plot.mod \
 		../femlib/mod/mod_depth.mod \
-		../femlib/mod/basin.mod param.h \
+		../femlib/mod/mod_geom.mod \
 		../femlib/mod/mod_hydro.mod \
-		../femlib/mod/levels.mod 
-suptim.o: timlim.h
-supver.o: ../femlib/mod/mod_plot3d.mod \
-		../femlib/mod/mod_plot2d.mod \
+		../femlib/mod/mod_hydro_plot.mod \
+		../femlib/mod/mod_hydro_print.mod \
 		../femlib/mod/mod_hydro_vel.mod \
+		../femlib/mod/mod_plot2d.mod \
+		../femlib/mod/mod_plot3d.mod mkonst.h pkonst.h 
+plotutil.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
+		../femlib/mod/nls.mod ../femlib/mod/shyfile.mod 
+shyplot.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
+		../femlib/mod/elabtime.mod \
 		../femlib/mod/evgeom.mod ../femlib/mod/levels.mod \
+		../femlib/mod/mod_depth.mod \
+		../femlib/mod/mod_geom.mod \
 		../femlib/mod/mod_hydro.mod \
-		../femlib/mod/basin.mod param.h 
+		../femlib/mod/mod_hydro_plot.mod \
+		../femlib/mod/mod_hydro_print.mod \
+		../femlib/mod/mod_hydro_vel.mod \
+		../femlib/mod/mod_plot2d.mod \
+		../femlib/mod/plotutil.mod \
+		../femlib/mod/shyfile.mod \
+		../femlib/mod/shyutil.mod 
+supano.o: ../femlib/mod/basin.mod color.h legend.h param.h simul.h
+supbas.o: ../femlib/mod/basin.mod ../femlib/mod/mod_geom.mod \
+		param.h supout.h 
+supcol.o: color.h
+supdep.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
+		../femlib/mod/levels.mod \
+		../femlib/mod/mod_depth.mod \
+		../femlib/mod/mod_hydro.mod \
+		../femlib/mod/mod_plot2d.mod 
+supint.o: ../femlib/mod/levels.mod ../femlib/mod/para.mod
+supiso.o: ../femlib/mod/basin.mod color.h param.h
+suplag.o: ../femlib/mod/basin.mod ../femlib/mod/mod_plot2d.mod \
+		color.h param.h 
+suplin.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
+		../femlib/mod/mod_depth.mod \
+		../femlib/mod/mod_hydro_print.mod color.h param.h 
+suplin1.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
+		../femlib/mod/levels.mod \
+		../femlib/mod/mod_hydro.mod \
+		../femlib/mod/mod_hydro_print.mod \
+		../femlib/mod/mod_hydro_vel.mod \
+		../femlib/mod/mod_plot2d.mod \
+		../femlib/mod/mod_plot3d.mod param.h 
+supout.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
+		../femlib/mod/mod_depth.mod \
+		../femlib/mod/mod_hydro.mod \
+		../femlib/mod/mod_hydro_plot.mod \
+		../femlib/mod/mod_hydro_print.mod \
+		../femlib/mod/mod_hydro_vel.mod \
+		../femlib/mod/mod_plot2d.mod \
+		../femlib/mod/mod_plot3d.mod simul.h supout.h 
+supsim.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
+		../femlib/mod/mod_depth.mod \
+		../femlib/mod/mod_geom.mod \
+		../femlib/mod/mod_hydro.mod \
+		../femlib/mod/mod_hydro_plot.mod \
+		../femlib/mod/mod_hydro_vel.mod \
+		../femlib/mod/mod_plot2d.mod \
+		../femlib/mod/mod_plot3d.mod 
+suptim.o: timlim.h
+supver.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
+		../femlib/mod/levels.mod \
+		../femlib/mod/mod_hydro.mod \
+		../femlib/mod/mod_hydro_vel.mod \
+		../femlib/mod/mod_plot2d.mod \
+		../femlib/mod/mod_plot3d.mod 
 

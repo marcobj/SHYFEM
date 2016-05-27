@@ -1,3 +1,333 @@
+version  7_5_10    25-05-2016    VERS_7_5_10
+
+========================================================== 25-05-2016 - 7_5_10
+
+c ./fem3d/mercury.f:
+c 15.05.2016    ggu     started mercury from bio3d
+c
+c ./fem3d/subres.f:
+c 17.05.2016    ggu     in ts_shell() save isvect/itvect
+c
+c ./fem3d/subfemintp.f:
+! 05.05.2016	ggu	new functionality for 3d matrices
+!
+c ./fem3d/basutil.f:
+! 01.05.2016	ggu	new routine to convert depth from node to elem
+!
+c ./fem3d/subqfxu4.f:
+c 04.05.2016    ccf     do not pass albedo into heat2t
+c
+c ./fem3d/subver.f:
+c 25.05.2016	ggu	version 7.5.10	for Leslie
+c
+c ./fem3d/subbas.f:
+c 01.05.2016	ggu	new routines basin_has_basin()
+c 20.05.2016	ggu	estimate_ngr() returns exact ngr
+c
+c ./fem3d/subreg.f:
+c 05.05.2016	ggu	file restructured (module)
+c
+c ./fem3d/sigmautil.f:
+c 01.05.2016	ggu	changes in get_layer_thickness(): exit from loop
+c 14.05.2016	ggu	substitute blockdata/common with module
+c
+c ./fem3d/newtra.f:
+c 19.05.2016	ggu	use where construct where possible
+c
+c ./fem3d/subqfxt.f:
+c 04.05.2016    ccf     do not pass albedo into heat2t
+c 04.05.2016    ggu     include effect of ice cover
+c
+c ./fem3d/subfemfile.f:
+c 13.05.2016	ggu	nvers = 3 -> add data size to records
+c 14.05.2016	ggu	new module to collect global parameters
+
+==========================================================
+
+version  7_5_9    28-04-2016    VERS_7_5_9   commit_2016-05-25
+
+version  7_5_9    28-04-2016    VERS_7_5_9
+
+========================================================== 28-04-2016 - 7_5_9
+
+c ./fem3d/nos2nc.f:
+c 27.04.2016    mbj     adapted to new framework
+c
+c ./fem3d/subver.f:
+c 28.04.2016	ggu	version 7.5.9
+c
+c ./fem3d/ous2nc.f:
+c 27.04.2016    mbj     adapted to new framework
+
+==========================================================
+
+version  7_5_8    15-04-2016    VERS_7_5_8   commit_2016-04-28
+
+version  7_5_8    15-04-2016    VERS_7_5_8
+
+========================================================== 15-04-2016 - 7_5_8
+
+c ./fem3d/elabutil.f:
+! 15.04.2016	ggu	handle gis files with substitution of colon
+!
+c ./fem3d/subfemintp.f:
+! 01.04.2016	ggu	bug fix in iff_init(): open file with np and not nexp
+!
+c ./fem3d/basutil_interp.f:
+c 11.04.2016    ggu     meaning of ufact has changed, expo interp working
+c
+c ./fem3d/basutil_bathy.f:
+c 11.04.2016    ggu     meaning of ufact has changed
+c
+c ./fem3d/newnudge.f:
+c 15.04.2016    ggu     started cleaning module
+c
+c ./fem3d/subwaves.f:
+! 15.04.2016	ggu	parametric wave module cleaned
+!
+c ./fem3d/nos2nc.f:
+c 15.04.2016    ggu     ndim eliminated (allocatable)
+c
+c ./fem3d/subwrt.f:
+c 15.04.2016	ggu	new input file for custom reset
+c
+c ./fem3d/feminf.f:
+! 07.04.2016    ggu     option node added to extract value at node
+c
+c ./fem3d/subver.f:
+c 15.04.2016	ggu	version 7.5.8	after 20th anniversary
+c
+c ./fem3d/newtra.f:
+c 07.04.2016	ggu	new routine aver_nodal()
+c
+c ./fem3d/subflxa.f:
+c 12.04.2016    ggu     fluxes_template adjourned
+c 15.04.2016    ggu     fluxes_template debugged and finished
+c
+c ./fem3d/flxinf.f:
+c 07.04.2016	ggu	bug fix for allocation of arrays
+c
+c ./fem3d/subspk.f:
+c 04.04.2016    ggu	make some big arrays allocatable and not on stack
+c
+c ./fem3d/subsys.f:
+c 05.04.2016	ggu	new parameter iaicef for ice free areas
+c
+c ./fem3d/subqfxt.f:
+c 07.04.2016    ggu     compute total evaporation
+
+==========================================================
+
+version  7_5_7    01-04-2016    VERS_7_5_7   commit_2016-04-15
+
+version  7_5_7    01-04-2016    VERS_7_5_7
+
+========================================================== 01-04-2016 - 7_5_7
+
+c ./fem3d/newcon.f:
+c 01.04.2016    ggu     most big arrays moved from stack to allocatable
+c
+c ./fem3d/mod_bnd.f:
+! 01.04.2016    ggu     parameter and file names transfered to here
+!
+c ./fem3d/subver.f:
+c 01.04.2016	ggu	version 7.5.7	no April joke
+c
+c ./fem3d/subetsa.f:
+c 01.04.2016    ggu     bug fix for waves
+c
+c ./fem3d/subbnd.f:
+c 01.04.2016    ggu	restructured - arrays transfered to mod_bnd.f
+c
+c ./fem3d/sedi3d.f:
+c 01.04.2016    ccf&ggu adapted to new model version
+
+==========================================================
+
+version  7_5_6    22-03-2016    VERS_7_5_6   commit_2016-04-01
+
+version  7_5_6    22-03-2016    VERS_7_5_6
+
+========================================================== 22-03-2016 - 7_5_6
+
+ * ./mesh/exgrd.c:
+ * 18-Mar-2016: -a option also changes versus in line			*
+ * ./mesh/meshfi.c:
+ * 19-Mar-2016: program now accepts filename with and without .grd	*
+c ./fem3d/ouselab1.f:
+c 17.03.2016    ggu     outformat git added
+c
+c ./fem3d/subver.f:
+c 22.03.2016	ggu	version 7.5.6	Alessandra's birthday release '
+c
+c ./fem3d/shybas.f:
+c 17.03.2016    ggu     new routine write_depth_from_bas()
+
+==========================================================
+
+version  7_5_5    11-03-2016    VERS_7_5_5   commit_2016-03-22
+
+version  7_5_5    11-03-2016    VERS_7_5_5
+
+========================================================== 11-03-2016 - 7_5_5
+
+c ./fem3d/subfemintp.f:
+! 07.03.2016	ggu	bug fix in iff_read_header(): no time adjust if ierr/=0
+!
+c ./fem3d/subwaves.f:
+! 10.03.2016	ggu	in parametric wave module fix segfault (allocatable)
+!
+c ./fem3d/new3di.f:
+c 10.03.2016    ggu	in sp256v_intern() b/cpres in double precision
+c 11.03.2016    ggu	most variables passed in double precision
+c
+c ./fem3d/subver.f:
+c 11.03.2016	ggu	version 7.5.5
+c
+c ./fem3d/submeteo2.f:
+c 10.03.2016    ggu	check for pressure to be in reasonable bounds
+
+==========================================================
+
+version  7_5_4    22-02-2016    VERS_7_5_4   commit_2016-03-11
+
+version  7_5_4    22-02-2016    VERS_7_5_4
+
+========================================================== 22-02-2016 - 7_5_4
+
+c ./fem3d/elabutil.f:
+! 22.02.2016	ggu	handle catmode
+!
+c ./fem3d/subtsuvfile.f:
+c 22.02.2016    ggu&eps new files for generic tracer (nvar>1)
+c
+c ./fem3d/noselab1.f:
+c 22.02.2016    ggu     handle catmode
+c
+c ./fem3d/subver.f:
+c 22.02.2016	ggu	version 7.5.4
+c
+c ./fem3d/subbnd.f:
+c 22.02.2016    ggu	new files bfmbcn integrated
+c
+c ./fem3d/subsys.f:
+c 22.02.2016	ggu	new file for initial conditions bfmini
+c
+c ./fem3d/newbfm.f:
+c 22.02.2016    ggu&eps     new bfm routines created from newconz
+
+==========================================================
+
+version  7_5_3    19-02-2016    VERS_7_5_3   commit_2016-02-22
+
+version  7_5_3    19-02-2016    VERS_7_5_3
+
+========================================================== 19-02-2016 - 7_5_3
+
+c ./fem3d/noselab1.f:
+c 19.02.2016    ggu     bug fixes for bsumvar and mode==2 (sum)
+c
+c ./fem3d/subver.f:
+c 19.02.2016	ggu	version 7.5.3
+c
+c ./fem3d/mod_conz.f:
+! 19.02.2016    ggu     set default decay to zero
+
+==========================================================
+
+version  7_5_2    19-02-2016    VERS_7_5_2   commit_2016-02-19
+
+version  7_5_2    19-02-2016    VERS_7_5_2
+
+========================================================== 19-02-2016 - 7_5_2
+
+c ./fem3d/subnls.f:
+c 01.02.2016	ggu	bug in nls_insert_variable() -> new char variable
+c
+c ./fem3d/subfemintp.f:
+! 15.02.2016	ggu	if dtime==-1 do not check time, changes in exffil
+!
+c ./fem3d/lagrange_vertical.f:
+c 15.02.2016    ggu     handle particles on vertical wall gracefully
+c
+c ./fem3d/lagrange_init.f:
+c 15.02.2016    ggu	handle negative areas (line given clockwise)
+c
+c ./fem3d/subwrt.f:
+c 01.02.2016	ggu	implemented custom reset
+c
+c ./fem3d/subver.f:
+c 19.02.2016	ggu	version 7.5.2
+c
+c ./fem3d/subnev.f:
+c 15.02.2016	ggu	more debug code, assure xi is in bounds
+c
+c ./fem3d/subsys.f:
+c 01.02.2016	ggu	some plot params shifted to para section (bbgray, etc.)
+c
+c ./fem3d/lagrange_inout.f:
+c 15.02.2016    ggu&fra	new release type ipvert=-1
+
+==========================================================
+
+version  7_5_1    22-01-2016    VERS_7_5_1   commit_2016-02-19
+
+version  7_5_1    22-01-2016    VERS_7_5_1
+
+========================================================== 22-01-2016 - 7_5_1
+
+c ./fem3d/subver.f:
+c 22.01.2016	ggu	version 7.5.1
+c
+c ./fem3d/subspk.f:
+c 13.01.2016    ggu&ivn bug in allocation of rvec and raux (n instead nndim)
+c
+c ./fem3d/subfemfile.f:
+c 21.01.2016	ggu	read and write string without leading blanks
+c
+c ./fem3d/subqfxm5.f:
+! 22.01.2016    ggu     bug fix for COARE integrated (L gets infinite)
+
+==========================================================
+
+version  7_5_0    08-01-2016    VERS_7_5_0   commit_2016-01-22
+
+version  7_5_0    08-01-2016    VERS_7_5_0
+
+========================================================== 08-01-2016 - 7_5_0
+
+c ./fem3d/subver.f:
+c 08.01.2016	ggu	version 7.5.0	new develop version opened
+
+==========================================================
+
+version  7_4_0    08-01-2016    VERS_7_4_0   commit_2016-01-08
+
+version  7_4_0    08-01-2016    VERS_7_4_0
+
+========================================================== 08-01-2016 - 7_4_0
+
+c ./fem3d/subver.f:
+c 08.01.2016	ggu	version 7.4.0	major stable version
+
+==========================================================
+
+version  7_3_18    08-01-2016    VERS_7_3_18   commit_2016-01-08
+
+version  7_3_18    08-01-2016    VERS_7_3_18
+
+========================================================== 08-01-2016 - 7_3_18
+
+c ./fem3d/submeteo2.f:
+c 08.01.2016    ggu	bug fix in meteo_convert_wind_data() - no wind bug
+c
+c ./fem3d/subver.f:
+c 08.01.2016	ggu	version 7.3.18
+
+==========================================================
+
+version  7_3_17    18-12-2015    VERS_7_3_17   commit_2016-01-08
+
 version  7_3_17    18-12-2015    VERS_7_3_17
 
 ========================================================== 18-12-2015 - 7_3_17

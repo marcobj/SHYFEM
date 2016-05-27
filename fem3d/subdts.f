@@ -30,6 +30,27 @@ c subroutine dtsyear(year)		    initializes dts routines (for year)
 c subroutine dts2dt(it,year,month,day,hour,min,sec) converts it to date and time
 c subroutine dts2it(it,year,month,day,hour,min,sec) converts date and time to it
 
+!==================================================================
+        module dts
+!==================================================================
+
+	implicit none
+
+	integer, save :: date0 = 0
+	integer, save :: time0 = 0
+        integer, save :: year0 = 0
+        integer, save :: month0 = 0
+        integer, save :: day0 = 0
+        integer, save :: hour0 = 0
+        integer, save :: min0 = 0
+        integer, save :: sec0 = 0
+        integer, save :: last = 0
+        integer, save :: dinit = 0
+
+!==================================================================
+        end module dts
+!==================================================================
+
 c************************************************************************
 c************************************************************************
 c************************************************************************
@@ -544,13 +565,13 @@ c************************************************************************
 
 c converts it to date and time
 
+	use dts
+
 	implicit none
 
 	integer it
         integer year,month,day
         integer hour,min,sec
-
-	include 'subdts.h'
 
 	last = it
 
@@ -573,6 +594,8 @@ c************************************************************************
 
 c converts date and time to it
 
+	use dts
+
 	implicit none
 
 	integer it
@@ -580,8 +603,6 @@ c converts date and time to it
         integer hour,min,sec
 
 	integer days,days0,secs,secs0
-
-	include 'subdts.h'
 
 	call date2days(days,year,month,day)
 	call date2days(days0,year0,month0,day0)
@@ -596,17 +617,19 @@ c converts date and time to it
 	end
 
 c************************************************************************
+c************************************************************************
+c************************************************************************
 
 	subroutine dtsini(date,time)
 
 c sets date and time for 0 fem time
 
+	use dts
+
 	implicit none
 
 	integer date,time
 	logical bdebug
-
-	include 'subdts.h'
 
 	bdebug = .true.
 	bdebug = .false.
@@ -661,11 +684,11 @@ c************************************************************************
 
 	subroutine dts_get_date(date,time)
 
+	use dts
+
 	implicit none
 
         integer date,time
-
-	include 'subdts.h'
 
 	date = date0
 	time = time0
@@ -676,12 +699,12 @@ c************************************************************************
 
 	subroutine dts_get_init(year,month,day,hour,min,sec)
 
+	use dts
+
 	implicit none
 
         integer year,month,day
         integer hour,min,sec
-
-	include 'subdts.h'
 
 	year = year0
 	month = month0
@@ -698,11 +721,11 @@ c************************************************************************
 
 c checks if dts routines are already initialized
 
+	use dts
+
 	implicit none
 
 	logical dts_initialized
-
-	include 'subdts.h'
 
 	if( dinit .eq. 0 ) then
 	  dts_initialized = .false.
@@ -718,11 +741,11 @@ c************************************************************************
 
 c checks if dts routines have a valid date
 
+	use dts
+
 	implicit none
 
 	logical dts_has_date
-
-	include 'subdts.h'
 
 	if( date0 .eq. 0 ) then
 	  dts_has_date = .false.
@@ -885,7 +908,7 @@ c converts date to julian days
  
 	if( month .lt. 1 .or. month .gt. 12 ) then
 	  write(6,*) 'year,month,day: ',year,month,day
-	  call divide_by_zero(jd)
+	  !call divide_by_zero(jd)
 	  stop 'error stop date2j: month'
         else if( day .lt. 1 .or. day .gt. idmon(year,month) ) then
 	  write(6,*) 'year,month,day: ',year,month,day
@@ -1119,20 +1142,6 @@ c************************************************************************
 c************************************************************************
 c************************************************************************
 
-        block data dts_blockdata
-
-        implicit none
-
-	include 'subdts.h'
-
-        data     date0,time0
-     +		,year0,month0,day0
-     +		,hour0,min0,sec0
-     +		,last,dinit
-     +		 /0,0,0,0,0,0,0,0,0,0/
-
-        end
-
 c************************************************************************
 c************************************************************************
 c************************************************************************
@@ -1229,6 +1238,98 @@ c formats date and time given absolute time
 	  call dtsform(year,month,day,hour,min,sec,line)
 	else
 	  call dtsform(0,0,days,hour,min,sec,line)
+	end if
+
+	end
+
+c************************************************************************
+c************************************************************************
+c************************************************************************
+c
+c extra atime routines
+c
+c************************************************************************
+c************************************************************************
+c************************************************************************
+
+	subroutine dts_string2time(string,atime)
+
+c converts string to time stamp
+c
+c string can be an absolute date (YYYY-MM-DD[::hh:mm:ss])
+c or a relative time (integer)
+
+	implicit none
+
+	character*(*) string		!string indicating date
+	double precision atime		!absolute time (return)
+
+	integer year,month,day,hour,min,sec
+	integer date,time,it
+	integer ierr
+
+	call dtsunform(year,month,day,hour,min,sec,string,ierr)
+
+	if( ierr > 0 ) then
+	  read(string,'(i10)',err=9) it
+	  atime = it
+	else
+          call packdate(date,year,month,day)
+          call packtime(time,hour,min,sec)
+	  call dts_to_abs_time(date,time,atime)
+	end if
+
+	return
+    9	continue
+        write(6,*) '*** cannot parse date: ',ierr,string(1:20)
+        write(6,*) '    format should be YYYY-MM-DD::hh:mm:ss'
+        write(6,*) '    possible also YYYY-MM-DD[::hh[:mm[:ss]]]'
+        write(6,*) '    or it should be an integer (relative time)'
+	stop 'error stop dts_string2time: conversion error'
+	end
+
+c************************************************************
+
+	subroutine dts_convert_to_atime(datetime,dtime,atime)
+
+	implicit none
+
+	integer datetime(2)		!reference date
+	double precision dtime		!relative time
+	double precision atime		!absolute time (return)
+
+	double precision dtime0
+
+	if( datetime(1) > 0 ) then
+	  call dts_to_abs_time(datetime(1),datetime(2),dtime0)
+	  atime = dtime0 + dtime
+	else
+	  atime = dtime
+	end if
+
+	end
+
+c************************************************************
+
+	subroutine dts_convert_from_atime(datetime,dtime,atime)
+
+c converts from atime to datetime and dtime (only if in atime is real date)
+
+	implicit none
+
+	integer datetime(2)		!reference date (return)
+	double precision dtime		!relative time (return)
+	double precision atime		!absolute time (in)
+
+	double precision atime1000	!1000 year limit
+	parameter (atime1000 = 1000*365*86400.)
+
+	if( atime > atime1000 ) then	!real date
+	  call dts_from_abs_time(datetime(1),datetime(2),atime)
+	  dtime = 0.
+	else				!no date - keep relative time
+	  datetime = 0
+	  dtime = atime
 	end if
 
 	end

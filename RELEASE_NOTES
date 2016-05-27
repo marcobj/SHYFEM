@@ -1,4 +1,86 @@
 
+25.05.2016	VERS_7_5_10
+
+	big changes in post processing routines and plot
+	read 3d matrices from fem files (still experimental)
+	format enhancement for fem files
+	restructured regular file treatment
+	change albedo treatment (small bug)
+	exact estimation of ngr 
+	started new eutro and mercury routines
+
+28.04.2016	VERS_7_5_9
+
+	nos2nc, ous2nc adapted to new framework
+	ouselab allows nodes output
+	more work on shy files
+	shyelab nearly ready for production
+
+15.04.2016	VERS_7_5_8
+
+	shybas has been updated
+	parametric wave module cleaned
+	custom reset in WRT
+	fluxes_template adjourned
+	new parameter iaicef for ice free areas
+	big arrays allocatable and not on stack
+
+01.04.2016	VERS_7_5_7
+
+	most big arrays moved from stack to allocatable (newcon.f)
+	sediment transport routine adapted to new model structure
+	subbnd restructured
+	bug fix for ets files
+
+22.03.2016	VERS_7_5_6
+
+	make scripts executable if downloaded from GitHub
+	mesh accepts filename w/o .grd extension
+	exgrd -a changes versus of items (elems/lines)
+	ouselab writes also with gis format
+	shybas -depth writes out depth values from basin
+
+11.03.2016	VERS_7_5_5
+
+	bug fix in iff_read_header - check for ierr/=0
+	in parametric wave module fix segfault
+	check for pressure to be in reasonable bounds
+	most variables passed in double precision (bug pressure)
+
+22.02.2016	VERS_7_5_4
+
+	new bfm implemented
+	use catmode in noselab
+	general tracer treatment for initial files
+
+19.02.2016    VERS_7_5_3
+
+	bug fix in noselab1.f (sum, bsumvar)
+
+19.02.2016    VERS_7_5_2
+
+	handle lagrangian particles on vertical wall gracefully
+	new lagrangian release type ipvert = -1
+	some plot params shifted to para section (bbgray, etc.)
+
+22.01.2016    VERS_7_5_1
+
+	bug fixes in subspk and COARE heat module
+
+08.01.2016    VERS_7_5_0
+
+	new develop version opened
+
+08.01.2016    VERS_7_4_0
+
+	new stable major version
+
+08.01.2016    VERS_7_3_18
+
+	severe bug fix in meteo_convert_wind_data() - no wind bug
+	minor enhancements
+	continued mpi development
+
 18.12.2015    VERS_7_3_17
 
 	shybas interpolation is working now

@@ -17,10 +17,19 @@ c 20.10.2014	ggu	second version (date record is just after first record)
 c 29.10.2014	ggu	new routine fem_file_is_fem_file()
 c 09.01.2015	ggu	new routine fem_file_get_format_description()
 c 14.01.2015	ggu	new routine fem_file_string2time()
+c 21.01.2016	ggu	read and write string without leading blanks
+c 13.05.2016	ggu	nvers = 3 -> add data size to records
+c 14.05.2016	ggu	new module to collect global parameters
 c
 c notes :
 c
-c format for file (nvers == 2)
+c versions:
+c
+c nvers == 1		no regular grid allowed
+c nvers == 2		complete specification
+c nvers == 3		write np,lmax for each record -> can mix 2d/3d records
+c
+c format for file (nvers == 3)
 c
 c	time record 1
 c	time record 2
@@ -36,7 +45,7 @@ c	data record for variable nvar
 c
 c format for header record
 c
-c	dtime,nvers,id,np,lmax,nvar,ntype
+c	dtime,nvers,idfem,np,lmax,nvar,ntype
 c	date,time				only if ntype odd
 c	(hlv(l),l=1,lmax)			only if( lmax > 1 )
 c	other lines depending on ntype
@@ -45,9 +54,11 @@ c format for data record
 c
 c	if( lmax == 1 )
 c		string
+c		np,lmax				only for nvers > 2
 c		(data(1,k),k=1,np)
 c	if( lmax > 1 )
 c		string
+c		np,lmax				only for nvers > 2
 c		do k=1,np
 c		  lm,hd(k),(data(l,k),l=1,lm)
 c		end do
@@ -60,15 +71,17 @@ c legend
 c
 c dtime		time stamp (double precision, seconds)
 c nvers		version of file format
-c id		id to identify fem file (must be 957839)
+c idfem		id to identify fem file (must be 957839)
 c np		number of horizontal points given
 c lmax		maximum number of layers given
 c nvar		number of variables in time record
 c ntype		type of data, defines extra data to follow
-c hlv		layer depths
+c date		reference date (integer)
+c time		reference time (integer)
+c hlv		layer depths (the bottom of each layer is given)
 c string 	string with description of data
 c hd(k)		total depth in node k
-c data(l,k)	data for variable
+c data(l,k)	data for variable at level l and node k
 c lm		total number of vertical data provided for point k
 c k,l		index for horizontal/vertical dimension
 c nx,ny		size of regular grid
@@ -85,13 +98,28 @@ c 20		rotated regular grid, information on extra line (not yet ready)
 c
 c combinations are possible, example:
 c
-c 21		date/time and regular rotated grid
+c 11		date/time and regular grid
 c
+
+!==================================================================
+        module fem_file
+!==================================================================
+
+	implicit none
+
+	integer, save :: nvmax = 3	!newest version
+	integer, save :: nvmin = 1	!oldest supported version
+	integer, save :: idfem = 957839	!fem file id - do not change
+
+!==================================================================
+        end module fem_file
+!==================================================================
+
 c************************************************************
 c************************************************************
 c************************************************************
 
-	subroutine fem_file_write_header(iformat,iunit,it
+	subroutine fem_file_write_header(iformat,iunit,dtime
      +				,nvers,np,lmax
      +				,nvar,ntype
      +				,nlvddi,hlv,datetime,regpar)
@@ -102,7 +130,7 @@ c writes header of fem file
 
 	integer iformat		!formatted or unformatted
 	integer iunit		!file unit
-	double precision it	!time stamp
+	double precision dtime	!time stamp
 	integer nvers		!version of file format
 	integer np		!size of data (horizontal, nodes or elements)
 	integer lmax		!maximum vertical values (1 for 2d)
@@ -113,7 +141,7 @@ c writes header of fem file
 	integer datetime(2)	!date and time parameters
 	real regpar(7)		!parameters for regular field
 
-	call fem_file_write_params(iformat,iunit,it
+	call fem_file_write_params(iformat,iunit,dtime
      +				,nvers,np,lmax
      +				,nvar,ntype,datetime)
 
@@ -124,20 +152,19 @@ c writes header of fem file
 
 c************************************************************
 
-	subroutine fem_file_write_params(iformat,iunit,it
+	subroutine fem_file_write_params(iformat,iunit,dtime
      +				,nvers,np,lmax
      +				,nvar,ntype,datetime)
 
 c writes first header of fem file
 
-        implicit none
+	use fem_file
 
-	integer idfem
-	parameter ( idfem = 957839 )
+        implicit none
 
 	integer iformat		!formatted or unformatted
 	integer iunit		!file unit
-	double precision it	!time stamp
+	double precision dtime	!time stamp
 	integer nvers		!version of file format
 	integer np		!size of data (horizontal, nodes or elements)
 	integer lmax		!maximum vertical values (1 for 2d)
@@ -150,15 +177,15 @@ c writes first header of fem file
 	integer(kind=8) :: itlong
 
 	nv = nvers
-	if( nv .eq. 0 ) nv = 2	!default
-	if( nv .lt. 2 .or. nv .gt. 2 ) goto 99
+	if( nv .eq. 0 ) nv = nvmax	!default
+	if( nv .ne. nvmax ) goto 99
 	if( lmax < 1 ) goto 98
 
 	if( iformat == 1 ) then
-	  itlong = it
+	  itlong = dtime
 	  write(iunit,1000) itlong,nv,idfem,np,lmax,nvar,ntype
 	else
-	  write(iunit) it,nv,idfem,np,lmax,nvar,ntype
+	  write(iunit) dtime,nv,idfem,np,lmax,nvar,ntype
 	end if
 
 	call fem_file_make_type(ntype,2,itype)
@@ -230,6 +257,8 @@ c************************************************************
 
 c writes data of the file
 
+	use fem_file
+
         implicit none
 
 	integer iformat		!formatted or unformatted
@@ -249,14 +278,15 @@ c writes data of the file
 	character*80 textu	!we need 80 chars for unformatted write
 
 	nv = nvers
-	if( nv .eq. 0 ) nv = 1	!default
+	if( nv .eq. 0 ) nv = nvmax	!default
 
-	text = string
+	text = trim(string)
 	textu = string
 	b2d = lmax .le. 1
 
 	if( iformat == 1 ) then
-	  write(iunit,*) text
+	  write(iunit,'(a)') text
+	  if( nv >= 3 ) write(iunit,*) np,lmax
 	  if( b2d ) then
 	    write(iunit,1000) (data(1,k),k=1,np)
 	  else
@@ -267,6 +297,7 @@ c writes data of the file
 	  end if
 	else
 	  write(iunit) textu
+	  if( nv >= 3 ) write(iunit) np,lmax
 	  if( b2d ) then
 	    write(iunit) (data(1,k),k=1,np)
 	  else
@@ -369,20 +400,20 @@ c************************************************************
 
 c writes information on file from header
 
+	use fem_file
+
 	implicit none
 
 	character*(*) file	!file name
 	integer iformat		!is formatted?
 
-	integer idfem
-	parameter ( idfem = 957839 )
-
 	integer iunit
-	integer it,nvers,np,lmax,nvar,ntype
+	double precision dtime
+	integer nvers,np,lmax,nvar,ntype
 	integer id
 	integer ios
 
-	it = 0
+	dtime = 0
 	np = 0
 	lmax = 0
 	nvar = 0
@@ -396,11 +427,11 @@ c writes information on file from header
 
 	if( iformat == 1 ) then
 	  open(iunit,file=file,form='formatted',status='old')
-	  read(iunit,*,iostat=ios) it,nvers,id,np,lmax,nvar,ntype
+	  read(iunit,*,iostat=ios) dtime,nvers,id,np,lmax,nvar,ntype
 	  write(6,*) 'formatted read: '
 	else
 	  open(iunit,file=file,form='unformatted',status='old')
-	  read(iunit,iostat=ios) it,nvers,id,np,lmax,nvar,ntype
+	  read(iunit,iostat=ios) dtime,nvers,id,np,lmax,nvar,ntype
 	  write(6,*) 'unformatted read: '
 	end if
 
@@ -411,7 +442,7 @@ c writes information on file from header
 	else if( id .ne. idfem ) then
 	  write(6,*) 'file is not a FEM file: ',id,idfem
 	else
-	  write(6,*) it,nvers,id,np,lmax,nvar,ntype
+	  write(6,'(g14.2,6i10)') dtime,nvers,id,np,lmax,nvar,ntype
 	end if
 
 	close(iunit)
@@ -435,7 +466,7 @@ c checks if file is readable and formatted or unformatted
 	integer iunit
 	integer nvers,np0,lmax
 	integer datetime(2)
-	double precision it
+	double precision dtime
 	integer ierr
 	logical bdebug
 
@@ -447,7 +478,7 @@ c------------------------------------------------------
 	bdebug = .false.
 
 	nvers = 0
-	it = 0
+	dtime = 0
 	np0 = 0
 	lmax = 0
 	nvar = 0
@@ -468,7 +499,7 @@ c------------------------------------------------------
 	open(iunit,file=file,form='unformatted',status='old',err=2)
 
 	iformat = 0
-	call fem_file_read_params(iformat,iunit,it
+	call fem_file_read_params(iformat,iunit,dtime
      +				,nvers,np,lmax,nvar,ntype,datetime,ierr)
 
 	close(iunit)
@@ -489,7 +520,7 @@ c------------------------------------------------------
 	open(iunit,file=file,form='formatted',status='old',err=8)
 
 	iformat = 1
-	call fem_file_read_params(iformat,iunit,it
+	call fem_file_read_params(iformat,iunit,dtime
      +				,nvers,np,lmax,nvar,ntype,datetime,ierr)
 
 	close(iunit)
@@ -535,7 +566,7 @@ c returns data description for first record
 	integer np0,iunit,i
 	integer nvers,np,lmax,nvar,ntype
 	integer datetime(2)
-	double precision it
+	double precision dtime
 	character*80 string
 
 	np0 = 0
@@ -544,7 +575,7 @@ c returns data description for first record
 	call fem_file_read_open(file,np0,iunit,iformat)
 	if( iunit .le. 0 ) return
 
-	call fem_file_read_params(iformat,iunit,it
+	call fem_file_read_params(iformat,iunit,dtime
      +				,nvers,np,lmax
      +				,nvar,ntype,datetime,ierr)
 	if( ierr .ne. 0 ) return
@@ -570,7 +601,7 @@ c************************************************************
 c************************************************************
 c************************************************************
 
-	subroutine fem_file_read_params(iformat,iunit,it
+	subroutine fem_file_read_params(iformat,iunit,dtime
      +				,nvers,np,lmax
      +				,nvar,ntype,datetime,ierr)
 
@@ -580,7 +611,7 @@ c reads and checks params of next header
 
 	integer iformat		!formatted or unformatted
 	integer iunit		!file unit
-	double precision it	!time stamp
+	double precision dtime	!time stamp
 	integer nvers		!version of file format
 	integer np		!size of data (horizontal, nodes or elements)
 	integer lmax		!vertical values
@@ -596,9 +627,9 @@ c reads and checks params of next header
 	if( iunit < 1 ) goto 99
 
 	if( iformat == 1 ) then
-	  read(iunit,*,end=1,err=2) it,nvers,id,np,lmax,nvar,ntype
+	  read(iunit,*,end=1,err=2) dtime,nvers,id,np,lmax,nvar,ntype
 	else
-	  read(iunit,end=1,err=2) it,nvers,id,np,lmax,nvar,ntype
+	  read(iunit,end=1,err=2) dtime,nvers,id,np,lmax,nvar,ntype
 	end if
 
 	call fem_file_check_params(nvers,id,np,lmax,nvar,ntype,ierr)
@@ -640,7 +671,7 @@ c reads and checks params of next header
 
 c************************************************************
 
-	subroutine fem_file_peek_params(iformat,iunit,it
+	subroutine fem_file_peek_params(iformat,iunit,dtime
      +				,nvers,np,lmax,nvar,ntype,datetime,ierr)
 
 c reads and checks params of next header (non advancing read)
@@ -649,7 +680,7 @@ c reads and checks params of next header (non advancing read)
 
 	integer iformat		!formatted or unformatted
 	integer iunit		!file unit
-	double precision it	!time stamp
+	double precision dtime	!time stamp
 	integer nvers		!version of file format
 	integer np		!size of data (horizontal, nodes or elements)
 	integer lmax		!vertical values
@@ -660,7 +691,7 @@ c reads and checks params of next header (non advancing read)
 
 	integer itype(2)
 
-	call fem_file_read_params(iformat,iunit,it
+	call fem_file_read_params(iformat,iunit,dtime
      +				,nvers,np,lmax,nvar,ntype,datetime,ierr)
 
 	if( ierr .ne. 0 ) return
@@ -678,6 +709,8 @@ c************************************************************
 
 c reads and checks params of next header
 
+	use fem_file
+
         implicit none
 
 	integer nvers		!version of file format
@@ -688,13 +721,10 @@ c reads and checks params of next header
 	integer ntype		!type of information contained
 	integer ierr		!return error code
 
-	integer idfem
-	parameter ( idfem = 957839 )
-
 	ierr = 11
 	if( id .ne. idfem ) goto 9
 	ierr = 13
-	if( nvers .lt. 1 .or. nvers .gt. 2 ) goto 9
+	if( nvers .lt. nvmin .or. nvers .gt. nvmax ) goto 9
 	ierr = 15
 	if( np .le. 0 ) goto 9
 	ierr = 17
@@ -833,15 +863,19 @@ c reads data of the file
 	integer ierr		!return error code
 
 	logical b2d
-	integer k,lm,l
+	integer k,lm,l,npp
 	real hdepth
 	character*80 text
 
 	ierr = 0
-	b2d = lmax .le. 1
+	npp = np
 
 	if( iformat == 1 ) then
 	  read(iunit,'(a)',err=13) text
+	  if( nvers >= 3 ) read(iunit,*,err=11) npp,lmax
+	  if( lmax > nlvddi ) goto 97
+	  if( np /= npp ) goto 96
+	  b2d = lmax .le. 1
 	  if( b2d ) then
 	    read(iunit,*,err=15) (data(1,k),k=1,np)
 	  else
@@ -853,6 +887,10 @@ c reads data of the file
 	  end if
 	else
 	  read(iunit,err=13) text
+	  if( nvers >= 3 ) read(iunit,err=11) npp,lmax
+	  if( lmax > nlvddi ) goto 97
+	  if( np /= npp ) goto 96
+	  b2d = lmax .le. 1
 	  if( b2d ) then
 	    read(iunit,err=15) (data(1,k),k=1,np)
 	  else
@@ -865,14 +903,16 @@ c reads data of the file
 	end if
 
 	if( b2d ) then
-	  do k=1,np
-	    ilhkv(k) = 1
-	    hd(k) = 10000.
-	  end do
+	  ilhkv = 1
+	  hd = 10000.
 	end if
 
-	string = text
+	string = trim(text)
 
+	return
+   11	continue
+	write(6,*) 'error reading data size'
+	ierr = 11
 	return
    13	continue
 	write(6,*) 'error reading string description'
@@ -881,6 +921,16 @@ c reads data of the file
    15	continue
 	write(6,*) 'error reading data record'
 	ierr = 15
+	return
+   96	continue
+	write(6,*) 'error reading data record: size mismatch'
+	write(6,*) 'np,npp: ',np,npp
+	ierr = 96
+	return
+   97	continue
+	write(6,*) 'error reading data record: lmax > nlvddi'
+	write(6,*) 'lmax,nlvddi: ',lmax,nlvddi
+	ierr = 97
 	return
    99	continue
 	write(6,*) 'error reading data record: too much vertical data'
@@ -908,15 +958,18 @@ c skips one record of data of the file
 	integer ierr		!return error code
 
 	logical b2d
-	integer k,lm,l
+	integer k,lm,l,npp
 	real aux
 	character*80 text
 
 	ierr = 0
-	b2d = lmax .le. 1
+	npp = np
 
 	if( iformat  == 1 ) then
 	  read(iunit,'(a)',err=13) text
+	  if( nvers >= 3 ) read(iunit,*,err=11) npp,lmax
+	  if( np /= npp ) goto 96
+	  b2d = lmax .le. 1
 	  if( b2d ) then
 	    read(iunit,*,err=15) (aux,k=1,np)
 	  else
@@ -927,6 +980,9 @@ c skips one record of data of the file
 	  end if
 	else
 	  read(iunit,err=13) text
+	  if( nvers >= 3 ) read(iunit,err=11) npp,lmax
+	  if( np /= npp ) goto 96
+	  b2d = lmax .le. 1
 	  if( b2d ) then
 	    read(iunit,err=15) (aux,k=1,np)
 	  else
@@ -940,6 +996,10 @@ c skips one record of data of the file
 	string = text
 
 	return
+   11	continue
+	write(6,*) 'error reading data size'
+	ierr = 11
+	return
    13	continue
 	write(6,*) 'error reading string description'
 	ierr = 13
@@ -947,6 +1007,11 @@ c skips one record of data of the file
    15	continue
 	write(6,*) 'error skipping data record'
 	ierr = 15
+	return
+   96	continue
+	write(6,*) 'error reading data record: size mismatch'
+	write(6,*) 'np,npp: ',np,npp
+	ierr = 96
 	return
    99	continue
 	write(6,*) 'error reading data record: too much vertical data'
@@ -958,8 +1023,12 @@ c skips one record of data of the file
 c************************************************************
 c************************************************************
 c************************************************************
+c next three routines should be deleted 	FIXME
+c************************************************************
+c************************************************************
+c************************************************************
 
-	subroutine fem_file_string2time(string,atime)
+	subroutine fem_file_string2time0(string,atime)
 
 c converts string to time stamp
 c
@@ -997,7 +1066,7 @@ c or a relative time (integer)
 
 c************************************************************
 
-	subroutine fem_file_convert_time(datetime,dtime,atime)
+	subroutine fem_file_convert_time0(datetime,dtime,atime)
 
 	implicit none
 
@@ -1018,7 +1087,7 @@ c************************************************************
 
 c************************************************************
 
-	subroutine fem_file_convert_atime(datetime,dtime,atime)
+	subroutine fem_file_convert_atime0(datetime,dtime,atime)
 
 c converts from atime to datetime and dtime (only if in atime is real date)
 

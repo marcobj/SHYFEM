@@ -14,6 +14,7 @@ c 23.04.2014    ggu	new 3d insertion, new version of lgr file, new copy
 c 06.05.2015    ccf	write relative total depth and type to output
 c 07.05.2015    ccf	assign settling velocity to particles
 c 07.10.2015    mic	seed 3d between surface and l_bot 
+c 15.02.2016    ggu&fra	new release type ipvert=-1
 c
 c*******************************************************************
 
@@ -56,6 +57,7 @@ c 1 inserts at end of time step - no advection for this time step needed
 	bdebug = .true.
 	bdebug = .false.
 	lmytype = .true.
+	lmytype = .false.
 
 	nbdy = nbdy + 1
 	idbdy = idbdy + 1
@@ -91,8 +93,10 @@ c 1 inserts at end of time step - no advection for this time step needed
 	  xx = x
 	  yy = y
 	  call xy2xi(ie,xx,yy,xi)
+	  call xi_move_inside(ie,xi)
 	  lgr_ar(nbdy)%xi(:) = xi
 	end if
+	call track_xi_check('insert particle',idbdy,xi)
 	if( bdebug ) then
 	  write(6,*) 'debug insert particle: ',nbdy
 	  write(6,*) ie,idbdy
@@ -130,6 +134,53 @@ c 1 inserts at end of time step - no advection for this time step needed
 
 c*******************************************************************
 
+	subroutine xi_move_inside(ie,xi)
+
+c moves particle a small distance inside the element
+c this is done to not fall onto the side or vertex
+
+	integer ie
+	double precision xi(3)
+
+	integer is,it,i
+	double precision dist,disttot
+	double precision, parameter :: eps = 1.e-5
+
+	is = 0
+	in = 0
+	do i=1,3
+	  if( xi(i) == 0. ) then
+	    is = is + i
+	    in = in + 1
+	  end if
+	end do
+
+	if( in == 0 ) return
+
+	if( in == 1 ) then		!particle on side
+	  disttot = 0.
+	  do i=1,3
+	    if( i /= is ) then
+	      dist = eps*xi(i)
+	      xi(i) =  xi(i) - dist
+	      disttot = disttot + dist
+	    end if
+	  end do
+	  xi(is) = xi(is) + disttot
+	else if( in == 2 ) then		!particle on vertex
+	  is = 6 - is
+	  xi(is) = 1. - 2.*eps
+	  do i=1,3
+	    if( i /= is ) xi(i) = xi(i) + eps
+	  end do
+	else
+	  stop 'error stop xi_move_inside: internal error'
+	end if
+
+	end
+
+c*******************************************************************
+
 	subroutine insert_particle_3d(ie,ity,rtime,x,y)
 
 	use mod_lagrange
@@ -146,6 +197,7 @@ c n = abs(itype)
 c itype == 0	release one particle in surface layer
 c itype > 0	release n particles regularly
 c itype < 0	release n particles randomly
+c itype == -1	release particles in every layer
 
 	include 'param.h'
 
@@ -157,6 +209,7 @@ c itype < 0	release n particles randomly
 	integer linf	!bottom layer [1-lmax]
 	real z		!vertical (relative) coordinate [0-1]
 	real hl(nlv)
+	real htot,htotz
 
 	bdebug = .true.
 	bdebug = .false.
@@ -167,15 +220,11 @@ c itype < 0	release n particles randomly
 	b2d = nlv <= 1
 
 	if( itype /= 0 ) then
-	  if(linf.gt.lmax)then 
-	    write(6,*)'WARMING WRONG bottom layer: ',linf,lmax
-	    write(6,*)'imposing linf=lmax'
-	    linf=lmax 
-	  else if (linf.eq.0)then 
-	    write(6,*)'WARNING no bottom layer: ',linf,' use: ',lmax 
+	  if( linf .gt. lmax ) then 
 	    linf = lmax 
-	  endif	
-	  write(6,*)'releasing bottom layer: ',linf,lmax 
+	  else if (linf.eq.0)then 
+	    linf = lmax 
+	  end if	
 	end if
 
 	!-------------------------------------------------
@@ -189,12 +238,20 @@ c itype < 0	release n particles randomly
 	  return
 	end if
 
+	if( itype == -1 ) then	! realease one particle in every layer
+	  do l=1,linf
+	    z = 0.5
+	    call insert_particle(ie,ity,l,rtime,x,y,z)
+	  end do
+	  return
+	end if
+
 	!-------------------------------------------------
 	! handle 3d situation
 	!-------------------------------------------------
 
 	n = abs(itype)
-	call lagr_layer_thickness(ie,lmax,hl)
+	call lagr_layer_thickness(ie,lmax,hl,htot,htotz)
 	h = 0.
 
 	do l=1,linf 

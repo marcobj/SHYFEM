@@ -19,6 +19,7 @@ c 10.02.2012    ggu     use angles in quality of basin (basqual)
 c 30.09.2015    ggu     shybas started
 c 01.10.2015    ggu     shybas nearly finished
 c 02.10.2015    ggu     only basproj is missing
+c 17.03.2016    ggu     new routine write_depth_from_bas()
 c
 c todo:
 c
@@ -38,8 +39,6 @@ c writes information and manipulates basin
 	use basutil
 
 	implicit none
-
-	real, allocatable :: haux(:)
 
 	integer nc
 	character*80 file
@@ -65,10 +64,9 @@ c-----------------------------------------------------------------
 	call set_geom
 
 	call mod_depth_init(nkn,nel)
-	allocate(haux(nkn))
 
         call makehev(hev)
-        call makehkv(hkv,haux)
+        call makehkv(hkv)
 
 c-----------------------------------------------------------------
 c info on basin read
@@ -108,7 +106,9 @@ c-----------------------------------------------------------------
 
 	if( bgrd ) call write_grd_from_bas
         if( bxyz ) call write_xy('bas.xyz',nkn,ipv,xgv,ygv,hkv)
+        if( bdepth ) call write_depth_from_bas
 	if( bunique) call write_grd_with_unique_depth !for sigma levels
+	if( bdelem) call write_grd_with_elem_depth !for sigma levels
 
 c-----------------------------------------------------------------
 c end of routine
@@ -336,6 +336,10 @@ c writes statistics on basin
 	real h
         real xx,yy
         real dist,distmin
+	logical bflag
+	real dtot,dptot
+	real hk
+	real, parameter :: hflag = -999.
         integer i,k1,k2
 
 	real areatr
@@ -399,13 +403,18 @@ c-----------------------------------------------------------------
 	  amin = min(amin,area)
 	  amax = max(amax,area)
           h = 0.
+	  bflag = .false.
           do ii=1,3
-            h = h + hm3v(ii,ie)
+	    hk = hm3v(ii,ie)
+            h = h + hk
+	    bflag = hk == hflag
           end do
-          vtot = vtot + area * h / 3.
+	  h = h / 3.
+	  if( bflag ) h = 0.
+          vtot = vtot + area * h
 	  if( h .gt. 0. ) then		!only positive depths
 	    aptot = aptot + area
-            vptot = vptot + area * h / 3.
+            vptot = vptot + area * h
 	  end if
 	end do
 
@@ -472,8 +481,12 @@ c-----------------------------------------------------------------
 	  amax = max(amax,h)
 	end do
 
+	dtot = vtot/atot
+	dptot = 0.
+	if( aptot > 0. ) dptot = vptot/aptot
+
 	write(6,*) 'Depth min/max:          ',amin,amax
-	write(6,*) 'Depth average:          ',vtot/atot,vptot/aptot
+	write(6,*) 'Depth average:          ',dtot,dptot
 
 c-----------------------------------------------------------------
 c minimum distance of nodes
@@ -683,6 +696,59 @@ c makes unique depth
 
 c*******************************************************************
 
+	subroutine make_constant_depth
+
+c makes constant depth 
+
+	use evgeom
+	use basin
+
+	implicit none
+
+	integer ie,ii
+	double precision h,hm
+
+	do ie=1,nel
+	  hm = 0.
+	  do ii=1,3
+	    h = hm3v(ii,ie)
+	    hm = hm + h
+	  end do
+	  hm = hm / 3.
+	  hm3v(:,ie) = hm
+	end do
+
+	end
+
+c*******************************************************************
+
+	subroutine round_depth(hd)
+
+c rounds depth values to nearest given value
+
+	use basin
+
+	implicit none
+
+	real hd
+
+	integer ie,ii,i
+	real h
+
+	do ie=1,nel
+	  do ii=1,3
+	    h = hm3v(ii,ie)
+	    i = nint(h/hd)
+	    if( i <= 0 ) i = 1
+	    h = i * hd
+	    hm3v(ii,ie) = h
+	  end do
+	end do
+
+	end
+
+c*******************************************************************
+
 	subroutine write_grd_with_unique_depth
 
 c writes grd file extracting info from bas file
@@ -693,9 +759,28 @@ c writes grd file extracting info from bas file
 	call make_unique_depth
 
         call basin_to_grd
-
         call grd_write('basunique.grd')
+
         write(6,*) 'The basin has been written to basunique.grd'
+
+	end
+
+c*******************************************************************
+
+	subroutine write_grd_with_elem_depth
+
+c writes grd file extracting info from bas file
+
+	implicit none
+
+        write(6,*) 'making constant elem depth...'
+	call make_constant_depth
+	!call round_depth(2.)
+
+        call basin_to_grd
+
+        call grd_write('baselem.grd')
+        write(6,*) 'The basin has been written to baselem.grd'
 
 	end
 
@@ -1037,6 +1122,50 @@ c*******************************************************************
         !write(6,*) 'end of node_test ... '
 
         if( bstop ) stop 'error stop node_test: errors'
+
+        end
+
+c*******************************************************************
+
+        subroutine write_depth_from_bas
+
+! writes depth values of elements to file
+
+        use basin
+
+        implicit none
+
+        integer ie,ii,k
+        double precision xm,ym,hm
+
+	open(1,file='depth.grd',status='unknown',form='formatted')
+	open(2,file='depth.xyz',status='unknown',form='formatted')
+
+        do ie=1,nel
+
+          xm = 0.
+          ym = 0.
+          hm = 0.
+          do ii=1,3
+            k = nen3v(ii,ie)
+            xm = xm + xgv(k)
+            ym = ym + ygv(k)
+            hm = hm + hm3v(ii,ie)
+          end do
+          xm = xm / 3.
+          ym = ym / 3.
+          hm = hm / 3.
+
+          write(2,*) xm,ym,hm
+          write(1,1000) 1,ie,0,xm,ym,hm
+ 1000     format(i1,2i10,3g18.8)
+
+        end do
+
+	close(1)
+	close(2)
+
+        write(6,*) 'The depth values have been written to depth.grd/xyz'
 
         end
 

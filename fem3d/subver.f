@@ -277,6 +277,19 @@ c 16.11.2015	ggu	version 7.3.14
 c 20.11.2015	ggu	version 7.3.15	pre Madonna della Salute release
 c 16.12.2015	ggu	version 7.3.16
 c 18.12.2015	ggu	version 7.3.17	Christmas 2015 release
+c 08.01.2016	ggu	version 7.3.18
+c 08.01.2016	ggu	version 7.4.0	major stable version
+c 08.01.2016	ggu	version 7.5.0	new develop version opened
+c 22.01.2016	ggu	version 7.5.1
+c 19.02.2016	ggu	version 7.5.2
+c 19.02.2016	ggu	version 7.5.3
+c 22.02.2016	ggu	version 7.5.4
+c 11.03.2016	ggu	version 7.5.5
+c 22.03.2016	ggu	version 7.5.6	Alessandra's birthday release '
+c 01.04.2016	ggu	version 7.5.7	no April joke
+c 15.04.2016	ggu	version 7.5.8	after 20th anniversary
+c 28.04.2016	ggu	version 7.5.9
+c 25.05.2016	ggu	version 7.5.10	for Leslie
 c
 c*****************************************************************
 
@@ -284,15 +297,15 @@ c*****************************************************************
 
 c DOCS	START	P_version
 c
-c \newcommand{\VERSION}{7.3.17}
-c \newcommand{\version}{7\_3\_17}
+c \newcommand{\VERSION}{7.5.10}
+c \newcommand{\version}{7\_5\_10}
 c
 c DOCS	END
 
         implicit none
 
         character*10 version
-        parameter (version='7.3.17')
+        parameter (version='7.5.10')
 
         character*30 string
         parameter (string='SHYFEM VERSION = '//version)
@@ -348,7 +361,7 @@ c writes copyright and version/dimension
         write(6,*) ' ----------------------------------------------'
         write(6,*)
         write(6,*) ' SHYFEM - Finite Element Model for coastal seas'
-        write(6,*) ' Copyright (c) The Shyfem Team 1985-2015'
+        write(6,*) ' Copyright (c) The Shyfem Team 1985-2016'
         write(6,*)
         write(6,*) ' version: ',vers
         write(6,*) ' routine: ',routine

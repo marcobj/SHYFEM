@@ -16,6 +16,9 @@ c 17.05.2013	ggu	layer_thickness for elem and node, general routine
 c 17.05.2013	ggu	new routine get_bottom_of_layer()
 c 05.09.2013	ggu	new call interface to get_layer_thickness()
 c 25.06.2014	ggu	error stop if computed layer thickness is <= 0
+c 15.02.2015	ggu	in get_layer_thickness() handle last layer correctly
+c 01.05.2016	ggu	changes in get_layer_thickness(): exit from loop
+c 14.05.2016	ggu	substitute blockdata/common with module
 c
 c notes :
 c
@@ -29,24 +32,27 @@ c******************************************************************
 c******************************************************************
 c******************************************************************
 
-	blockdata sigma_out
+!==================================================================
+        module sigma
+!==================================================================
 
 	implicit none
 
-	include 'sigma.h'
+	integer, save :: nlv_com    = -1
+	integer, save :: nsigma_com = -1
+	real, save ::    hsigma_com = 10000.
 
-	data nlv_com,nsigma_com /-1,-1/
-	data hsigma_com /10000./
-
-	end
+!==================================================================
+        end module sigma
+!==================================================================
 
 c******************************************************************
 
 	subroutine check_sigma_initialized
 
-	implicit none
+	use sigma
 
-	include 'sigma.h'
+	implicit none
 
 	if( nlv_com .le. 0 ) then
 	  write(6,*) 'nlv_com: ',nlv_com
@@ -59,13 +65,13 @@ c******************************************************************
 
 	subroutine get_sigma_info(nlv,nsigma,hsigma)
 
+	use sigma
+
 	implicit none
 
 	integer nlv
 	integer nsigma
 	real hsigma
-
-	include 'sigma.h'
 
 	call check_sigma_initialized
 
@@ -79,13 +85,13 @@ c******************************************************************
 
 	subroutine set_sigma_info(nlv,nsigma,hsigma)
 
+	use sigma
+
 	implicit none
 
 	integer nlv
 	integer nsigma
 	real hsigma
-
-	include 'sigma.h'
 
 	nlv_com    = nlv
 	nsigma_com = nsigma
@@ -197,6 +203,7 @@ c in this case the last values for hl are 0
 	real zmed
 	real htot,hsig,htop,hbot
 
+	bdebug = .true.
 	bdebug = .false.
 	berror = .false.
 
@@ -208,6 +215,8 @@ c---------------------------------------------------------
 	htot = h
 	hsig = min(htot,hsigma) + zmed
 
+	hdl = 0.
+
 	hbot = 0.
 	do l=1,nsigma
 	  htop = hbot
@@ -217,6 +226,7 @@ c---------------------------------------------------------
 	end do
 
 	if( bdebug ) write(6,*) l,hsig,lmax,nsigma
+	if( bdebug ) write(6,*) 'hdl: ',hdl
 
 c---------------------------------------------------------
 c compute level structure of zeta and/or hybrid levels
@@ -230,6 +240,7 @@ c---------------------------------------------------------
 	    if( nsigma .eq. 0 ) hbot = -zmed
 	    if( bdebug ) write(6,*) nsigma,lmax,zmed,hbot
 	    do l=nsigma+1,lmax
+	      if( hbot == htot ) exit	!no more layers
 	      htop = hbot
 	      hbot = hlv(l)
 	      if( bdebug ) write(6,*) l,htop,hbot,htot
@@ -237,8 +248,10 @@ c---------------------------------------------------------
 	      hdl(l) = hbot - htop
 	      if( hdl(l) .le. 0. ) berror = .true.
 	    end do
+	    if( htot > hbot ) hdl(lmax) = hdl(lmax) + htot - hbot
 	  end if
 	end if
+	if( bdebug ) write(6,*) 'hdl: ',hdl
 
 	!if( berror ) goto 99
 
@@ -287,6 +300,34 @@ c computes bottom of layer (or center if bcenter == .true.)
 	end
 
 c******************************************************************
+
+	subroutine adjust_layer_index(nel,nlv,hev,hlv,ilhv)
+
+	integer nel,nlv
+	real hev(nel)
+	real hlv(nlv)
+	integer ilhv(nel)
+
+	integer ie,l
+	integer nlvaux,nsigma
+	real hsigma,z,h
+	real hdl(nlv)
+
+	z = 0.
+	call get_sigma_info(nlvaux,nsigma,hsigma)
+
+	do ie=1,nel
+	  h = hev(ie)
+	  call get_layer_thickness(nlv,nsigma,hsigma,z,h,hlv,hdl)
+	  do l=1,nlv
+	    if( hdl(l) == 0. ) exit
+	  end do
+	  ilhv(ie) = l - 1
+	end do
+
+	end
+
+c******************************************************************
 c******************************************************************
 c******************************************************************
 
@@ -313,5 +354,36 @@ c computes type of vertical coordinates
 
 	end
 	
+c******************************************************************
+
+	subroutine sigma_test
+
+	integer, parameter :: ndim = 5
+	integer lmax,nsigma
+	real hsigma,z,h
+	real hlv(ndim)
+	real hdl(ndim)
+
+	hlv = (/2,4,6,8,10/)
+
+	nsigma = 0
+	hsigma = 10000.
+	z = 0.
+	h = 4.2
+
+	lmax = 5
+	call get_layer_thickness(lmax,nsigma,hsigma,z,h,hlv,hdl)
+	write(6,*) lmax,hdl
+
+	lmax = 2
+	call get_layer_thickness(lmax,nsigma,hsigma,z,h,hlv,hdl)
+	write(6,*) lmax,hdl
+
+	end
+
+c******************************************************************
+c	program sigma_main
+c	call sigma_test
+c	end
 c******************************************************************
 

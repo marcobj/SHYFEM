@@ -13,6 +13,10 @@
 ! 25.09.2015	ggu	prepared to interpolate from reg onto elements
 ! 29.09.2015	ggu	in iff_interpolate() do not interpolate with flag
 ! 18.12.2015	ggu	in iff_peek_next_record() adjust date only if ierr==0
+! 15.02.2016	ggu	if dtime==-1 do not check time, changes in exffil
+! 07.03.2016	ggu	bug fix in iff_read_header(): no time adjust if ierr/=0
+! 01.04.2016	ggu	bug fix in iff_init(): open file with np and not nexp
+! 05.05.2016	ggu	new functionality for 3d matrices
 !
 !****************************************************************
 !
@@ -498,7 +502,7 @@
 ! nvar is return value (if file can be read)
 
 	integer iformat,iunit
-	integer ierr,np,i,il
+	integer ierr,np,i
 	integer nvar_orig
 	integer datetime(2)
 	integer ntype,itype(2)
@@ -522,8 +526,6 @@
 	!---------------------------------------------------------
 	! check input parameters
 	!---------------------------------------------------------
-
-	il = len_trim(file)
 
 	if( nvar < 1 ) goto 97
 	if( nexp < 1 ) goto 97
@@ -632,7 +634,8 @@
 	if( bnofile ) then
 	  return
 	else if( bfem ) then
-	  call fem_file_read_open(file,nexp,iunit,iformat)
+	  !call fem_file_read_open(file,nexp,iunit,iformat)
+	  call fem_file_read_open(file,np,iunit,iformat)
 	else if( bts ) then
 	  call ts_open_file(file,nvar,datetime,iunit)
 	  pinfo(id)%datetime = datetime
@@ -641,9 +644,10 @@
 	end if
 
 	if( iunit < 0 ) goto 99
+	if( iunit == 0 ) goto 90
 	pinfo(id)%iunit = iunit
 
-	write(6,*) 'file opened: ',id,file(1:il)
+	write(6,*) 'file opened: ',id,trim(file)
 
 	!---------------------------------------------------------
 	! populate data base
@@ -656,8 +660,12 @@
 	!---------------------------------------------------------
 
 	return
+   90	continue
+	write(6,*) 'error in opening file: ',trim(file)
+	write(6,*) 'iformat = ',iformat
+	stop 'error stop iff_init'
    91	continue
-	write(6,*) 'error opening file: ',file(1:il)
+	write(6,*) 'error opening file: ',trim(file)
 	id0 = iff_find_id_to_file(file)
 	if( id0 > 0 ) then
 	  ibc = pinfo(id0)%ibc
@@ -667,7 +675,7 @@
 	end if
 	stop 'error stop iff_init'
    93	continue
-	write(6,*) 'error in file: ',file(1:il)
+	write(6,*) 'error in file: ',trim(file)
 	write(6,*) 'iformat = ',iformat
 	stop 'error stop iff_init'
    96	continue
@@ -676,7 +684,7 @@
 	call iff_print_file_info(id)
 	stop 'error stop iff_init'
    97	continue
-	write(6,*) 'error in input parameters of file: ',file(1:il)
+	write(6,*) 'error in input parameters of file: ',trim(file)
 	write(6,*) 'nvar: ',nvar
 	write(6,*) 'nexp,lexp: ',nexp,lexp
 	write(6,*) 'nintp: ',nintp
@@ -684,11 +692,11 @@
 	call iff_print_file_info(id)
 	stop 'error stop iff_init'
    98	continue
-	write(6,*) 'error reading data description of file: ',file(1:il)
+	write(6,*) 'error reading data description of file: ',trim(file)
 	call iff_print_file_info(id)
 	stop 'error stop iff_init'
    99	continue
-	write(6,*) 'no such file: ',file(1:il)
+	write(6,*) 'no such file: ',trim(file)
 	write(6,*) 'iformat = ',iformat
 	stop 'error stop iff_init'
 	end subroutine iff_init
@@ -841,6 +849,7 @@ c	 2	time series
                 !end do
 
 	        do
+		  if( dtime0 == -1. ) exit	! no real time given
 		  bok = iff_peek_next_record(id,dtime2)
                   if( .not. bok ) goto 97
 		  if( dtime2 >= dtime0 ) exit
@@ -849,8 +858,10 @@ c	 2	time series
 		  dtimelast = dtime
 		end do
 
-		if( dtime0 < dtimefirst ) goto 91
-		if( dtime0 > dtime2 ) goto 91
+		if( dtime0 /= -1. ) then
+		  if( dtime0 < dtimefirst ) goto 91
+		  if( dtime0 > dtime2 ) goto 91
+		end if
 		!write(6,*) 'populate: ',dtimefirst,dtime,dtime2,dtime0
 
 		call iff_allocate_fem_data_structure(id)
@@ -1023,6 +1034,8 @@ c	 2	time series
 	iformat = pinfo(id)%iformat
 	bts = iformat == iform_ts
 	bnofile = iformat < 0
+	dtime = 0.
+	datetime = 0
 
 	if( bnofile ) return		!no header to read
 
@@ -1031,13 +1044,17 @@ c	 2	time series
 	if( bts ) then
 	  nvar = pinfo(id)%nvar
 	  call ts_read_next_record(iunit,nvar,dtime,f,datetime,ierr)
-	  if( datetime(1) > 0 ) pinfo(id)%datetime = datetime
-	  call iff_adjust_datetime(id,pinfo(id)%datetime,dtime)
+	  if( ierr == 0 ) then
+	    if( datetime(1) > 0 ) pinfo(id)%datetime = datetime
+	    call iff_adjust_datetime(id,pinfo(id)%datetime,dtime)
+	  end if
 	else
           call fem_file_read_params(iformat,iunit,dtime
      +                          ,nvers,np,lmax,nvar,ntype,datetime,ierr)
-	  pinfo(id)%datetime = datetime
-	  call iff_adjust_datetime(id,pinfo(id)%datetime,dtime)
+	  if( ierr == 0 ) then
+	    pinfo(id)%datetime = datetime
+	    call iff_adjust_datetime(id,pinfo(id)%datetime,dtime)
+	  end if
 	end if
 
 	if( ierr < 0 ) return
@@ -1262,8 +1279,11 @@ c interpolates in space all variables in data set id
 	if( nintp == 0 .and. iintp > 1 ) goto 99
 
 	if( ireg > 0 ) then
-	  if( lexp > 1 ) goto 96
-	  call iff_handle_regular_grid(id,iintp)
+	  if( lexp > 1 ) then
+	    call iff_handle_regular_grid_3d(id,iintp)
+	  else
+	    call iff_handle_regular_grid_2d(id,iintp)
+	  end if
 	else if( bts ) then
           nvar = pinfo(id)%nvar
 	  do ivar=1,nvar
@@ -1322,7 +1342,7 @@ c interpolates in space all variables in data set id
 
 !****************************************************************
 
-	subroutine iff_handle_regular_grid(id,iintp)
+	subroutine iff_handle_regular_grid_2d(id,iintp)
 
 	integer id
 	integer iintp
@@ -1368,7 +1388,7 @@ c interpolates in space all variables in data set id
 	else
 	  write(6,*) 'nexp,nkn,nel: ',nexp,nkn_fem,nel_fem
 	  write(6,*) 'Cannot yet handle...'
-	  stop 'error stop iff_handle_regular_grid: nexp'
+	  stop 'error stop iff_handle_regular_grid_2d: nexp'
 	end if
 
 	return
@@ -1376,8 +1396,90 @@ c interpolates in space all variables in data set id
 	write(6,*) 'error interpolating from regular grid: '
 	write(6,*) 'ierr =  ',ierr
 	write(6,*) 'bneedall =  ',bneedall
-	stop 'error stop iff_handle_regular_grid: reg interpolate'
-	end subroutine iff_handle_regular_grid
+	stop 'error stop iff_handle_regular_grid_2d: reg interpolate'
+	end subroutine iff_handle_regular_grid_2d
+
+!****************************************************************
+
+	subroutine iff_handle_regular_grid_3d(id,iintp)
+
+	integer id
+	integer iintp
+
+	logical bneedall
+	integer ivar,nvar
+	integer nx,ny
+	integer nexp,lexp
+	integer np,ip,l,lmax
+	integer ierr
+	real x0,y0,dx,dy,flag
+	real, allocatable :: fr(:,:)
+	real, allocatable :: data(:,:,:)
+	real, allocatable :: data2dreg(:)
+	real, allocatable :: data2dfem(:)
+	real, allocatable :: hfem(:)
+
+        nvar = pinfo(id)%nvar
+
+	nx = nint(pinfo(id)%regpar(1))
+	ny = nint(pinfo(id)%regpar(2))
+	x0 = pinfo(id)%regpar(3)
+	y0 = pinfo(id)%regpar(4)
+	dx = pinfo(id)%regpar(5)
+	dy = pinfo(id)%regpar(6)
+	flag = pinfo(id)%regpar(7)
+        nexp = pinfo(id)%nexp
+        np = pinfo(id)%np
+        lexp = pinfo(id)%lexp
+        lmax = pinfo(id)%lmax		!vertical size of data
+	bneedall = pinfo(id)%bneedall
+	pinfo(id)%flag = flag		!use this in time_interpolate
+
+	if( np /= nx*ny ) goto 95
+	if( nexp /= nkn_fem .and. nexp /= nel_fem ) goto 98
+
+	allocate(fr(4,nexp))
+	allocate(data(lmax,nexp,nvar))
+	allocate(data2dreg(np),data2dfem(nexp))
+	allocate(hfem(nexp))
+
+	call intp_reg_setup_fr(nx,ny,x0,y0,dx,dy,nexp,fr)
+	call intp_reg_intp_fr(nx,ny,flag,pinfo(id)%hd_file
+     +                          ,nexp,fr,hfem,ierr)
+
+	do ivar=1,nvar
+	  do l=1,lmax
+	    data2dreg = pinfo(id)%data_file(l,:,ivar)
+	    call intp_reg_intp_fr(nx,ny,flag,data2dreg
+     +                          ,nexp,fr,data2dfem,ierr)
+	    data(l,:,ivar) = data2dfem
+	  end do
+	end do
+
+	do ip=1,nexp
+	  call iff_interpolate_vertical_int(id,iintp
+     +				,lmax,hfem(ip),data(:,ip,:),ip)
+	end do
+
+	return
+   95	continue
+	write(6,*) 'np,nx*ny: ',np,nx*ny
+	stop 'error stop iff_handle_regular_grid_3d: internal error (1)'
+   96	continue
+	write(6,*) 'regular grid only for 2d field'
+	write(6,*) 'lexp: ',lexp
+	!call iff_print_file_info(id)
+	stop 'error stop iff_handle_regular_grid_3d: not ready'
+   98	continue
+	write(6,*) 'nexp,nkn,nel: ',nexp,nkn_fem,nel_fem
+	write(6,*) 'Cannot yet handle...'
+	stop 'error stop iff_handle_regular_grid_3d: nexp'
+   99	continue
+	write(6,*) 'error interpolating from regular grid: '
+	write(6,*) 'ierr =  ',ierr
+	write(6,*) 'bneedall =  ',bneedall
+	stop 'error stop iff_handle_regular_grid_3d: reg interpolate'
+	end subroutine iff_handle_regular_grid_3d
 
 !****************************************************************
 
@@ -1420,6 +1522,24 @@ c interpolates in space all variables in data set id
 	integer iintp
 	integer ip_from,ip_to
 
+	real data(pinfo(id)%nvar)
+
+	data = pinfo(id)%data_file(1,ip_from,:)
+	call iff_distribute_vertical_int(id,iintp,data,ip_to)
+
+	end subroutine iff_distribute_vertical
+
+!****************************************************************
+
+	subroutine iff_distribute_vertical_int(id,iintp,data,ip_to)
+
+! lmax must be 1
+
+	integer id
+	integer iintp
+	real data(pinfo(id)%nvar)
+	integer ip_to
+
 	integer lfem,l,ipl,lexp
 	integer ivar,nvar
 	real value
@@ -1436,13 +1556,13 @@ c interpolates in space all variables in data set id
 	end if
 
 	do ivar=1,nvar
-	  value = pinfo(id)%data_file(1,ip_from,ivar)
+	  value = data(ivar)
 	  do l=1,lfem
 	    pinfo(id)%data(l,ip_to,ivar,iintp) = value
 	  end do
 	end do
 
-	end subroutine iff_distribute_vertical
+	end subroutine iff_distribute_vertical_int
 
 !****************************************************************
 
@@ -1454,18 +1574,41 @@ c interpolates in space all variables in data set id
 	integer iintp
 	integer ip_from,ip_to
 
-	integer lmax,l
+	integer lmax
+	real h
+	real data(pinfo(id)%lmax,pinfo(id)%nvar)
+
+	lmax = pinfo(id)%ilhkv_file(ip_from)
+	h = pinfo(id)%hd_file(ip_from)
+	data = pinfo(id)%data_file(:,ip_from,:)
+
+	call iff_integrate_vertical_int(id,iintp,lmax,h,data,ip_to)
+
+	end subroutine iff_integrate_vertical
+
+!****************************************************************
+
+	subroutine iff_integrate_vertical_int(id,iintp,lmax,h,data,ip_to)
+
+! lexp/lfem must be 1
+
+	integer id
+	integer iintp
+	integer lmax
+	real h
+	real data(pinfo(id)%lmax,pinfo(id)%nvar)
+	integer ip_to
+
+	integer l
 	integer ivar,nvar
 	integer nsigma
 	double precision acum,htot
-	real h,z
+	real z
 	real hsigma
 	real value,hlayer
 	real hl(pinfo(id)%lmax)
 
         nvar = pinfo(id)%nvar
-	lmax = pinfo(id)%ilhkv_file(ip_from)
-	h = pinfo(id)%hd_file(ip_from)
 	if( h < -990 ) h = pinfo(id)%hlv_file(lmax)	!take from hlv array
 	z = 0.
 
@@ -1477,7 +1620,7 @@ c interpolates in space all variables in data set id
 	  acum = 0.
 	  htot = 0.
 	  do l=1,lmax
-	    value = pinfo(id)%data_file(l,ip_from,ivar)
+	    value = data(l,ivar)
 	    hlayer = hl(l)
 	    acum = acum + value*hlayer
 	    htot = htot + hlayer
@@ -1485,7 +1628,7 @@ c interpolates in space all variables in data set id
 	  pinfo(id)%data(1,ip_to,ivar,iintp) = acum / htot
 	end do
 
-	end subroutine iff_integrate_vertical
+	end subroutine iff_integrate_vertical_int
 
 !****************************************************************
 
@@ -1497,12 +1640,48 @@ c global lmax and lexp are > 1
 	integer iintp
 	integer ip_from,ip_to
 
+	integer lmax,lfem,ipl
+	real h
+	real data(pinfo(id)%lmax,pinfo(id)%nvar)
+
+	lmax = pinfo(id)%ilhkv_file(ip_from)
+	h = pinfo(id)%hd_file(ip_from)
+	data = pinfo(id)%data_file(:,ip_from,:)
+
+	ipl = ip_to
+	if( pinfo(id)%nexp /= nkn_fem ) ipl = pinfo(id)%nodes(ip_to)
+	lfem = ilhkv_fem(ipl)
+
+	if( lmax <= 1 ) then
+	  call iff_distribute_vertical_int(id,iintp,data(1,:),ip_to)
+	else if( lfem <= 1 ) then
+	  call iff_integrate_vertical_int(id,iintp,lmax,h,data,ip_to)
+	else
+	  call iff_interpolate_vertical_int(id,iintp,lmax,h,data,ip_to)
+	end if
+
+	end subroutine iff_interpolate_vertical
+
+!****************************************************************
+
+	subroutine iff_interpolate_vertical_int(id,iintp,lmax,h,data
+     +						,ip_to)
+
+c global lmax and lexp are > 1
+
+	integer id
+	integer iintp
+	integer lmax
+	real h
+	real data(pinfo(id)%lmax,pinfo(id)%nvar)
+	integer ip_to
+
 	logical bcenter,bcons
-	integer lmax,l,ipl,lfem
+	integer l,ipl,lfem
 	integer ivar,nvar
 	integer nsigma
 	double precision acum,htot
-	real h,z,hfem
+	real z,hfem,hfile
 	real hsigma
 	real value,hlayer
 	real hl(pinfo(id)%lmax)
@@ -1519,28 +1698,27 @@ c global lmax and lexp are > 1
 	bdebug = .false.
 
         nvar = pinfo(id)%nvar
-	lmax = pinfo(id)%ilhkv_file(ip_from)
 
 	ipl = ip_to
 	if( pinfo(id)%nexp /= nkn_fem ) ipl = pinfo(id)%nodes(ip_to)
 	lfem = ilhkv_fem(ipl)
 
 	if( lmax <= 1 ) then
-	  call iff_distribute_vertical(id,iintp,ip_from,ip_to)
+	  call iff_distribute_vertical_int(id,iintp,data(1,:),ip_to)
 	  return
 	else if( lfem <= 1 ) then
-	  call iff_integrate_vertical(id,iintp,ip_from,ip_to)
+	  call iff_integrate_vertical_int(id,iintp,lmax,h,data,ip_to)
 	  return
 	end if
 
 	z = 0.
 
 	hfem = hk_fem(ipl)
-	h = pinfo(id)%hd_file(ip_from)
-	if( h < -990 ) h = pinfo(id)%hlv_file(lmax)	!take from hlv array
+	hfile = h
+	if( hfile < -990 ) hfile = pinfo(id)%hlv_file(lmax) !take from hlv array
 
 	call compute_sigma_info(lmax,pinfo(id)%hlv_file,nsigma,hsigma)
-	call get_layer_thickness(lmax,nsigma,hsigma,z,h
+	call get_layer_thickness(lmax,nsigma,hsigma,z,hfile
      +					,pinfo(id)%hlv_file,hl)
 	call get_bottom_of_layer(bcenter,lmax,z,hl,hz_file(1))
 	hz_file(0) = z
@@ -1554,8 +1732,8 @@ c global lmax and lexp are > 1
 	if( bdebug ) then
 	  write(6,*) 'iff_interpolate_vertical: -------------------'
 	  write(6,*) id
-	  write(6,*) ip_from,ip_to
-	  write(6,*) h,hfem
+	  write(6,*) ip_to
+	  write(6,*) hfile,hfem
 	  write(6,*) lmax,lfem
 	  write(6,*) 'hlv_file: ',(pinfo(id)%hlv_file(l),l=1,lmax)
 	  write(6,*) 'hlv_fem: ',(hlv_fem(l),l=1,lfem)
@@ -1567,13 +1745,9 @@ c global lmax and lexp are > 1
 	end if
 
 	do ivar=1,nvar
-	  do l=1,lmax
-	    val_file(l) = pinfo(id)%data_file(l,ip_from,ivar)
-	  end do
+	  val_file(1:lmax) = data(1:lmax,ivar)
 	  call intp_vert(bcons,lmax,hz_file,val_file,lfem,hz_fem,val_fem)
-	  do l=1,lfem
-	    pinfo(id)%data(l,ip_to,ivar,iintp) = val_fem(l)
-	  end do
+	  pinfo(id)%data(1:lfem,ip_to,ivar,iintp) = val_fem(1:lfem)
 	  if( bdebug ) then
 	    write(6,*) 'iff_interpolate_vertical - ivar = : ',ivar
 	    write(6,*) (val_file(l),l=1,lmax)
@@ -1582,7 +1756,7 @@ c global lmax and lexp are > 1
 	  end if
 	end do
 
-	end subroutine iff_interpolate_vertical
+	end subroutine iff_interpolate_vertical_int
 
 !****************************************************************
 !****************************************************************
@@ -2015,12 +2189,15 @@ c everything needed is in array (unit, vars etc...)
 	integer nexp,lexp
 	integer nodes(1)
 	double precision dtime
-	real vconst(1)
+	real vconst(nvar)
 
 	dtime = -1
-	nexp = 0
+	nexp = 1
 	lexp = 0
-	vconst(1) = 0.
+	vconst = 0.
+	nodes = 0
+	nv = nvar
+	if( ndim < 2 ) stop 'error stop exffil: ndim'
 	
 	call iff_init(dtime,file,nvar,nexp,lexp,nintp
      +					,nodes,vconst,id)
@@ -2031,6 +2208,7 @@ c everything needed is in array (unit, vars etc...)
 	end if
 
 	array(1) = id
+	array(2) = nvar
 
 	end
 
@@ -2068,18 +2246,20 @@ c opens file and inititializes array - simplified version
 
         real array(*)           !array with information from set-up
         real t                  !t value for which to interpolate
-        real rint(1)            !interpolated values
+        real rint(*)            !interpolated values
 
-	integer id,ldim,ndim,ivar
+	integer id,ldim,ndim,ivar,nvar
 	double precision dtime
 
 	id = nint(array(1))
+	nvar = nint(array(2))
 	dtime = t
 	ldim = 1
 	ndim = 1
-	ivar = 1
 
-	call iff_time_interpolate(id,dtime,ivar,ndim,ldim,rint)
+	do ivar=1,nvar
+	  call iff_time_interpolate(id,dtime,ivar,ndim,ldim,rint(ivar))
+	end do
 
         end
 

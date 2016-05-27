@@ -39,13 +39,15 @@ c 11.03.2010	ggu	new routine check_volume(); init w only if no restart
 c 16.02.2011	ggu	new routine e2n3d() and e2n3d_minmax()
 c 27.01.2012	deb&ggu	routines adapted for sigma levels
 c 03.12.2015	ccf&ggu	code optimized
+c 07.04.2016	ggu	new routine aver_nodal()
+c 19.05.2016	ggu	use where construct where possible
 c
 c****************************************************************************
-c
+
 	subroutine ttov
-c
+
 c transforms transports to velocities
-c
+
 	use mod_layer_thickness
 	use mod_hydro_vel
 	use mod_hydro
@@ -54,21 +56,10 @@ c
 
 	implicit none
 
-	integer ie,l,ilevel
-	real h,rh
-
-	do ie=1,nel
-
-	  ilevel=ilhv(ie)
-
-	  do l=1,ilevel
-	    h = hdenv(l,ie)
-	    rh = 1. / h
-	    ulnv(l,ie)=utlnv(l,ie)*rh
-	    vlnv(l,ie)=vtlnv(l,ie)*rh
-	  end do
-
-	end do
+	where( hdenv > 0 )
+	  ulnv = utlnv / hdenv
+	  vlnv = vtlnv / hdenv
+	end where
 
 	end
 
@@ -86,23 +77,11 @@ c transforms velocities to transports
 
 	implicit none
 
-	integer ie,l,ilevel
-	real h
-
-	do ie=1,nel
-
-	  ilevel=ilhv(ie)
-
-	  do l=1,ilevel
-	    h = hdenv(l,ie)
-	    utlnv(l,ie)=ulnv(l,ie)*h
-	    vtlnv(l,ie)=vlnv(l,ie)*h
-	  end do
-
-	end do
+	utlnv = ulnv * hdenv
+	vtlnv = vlnv * hdenv
 
 	end
-c
+
 c******************************************************************
 c
 	subroutine uvtop0
@@ -159,13 +138,13 @@ c
 
 	return
 	end
-c
+
 c******************************************************************
-c
+
 	subroutine uvtopr
-c
+
 c transforms velocities to nodal values
-c
+
 	use mod_geom_dynamic
 	use mod_hydro_print
 	use mod_hydro_vel
@@ -178,14 +157,16 @@ c
 	integer ie,l,k,ii
 	integer lmax
 	real aj
-	real vv(nlvdi,nkn)
+	!real vv(nlvdi,nkn)
+	real, allocatable :: vv(:,:)
 
+	allocate(vv(nlvdi,nkn))
 	uprv = 0.
 	vprv = 0.
 	vv   = 0.
-c
+
 c baroclinic part
-c
+
 	do ie=1,nel
 	  if ( iwegv(ie) /= 0 ) cycle
           lmax = ilhv(ie)
@@ -199,23 +180,24 @@ c
 	    end do
 	  end do
 	end do
-c
+
 	where ( vv > 0. ) 
 	  uprv = uprv / vv
 	  vprv = vprv / vv
 	end where
-c
+
 c vertical velocities -> we compute average over one layer
-c
+
 	do l=1,nlv
 	  wprv(l,:)=0.5*(wlnv(l,:)+wlnv(l-1,:))
 	end do
 
 	wprv(0,:) = 0.
-c
-	return
+
+	deallocate(vv)
+
 	end
-c
+
 c******************************************************************
 c
 	subroutine prtouv
@@ -776,6 +758,59 @@ c-----------------------------------------------------------
             elv(l,ie) = acu / 3.
           end do
 	end do
+
+c-----------------------------------------------------------
+c end of routine
+c-----------------------------------------------------------
+
+        end
+
+c******************************************************************
+
+	subroutine aver_nodal(val,aver)
+
+c computes average of val (defined on nodes) over total basin
+
+	use evgeom
+	use basin
+
+	implicit none
+
+        real val(nkn)     !array with element values (in)
+	real aver	  !average (out)
+
+        integer k,ie,ii
+        double precision area,value
+        double precision accum,area_tot
+
+c-----------------------------------------------------------
+c initialize arrays
+c-----------------------------------------------------------
+
+	accum = 0.
+	area_tot = 0.
+
+c-----------------------------------------------------------
+c accumulate values
+c-----------------------------------------------------------
+
+        do ie=1,nel
+          area = 4.*ev(10,ie)
+	  do ii=1,3
+	    k = nen3v(ii,ie)
+            value = val(k)
+	    accum = accum + value * area
+	    area_tot = area_tot + area
+          end do
+        end do
+
+c-----------------------------------------------------------
+c compute final value
+c-----------------------------------------------------------
+
+	if ( area_tot > 0. ) accum = accum / area_tot
+
+	aver = accum
 
 c-----------------------------------------------------------
 c end of routine

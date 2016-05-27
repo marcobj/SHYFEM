@@ -41,6 +41,7 @@ c 19.04.2015	ggu	new routines for internal coordinates (distance)
 c 22.04.2015	ggu	bug fix in xi2xy - x/y were exchanged
 c 10.10.2015	ggu	bug fix in adjust_bc() - brown paper bag bug
 c 16.11.2015	ggu	new routine adjust_xi()
+c 15.02.2016	ggu	more debug code, assure xi is in bounds
 c
 c***********************************************************
 
@@ -61,6 +62,8 @@ c  1	spherical (lat/lon)
 	integer, save, private :: nel_alloc = 0
 	integer, save :: isphe_ev = -1
 	logical, save :: init_ev = .false.
+
+	logical, save :: bdebug_internal = .false.
 
 	double precision, allocatable :: ev(:,:)
 
@@ -124,6 +127,8 @@ c revised on 28.01.92 by ggu (double precision, implicit none)
 
 	double precision xlon1,ylat1,xlon2,ylat2,xlon3,ylat3	!lat/long [rad]
 	double precision dlat0,dlon0			!center of projection
+
+	if( .not. basin_has_basin() ) goto 97
 
 	call check_spheric_ev	!checks and sets isphe_ev and init_ev
 	call get_coords_ev(isphe)
@@ -256,6 +261,9 @@ c natural coordinates in triangle:   xi(i) = a(i) + b(i)*x + c(i)*y    i=1,3
 	!write(68,*) 'maxmax: ',maxmax
 
 	return
+   97	continue
+        write(6,*) 'no basin has been read'
+	stop 'error stop set_ev: no basin'
    99	continue
         write(6,*) 'set_ev : nodes not in anticlockwise sense'
         write(6,*) 'elem = ',ie,'  area = ',aj/2.,'  aj = ',aj
@@ -263,7 +271,7 @@ c natural coordinates in triangle:   xi(i) = a(i) + b(i)*x + c(i)*y    i=1,3
         write(6,*) kn1,x1,y1
         write(6,*) kn2,x2,y2
         write(6,*) kn3,x3,y3
-	stop 'error stop set_ev'
+	stop 'error stop set_ev: clockwise'
 	end
 
 c****************************************************************
@@ -505,13 +513,18 @@ c***********************************************************
 
 c adjusts internal coodinates xi
 
+	use evgeom
+
 	implicit none
 
 	double precision xi(3)
 
+	logical bdebug
 	integer ii,it,is
 	double precision xisum,xiso,xiadj
 	double precision xiorig(3)
+
+	bdebug = bdebug_internal
 
 	xisum = 0.
 	xiso = 0.
@@ -538,12 +551,21 @@ c adjusts internal coodinates xi
 
 	xiadj = (xisum-1.)/(3-it)
 
+	if( bdebug ) then
+	  write(6,*) it,is,xisum,xiadj
+	  write(6,*) xi
+	end if
+
 	if( it == 2 ) then
 	  is = 6 - is
 	  xi(is) = 1.
 	else			!both for it == 1 and 2
 	  do ii=1,3
-	    if( ii /= is ) xi(ii) = xi(ii) - xiadj
+	    if( ii /= is ) then
+	      xi(ii) = xi(ii) - xiadj
+	      if( xi(ii) < 0. ) xi(ii) = 0.
+	      if( xi(ii) > 1. ) xi(ii) = 1.
+	    end if
 	  end do
 	end if
 
@@ -551,6 +573,11 @@ c adjusts internal coodinates xi
 	do ii=1,3
 	  xiso = xiso + xi(ii)
 	end do
+
+	if( bdebug ) then
+	  write(6,*) it,is,xiso,xiso-1.
+	  write(6,*) xi
+	end if
 
 	if( abs(xiso-1.) > 1.e-8 ) then
 	  write(6,*) 'xi is still wrong... cannot adjust'
@@ -1221,6 +1248,18 @@ c---------------------------------------------------------
 c---------------------------------------------------------
 c end of routine
 c---------------------------------------------------------
+
+	end
+
+c***********************************************************
+
+	subroutine ev_set_debug(bdebug)
+
+	use evgeom
+
+	logical bdebug
+
+	bdebug_internal = bdebug
 
 	end
 

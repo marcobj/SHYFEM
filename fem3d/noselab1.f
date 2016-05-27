@@ -15,6 +15,8 @@ c 05.06.2015    ggu     many more features added
 c 10.09.2015    ggu     std and rms for averaging implemented
 c 11.09.2015    ggu     write in gis format
 c 23.09.2015    ggu     handle more than one file (look for itstart)
+c 19.02.2016    ggu     bug fixes for bsumvar and mode==2 (sum)
+c 22.02.2016    ggu     handle catmode
 c
 c**************************************************************
 
@@ -22,6 +24,7 @@ c**************************************************************
 
 	use clo
 	use elabutil
+	use elabtime
 
         use basin
         use mod_depth
@@ -59,14 +62,17 @@ c elaborates nos file
 	integer i,j,l,k,lmax,node
 	integer ip,nb,naccum
 	integer ifile
+	integer date,time
 	character*80 title,name,file
 	character*20 dline
 	character*80 basnam,simnam
 	real rnull
 	real cmin,cmax,cmed,vtot
+	double precision dtime
 
 	integer iapini
 	integer ifem_open_file
+	logical concat_cycle
 
 c--------------------------------------------------------------
 
@@ -118,6 +124,10 @@ c--------------------------------------------------------------
 
         call mod_depth_init(nkn,nel)
         call levels_init(nkn,nel,nlv)
+	if( bneedbasin ) then
+          call ev_init(nel)
+          call set_ev
+	end if
 
 	allocate(cv2(nkn))
 	allocate(cv3(nlv,nkn))
@@ -134,41 +144,35 @@ c--------------------------------------------------------------
 
 	if( bneedbasin ) then
 	  call outfile_make_hkv(nkn,nel,nen3v,hev,hkv)
+	  call ilhk2e(nkn,nel,nen3v,ilhkv,ilhv)
+	  call adjust_layer_index(nel,nlv,hev,hlv,ilhv)
 	  call init_volume(nlvdi,nkn,nel,nlv,nen3v,ilhkv
      +                          ,hlv,hev,hl,vol3)
+	  !vol3=1.
 	end if
 
 	if( bverb ) call depth_stats(nkn,nlvdi,ilhkv)
 
 	call handle_nodes
-	!if( bnodes .or. bnode ) then
-	!  if( bnodes ) then
-	!    nnodes = 0
-	!    call get_node_list(nodefile,nnodes,nodes)
-	!    allocate(nodes(nnodes))
-	!    call get_node_list(nodefile,nnodes,nodes)
-	!  else
-	!    nnodes = 1
-	!    allocate(nodes(nnodes))
-	!    nodes(1) = nodesp
-	!  end if
-	!  write(6,*) 'nodes: ',nnodes,(nodes(i),i=1,nnodes)
-	!  call convert_internal_nodes(nnodes,nodes)
-	!  bnodes = .true.
-	!end if
 
 	!--------------------------------------------------------------
 	! time management
 	!--------------------------------------------------------------
 
 	call nos_get_date(nin,date,time)
-	call elabutil_date_and_time
+	call elabtime_date_and_time(date,time)
 
 	!--------------------------------------------------------------
 	! averaging
 	!--------------------------------------------------------------
 
 	call elabutil_set_averaging(nvar)
+        !write(6,*) 'ggu: ',ifreq,istep
+        if( btrans .and. nvar > 1 ) then
+	  if( .not. bsumvar ) then
+            stop 'error stop noselab: only one variable with averaging'
+	  end if
+        end if
 
 	if( btrans ) then
 	  allocate(naccu(istep))
@@ -201,6 +205,9 @@ c--------------------------------------------------------------
           call nos_clone_params(nin,nb)
 	  if( b2d ) then
 	    call nos_set_params(nb,0,0,1,0)
+	  end if
+	  if( bsumvar ) then
+	    call nos_set_params(nb,0,0,0,1)
 	  end if
           call write_nos_header(nb,ilhkv,hlv,hev)
 	end if
@@ -245,7 +252,7 @@ c--------------------------------------------------------------
 	   call nos_check_compatibility(nin,nold)
 	   call nos_peek_record(nin,itnew,iaux,ierr)
 	   call nos_get_date(nin,date,time)
-	   call elabutil_date_and_time
+	   call elabtime_date_and_time(date,time)
 	   it = itold		!reset time of last successfully read record
 	   call nos_close(nold)
 	   close(nold)
@@ -262,7 +269,9 @@ c--------------------------------------------------------------
 	 !write(6,*) 'peek: ',it,itnew,ierr
 	 if( ierr .ne. 0 ) itnew = it
 
-	 if( .not. elabutil_check_time(it,itnew,itold) ) cycle
+	 if( concat_cycle(it,itold,itstart,nrec) ) cycle
+	 !if( elabutil_over_time_a(atime,atnew,atold) ) exit
+	 if( .not. elabtime_check_time(it,itnew,itold) ) cycle
 
 	 do i=1,nvar
 
@@ -286,17 +295,18 @@ c--------------------------------------------------------------
 	      call mimar(cv2,nkn,cmin,cmax,rnull)
               call aver(cv2,nkn,cmed,rnull)
               call check1Dr(nkn,cv2,0.,-1.,"NaN check","cv2")
-	      write(6,*) 'l,min,max,aver : ',l,cmin,cmax,cmed
+	      write(6,1000) 'l,min,max,aver : ',l,cmin,cmax,cmed
+ 1000	      format(a,i5,3g16.6)
 	    end do
 	  end if
 
 	  if( btrans ) then
-	    call nos_time_aver(mode,i,ifreq,istep,nkn,nlvdi
+	    call nos_time_aver(mode,nread,ifreq,istep,nkn,nlvdi
      +				,naccu,accum,std,threshold,cv3,boutput)
 	  end if
 
 	  if( baverbas ) then
-	    call make_aver(nlvdi,nkn,ilhkv,cv3,vol3
+	    call make_basin_aver(nlvdi,nkn,ilhkv,cv3,vol3
      +                          ,cmin,cmax,cmed,vtot)
 	    call write_aver(it,ivar,cmin,cmax,cmed,vtot)
 	  end if
@@ -312,7 +322,8 @@ c--------------------------------------------------------------
 	  if( boutput ) then
 	    nwrite = nwrite + 1
 	    if( bverb ) write(6,*) 'writing to output: ',ivar
-	    if( bsumvar ) ivar = 30
+	    if( bsumvar ) ivar = 10
+	    if( bthreshold ) ivar = 199
 	    if( b2d ) then
               call noselab_write_record(nb,it,ivar,1,ilhkv,cv2,ierr)
 	    else
@@ -322,10 +333,12 @@ c--------------------------------------------------------------
 	  end if
 
 	  if( bnodes ) then
-	    do j=1,nnodes
-	      node = nodes(j)
-	      call write_node(j,node,cv3,it,ivar)
-	    end do
+	    dtime = it
+	    call write_nodes(dtime,ivar,cv3)
+	    if( .not. b2d ) then	!still to average
+	      call make_vert_aver(nlvdi,nkn,ilhkv,cv3,vol3,cv2)
+	    end if
+	    call write_2d_all_nodes(nnodes,nodes,cv2,it,ivar)
 	  end if
 
 	 end do		!loop on ivar
@@ -346,10 +359,11 @@ c--------------------------------------------------------------
 	    !write(6,*) 'naccum: ',naccum
 	    if( naccum > 0 ) then
 	      nwrite = nwrite + 1
-	      write(6,*) 'final aver: ',ip,naccum
+	      !write(6,*) 'final aver: ',ip,naccum
 	      call nos_time_aver(-mode,ip,ifreq,istep,nkn,nlvdi
      +				,naccu,accum,std,threshold,cv3,boutput)
-	      if( bsumvar ) ivar = 30
+	      if( bsumvar ) ivar = 10
+	      if( bthreshold ) ivar = 199
               call nos_write_record(nb,it,ivar,nlvdi,ilhkv,cv3,ierr)
               if( ierr .ne. 0 ) goto 99
 	    end if
@@ -439,22 +453,24 @@ c mode negative: only transform, do not accumulate
 	ip = mod(nread,istep)
 	if( ip .eq. 0 ) ip = istep
 
-	!write(6,*) 'ip: ',ip,istep,nread,mode
+	!write(6,*) 'ip1: ',mode,ifreq,istep,nread,ip,naccu(ip)
 
 	if( mode == 1 .or. mode == 2 ) then
 	  accum(:,:,ip) = accum(:,:,ip) + cv3(:,:)
 	else if( mode == 3 ) then
-	  do k=1,nkn
-	    do l=1,nlvddi
-	      accum(l,k,ip) = min(accum(l,k,ip),cv3(l,k))
-	    end do
-	  end do
+	  accum(:,:,ip) = min(accum(:,:,ip),cv3(:,:))
+	  !do k=1,nkn
+	  !  do l=1,nlvddi
+	  !    accum(l,k,ip) = min(accum(l,k,ip),cv3(l,k))
+	  !  end do
+	  !end do
 	else if( mode == 4 ) then
-	  do k=1,nkn
-	    do l=1,nlvddi
-	      accum(l,k,ip) = max(accum(l,k,ip),cv3(l,k))
-	    end do
-	  end do
+	  accum(:,:,ip) = max(accum(:,:,ip),cv3(:,:))
+	  !do k=1,nkn
+	  !  do l=1,nlvddi
+	  !    accum(l,k,ip) = max(accum(l,k,ip),cv3(l,k))
+	  !  end do
+	  !end do
 	else if( mode == 5 ) then
 	  accum(:,:,ip) = accum(:,:,ip) + cv3(:,:)
 	  std(:,:,1,ip) = std(:,:,1,ip) + cv3(:,:)**2
@@ -476,11 +492,12 @@ c mode negative: only transform, do not accumulate
 	end if
 
 	if( mode > 0 ) naccu(ip) = naccu(ip) + 1
-	!write(6,*) '... ',ifreq,mode,ip,istep,naccu(ip)
+	!write(6,*) 'ip2: ',mode,ifreq,istep,nread,ip,naccu(ip)
 
 	if( naccu(ip) == ifreq .or. mode < 0 ) then	!here ip == 1
 	  naccum = max(1,naccu(ip))
 	  mmode = abs(mode)
+	  if( mmode == 2 ) naccum = 1			!sum
 	  if( mmode == 3 ) naccum = 1			!min
 	  if( mmode == 4 ) naccum = 1			!max
 	  if( mmode == 7 ) naccum = 1			!threshold
@@ -581,70 +598,3 @@ c***************************************************************
 
 c***************************************************************
 
-        subroutine gis_write_record(nb,it,ivar,nlvdi,ilhkv,cv)
-
-c writes one record to file nb (3D)
-
-        use basin
-
-        implicit none
-
-        integer nb,it,ivar,nlvdi
-        integer ilhkv(nlvdi)
-        real cv(nlvdi,*)
-
-        integer k,l,lmax
-	integer nout
-        real x,y
-	character*80 format,name
-	character*20 line
-	character*3 var
-
-	integer ifileo
-
-	call dtsgf(it,line)
-	call i2s0(ivar,var)
-
-	name = 'extract_'//var//'_'//line//'.gis'
-        nout = ifileo(60,name,'form','new')
-	!write(6,*) 'writing: ',trim(name)
-
-        write(nout,*) it,nkn,ivar,line
-
-        do k=1,nkn
-          lmax = ilhkv(k)
-          x = xgv(k)
-          y = ygv(k)
-
-	  write(format,'(a,i5,a)') '(i10,2g14.6,i5,',lmax,'g14.6)'
-          write(nout,format) k,x,y,lmax,(cv(l,k),l=1,lmax)
-        end do
-
-	close(nout)
-
-        end
-
-c***************************************************************
-
-        subroutine gis_write_connect
-
-c writes connectivity
-
-        use basin
-
-        implicit none
-
-	integer ie,ii
-
-	open(1,file='connectivity.gis',form='formatted',status='unknown')
-
-	write(1,*) nel
-	do ie=1,nel
-	  write(1,*) ie,(nen3v(ii,ie),ii=1,3)
-	end do
-
-	close(1)
-
-	end
-
-c***************************************************************

@@ -115,6 +115,9 @@ c 01.12.2014	ccf	wave parameters moved to subwave.f
 c 06.05.2015	ccf	new parameters itmoff and offlin
 c 29.09.2015	ggu	new boundary file surfvel
 c 29.09.2015	ggu	new initial file uvinit, new flgrst
+c 01.02.2016	ggu	some plot params shifted to para section (bbgray, etc.)
+c 22.02.2016	ggu	new file for initial conditions bfmini
+c 05.04.2016	ggu	new parameter iaicef for ice free areas
 c
 c************************************************************************
 
@@ -635,12 +638,12 @@ c		adds the layer thickness to the layer above if it is smaller
 c		than |hlvmin|. Therefore, 1 and 2 might change the
 c		total depth and layer structure, while 3 only might
 c		change the layer structure. The value of 1 will always
-c		give you full layers at the bottom.
+c		give you full layers at the bottom. (Default 3)
 c |hlvmin|	Minimum layer thickness for last (bottom) layer used when
 c		|ilytyp| is 2 or 3. The unit is fractions of the nominal
 c		layer thickness. Therefore, a value of 0.5 indicates that
 c		the last layer should be at least half of the full
-c		layer.
+c		layer. (Default 0.25)
 
 	call addpar('ilytyp',3.00)	!type of depth adjustment
 	call addpar('hlvmin',0.25)	!min percentage of last layer thickness
@@ -878,6 +881,10 @@ cc rain
 
 	call addpar('inohyd',0.)	!for non-hydrostatic model
 
+cc ice
+
+	call addpar('iaicef',-99.)	!area code for ice free condition
+
 	end
 
 c************************************************************************
@@ -1097,6 +1104,17 @@ c		(Default 0).
 
         call addpar('ccut',0.)
 
+c |wrtrst|	If reset times are not regularly distributed (e.g., 1 month)
+c		it is possible to give the exact times when a reset should
+c		take place. |wrtrst| is a file name where these reset times
+c		are specified, one for each line. For every line two integers
+c		indicating date and time for the reset must be specified.
+c		If only one value is given, time is taken to be 0. The format
+c		of date is "YYYYMMDD" and for time "hhmmss". If the file
+c		wrtrst is given |idtwrt| should be 0.
+
+        call addfnm('wrtrst',' ')
+
 c DOCS  END
 
         end
@@ -1234,6 +1252,7 @@ cc experimental stuff
         !call addpar('nbsig',0.)         !sigma layers to read in for OBC
 
         call addpar('sedim',0.)         !sedimentation for theseus
+        call addfnm('hsedim',' ')         !sedimentation hev file for theseus
 
         call addpar('nomp',0.)          !number of threads to use
 
@@ -1613,6 +1632,30 @@ c			(Default 0)
 	call addpar('ioverl',0.)	!overlay in color
 	call addpar('inorm',0.)		!vertical velocity as overlay
 
+c The next parameters give the choice to selectively avoid to plot areas
+c of the basin and to apply different gray tones for the boundary and
+c net lines when plotting the basin.
+c Please remember that when working with gray tones the value should
+c be between 0 (black) and 1 (white).
+c
+c |ianopl|	Area code for which no plot has to be produced. Normally 
+c		the whole basin is plotted, but with this parameter some
+c		areas can be excluded. (Default -1)
+c		the bathymetry. (Default 0.8)
+c |bgray|	Gray value used for the finite element grid when plotting
+c		the bathymetry. (Default 0.8)
+c |bbgray|	Gray value used for the boundary of the finite element grid.
+c		(Default 0)
+c |bsgray|	Gray value used to plot the finite element grid over
+c		a scalar or velocity plot. This is basically useful
+c		for debugging reasons. The default is to not plot
+c		the grid (Default -1.0)
+
+        call addpar('ianopl',-1.)      !do not plot these areas
+	call addpar('bgray',0.8)       !gray value for bathymetry
+	call addpar('bbgray',0.0)      !gray value for boundary
+	call addpar('bsgray',-1.0)     !gray value for plotting maps
+
 c DOCS	END
 
 cc not documented
@@ -1799,19 +1842,11 @@ c |isoinp|	Normally inside elements the values are interpolated.
 c		Sometimes it is usefull to just plot the value of the
 c		node without interpolation inside the element. This can
 c		be accomplished by setting |isoinp=0|. (Default 1)
-c |bgray|	Gray value used for the finite element grid when plotting
-c		the bathymetry. (Default 0.8)
-c |bsgray|	Gray value used to plot the finite element grid over
-c		a scalar or velocity plot. This is basically useful
-c		for debugging reasons. The default is to not plot
-c		the grid (Default -1.0)
 
         call addpar('nisomx',20.)      !maximum number of isovalues allowed
         call addpar('nctick',0.)       !default number of ticks to use
         call addpar('isolin',0.)       !plot isolines with color ?
         call addpar('isoinp',1.)       !interpolate inside elements
-	call addpar('bgray',0.8)       !gray value for bathymetry
-	call addpar('bsgray',-1.0)     !gray value for plotting maps
 
 c DOCS	END
 
@@ -2273,6 +2308,7 @@ c		GOTM turbulence model (iturb = 1).
 c |saltin|	Name of file containing initial conditions for salinity
 c |tempin|	Name of file containing initial conditions for temperature
 c |conzin|	Name of file containing initial conditions for concentration
+c |bfmini|	Name of file containing initial conditions for bfm
 c |offlin|	Name of the file if a offline is to be performed. The
 c		file has to be produced by a previous run
 c		with the parameter |idtoff| greater than 0.
@@ -2293,6 +2329,7 @@ c		with the parameter |idtoff| greater than 0.
         call addfnm('saltin',' ')
         call addfnm('tempin',' ')
         call addfnm('conzin',' ')
+        call addfnm('bfmini',' ')
 	call addfnm('offlin',' ')
 
 c DOCS	END

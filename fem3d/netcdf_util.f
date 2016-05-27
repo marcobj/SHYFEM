@@ -34,13 +34,15 @@ c******************************************************************
 	integer ierr
 	character*20 line
 
+	!write(line,'(i8,a2,i6)') date,'    ',time
+
 	write(6,*)
 	write(6,*) 'You can specify a date for fem-time 0'
 	write(6,*) 'This is only used if the simulation does not'
 	write(6,*) 'contain a date and time stamp.'
 	if( date > 0 ) then
-	  call dtsunform_pack(date,time,line,ierr)
-	  write(6,*) 'Default for date: ',line
+	  call dtsform_pack(date,time,line)
+	  write(6,*) 'Default for date: ',trim(line)
 	else
 	  write(6,*) 'There is no default date... using 0'
 	end if
@@ -187,7 +189,7 @@ c******************************************************************
 c******************************************************************
 c******************************************************************
 
-	subroutine get_dimensions(nxdim,nydim,nx,ny,x0,y0,dx,dy,xlon,ylat)
+	subroutine get_dimensions(nx,ny,x0,y0,dx,dy)
 
 c gets dimensions for reguar grid
 
@@ -195,14 +197,8 @@ c gets dimensions for reguar grid
 
 	implicit none
 
-	include 'param.h'
-
-	integer nxdim,nydim,nx,ny
+	integer nx,ny
 	real x0,y0,dx,dy
-	real xlon(nxdim)
-	real ylat(nydim)
-
-
 
 	integer i,n
 	real x1,y1,dxy
@@ -219,20 +215,6 @@ c gets dimensions for reguar grid
 	write(6,*) 'min/max of domain:'
 	write(6,*) 'xmin/xmax: ',xmin,xmax
 	write(6,*) 'ymin/ymax: ',ymin,ymax
-
-	nx = min(100,nxdim)
-	ny = min(100,nydim)
-	dx = (xmax - xmin) / nx
-	dy = (ymax - ymin) / ny
-	dxy = max(dx,dy)
-	dxy = rnext(dxy,3)
-	x0 = xmin
-	y0 = ymin
-	x1 = xmax
-	y1 = ymax
-
-	!write(6,*) 'Default for dx/dy: ',dx,dy,dxy
-	!write(6,*) 'Default for dx/dy: ',dxy
 
 	write(6,*)
 	write(6,*) 'Enter dx[,dy]: (return for unstructured output)'
@@ -296,8 +278,25 @@ c gets dimensions for reguar grid
 
 	if( nx .le. 0 ) goto 98
 	if( ny .le. 0 ) goto 98
-	if( nx .gt. nxdim ) goto 99
-	if( ny .gt. nydim ) goto 99
+
+	return
+   98	continue
+	write(6,*) 'nx,ny: ',nx,ny
+	stop 'error stop get_dimensions: error in nx,ny'
+	end
+
+c******************************************************************
+
+	subroutine set_reg_xy(nx,ny,x0,y0,dx,dy,xlon,ylat)
+
+	implicit none
+
+	integer nx,ny
+	real x0,y0,dx,dy
+	real xlon(nx)
+	real ylat(ny)
+
+	integer i
 
 	do i=1,nx
 	  xlon(i) = x0 + (i-1)*dx
@@ -307,15 +306,6 @@ c gets dimensions for reguar grid
 	  ylat(i) = y0 + (i-1)*dy
 	end do
 
-	return
-   98	continue
-	write(6,*) 'nx,ny: ',nx,ny
-	stop 'error stop get_dimensions: error in nx,ny'
-   99	continue
-	write(6,*) 'nx,nxdim: ',nx,nxdim
-	write(6,*) 'ny,nydim: ',ny,nydim
-	write(6,*) 'please increase nxdim,nydim'
-	stop 'error stop get_dimensions: nxdim/nydim'
 	end
 
 c******************************************************************

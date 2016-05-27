@@ -137,15 +137,24 @@ fem3d/shyfem
 fem3d/shypre
 fem3d/shybas
 fem3d/flxelab
+fem3d/nos2shy
+fem3d/ous2shy
+fem3d/shydiff
+
+fem3d/basmpi
+fem3d/shympi
 
 femadj/shyadj
 femadj/adjele
 
 fembin/extDiff
 fembin/extMerge
+
 femplot/line_nodes
 femplot/plotsim
+femplot/shyplot
 femplot/lagxitest
+
 femspline/gridr
 grid/grid
 mesh/exgrd
@@ -193,12 +202,19 @@ fembin/ouselab
 fembin/extelab
 fembin/shyelab
 fembin/shyfem
+fembin/shympi
 fembin/shypre
 fembin/shybas
 fembin/flxelab
 fembin/shyadj
 fembin/adjele
 fembin/femelab
+fembin/nos2shy
+fembin/ous2shy
+fembin/shydiff
+fembin/shyplot
+fembin/plotsim
+fembin/line_nodes
 
 fembin/grid
 fembin/mesh
