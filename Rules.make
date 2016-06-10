@@ -380,8 +380,8 @@ ifeq ($(FORTRAN_COMPILER),GNU_G77)
 endif
 
 ifeq ($(FORTRAN_COMPILER),GNU_GFORTRAN)
-  FGNU		= gfortran
-  FGNU95	= gfortran
+  FGNU		= gfortran 
+  FGNU95	= gfortran 
   F77		= $(FGNU)
   F95		= $(FGNU95)
   LINKER	= $(F77)
