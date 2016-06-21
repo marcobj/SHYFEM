@@ -78,6 +78,8 @@ c 29.10.2014    ggu     do_() routines transfered from newpri.f
 c 10.11.2014    ggu     shyfem time management routines to new file subtime.f
 c 01.12.2014    ccf     handle new section waves for wave module
 c 24.09.2015    ggu     call initialization for irv before reading STR file
+c 26.05.2016    ggu     new check for sections: count_sections()
+c 16.06.2016    wjm     added check for section nonhyd 
 c
 c************************************************************
 
@@ -354,6 +356,7 @@ c read loop over sections %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		if( bdebug ) write(6,*) 'new section: ',section,num
 
 		call setsec(section,num)		!remember section
+		call count_sections(section)
 
 		nsc = nsc + 1
 
@@ -407,6 +410,8 @@ c read loop over sections %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                         call nrdins(section)
                 else if(section.eq.'mudsec')then        !fluid mud
                         call readmud			!ARON
+                else if(section.eq.'nonhyd')then        !NH model
+                        call nrdins(section)	
 		else					!try modules
 			call modules(M_READ)
 			if( .not. hasreadsec() ) then	!sec has been handled?
@@ -416,6 +421,8 @@ c read loop over sections %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 		last = section
 	end do		!loop over sections
+
+	call count_sections(' ')	!check section count
 
 	if( bdebug ) write(6,*) 'finished reading STR file'
 
@@ -804,4 +811,70 @@ c writes info on total energy to info file
 	end
 
 c********************************************************************
+c********************************************************************
+c********************************************************************
 
+	subroutine count_sections(section)
+
+	implicit none
+
+	character*(*) section
+
+	integer, parameter :: ndim = 100
+	character*80, save :: sections(ndim) = ' '
+	integer, save :: count(ndim) = 0
+	integer, save :: ntot = 0
+
+	integer i,ierr,ic
+
+!----------------------------------------------------------
+! check sections
+!----------------------------------------------------------
+
+	if( section == ' ' ) then	!check sections
+	  ierr = 0
+	  do i=1,ntot
+	    ic = count(i)
+	    if( ic > 1 ) then
+	      if( sections(i) /= 'bound' ) cycle
+	      if( sections(i) /= 'close' ) cycle
+	      write(6,*) 'section ',trim(sections(i)),' - count = ',ic
+	      ierr = 1
+	    end if
+	  end do
+	  if( ierr > 0 ) then
+	    stop 'error stop count_sections: not unique sections'
+	  end if
+	  return
+	end if
+
+!----------------------------------------------------------
+! count section
+!----------------------------------------------------------
+
+	do i=1,ntot
+	  if( section == sections(i) ) then
+	    count(i) = count(i) + 1
+	    return
+	  end if
+	end do
+
+	ntot = ntot + 1
+	if( ntot > ndim ) then
+	  stop 'error stop count_sections: ndim'
+	end if
+
+!----------------------------------------------------------
+! insert new section
+!----------------------------------------------------------
+
+	sections(ntot) = section
+	count(ntot) = 1
+
+!----------------------------------------------------------
+! end of routine
+!----------------------------------------------------------
+
+	end
+
+c********************************************************************

@@ -52,11 +52,10 @@
 
 	logical, save :: bopen
 
-	!logical, save :: btmin
-	!logical, save :: btmax
 	logical, save :: binclusive
-	!double precision, save :: atmin
-	!double precision, save :: atmax
+
+	logical, save :: bdiff
+	real, save :: deps
 
 	logical, save :: bthreshold
 	double precision, save :: threshold
@@ -72,17 +71,16 @@
 	integer, save :: mode
 	integer, save :: modeb
 
-	!integer, save :: date = 0
-	!integer, save :: time = 0
-	!integer, save :: datetime(2) = 0
-
 	integer, save :: catmode = 0
 
         character*80, save :: infile		= ' '
         character*80, save :: stmin		= ' '
         character*80, save :: stmax		= ' '
         character*80, save :: nodefile		= ' '
+        character*80, save :: regstring		= ' '
         character*10, save :: outformat		= ' '
+
+	logical, save :: bcompat = .true.	!compatibility output
 
 !====================================================
 	contains
@@ -117,18 +115,25 @@
 	character*(*) type
 	character*(*) program
 
+        character*10 vers
+        character*80 version
+
 	if( binitialized ) return
 
+        call get_shyfem_version(vers)
+	version = '4.0' // ' (SHYFEM version ' // trim(vers) // ')'
+	!write(6,*) 'ggguuu version: ',trim(version)
+
 	if( type == 'SHY' ) then
-          call clo_init(program,'shy-file','3.0')
+          call clo_init(program,'shy-file',version)
 	else if( type == 'NOS' ) then
-          call clo_init(program,'nos-file','3.0')
+          call clo_init(program,'nos-file',version)
 	else if( type == 'OUS' ) then
-          call clo_init(program,'ous-file','3.0')
+          call clo_init(program,'ous-file',version)
 	else if( type == 'EXT' ) then
-          call clo_init(program,'ext-file','3.0')
+          call clo_init(program,'ext-file',version)
 	else if( type == 'FLX' ) then
-          call clo_init(program,'flx-file','3.0')
+          call clo_init(program,'flx-file',version)
 	else
 	  write(6,*) 'type : ',trim(type)
 	  stop 'error stop elabutil_set_options: unknown type'
@@ -153,6 +158,10 @@
 
 	call clo_add_option('threshold t',flag,'records over threshold t')
 	call clo_add_option('fact fact',1.,'multiply values by fact')
+	call clo_add_option('diff',.false.
+     +			,'check if 2 files are different')
+	call clo_add_option('diffeps deps',0.
+     +			,'files differ by more than deps (default 0)')
 
         call clo_add_sep('options in/output')
 
@@ -166,9 +175,10 @@
         call clo_add_sep('additional options')
 
         call clo_add_option('node n',0,'extract vars of node number n')
-        call clo_add_option('nodes file',' '
-     +				,'extract vars at nodes given in file')
-	call clo_add_option('freq n',0.,'frequency for aver/sum/min/max')
+        call clo_add_option('nodes nfile',' '
+     +			,'extract vars at nodes given in file nfile')
+	call clo_add_option('freq n',0.
+     +			,'frequency for aver/sum/min/max/std/rms')
         call clo_add_option('tmin time',' '
      +                  ,'only process starting from time')
         call clo_add_option('tmax time',' '
@@ -177,8 +187,31 @@
      +			,'output includes whole time period given')
 
         call clo_add_option('outformat form','native','output format')
-
         call clo_add_option('catmode cmode',0.,'concatenation mode')
+        call clo_add_option('reg rstring',' ','regular interpolation')
+
+        call clo_add_option('area grd-file',' '
+     +			,'line delimiting area for -averbas option')
+	call clo_hide_option('area')
+
+	call clo_add_sep('additional information')
+	call clo_add_com('  nfile is file with nodes to extract')
+	call clo_add_com('  time is either integer for relative time or')
+	call clo_add_com('    format is YYYY-MM-DD[::hh[:mm[:ss]]]')
+	call clo_add_com('  possible output formats are: shy|gis|fem|nc'
+     +				// ' (Default shy)')
+	call clo_add_com('  possible values for cmode are: -1,0,+1'
+     +				// ' (Default 0)')
+	call clo_add_com('    -1: all of first file, '
+     +				// 'then remaining of second')
+	call clo_add_com('     0: simply concatenate files')
+	call clo_add_com('    +1: first file until start of second, '
+     +				// 'then all of second')
+	call clo_add_com('  rstring is: dx[,dy[,x0,y0,x1,y1]]')
+	call clo_add_com('    if only dx is given -> dy=dx')
+	call clo_add_com('    if only dx,dy are given -> bounds computed')
+	call clo_add_com('  -diff needs two files, exits at difference')
+	call clo_add_com('    with -out writes difference to out file')
 
 	end subroutine elabutil_set_options
 
@@ -208,6 +241,8 @@
 
         call clo_get_option('threshold',threshold)
         call clo_get_option('fact',fact)
+        call clo_get_option('diff',bdiff)
+        call clo_get_option('diffeps',deps)
 
         call clo_get_option('node',nodesp)
         call clo_get_option('nodes',nodefile)
@@ -224,8 +259,8 @@
         call clo_get_option('inclusive',binclusive)
 
         call clo_get_option('outformat',outformat)
-
         call clo_get_option('catmode',catmode)
+        call clo_get_option('reg',regstring)
 
         if( .not. bask .and. .not. bmem ) call clo_check_files(1)
         call clo_get_file(1,infile)
@@ -289,11 +324,6 @@
 !************************************************************
 !************************************************************
 
-
-!************************************************************
-!************************************************************
-!************************************************************
-
 	subroutine elabutil_set_averaging(nvar)
 
 	integer nvar
@@ -350,104 +380,9 @@
 
 	end subroutine elabutil_set_averaging
 
-c***************************************************************
-
-	subroutine handle_nodes
-
-	integer i
-
-          if( bnodes ) then
-            nnodes = 0
-            call get_node_list(nodefile,nnodes,nodes)
-            allocate(nodes(nnodes))
-            allocate(nodese(nnodes))
-            call get_node_list(nodefile,nnodes,nodes)
-          else if( bnode ) then
-            nnodes = 1
-            allocate(nodes(nnodes))
-            allocate(nodese(nnodes))
-            nodes(1) = nodesp
-          end if
-
-	  if( nnodes <= 0 ) return
- 
-	  nodese = nodes
-          write(6,*) 'nodes: ',nnodes,(nodes(i),i=1,nnodes)
-          call convert_internal_nodes(nnodes,nodes)
-
-          if( bnode ) bnodes = .true.
-
-	end subroutine handle_nodes
-
-c***************************************************************
-
-	subroutine write_nodes(dtime,ivar,cv3)
-
-	use levels
-
-	double precision dtime
-	integer ivar
-	real cv3(nlvdi,*)
-
-	integer j,node,it
-
-	if( nnodes <= 0 ) return
-
-        do j=1,nnodes
-          node = nodes(j)
-          it = nint(dtime)
-          call write_node(j,node,cv3,it,ivar)
-        end do
-
-	end subroutine write_nodes
-
-c***************************************************************
-
-	subroutine write_nodes_vel(dtime,znv,uprv,vprv)
-
-	use levels
-	use mod_depth
-
-	double precision dtime
-	real znv(*)
-	real uprv(nlvdi,*)
-	real vprv(nlvdi,*)
-
-	integer j,ki,ke,lmax,it,l,k
-	real z,h
-	real hl(nlvdi)
-	real u(nlvdi),v(nlvdi)
-
-	if( nnodes <= 0 ) return
-
-        do j=1,nnodes
-          ki = nodes(j)
-          ke = nodese(j)
-	  lmax = ilhkv(ki)
-          it = nint(dtime)
-          write(79,*) it,j,ke,ki,lmax
-          write(79,*) znv(ki)
-          write(79,*) (uprv(l,ki),l=1,lmax)
-          write(79,*) (vprv(l,ki),l=1,lmax)
-
-          z = 0.
-          z = znv(ki)
-          h = hkv(ki)
-	  u = uprv(:,ki)
-	  v = vprv(:,ki)
-          call write_profile_uv(it,j,ki,ke,lmax,h,z
-     +				,u,v,hlv,hl)
-        end do
-
-	write(80,*) it,(znv(nodes(k)),k=1,nnodes)
-
-	end subroutine write_nodes_vel
-
 !====================================================
 	end module elabutil
 !====================================================
-
-c***************************************************************
 
         subroutine outfile_make_depth(nkn,nel,nen3v,hm3v,hev,hkv)
 
@@ -481,7 +416,7 @@ c averages vertically
 
 c***************************************************************
 
-        subroutine outfile_make_hkv(nkn,nel,nen3v,hev,hkv)
+        subroutine outfile_make_hkv(nkn,nel,nen3v,hm3v,hev,hkv)
 
 c averages vertically
 
@@ -489,6 +424,7 @@ c averages vertically
 
         integer nkn,nel
         integer nen3v(3,nel)
+        real hm3v(3,nel)
         real hev(nel)
         real hkv(nkn)
 
@@ -496,9 +432,10 @@ c averages vertically
         real h
 
         do ie=1,nel
-          h = hev(ie)
+          h = hev(ie)			!old way
           do ii=1,3
             k = nen3v(ii,ie)
+            h = hm3v(ii,ie)		!new way
             hkv(k) = max(hkv(k),h)
           end do
         end do
@@ -555,214 +492,7 @@ c       computes statistics on levels
         end
 
 c***************************************************************
-
-        subroutine convert_internal_node(node)
-	integer node
-	stop 'error stop convert_internal_node: not supported'
-	end
-
-        subroutine convert_internal_nodes(n,nodes)
-
-        use basin
-
-        implicit none
-
-        integer n
-        integer nodes(n)
-
-        integer ne,ni,i
-        integer ipint
-
-        if( n <= 0 ) return
-
-	do i=1,n
-	  ne = nodes(i)
-          if( ne <= 0 ) goto 99
-          ni = ipint(ne)
-          if( ni <= 0 ) goto 98
-	  nodes(i) = ni
-        end do
-
-	return
-   98	continue
-        write(6,*) 'cannot find node: ',ne
-        stop 'error stop convert_internal_nodes: no such node'
-   99	continue
-        write(6,*) 'cannot convert node: ',ne
-        stop 'error stop convert_internal_nodes: no such node'
-        end
-
 c***************************************************************
-
-	subroutine get_node_list(file,n,nodes)
-
-c for n == 0 only checks how many nodes to read
-c for n > 0 reads nodes into nodes() (error if n is too small)
-
-	implicit none
-
-	character*(*) file
-	integer n
-	integer nodes(n)
-
-	integer nin,ios,node,ndim
-	logical btest
-
-	integer ifileo
-
-	nin = ifileo(0,file,'form','old')
-	if( nin .le. 0 ) goto 99
-
-	ndim = n
-	btest = ndim == 0
-
-	n = 0
-	do
-	  read(nin,*,iostat=ios) node
-	  if( ios > 0 ) goto 98
-	  if( ios < 0 ) exit
-	  if( node .le. 0 ) exit
-	  n = n + 1
-	  if( .not. btest ) then
-	    if( n > ndim ) goto 96
-	    nodes(n) = node
-	  end if
-	end do
-
-	if( n == 0 ) goto 97
-
-	close(nin)
-
-	return
-   96	continue
-	write(6,*) 'n,ndim :',n,ndim
-	write(6,*) 'file: ',trim(file)
-	stop 'error stop get_node_list: dimension error'
-   97	continue
-	write(6,*) 'no data in file ',trim(file)
-	stop 'error stop get_node_list: read error'
-   98	continue
-	write(6,*) 'read error in record ',n
-	write(6,*) 'in file ',trim(file)
-	stop 'error stop get_node_list: read error'
-   99	continue
-	write(6,*) 'file: ',trim(file)
-	stop 'error stop get_node_list: cannot open file'
-	end
-
-c***************************************************************
-c***************************************************************
-c***************************************************************
-
-        subroutine aver(xx,n,xaver,rnull)
-
-c computes min/max of vector
-c
-c xx            vector
-c n             dimension of vector
-c xmin,xmax     min/max value in vector
-c rnull         invalid value
-
-        implicit none
-
-        integer n
-        real xx(n)
-        real xaver,rnull
-
-        integer i,nacu
-        double precision acu
-
-        nacu = 0
-        acu = 0.
-        xaver = rnull
-
-        do i=1,n
-          if(xx(i).ne.rnull) then
-            acu = acu + xx(i)
-            nacu = nacu + 1
-          end if
-        end do
-
-        if( nacu .gt. 0 ) xaver = acu / nacu
-
-        end
-
-c***************************************************************
-
-        subroutine mimar(xx,n,xmin,xmax,rnull)
-
-c computes min/max of vector (2d)
-c
-c xx            vector
-c n             dimension of vector
-c xmin,xmax     min/max value in vector
-c rnull         invalid value
-
-        implicit none
-
-        integer n,i,nmin
-        real xx(n)
-        real xmin,xmax,x,rnull
-
-        do i=1,n
-          if(xx(i).ne.rnull) goto 1
-        end do
-    1   continue
-
-        if(i.le.n) then
-          xmax=xx(i)
-          xmin=xx(i)
-        else
-          xmax=rnull
-          xmin=rnull
-        end if
-
-        nmin=i+1
-
-        do i=nmin,n
-          x=xx(i)
-          if(x.ne.rnull) then
-            if(x.gt.xmax) xmax=x
-            if(x.lt.xmin) xmin=x
-          end if
-        end do
-
-        end
-
-c***************************************************************
-
-        subroutine mimar_s(xx,nlvddi,n,xmin,xmax,rnull)
-
-c computes min/max of vector (3d)
-c
-c xx            vector
-c n             dimension of vector
-c xmin,xmax     min/max value in vector
-c rnull         invalid value
-
-        implicit none
-
-        integer n
-        integer nlvddi
-        real xx(nlvddi,n)
-        real xmin,xmax,rnull
-
-        integer k,l
-        real x
-
-        do k=1,n
-          do l=1,nlvddi
-            x=xx(l,k)
-            if(x.ne.rnull) then
-              if( x .lt. xmin .or. x .gt. xmax ) then
-                write(6,*) l,k,x
-              end if
-            end if
-          end do
-        end do
-
-        end
-
 c***************************************************************
 
         subroutine shy_write_aver(dtime,ivar,cmin,cmax,cmed,vtot)
@@ -824,162 +554,7 @@ c writes basin average to file
         end
 
 c***************************************************************
-
-        subroutine write_node(i,node,cv3,it,ivar)
-
-	use levels
-	use mod_depth
-
-        implicit none
-
-        integer i
-        integer node
-        real cv3(nlvdi,*)
-        integer it
-        integer ivar
-
-        integer ki,ke
-        integer l,lmax
-	real z,h
-	character*40 format
-	real hl(nlvdi)
-
-	integer ipext
-
-	ki = node
-	ke = ipext(ki)
-	lmax = ilhkv(ki)
-
-	write(1,*) it,cv3(1,ki)
-
-        write(4,*) it,i,ke,ki,lmax,ivar
-        write(4,*) (cv3(l,ki),l=1,lmax)
-
-        write(3,*) it,i,ke,ki,lmax,ivar
-        write(format,'(a,i4,a)') '(',lmax,'(f12.4))'
-        write(3,format) (cv3(l,ki),l=1,lmax)
-
-        z = 0.
-        h = hkv(ki)
-        call write_profile_c(it,i,ki,ke,lmax,ivar,h,z
-     +				,cv3(1,ki),hlv,hl)
-
-        end
-
 c***************************************************************
-
-        subroutine write_2d_all_nodes(nnodes,nodes,cv2,it,ivar)
-
-        implicit none
-
-	integer nnodes
-	integer nodes(nnodes)
-        real cv2(*)
-        integer it
-        integer ivar
-
-        integer iunit,i
-
-	if( nnodes <= 0 ) return
-
-	iunit = 200 + ivar
-
-        write(iunit,1000) it,(cv2(nodes(i)),i=1,nnodes)
- 1000	format(i11,30g14.6)
-
-        end
-
-c***************************************************************
-
-        subroutine write_node_2d(it,nvar,cv)
-
-        implicit none
-
-        integer it
-        integer nvar
-        real cv(nvar)
-
-        integer i
-
-        write(89,*) it,(cv(i),i=1,nvar)
-
-        end
-
-c***************************************************************
-
-	subroutine write_node_vel
-
-	end
-
-c***************************************************************
-
-        subroutine write_profile_c(it,j,ki,ke,lmax,ivar,h,z,c,hlv,hl)
-
-        implicit none
-
-        integer it,j,ki,ke
-        integer lmax
-        integer ivar
-        real z,h
-        real c(lmax)
-        real hlv(lmax)
-        real hl(lmax)
-
-        logical bcenter
-        integer l
-        integer nlvaux,nsigma
-        real hsigma
-        real uv
-
-        bcenter = .true.        !depth at center of layer ?
-
-        call get_sigma_info(nlvaux,nsigma,hsigma)
-
-        call get_layer_thickness(lmax,nsigma,hsigma,z,h,hlv,hl)
-        call get_bottom_of_layer(bcenter,lmax,z,hl,hl)  !orig hl is overwritten
-
-        write(2,*) it,j,ke,ki,lmax,ivar
-        do l=1,lmax
-          write(2,*) hl(l),c(l)
-        end do
-
-        end
-
-c***************************************************************
-
-        subroutine write_profile_uv(it,j,ki,ke,lmax,h,z,u,v,hlv,hl)
-
-        implicit none
-
-        integer it,j,ki,ke
-        integer lmax
-        real z,h
-        real u(1)
-        real v(1)
-        real hlv(1)
-        real hl(1)
-
-        logical bcenter
-        integer l
-        integer nlvaux,nsigma
-        real hsigma
-        real uv
-
-        bcenter = .true.        !depth at center of layer ?
-
-        call get_sigma_info(nlvaux,nsigma,hsigma)
-
-        call get_layer_thickness(lmax,nsigma,hsigma,z,h,hlv,hl)
-        call get_bottom_of_layer(bcenter,lmax,z,hl,hl)  !orig hl is overwritten
-
-        write(82,*) it,j,ke,ki,lmax,z
-        do l=1,lmax
-          uv = sqrt( u(l)**2 + v(l)**2 )
-          write(82,*) hl(l),u(l),v(l),uv
-        end do
-
-        end
-
 c***************************************************************
 
 	subroutine ilhe2k(nkn,nel,nen3v,ilhv,ilhkv)
@@ -1033,6 +608,8 @@ c create ilhv -> result is not exact and must be adjusted
 
 	end
 
+c***************************************************************
+c***************************************************************
 c***************************************************************
 
         subroutine open_shy_file(file,status,nunit)
@@ -1100,144 +677,3 @@ c***************************************************************
 c***************************************************************
 c***************************************************************
 
-        subroutine gis_write_record(nb,it,ivar,nlvddi,ilhkv,cv)
-
-c writes one record to file nb (3D)
-
-        use basin
-
-        implicit none
-
-        integer nb,it,ivar,nlvddi
-        integer ilhkv(nlvddi)
-        real cv(nlvddi,*)
-
-        integer k,l,lmax
-	integer nout
-        real x,y
-	character*80 format,name
-	character*20 line,dateline
-	character*3 var
-
-	integer ifileo
-
-	call dtsgf(it,dateline)
-	call gis_subst_colon(dateline,line)
-	call i2s0(ivar,var)
-
-	name = 'extract_'//var//'_'//line//'.gis'
-        nout = ifileo(60,name,'form','new')
-	!write(6,*) 'writing: ',trim(name)
-
-        write(nout,*) it,nkn,ivar,dateline
-
-	lmax = 1
-
-        do k=1,nkn
-          if( nlvddi > 1 ) lmax = ilhkv(k)
-          x = xgv(k)
-          y = ygv(k)
-
-	  write(format,'(a,i5,a)') '(i10,2g14.6,i5,',lmax,'g14.6)'
-          write(nout,format) k,x,y,lmax,(cv(l,k),l=1,lmax)
-        end do
-
-	close(nout)
-
-        end
-
-c***************************************************************
-
-        subroutine gis_write_hydro(it,nlvddi,ilhkv,zv,uv,vv)
-
-c writes one record to file (3D)
-
-        use basin
-
-        implicit none
-
-        integer it,nlvddi
-        integer ilhkv(nlvddi)
-        real zv(nkn)
-        real uv(nlvddi,nkn)
-        real vv(nlvddi,nkn)
-
-        integer k,l,lmax,nn,i
-	integer nout
-        real x,y
-	character*80 format,name
-	character*20 line,dateline
-	character*3 var
-
-	integer ifileo
-
-	call dtsgf(it,dateline)
-	call gis_subst_colon(dateline,line)
-
-	name = 'extract_hydro_'//line//'.gis'
-        nout = ifileo(60,name,'form','new')
-	!write(6,*) 'writing: ',trim(name)
-
-        write(nout,*) it,nkn,0,dateline
-
-	lmax = 1
-
-        do k=1,nkn
-          if( nlvddi > 1 ) lmax = ilhkv(k)
-          x = xgv(k)
-          y = ygv(k)
-
-	  nn = 1 + 2*lmax
-	  write(format,'(a,i5,a)') '(i10,2g14.6,i5,',nn,'g14.6)'
-          write(nout,format) k,x,y,lmax,zv(k)
-     +			,(uv(l,k),vv(l,k),l=1,lmax)
-        end do
-
-	close(nout)
-
-        end
-
-c***************************************************************
-
-	subroutine gis_subst_colon(line_old,line_new)
-
-	implicit none
-
-	character*(*) line_old,line_new
-
-	integer n,i
-
-	n = min(len(line_old),len(line_new))
-	line_new = line_old
-
-	do i=1,n
-	  if( line_new(i:i) == ':' ) line_new(i:i) = '_'
-	  if( line_new(i:i) == ' ' ) line_new(i:i) = '_'
-	end do
-
-	end
-
-c***************************************************************
-
-        subroutine gis_write_connect
-
-c writes connectivity
-
-        use basin
-
-        implicit none
-
-	integer ie,ii
-
-	open(1,file='connectivity.gis',form='formatted',status='unknown')
-
-	write(1,*) nel
-	do ie=1,nel
-	  write(1,*) ie,(nen3v(ii,ie),ii=1,3)
-	end do
-
-	close(1)
-
-	end
-
-c***************************************************************

@@ -8,18 +8,29 @@ c plots color bar to chose color
 	implicit none
 
 	real xmin,ymin,xmax,ymax
-	real dy
-	integer ncol,ntics,i
-	character*2 line
+	real dy,dty,xtmin
+	logical berr
+	integer ncol,ntics,i,ii,nmax
+	integer imap
+	character*80 line
+	character*80 cname
 
 	ncol = 100
 	ntics = 10
+	nmax = 9	!max number of color tables per page
 
 	dy = 1.
+	dty = 0.3
 
-	xmin = 2.
+	xtmin = 0.2
+	xmin = 4.
 	xmax = xmin + 15.
-	ymin = 24.
+
+	cname = ' '
+	imap = 0
+	call color_table_file_init(' ')
+	call read_color_table(cname,imap,berr)	!this shows available CTs
+	if( berr ) stop
 
 	call qopen
 	call qstart
@@ -28,15 +39,36 @@ c plots color bar to chose color
 	call qfont('Times-Roman')
 	call qtext(7.,25.,'Available Colortables')
 
-	do i=0,6
-	  ymin = ymin - 3.
+	ymin = 24.
+	do i=0,7
+	  ymin = ymin - 2.
 	  call set_color_table(i)
 	  call colb(xmin,ymin,xmax,ymin+dy,ncol,ntics)
 	  write(line,'(i2)') i
-	  call qtext(1.,ymin+0.3,line)
+	  call qtext(1.,ymin+dty,line)
 	end do
 
 	call qend
+
+	call set_color_table(8)	!this indicates to used named color tables
+
+	do ii=1,3
+	  ymin = 26.
+	  call qstart
+	  do i=1,nmax
+	    imap = nmax*(ii-1) + i
+	    cname = ' '
+	    call read_color_table(cname,imap,berr)
+	    if( berr ) exit
+	    write(6,*) 'plotting color table: ',imap,trim(cname)
+	    ymin = ymin - 2.
+	    call colb(xmin,ymin,xmax,ymin+dy,ncol,ntics)
+	    write(line,'(i2,a,a)') imap,'  ',trim(cname)
+	    call qtext(xtmin,ymin+dty,trim(line))
+	  end do
+	  call qend
+	end do
+
 	call qclose
 
 	end

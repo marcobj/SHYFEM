@@ -16,6 +16,7 @@
 ! 11.09.2015    ggu     write in gis format
 ! 23.09.2015    ggu     handle more than one file (look for itstart)
 ! 16.10.2015    ggu     started shyelab
+! 10.06.2016    ggu     shydiff included
 !
 !**************************************************************
 
@@ -37,8 +38,11 @@
 	real, allocatable :: cv2(:)
 	real, allocatable :: cv3(:,:)
 	real, allocatable :: cv3all(:,:,:)
+	real, allocatable :: cv3diff(:,:,:)
 
 	integer, allocatable :: idims(:,:)
+	integer, allocatable :: ivars(:)
+	character*80, allocatable :: strings(:)
 	integer, allocatable :: il(:)
 
 	real, allocatable :: znv(:)
@@ -49,25 +53,24 @@
 
 	logical bhydro,bscalar
 	logical blastrecord
-	integer nwrite,nread,nelab,nrec,nin,nold
+	integer nwrite,nread,nelab,nrec,nin,nold,ndiff
 	integer nvers
 	integer nvar,npr
 	integer ierr
 	integer date,time
-	!integer it,itvar,itnew,itold,itstart
 	integer it
 	integer ivar,iaux
 	integer iv,j,l,k,lmax,node
 	integer ip
 	integer ifile,ftype
-	integer id,idout
+	integer id,idout,iddiff
 	integer n,m,nndim,nn
 	integer naccum
 	character*80 title,name,file
 	character*80 basnam,simnam
 	real rnull
 	real cmin,cmax,cmed,vtot
-	double precision dtime,dtstart,dtnew
+	double precision dtime,dtstart,dtnew,ddtime
 	double precision atime,atstart,atnew,atold
 
 	integer iapini
@@ -81,6 +84,7 @@
 	nwrite=0
 	nelab=0
 	nrec=0
+	ndiff = 0
 	rnull=0.
 	rnull=-1.
 	bopen = .false.
@@ -100,6 +104,13 @@
 
 	call open_new_file(ifile,id,atstart)	!atstart=-1 if no new file
 
+	if( bdiff ) then
+	  if( .not. clo_exist_file(ifile+1) ) goto 66
+	  if( clo_exist_file(ifile+2) ) goto 66
+	  call open_next_file(ifile+1,id,iddiff)
+	  atstart = -1
+	end if
+
 	!--------------------------------------------------------------
 	! set up params and modules
 	!--------------------------------------------------------------
@@ -108,6 +119,7 @@
 	call shy_get_ftype(id,ftype)
 
 	call shy_info(id)
+	!if( bdiff ) call shy_info(iddiff)
 
         call basin_init(nkn,nel)
         call levels_init(nkn,nel,nlv)
@@ -116,6 +128,8 @@
 	call shy_copy_levels_from_shy(id)
         call ev_init(nel)
 	call set_ev
+
+	if( bverb ) write(6,*) 'hlv: ',nlv,hlv
 
 	!--------------------------------------------------------------
 	! set dimensions and allocate arrays
@@ -141,8 +155,14 @@
 	allocate(cv3(nlv,nndim))
 	allocate(cv3all(nlv,nndim,0:nvar))
 	allocate(idims(4,nvar))
+        allocate(ivars(nvar),strings(nvar))
 	allocate(znv(nkn),uprv(nlv,nkn),vprv(nlv,nkn))
 	allocate(sv(nlv,nkn),dv(nlv,nkn))
+	if( bdiff ) then
+	  allocate(cv3diff(nlv,nndim,0:nvar))
+	else
+	  allocate(cv3diff(1,1,0:1))
+	end if
 
 	!--------------------------------------------------------------
 	! set up aux arrays, sigma info and depth values
@@ -184,12 +204,37 @@
 	call shy_make_volume
 
 	!--------------------------------------------------------------
+	! time handling
+	!--------------------------------------------------------------
+
+	call shy_get_date(id,date,time)
+	call elabtime_date_and_time(date,time)
+	call elabtime_minmax(stmin,stmax)
+	call elabtime_set_inclusive(binclusive)
+	
+	!--------------------------------------------------------------
 	! open output file
 	!--------------------------------------------------------------
 
 	boutput = boutput .or. btrans .or. bsplit .or. bsumvar
 
-	call shyelab_init_output(id,idout)
+	call shy_peek_record(id,dtime,iaux,iaux,iaux,iaux,ierr)
+	if( ierr > 0 ) goto 99
+	if( ierr < 0 ) goto 98
+        call shy_get_string_descriptions(id,nvar,ivars,strings)
+	call shyelab_init_output(id,idout,nvar,ivars)
+
+	!--------------------------------------------------------------
+	! write info to terminal
+	!--------------------------------------------------------------
+
+        write(6,*) 'available variables contained in file: '
+        write(6,*) 'total number of variables: ',nvar
+        write(6,*) '   varnum     varid    varname'
+        do iv=1,nvar
+          ivar = ivars(iv)
+          write(6,'(2i10,4x,a)') iv,ivar,trim(strings(iv))
+        end do
 
 !--------------------------------------------------------------
 ! loop on data
@@ -221,6 +266,21 @@
 
 	 call dts_convert_to_atime(datetime_elab,dtime,atime)
 
+	 !--------------------------------------------------------------
+	 ! handle diffs
+	 !--------------------------------------------------------------
+
+	 if( bdiff ) then
+	   call read_records(iddiff,ddtime,nvar,nndim,nlvdi,idims
+     +				,cv3,cv3diff,ierr)
+	   if( ierr /= 0 ) goto 62
+	   if( dtime /= ddtime ) goto 61
+	   cv3all = cv3all - cv3diff
+	   call check_diff(nlv,nndim,nvar,cv3all,deps,ierr)
+	   ndiff = ndiff + ierr
+	   if( ierr /= 0 .and. .not. boutput ) goto 60
+	 end if
+
 	 nread = nread + 1
 	 nrec = nrec + nvar
 
@@ -233,8 +293,8 @@
 	 blastrecord = ierr < 0 .and. atstart == -1
 	 call dts_convert_to_atime(datetime_elab,dtnew,atnew)
 
-	 if( elabtime_over_time_a(atime,atnew,atold) ) exit
-	 if( .not. elabtime_check_time_a(atime,atnew,atold) ) cycle
+	 if( elabtime_over_time(atime,atnew,atold) ) exit
+	 if( .not. elabtime_in_time(atime,atnew,atold) ) cycle
 
 	 call shy_make_zeta(ftype)
 	 !call shy_make_volume		!comment for constant volume
@@ -276,10 +336,10 @@
 
 	  if( b2d ) then
 	    call shy_make_vert_aver(idims(:,iv),nndim,cv3,cv2)
-	    call shyelab_record_output(id,idout,dtime,ivar,n,m
+	    call shyelab_record_output(id,idout,dtime,ivar,iv,n,m
      +						,1,1,cv2)
 	  else
-	    call shyelab_record_output(id,idout,dtime,ivar,n,m
+	    call shyelab_record_output(id,idout,dtime,ivar,iv,n,m
      +						,nlv,nlvdi,cv3)
 	  end if
 
@@ -304,9 +364,14 @@
      +                  ,znv,uprv,vprv,sv,dv)
 	 end if
 
-	 if( bnodes .and. bhydro ) then	!hydro output
-	   call prepare_hydro(.true.,nndim,cv3all,znv,uprv,vprv)
-	   call write_nodes_vel(dtime,znv,uprv,vprv)
+	 if( bnodes ) then	!nodal output
+	   if( bhydro ) then	!hydro output
+	     call prepare_hydro(.true.,nndim,cv3all,znv,uprv,vprv)
+	     call write_nodes_vel(dtime,znv,uprv,vprv)
+	     call write_nodes_hydro(dtime,znv,uprv,vprv)
+	   else if( bscalar ) then
+	     call write_nodes_scalar(dtime,nvar,nndim,strings,cv3all)
+	   end if
 	 end if
  
 	 call shyelab_post_output(id,idout,dtime,nvar,n,m,nndim
@@ -335,7 +400,7 @@
 	      m = idims(2,iv)
 	      lmax = idims(3,iv)
 	      ivar = idims(4,iv)
-	      call shyelab_record_output(id,idout,dtime,ivar,n,m
+	      call shyelab_record_output(id,idout,dtime,ivar,iv,n,m
      +						,lmax,nlvdi,cv3)
 	    end if
 	   end do
@@ -356,11 +421,37 @@
 
 	call shyelab_final_output(id,idout,nvar)
 
+	if( bnodes ) then
+	  write(6,*) 'output of node(s) has been written to out.fem'
+	end if
+
+	if( bdiff ) then
+	  if( ndiff > 0 ) goto 60
+	  write(6,*) 'no difference found > ',deps
+	  write(6,*) 'files are identical'
+	  call exit(99)	!99 means no difference
+	end if
+
 !--------------------------------------------------------------
 ! end of routine
 !--------------------------------------------------------------
 
 	stop
+   60	continue
+	write(6,*) 'difference found > ',deps
+	write(6,*) '*** files are different'
+	call exit(1)
+	stop 'stop shyelab: difference'
+   61	continue
+	write(6,*) 'difference of time between files'
+	write(6,*) 'time1,time2: ',dtime,ddtime
+	stop 'error stop shyelab: time record in diffing'
+   62	continue
+	write(6,*) 'cannot read record in diff file'
+	stop 'error stop shyelab: no record in diffing'
+   66	continue
+	write(6,*) 'for computing difference need exactly 2 files'
+	stop 'error stop shyelab: need 2 files'
    71	continue
 	write(6,*) 'ftype = ',ftype,'  nvar = ',nvar
 	write(6,*) 'nvar should be 4'
@@ -378,6 +469,14 @@
 	write(6,*) 'error reading header, ierr = ',ierr
 	write(6,*) 'file = ',trim(file)
 	stop 'error stop shyelab: reading header'
+   98	continue
+	write(6,*) 'error reading file, ierr = ',ierr
+	write(6,*) 'file = ',trim(file)
+	stop 'error stop shyelab: file contains no data'
+   99	continue
+	write(6,*) 'error reading file, ierr = ',ierr
+	write(6,*) 'file = ',trim(file)
+	stop 'error stop shyelab: reading first record'
 	end
 
 !***************************************************************
@@ -625,7 +724,8 @@
 	end if
 
 	id_out = iusplit(ivar)
-	write(6,*) 'shy_split_id: ',ivar,id_out
+
+	!write(6,*) 'shy_split_id: ',ivar,id_out
 
 	if( id_out == 0 ) then
 	  write(name,'(i4,a)') ivar,'.shy'
@@ -647,5 +747,29 @@
 
 !***************************************************************
 !***************************************************************
+!***************************************************************
+
+	subroutine check_diff(nlv,nn,nvar,cv3all,deps,ndiff)
+
+        implicit none
+
+        integer nlv,nn,nvar
+        real cv3all(nlv,nn,0:nvar)
+	real deps
+        integer ndiff
+
+        real diff
+        integer iloc(3)
+
+        diff = maxval( abs(cv3all) )
+
+        if( diff > deps ) then
+          ndiff = ndiff + 1
+          iloc = maxloc( abs(cv3all) )
+          write(6,*) '*** record differing: ',diff,iloc
+        end if
+
+	end
+
 !***************************************************************
 

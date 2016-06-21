@@ -23,6 +23,7 @@ c 13.06.2013	ggu     read also varnam to decide what to plot and read
 c 22.08.2013	ggu     new string2ivar() and similar changes
 c 05.09.2013	ggu     nlsa now wants integer, better handling of what to read
 c 06.06.2014	ggu	deleted sp158k() and sp158kk()
+c 07.06.2016	ggu	use both varid and varname to decide on section reading
 c
 c**********************************************
 c
@@ -40,11 +41,13 @@ c iunit		unit number of file
 	character*80 name,line,section,extra
 	character*20 what0,whatin
 	character*6 sect
-	logical bdebug,bread,bverbose,bskip
-	integer num
+	logical bdebug,bverbose,bskip
+	logical bread_str,bread_iv,bread
+	integer num,lstr,lstr_in,lstr_read
 	integer nrdsec,nrdlin,ichanm
 	integer iv_in,iv_read
 	integer iunit
+	character*80 str_read,str_in
 	real getpar
 
 	include 'param.h'
@@ -56,6 +59,8 @@ c iunit		unit number of file
 	bverbose = .false.
 
 	iv_in = ivar
+	call ivar2string(iv_in,str_in)
+	lstr_in = len_trim(str_in)
 
 	if(iu.eq.0) then
 c		write(6,*) 'error reading parameter file'
@@ -76,11 +81,21 @@ c loop over sections %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 		end if
 
 		iv_read = -1
+		lstr = 0
 		if( extra .ne. ' ' ) then
-		  call string2ivar(extra,iv_read)
+		  str_read = extra
+		  lstr_read = len_trim(str_read)
+		  lstr = min(lstr_in,lstr_read)
+		  call string2ivar(str_read,iv_read)
 		end if
 
-		bread = iv_read .eq. iv_in
+		bread_iv = iv_read .eq. iv_in
+		bread_str = .false.
+		if( lstr > 0 ) then
+		  bread_str = str_read(1:lstr) == str_in(1:lstr)
+		end if
+
+		bread = bread_iv .or. bread_str
 		bskip = .not. bread
 		if( bverbose ) then
 		  write(6,*) 'nlsa : ',bread,sect,iv_in,iv_read
@@ -183,164 +198,4 @@ c no more lines allowed
 c************************************************************************
 c************************************************************************
 c************************************************************************
-
-        subroutine string2ivar_0(string,iv)
-
-c interprets string to associate a variable number iv
-c
-c see below for possible string names
-c
-c the special name ivar# can be used to directtly give the variable number #
-
-        implicit none
-
-        character*(*) string
-        integer iv
-
-	integer is,isb
-	integer ie3,ie4,ie5
-	integer ichafs
-
-        iv = -1
-
-	is = ichafs(string)
-	if( is .le. 0 ) is = 1
-	isb = is - 1
-	ie3 = isb + 3
-	ie4 = isb + 4
-	ie5 = isb + 5
-
-        if( string(is:ie4) .eq. 'mass' ) then
-          iv = 0
-        else if( string(is:ie5) .eq. 'level' ) then
-          iv = 1
-        else if( string(is:ie4) .eq. 'zeta' ) then
-          iv = 1
-        else if( string(is:ie3) .eq. 'vel' ) then
-          iv = 2
-        else if( string(is:ie5) .eq. 'trans' ) then
-          iv = 3
-        else if( string(is:ie4) .eq. 'bath' ) then
-          iv = 5
-        else if( string(is:ie5) .eq. 'depth' ) then
-          iv = 5
-        else if( string(is:ie3) .eq. 'cur' ) then
-          iv = 6
-        else if( string(is:ie5) .eq. 'speed' ) then
-          iv = 6
-        else if( string(is:ie3) .eq. 'dir' ) then
-          iv = 7
-        else if( string(is:ie4) .eq. 'conc' ) then
-          iv = 10
-        else if( string(is:ie4) .eq. 'conz' ) then
-          iv = 10
-        else if( string(is:ie3) .eq. 'sal' ) then
-          iv = 11
-        else if( string(is:ie4) .eq. 'temp' ) then
-          iv = 12
-        else if( string(is:ie4) .eq. 'oxyg' ) then
-          iv = 15
-        else if( string(is:ie3) .eq. 'rms' ) then
-          iv = 18
-        else if( string(is:ie4) .eq. 'pres' ) then
-          iv = 20
-        else if( string(is:ie4) .eq. 'wind' ) then
-          iv = 21
-        else if( string(is:ie4) .eq. 'sola' ) then
-          iv = 22
-        else if( string(is:ie3) .eq. 'air' ) then
-          iv = 23
-        else if( string(is:ie4) .eq. 'humi' ) then
-          iv = 24
-        else if( string(is:ie4) .eq. 'clou' ) then
-          iv = 25
-        else if( string(is:ie4) .eq. 'rain' ) then
-          iv = 26
-        else if( string(is:ie4) .eq. 'evap' ) then
-          iv = 27
-        else if( string(is:ie3) .eq. 'lgr' ) then
-          iv = 80
-        else if( string(is:ie3) .eq. 'ice' ) then
-          iv = 85
-!        else if( string(is:ie3) .eq. 'age' ) then
-!          iv = 98
-        else if( string(is:ie3) .eq. 'wrt' ) then
-          iv = 99
-        else if( string(is:ie5) .eq. 'renew' ) then
-          iv = 99
-        else if( string(is:ie4) .eq. 'resi' ) then
-          iv = 99
-        else if( string(is:ie4) .eq. 'ivar' ) then
-	  read(string(ie4+1:),'(i5)') iv
-        else if( string(is:ie3) .eq. 'var' ) then
-	  read(string(ie3+1:),'(i5)') iv
-        else if( string(is:ie3) .eq. 'nos' ) then
-          !generic - no id
-        else if( string(is:ie3) .eq. 'fem' ) then
-          !generic - no id
-        else if( string(is:ie4) .eq. 'elem' ) then
-          !generic - no id
-        else if( string .eq. ' ' ) then
-          write(6,*) '*** string2ivar: no string given'
-        else
-          write(6,*) '*** string2ivar: cannot find string description: '
-          write(6,*) string
-          write(6,*) is,isb,ie3,ie4,ie5
-          !if( string(1:3) .eq. 'fem' ) stop 'error.....'
-        end if
-
-	!write(6,*) 'string2ivar: ',string(is:ie4),'   ',iv
-
-        end
-
-c******************************************************
-
-        subroutine ivar2string_0(iv,string)
-
-        implicit none
-
-        integer iv
-        character*(*) string
-
-	!call shy_ivar2string(iv,string)
-        string = ' '
-
-        if( iv .eq. 0 ) then
-          string = 'mass field'
-        else if( iv .eq. 1 ) then
-          string = 'water level'
-        else if( iv .eq. 2 ) then
-          string = 'velocity'
-        else if( iv .eq. 5 ) then
-          string = 'bathymetry'
-        else if( iv .eq. 10 ) then
-          string = 'generic tracer'
-        else if( iv .eq. 30 ) then
-          string = 'generic tracer'
-        else if( iv .eq. 11 ) then
-          string = 'salinity'
-        else if( iv .eq. 12 ) then
-          string = 'temperature'
-        else if( iv .eq. 20 ) then
-          string = 'atmospheric pressure'
-        else if( iv .eq. 26 ) then
-          string = 'rain'
-        else if( iv .eq. 85 ) then
-          string = 'ice cover'
-!        else if( iv .eq. 98 ) then
-!          string = 'age'
-        else if( iv .eq. 99 ) then
-          string = 'renewal time'
-        else if( iv .eq. 335 ) then
-          string = 'time over threshold'
-        else
-          string = '*** cannot find description'
-          write(6,*) '*** cannot find description for variable: '
-          write(6,*) iv
-	  !stop 'error stop ivar2string: no description'
-        end if
-
-        end
-
-c******************************************************
 

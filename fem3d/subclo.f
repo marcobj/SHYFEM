@@ -10,6 +10,8 @@
 ! 26.01.2015    ggu     new routine clo_check_files()
 ! 08.02.2015    ggu     bug fix in clo_get_option, new routine clo_info
 ! 28.05.2015    ggu     new routine clo_add_sep()
+! 30.05.2016    ggu     new routine clo_add_com() (identical to clo_add_sep)
+! 01.06.2016    ggu     new routine clo_hide_option() and -hh,-fullhelp
 !
 ! notes :
 !
@@ -60,6 +62,7 @@
 	  character*80 :: string	! string if string
 	  character*80 :: text		! description for clo_fullusage
 	  character*80 :: textra	! if number or string extra info
+	  logical :: hidden		! option is hidden?
 
 	end type entry
 
@@ -172,6 +175,7 @@
 	pentry(id)%string = ' '
 	pentry(id)%text = ' '
 	pentry(id)%textra = ' '
+	pentry(id)%hidden = .false.
 	
 	end subroutine clo_init_id
 
@@ -212,6 +216,7 @@
 	write(6,*) 'flag   = ',pentry(id)%flag
 	write(6,*) 'string = ',trim(pentry(id)%string)
 	write(6,*) 'text   = ',trim(pentry(id)%text)
+	!write(6,*) 'hidden = ',trim(pentry(id)%hidden)
 
 	end subroutine clo_info_id
 
@@ -239,6 +244,20 @@
 
 	stop 'error stop clo_error'
 	end subroutine clo_error
+
+!******************************************************************
+
+	subroutine clo_hide_option(name)
+
+	character*(*) name
+
+	integer id
+
+	id = clo_get_id(name)
+	if( id == 0 ) call clo_error(name,'option not existing')
+	pentry(id)%hidden = .true.
+
+	end subroutine clo_hide_option
 
 !******************************************************************
 !******************************************************************
@@ -475,6 +494,22 @@
 	end subroutine clo_add_sep
 
 !******************************************************************
+
+	subroutine clo_add_com(text)
+
+	character*(*) text
+
+	integer id
+
+	call clo_init_new_id(id)
+
+	pentry(id)%name = ' '
+	pentry(id)%itype = 4
+	pentry(id)%text = text
+
+	end subroutine clo_add_com
+
+!******************************************************************
 !******************************************************************
 !******************************************************************
 
@@ -643,6 +678,20 @@
 
 !******************************************************************
 
+	function clo_exist_file(i)
+
+	logical clo_exist_file
+	integer i
+
+	character*80 file
+
+	call clo_get_file(i,file)
+	clo_exist_file = (file /= ' ' )
+
+	end function clo_exist_file
+
+!******************************************************************
+
 	subroutine clo_get_file(i,file)
 
 	integer i
@@ -716,6 +765,8 @@
 	  option = option(2:)
 	  if( option == 'h' .or. option == 'help' ) then
 	    call clo_fullusage
+	  else if( option == 'hh' .or. option == 'fullhelp' ) then
+	    call clo_fullusage(.true.)
 	  else if( option == 'v' .or. option == 'version' ) then
 	    call clo_version
 	  else if( .not. clo_has_option(option) ) then
@@ -837,14 +888,20 @@
 
 !**************************************************************
 
-	subroutine clo_fullusage
+	subroutine clo_fullusage(ball)
 
+	logical, optional :: ball
+
+	logical bhidden,bshowall
 	integer nr,nf,nn,nt,ne,nl,np
 	integer itype,id,ie
 	integer length,l
 	character*80 name
 	character*80 text
 	character*80 textra
+
+	bshowall = .false.
+	if( present(ball) ) bshowall = ball
 
 	nr = len_trim(routine_name)
 	nf = len_trim(files_name)
@@ -869,9 +926,11 @@
 	  name = pentry(id)%name
 	  textra = pentry(id)%textra
 	  text = pentry(id)%text
+	  bhidden = pentry(id)%hidden
+	  if( bshowall ) bhidden = .false.
 	  if( name == ' ' ) then
 	    write(6,*) ' ',trim(text)
-	  else
+	  else if( .not. bhidden ) then
 	    call clo_write_line(length,name,textra,text)
 	  end if
 	end do

@@ -136,6 +136,7 @@ c initializes the parameter file for the main FE model
 	call nlsinh_georg
 	call nlsinh_unused
 	call nlsinh_waves
+	call nlsinh_nonhydro
 
 	end
 
@@ -759,6 +760,7 @@ c		and diffusion of the salinity. (Default 1)
 
 	call addpar('itemp',1.)		!compute temperature ?
 	call addpar('isalt',1.)		!compute salinity ?
+	call addpar('irho',0.)		!write rho ?
 
 c The next parameters set the initial conditions for temperature and salinity.
 c Both the average value and and a stratification can be specified.
@@ -879,7 +881,7 @@ cc rain
 	call addpar('idtbox',0.)	!for boxes
 	call addpar('itmbox',-1.)
 
-	call addpar('inohyd',0.)	!for non-hydrostatic model
+	call addpar('ihwadv',0.)        !vert advection of horiz momentum
 
 cc ice
 
@@ -1347,6 +1349,31 @@ c
         end
 
 c************************************************************************
+
+	subroutine nlsinh_nonhydro
+
+c parameters for non hydrostatic model (experimental)
+
+	implicit none
+
+        call sctpar('nonhyd')             !sets default section
+
+	call addpar('inohyd',0.)	!for non-hydrostatic model
+
+        call addpar('aqpar',0.5)
+
+	call addpar('islope',0.)	!type of grid for poisson equation
+
+        call addpar('ivwadv',0.)        !vert advection of vert momentum
+        call addpar('inhflx',0.)        !flux upwind for horiz advect of w
+	call addpar('inhadj',0.)        !choice for correction of U,V,eta
+        call addpar('inhbnd',0.)        !exclude NH dynamics for boundaries
+        call addpar('iwvel',1.)         !write vertical velocity
+        call addpar('iqpnv',1.)         !write NH pressure
+
+	end
+
+c************************************************************************
 c************************************************************************
 c************************************************************************
 c************************************************************************
@@ -1543,7 +1570,15 @@ c			1 (white) will achieve this. A negative value
 c			will not fill dry areas with gray color.
 c			(Default -1)
 
+c |hgray|		Whereas |dgray| is normally only coloring
+c			elements that are dry, you can also color elements
+c			shallower than a given depth |hgray|. E.g., a value
+c			for |hgray| of -0.5 will plot in gray all
+c			elements with depth lower than -0.5 m (salt
+c			marshes). (Default -10000)
+
 	call addpar('dgray',-1.)
+	call addpar('hgray',-10000.)	!gray all elems with h < hgray
 
 c |dxygrd|		Grid size if the results are interpolated on
 c			a regular grid. A value of 0 does
@@ -1700,11 +1735,25 @@ c |icolor|	Flag that determines the type of color table
 c		to be used. 0 stands for gray scale, 1 for
 c		HSB color table. Other possible values are
 c		2 (from white to blue), 3 (from white to red),
-c		4 (from blue over white to red). Values 5 and 6
-c		indicate non-linear HSB color tables.
+c		4 (from blue over white to red) and 
+c		5 (from blue over black to red).
+c		Values 6 and 7 indicate non-linear HSB color tables.
 c		(Default 0)
 
 	call addpar('icolor',0.)	!use color (1.) or not (0.)
+
+c |colfil|	A color table can also be read from file. An example
+c		of the format can be found in directory |femplot/color|
+c		in the file |colormap.dat|. The variable |colfil|
+c		indicates the file where the color table is being
+c		read from. The default is not to read a color table file.
+c |coltab|	If a color table file has been read then the variable
+c		|coltab| indicates the name of the color table that
+c		is going to be used. The default is to not use any
+c		of the color tables if no name is specified.
+
+        call addfnm('colfil',' ')
+        call addfnm('coltab',' ')
 
 c |isoval|	Array that defines the values for the isolines
 c		and colors that are to be plotted. Values given must
@@ -2339,6 +2388,7 @@ cc non-documented -> try first	HACK	-> initial conditions
         call addfnm('bio',' ')
         call addfnm('bios',' ')
         call addfnm('toxi',' ')
+        call addfnm('mercin',' ')	!mercury
 
 cc ACQUBC
 
@@ -2393,3 +2443,4 @@ cc for model aquabc (curonian)
         end
 
 c************************************************************************
+

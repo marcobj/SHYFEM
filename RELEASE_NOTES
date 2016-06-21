@@ -1,4 +1,38 @@
 
+17.06.2016	VERS_7_5_15
+
+	new color table feature in plotting files
+	non-hydrostatic version updated
+	wprv is now running from 1 to nlv
+
+14.06.2016	VERS_7_5_14
+
+	shyplot now near feature complete
+	shydiff included in shyelab
+	possible to choose between vertical momentum advection schemes
+	newbcl cleanup (prepared for non-hydrostatic model)
+
+10.06.2016	VERS_7_5_13
+
+	shyplot now plots shy and fem files
+	file interpolate handles nvar==0 and no depth, no integration
+	tracer write of shy files simplified
+	mercury framework (really) finished
+
+06.06.2016	VERS_7_5_12
+
+	finished framework for mercury routines
+	file initialization changed
+	new routines to deal with lines (grd and bnd)
+	netcdf routines revised
+
+30.05.2016	VERS_7_5_11
+
+	code cleaning
+	output routines and section plot revisted
+	check STR file for not unique sections
+	possible bug fix in set_last_layer() for ilytyp==1
+
 25.05.2016	VERS_7_5_10
 
 	big changes in post processing routines and plot

@@ -398,6 +398,8 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	   end if
 
 	   call tracer_write
+	   call bfm_write
+
 	   call print_time			!output to terminal
 
 	   call total_energy
@@ -683,8 +685,6 @@ c*****************************************************************
 
 	implicit none
 
-	!include 'param.h'
-
 	integer nlvddi
 
 	nlvddi = nlvdi
@@ -769,8 +769,8 @@ c*****************************************************************
 
 !$OMP SINGLE 
 
-!!!$OMP TASKWAIT
-!$OMP TASKGROUP
+!$OMP TASKWAIT
+!!!$OMP TASKGROUP
 
 !$OMP TASK 
 	call barocl(1)
@@ -784,8 +784,8 @@ c*****************************************************************
 	 call bfm_compute
 !$OMP END TASK
 
-!$OMP END TASKGROUP	
-!!!$OMP TASKWAIT	
+!!!$OMP END TASKGROUP	
+!$OMP TASKWAIT	
 
 !$OMP END SINGLE 
 

@@ -73,6 +73,7 @@ c 30.05.2014	ggu	in av2amk() do not interpolate for flag values
 c 07.07.2014	ggu	new routine intp_reg()
 c 25.09.2015	ggu	new routines intp_reg_nodes(), intp_reg_elems()
 c 05.05.2016	ggu	file restructured (module)
+c 14.05.2016	ggu	allow for extension of grid -> bregextend
 c
 c notes :
 c
@@ -87,6 +88,8 @@ c******************************************************
 !==================================================================
 
 	implicit none
+
+	logical, save :: bregextend = .false.
 
 	real, save :: pxareg = 0.	!x coordinate of lower,left point (x0)
 	real, save :: pyareg = 0.	!y coordinate of lower,left point (y0)
@@ -163,6 +166,80 @@ c flag                value for land points
 	real flag	!flag for land points
 
 	flag = pzlreg
+
+	end
+
+c******************************************************
+
+	subroutine setregextend(bextend)
+
+c sets flag to decide if extend interpolated grid
+
+	use regular
+
+	implicit none
+
+	logical bextend
+
+	bregextend = bextend
+
+	end
+
+c******************************************************
+
+	subroutine getregextend(bextend)
+
+c gets flag to decide if extend interpolated grid
+
+	use regular
+
+	implicit none
+
+	logical bextend
+
+	bextend = bregextend
+
+	end
+
+c******************************************************
+
+	subroutine setreg(regpar,nx,ny,x0,y0,dx,dy,flag)
+
+	implicit none
+
+	real regpar(7)
+	integer nx,ny
+	real x0,y0,dx,dy
+	real flag
+
+	regpar(1) = nx
+	regpar(2) = ny
+	regpar(3) = x0
+	regpar(4) = y0
+	regpar(5) = dx
+	regpar(6) = dy
+	regpar(7) = flag
+
+	end
+
+c******************************************************
+
+	subroutine getreg(regpar,nx,ny,x0,y0,dx,dy,flag)
+
+	implicit none
+
+	real regpar(7)
+	integer nx,ny
+	real x0,y0,dx,dy
+	real flag
+
+	nx = nint(regpar(1))
+	ny = nint(regpar(2))
+	x0 = regpar(3)
+	y0 = regpar(4)
+	dx = regpar(5)
+	dy = regpar(6)
+	flag = regpar(7)
 
 	end
 
@@ -524,6 +601,116 @@ c************************************************
 c************************************************
 c************************************************
 
+	subroutine fm_extra_setup(nx,ny,fm,fmextra)
+
+	use basin
+
+	implicit none
+
+        integer nx,ny			!dimension of regular matrix
+        real fm(4,nx,ny)		!interpolation matrix
+	real fmextra(6,nkn)
+
+	logical bout
+	integer ix,iy,iix,iiy
+	integer j,k
+	real x0,y0,dx,dy
+	real x,y,x1,y1
+	real eps,flag
+	real t,u
+	double precision d
+
+	integer, save :: jx(4) = (/0,1,1,0/)
+	integer, save :: jy(4) = (/0,0,1,1/)
+	double precision fmweight(nx,ny)
+
+	eps = 0.01
+	fmextra = 0.
+	fmweight = 0.
+
+	call getgeo(x0,y0,dx,dy,flag)
+
+	do k=1,nkn
+	  x = xgv(k)
+	  y = ygv(k)
+	  ix = (x-x0)/dx+1.
+	  iy = (y-y0)/dy+1.
+	  if( ix < 1 .or. ix >= nx ) cycle
+	  if( iy < 1 .or. iy >= ny ) cycle
+	  x1 = x0+(ix-1)*dx
+	  y1 = y0+(iy-1)*dy
+	  t = (x-x1)/dx
+	  u = (y-y1)/dy
+	  bout = .false.
+	  if( u.gt.1. .or. u.lt.0. ) bout = .true.
+	  if( t.gt.1. .or. t.lt.0. ) bout = .true.
+	  if( bout ) then
+	    stop 'error stop fm_complete_intp: internal error (1)'
+	  end if
+	  fmextra(1,k) = ix
+	  fmextra(2,k) = iy
+	  do j=1,4
+	    iix = ix+jx(j)
+	    iiy = iy+jy(j)
+	    if( fm(4,iix,iiy) == 0 ) then
+	      x1 = x0+(iix-1)*dx
+	      y1 = y0+(iiy-1)*dy
+	      d = sqrt( (x1-x)**2 + (y1-y)**2 )
+	      fmextra(2+j,k) = 2. - d
+	      fmweight(iix,iiy) = fmweight(iix,iiy) + d
+	    end if
+	  end do
+	end do
+
+	do k=1,nkn
+	  ix = nint(fmextra(1,k))
+	  iy = nint(fmextra(2,k))
+	  if( ix == 0 .or. iy == 0 ) cycle
+	  do j=1,4
+	    iix = ix+jx(j)
+	    iiy = iy+jy(j)
+	    if( fm(4,iix,iiy) == 0 ) then
+	      d = fmweight(iix,iiy)
+	      if( d > 0. ) fmextra(2+j,k) = fmextra(2+j,k) / d
+	    end if
+	  end do
+	end do
+
+!	from here do check	ggguuu
+
+	fmweight = 0.
+
+	do k=1,nkn
+	  ix = nint(fmextra(1,k))
+	  iy = nint(fmextra(2,k))
+	  if( ix == 0 .or. iy == 0 ) cycle
+	  do j=1,4
+	    iix = ix+jx(j)
+	    iiy = iy+jy(j)
+	    if( fm(4,iix,iiy) == 0 ) then
+	      d = fmextra(2+j,k)
+	      fmweight(iix,iiy) = fmweight(iix,iiy) + d
+	    end if
+	  end do
+	end do
+
+	do iy=1,ny
+	  do ix=1,nx
+	    d = fmweight(ix,iy)
+	    if( d > 0 ) then
+	      if( abs(d-1.) > eps ) then
+		write(6,*) 'error... ',ix,iy,d
+	      end if
+	    end if
+	  end do
+	end do
+
+	end
+
+c************************************************
+c************************************************
+c************************************************
+
 	function intri(x,y,xp,yp)
 
 c point in triangle or not
@@ -761,12 +948,23 @@ c		> 0	flag found in interpolation data
 	integer ierr		!error code (return)
 
 	logical bextra,bout,bflag
+	logical bintpout,bintpflag,bextend
 	integer k
 	integer imin,jmin
 	integer iflag,iout
 	real xx,yy,z1,z2,z3,z4,x1,y1,t,u
 	real xn,yn
+	real zz(4)
  
+	bintpout = .false.	!interpolate even if outside
+	bintpout = .true.	!interpolate even if outside
+	bintpflag = .false.	!interpolate even if flag
+	bintpflag = .true.	!interpolate even if flag
+
+	call getregextend(bextend)
+	bintpout = bextend
+	bintpflag = bextend
+
 	iflag = 0	!used flag for interpolation
 	iout = 0	!used outside point for interpolation
 
@@ -809,14 +1007,30 @@ c		> 0	flag found in interpolation data
 	    if( u.gt.1. .or. u.lt.0. ) bout = .true.
 	    if( t.gt.1. .or. t.lt.0. ) bout = .true.
 	    if( bout ) then
-	      iout = iout + 1
-	      cycle
+	      if( bintpout ) then
+	        if( u .le. 2. ) u = min(1.,u)
+	        if( t .le. 2. ) t = min(1.,t)
+	        if( u .ge. -1. ) u = max(0.,u)
+	        if( t .ge. -1. ) t = max(0.,t)
+	      end if
+	      bout = .false.
+	      if( u.gt.1. .or. u.lt.0. ) bout = .true.
+	      if( t.gt.1. .or. t.lt.0. ) bout = .true.
+	      if( bout ) then
+		iout = iout + 1
+		cycle
+	      end if
 	    end if
 
 	    z1 = regval(imin,jmin)
 	    z2 = regval(imin+1,jmin)
 	    z3 = regval(imin+1,jmin+1)
 	    z4 = regval(imin,jmin+1)
+	    zz = (/z1,z2,z3,z4/)
+
+	    if( any(zz == flag) .and. bintpflag ) then
+	      call recover_flag(zz,z1,z2,z3,z4,flag)
+	    end if
 
 	    bflag = .false.
 	    if( z1.eq.flag .or. z2.eq.flag ) bflag = .true.
@@ -837,6 +1051,42 @@ c		> 0	flag found in interpolation data
    99	continue
 	write(6,*) imin,jmin,nx,ny
 	stop 'error stop intp_reg: internal error (1)'
+	end
+
+c****************************************************************
+
+	subroutine recover_flag(zz,z1,z2,z3,z4,flag)
+
+	implicit none
+
+	real zz(4)
+	real z1,z2,z3,z4
+	real flag
+
+	integer i,ic
+	real zt
+
+	!write(6,*) 'recovering flag: ',zz
+
+	ic = count(zz == flag)
+	if( ic == 4 ) return
+
+	zt = 0.
+	do i=1,4
+	  if( zz(i) /= flag ) zt = zt + zz(i)
+	end do
+	zt = zt / (4-ic)
+	do i=1,4
+	  if( zz(i) == flag ) zz(i) = zt
+	end do
+
+	z1 = zz(1)
+	z2 = zz(2)
+	z3 = zz(3)
+	z4 = zz(4)
+
+	!write(6,*) 'recovered flag: ',zz
+
 	end
 
 c****************************************************************

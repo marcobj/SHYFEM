@@ -66,6 +66,8 @@ c 20.10.2014    ggu     pass ids to scal_adv()
 c 10.02.2015    ggu     call to bnds_read_new() introduced
 c 15.10.2015    ggu     added new calls for shy file format
 c 26.10.2015    ggu     bug fix for parallel code (what was not set)
+c 10.06.2016    ggu     not used routines deleted
+c 14.06.2016    ggu     open and write of file in own subroutine
 c
 c*****************************************************************
 
@@ -113,7 +115,7 @@ c local
 	integer id
 	real cdef(1)
 	real xmin,xmax
-        integer itemp,isalt
+        integer itemp,isalt,irho
 	real salref,temref,sstrat,tstrat
 	real shpar,thpar
 	real difmol
@@ -127,7 +129,6 @@ c local
 	integer isact,l,k,lmax
 	integer kspec
 	integer icrst
-	integer ishyff
 	integer ftype
 	real stot,ttot,smin,smax,tmin,tmax,rmin,rmax
 	double precision v1,v2,mm
@@ -184,7 +185,6 @@ c----------------------------------------------------------
 	binitial_nos = .true.
 
 	dtime = t_act
-	ishyff = nint(getpar('ishyff'))
 
 c----------------------------------------------------------
 c initialization
@@ -210,6 +210,7 @@ c----------------------------------------------------------
 		difmol=getpar('difmol')
                 itemp=iround(getpar('itemp'))
                 isalt=iround(getpar('isalt'))
+                irho=iround(getpar('irho'))
 
 c		--------------------------------------------
 c		initialize saltv,tempv
@@ -260,18 +261,14 @@ c		--------------------------------------------
      +					,cdef,idsalt)
 
 c		--------------------------------------------
-c		initialize rhov, bpresv (we call it twice since
+c		initialize rhov, bpresv
 c		--------------------------------------------
 
 c		rhov depends on bpresv and viceversa
-c		-> we iterate to the real solution)
+c		-> we iterate to the real solution
 
-		do k=1,nkn
-		  do l=1,nlvdi
-		    rhov(l,k) = 0.	!rhov is rho^prime => 0/
-		    bpresv(l,k) = 0.
-                  end do
-		end do
+		rhov = 0.		!rhov is rho^prime => 0
+		bpresv = 0.
 
 		call rhoset_shell
 
@@ -279,42 +276,8 @@ c		--------------------------------------------
 c		initialize output files
 c		--------------------------------------------
 
-		nvar = 0
-		if( itemp .gt. 0 ) nvar = nvar + 1
-		if( isalt .gt. 0 ) nvar = nvar + 1
-
-		call init_output('itmcon','idtcon',ia_out)
-		if( ishyff == 1 ) ia_out = 0
-		if( has_output(ia_out) ) then
-		  call open_scalar_file(ia_out,nlv,nvar,'nos')
-		  if( next_output(ia_out) ) then
-		    if( isalt .gt. 0 ) then
-		      call write_scalar_file(ia_out,11,nlvdi,saltv)
-		    end if
-		    if( itemp .gt. 0 ) then
-		      call write_scalar_file(ia_out,12,nlvdi,tempv)
-		    end if
-		  end if
-		end if
-
-		call init_output_d('itmcon','idtcon',da_out)
-		if( ishyff == 0 ) da_out = 0
-		if( has_output_d(da_out) ) then
-		  ftype = 2
-		  call shy_make_output_name('.ts.shy',file)
-		  call shy_open_output_file(file,1,nlv,nvar,ftype,id)
-		  call shy_set_simul_params(id)
-		  call shy_make_header(id)
-		  da_out(4) = id
-		  if( next_output_d(da_out) ) then
-		    if( isalt .gt. 0 ) then
-		      call shy_write_scalar_record(id,dtime,11,nlvdi,saltv)
-		    end if
-		    if( itemp .gt. 0 ) then
-		      call shy_write_scalar_record(id,dtime,12,nlvdi,tempv)
-		    end if
-		  end if
-		end if
+		call bcl_open_output(ia_out,da_out,itemp,isalt,irho)
+		call bcl_write_output(dtime,ia_out,da_out,itemp,isalt,irho)
 
                 call getinfo(ninfo)
 
@@ -434,24 +397,7 @@ c----------------------------------------------------------
 c write results to file
 c----------------------------------------------------------
 
-	if( next_output(ia_out) ) then
-	  if( isalt .gt. 0 ) then
-	    call write_scalar_file(ia_out,11,nlvdi,saltv)
-	  end if
-	  if( itemp .gt. 0 ) then
-	    call write_scalar_file(ia_out,12,nlvdi,tempv)
-	  end if
-	end if
-
-	if( next_output_d(da_out) ) then
-	  id = nint(da_out(4))
-	  if( isalt .gt. 0 ) then
-	    call shy_write_scalar_record(id,dtime,11,nlvdi,saltv)
-	  end if
-	  if( itemp .gt. 0 ) then
-	    call shy_write_scalar_record(id,dtime,12,nlvdi,tempv)
-	  end if
-	end if
+	call bcl_write_output(dtime,ia_out,da_out,itemp,isalt,irho)
 
 c----------------------------------------------------------
 c end of routine
@@ -604,9 +550,6 @@ c checks values of t/s/rho
 
 	implicit none
 
-	include 'param.h'
-
-
 	real smin,smax,tmin,tmax,rmin,rmax
 	character*30 text
 
@@ -634,8 +577,6 @@ c*******************************************************************
 	subroutine ts_diag(it,nlvddi,nlv,nkn,tempv,saltv)
 
 	implicit none
-
-	include 'param.h'
 
 	integer it
 	integer nlvddi
@@ -675,8 +616,6 @@ c*******************************************************************
 
 	implicit none
 
-	include 'param.h'
-
 	integer it
 	integer nlvddi
 	integer nlv
@@ -711,120 +650,11 @@ c*******************************************************************
 
 c*******************************************************************	
 
-	subroutine ts_intp(it,nlvddi,nlv,nkn,tobsv,sobsv,tempf,saltf)
-
-	implicit none
-
-	include 'param.h'
-
-	integer it
-	integer nlvddi
-	integer nlv
-	integer nkn
-	real tobsv(nlvddi,1)
-	real sobsv(nlvddi,1)
-	character*80 tempf,saltf
-
-	integer iutemp(3),iusalt(3)
-	save iutemp,iusalt
-	integer ittold,itsold,ittnew,itsnew
-	save ittold,itsold,ittnew,itsnew
-
-	real, save, allocatable :: toldv(:,:)
-	real, save, allocatable :: soldv(:,:)
-	real, save, allocatable :: tnewv(:,:)
-	real, save, allocatable :: snewv(:,:)
-
-	logical bdebug
-	integer icall
-	save icall
-	data icall / 0 /
-
-	if( icall .eq. -1 ) return
-
-	bdebug = .true.
-	bdebug = .false.
-
-c-------------------------------------------------------------
-c initialization (open files etc...)
-c-------------------------------------------------------------
-
-	if( icall .eq. 0 ) then
-	  write(6,*) 'ts_intp: opening files for T/S'
-	  call ts_file_open(tempf,it,nkn,nlv,iutemp)
-	  call ts_file_open(saltf,it,nkn,nlv,iusalt)
-
-	  allocate(toldv(nlvddi,nkn))
-	  allocate(soldv(nlvddi,nkn))
-	  allocate(tnewv(nlvddi,nkn))
-	  allocate(snewv(nlvddi,nkn))
-
-	  write(6,*) 'ts_intp: initializing T/S'
-	  call ts_next_record(ittold,iutemp,nlvddi,nkn,nlv,toldv)
-	  call ts_next_record(itsold,iusalt,nlvddi,nkn,nlv,soldv)
-	  write(6,*) 'ts_intp: first record read ',ittold,itsold
-
-	  call ts_next_record(ittnew,iutemp,nlvddi,nkn,nlv,tnewv)
-	  call ts_next_record(itsnew,iusalt,nlvddi,nkn,nlv,snewv)
-	  write(6,*) 'ts_intp: second record read ',ittnew,itsnew
-
-	  if( ittold .ne. itsold ) goto 98
-	  if( ittnew .ne. itsnew ) goto 98
-	  if( it .lt. ittold ) goto 99
-
-	  icall = 1
-	end if
-
-c-------------------------------------------------------------
-c read new files if necessary
-c-------------------------------------------------------------
-
-	do while( it .gt. ittnew )
-
-	  ittold = ittnew
-	  call copy_record(nkn,nlvddi,nlv,toldv,tnewv)
-	  itsold = itsnew
-	  call copy_record(nkn,nlvddi,nlv,soldv,snewv)
-
-	  call ts_next_record(ittnew,iutemp,nlvddi,nkn,nlv,tnewv)
-	  call ts_next_record(itsnew,iusalt,nlvddi,nkn,nlv,snewv)
-	  write(6,*) 'ts_intp: new record read ',ittnew,itsnew
-
-	  if( ittnew .ne. itsnew ) goto 98
-
-	end do
-
-c-------------------------------------------------------------
-c interpolate to new time step
-c-------------------------------------------------------------
-
-	call intp_record(nkn,nlvddi,nlv,ittold,ittnew,it
-     +				,toldv,tnewv,tobsv)
-	call intp_record(nkn,nlvddi,nlv,itsold,itsnew,it
-     +				,soldv,snewv,sobsv)
-
-c-------------------------------------------------------------
-c end of routine
-c-------------------------------------------------------------
-
-	return
-   98	continue
-	write(6,*) ittold,itsold,ittnew,itsnew
-	stop 'error stop ts_intp: mismatch time of temp/salt records'
-   99	continue
-	write(6,*) it,ittold
-	stop 'error stop ts_intp: no file for start of simulation'
-	end
-
-c*******************************************************************	
-
 	subroutine ts_init(it0,nlvddi,nlv,nkn,tempv,saltv)
 
 c initialization of T/S from file
 
 	implicit none
-
-	include 'param.h'
 
         integer it0
         integer nlvddi
@@ -864,52 +694,94 @@ c initialization of T/S from file
 	end
 
 c*******************************************************************	
+c*******************************************************************	
+c*******************************************************************	
 
-	subroutine intp_record(nkn,nlvddi,nlv,itold,itnew,it
-     +				,voldv,vnewv,vintpv)
+	subroutine bcl_open_output(ia_out,da_out,itemp,isalt,irho)
 
-c interpolates records to actual time
+c opens output of T/S
+
+	use levels
 
 	implicit none
 
-	integer nkn,nlvddi,nlv
-	integer itold,itnew,it
-	real voldv(nlvddi,1)
-	real vnewv(nlvddi,1)
-	real vintpv(nlvddi,1)
+	integer ia_out(4)
+	double precision da_out(4)
+	integer itemp,isalt,irho
 
-	integer k,l
-	real rt
+	integer nvar,id,ishyff
+	logical has_output
+	logical has_output_d
+	real getpar
 
-        rt = (it-itold) / float(itnew-itold)
+	ishyff = nint(getpar('ishyff'))
 
-	do k=1,nkn
-	  do l=1,nlv
-	    vintpv(l,k) = voldv(l,k) + rt * (vnewv(l,k) - voldv(l,k))
-	  end do
-	end do
+	nvar = 0
+	if( itemp .gt. 0 ) nvar = nvar + 1
+	if( isalt .gt. 0 ) nvar = nvar + 1
+	if( irho  .gt. 0 ) nvar = nvar + 1
+
+	call init_output('itmcon','idtcon',ia_out)
+	if( ishyff == 1 ) ia_out = 0
+
+	if( has_output(ia_out) ) then
+	  call open_scalar_file(ia_out,nlv,nvar,'nos')
+	end if
+
+	call init_output_d('itmcon','idtcon',da_out)
+	if( ishyff == 0 ) da_out = 0
+
+	if( has_output_d(da_out) ) then
+	  call shyfem_init_scalar_file('ts',nvar,.false.,id)
+	  da_out(4) = id
+	end if
 
 	end
 
 c*******************************************************************	
 
-	subroutine copy_record(nkn,nlvddi,nlv,voldv,vnewv)
+	subroutine bcl_write_output(dtime,ia_out,da_out,itemp,isalt,irho)
 
-c copies new record to old one
+c writes output of T/S
+
+	use levels
+	use mod_ts
 
 	implicit none
 
-	integer nkn,nlvddi,nlv
-	real voldv(nlvddi,1)
-	real vnewv(nlvddi,1)
+	double precision dtime
+	integer ia_out(4)
+	double precision da_out(4)
+	integer itemp,isalt,irho
 
-	integer k,l
+	integer id
+	logical next_output
+	logical next_output_d
 
-	do k=1,nkn
-	  do l=1,nlv
-	    voldv(l,k) = vnewv(l,k)
-	  end do
-	end do
+	if( next_output(ia_out) ) then
+	  if( isalt .gt. 0 ) then
+	    call write_scalar_file(ia_out,11,nlvdi,saltv)
+	  end if
+	  if( itemp .gt. 0 ) then
+	    call write_scalar_file(ia_out,12,nlvdi,tempv)
+	  end if
+	  if( irho  .gt. 0 ) then
+	    call write_scalar_file(ia_out,13,nlvdi,rhov)
+	  end if
+	end if
+
+	if( next_output_d(da_out) ) then
+	  id = nint(da_out(4))
+	  if( isalt .gt. 0 ) then
+	    call shy_write_scalar_record(id,dtime,11,nlvdi,saltv)
+	  end if
+	  if( itemp .gt. 0 ) then
+	    call shy_write_scalar_record(id,dtime,12,nlvdi,tempv)
+	  end if
+	  if( irho  .gt. 0 ) then
+	    call shy_write_scalar_record(id,dtime,13,nlvdi,rhov)
+	  end if
+	end if
 
 	end
 
@@ -928,47 +800,12 @@ c accessor routine to get T/S
         integer k,l
         real t,s
 
-	include 'param.h'
-
-
         t = tempv(l,k)
         s = saltv(l,k)
 
         end
 
 c******************************************************************
-
-	subroutine check_layers(what,vals)
-
-	use levels
-	use basin, only : nkn,nel,ngr,mbw
-
-	implicit none
-
-	include 'param.h'
-
-	character*(*) what
-	real vals(nlvdi,nkn)
-
-	integer l,k,lmax
-	real valmin,valmax
-
-	write(6,*) 'checking layer structure : ',what
-
-            do l=1,nlv
-              valmin = +999.
-              valmax = -999.
-              do k=1,nkn
-                lmax = ilhkv(k)
-                if( l .le. lmax ) then
-                  valmin = min(valmin,vals(l,k))
-                  valmax = max(valmax,vals(l,k))
-                end if
-              end do
-              write(6,*) l,valmin,valmax
-            end do
-
-	end
-
+c*******************************************************************	
 c*******************************************************************	
 

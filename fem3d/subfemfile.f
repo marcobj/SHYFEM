@@ -317,7 +317,28 @@ c************************************************************
 c************************************************************
 c************************************************************
 
-	subroutine fem_file_is_fem_file(file,iformat)
+	function fem_file_is_fem_file(file)
+
+c checks if file is fem file
+
+	implicit none
+
+	logical fem_file_is_fem_file
+	character*(*) file	!file name
+
+	integer iformat		!is formatted? -1 for no fem file (return)
+
+	call fem_file_test_fem_file(file,iformat)
+
+	!write(6,*) 'fem_file_is_fem_file: ',trim(file),iformat
+
+	fem_file_is_fem_file = iformat >= 0
+
+	end
+
+c************************************************************
+
+	subroutine fem_file_test_fem_file(file,iformat)
 
 c tries to open fem file for read
 c
@@ -331,7 +352,7 @@ c returns -1 in iformat if no fem file, else iformat indicates format
 	integer nvar,np,ntype
 	logical filex
 
-	iformat = 0
+	iformat = -1
 
 	if( .not. filex(file) ) then
 	  write(6,*) 'file does not exist: ',file
@@ -344,7 +365,32 @@ c returns -1 in iformat if no fem file, else iformat indicates format
 
 c************************************************************
 
-	subroutine fem_file_read_open(file,nexp,iunit,iformat)
+	subroutine fem_file_write_open(file,iformat,iunit)
+
+c opens fem file for write
+
+	implicit none
+
+	character*(*) file	!file name
+	integer iformat		!formatted write?
+	integer iunit		!unit of opened file (return) (0 for error)
+
+	character*80 form
+	integer ifileo
+
+        if( iformat == 0 ) then
+          form='unformatted'
+        else
+          form='formatted'
+        end if
+
+        iunit = ifileo(60,file,form,'unknown')
+
+	end
+
+c************************************************************
+
+	subroutine fem_file_read_open(file,nexp,iformat,iunit)
 
 c opens fem file for read
 
@@ -352,8 +398,8 @@ c opens fem file for read
 
 	character*(*) file	!file name
 	integer nexp		!expected size of data (0 if unknown)
-	integer iunit		!unit of opened file (return) (0 for error)
 	integer iformat		!is formatted? (return)
+	integer iunit		!unit of opened file (return) (0 for error)
 
 	integer nvar,np,ntype
 	integer itype(2)
@@ -541,7 +587,6 @@ c------------------------------------------------------
 	nvar = 0
 	ntype = 0
 	iformat = -1
-	iformat = -ierr
 
 c------------------------------------------------------
 c end of routine
@@ -572,7 +617,7 @@ c returns data description for first record
 	np0 = 0
 	ierr = 1
 
-	call fem_file_read_open(file,np0,iunit,iformat)
+	call fem_file_read_open(file,np0,iformat,iunit)
 	if( iunit .le. 0 ) return
 
 	call fem_file_read_params(iformat,iunit,dtime

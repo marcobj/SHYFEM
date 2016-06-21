@@ -1,4 +1,115 @@
 
+17.06.2016
+
+c ./femplot/col.f:
+c 15.06.2016    ggu     adjcoltab deleted
+c
+c ./femplot/supano.f:
+c 17.06.2016  ccf     include kn units and correct date/time for tzshow
+c
+c ./fem3d/newnohydro.f:
+c 17.06.2016    ggu&wjm adapted to new version
+c
+c ./fem3d/subnsh.f:
+c 16.06.2016    wjm     added check for section nonhyd 
+c
+c ./fem3d/subfemintp.f:
+! 16.06.2016	ggu	new routine to check nvar: iff_get_file_nvar()
+!
+c ./fem3d/arc/newnohydro_real.f:
+c 15.06.2016    wjm     modified
+c
+c ./fem3d/mod_hydro_print.f:
+! 17.06.2016    ggu     wprv is now from 1:nlv
+c
+c ./fem3d/newtra.f:
+c 17.06.2016	ggu	adjust code to reflect that wprv now starts from 1
+
+
+14.06.2016
+
+c ./femplot/shyplot.f:
+! 13.06.2016    ggu     shyplot now plots barotropic vars (layer==0)
+c
+c ./fem3d/shyelab1.f:
+! 10.06.2016    ggu     shydiff included
+c
+c ./fem3d/newexpl.f:
+c 14.06.2016    dbf     diff. vertical momentum advection schemes implemented
+c
+c ./fem3d/newbcl.f:
+c 14.06.2016    ggu     open and write of file in own subroutine
+
+
+10.06.2016
+
+c ./femplot/shyplot.f:
+! 10.06.2016    ggu     shyplot now plots fem files
+c
+c ./fem3d/subfemintp.f:
+! 07.06.2016	ggu	check if file has desired number of variables nvar
+! 08.06.2016	ggu	handle case where no depth is given in file and sigma
+! 09.06.2016	ggu	integrate_vertical eliminated (use interpolate)
+! 10.06.2016	ggu	handle iff_init() call with nvar == 0
+!
+c ./fem3d/subnsa.f:
+c 07.06.2016	ggu	use both varid and varname to decide on section reading
+c
+c ./fem3d/newconz.f:
+c 10.06.2016    ggu     some more re-formatting
+c
+c ./fem3d/subbas.f:
+c 10.06.2016	ggu	new routine for inserting regular grid
+c
+c ./fem3d/newbcl.f:
+c 10.06.2016    ggu     not used routines deleted
+
+
+06.06.2016
+
+c ./fem3d/subgrd.f:
+c 06.06.2016    ggu     bstop substituted with berr, new accessor routines
+c
+c ./fem3d/subtsuvfile.f:
+c 06.06.2016    ggu	tracer_file routines changed
+c
+c ./fem3d/netcdf.f:
+c 31.05.2016    ggu	changed time variable to double precision
+c
+c ./fem3d/subclo.f:
+! 01.06.2016    ggu     new routine clo_hide_option() and -hh,-fullhelp
+!
+c ./fem3d/newconz.f:
+c 06.06.2016    ggu     initialization from file changed
+c
+c ./fem3d/sublin.f:
+c 06.06.2016    ggu     module added, new routines for bnd and grd lines
+c
+c ./fem3d/newbfm.f:
+c 06.06.2016    ggu         initialization from file changed
+
+
+30.05.2016
+
+c ./femplot/supdep.f:
+c 27.05.2016    ggu     mkhkv,mkhev deleted
+c
+c ./femplot/suplin.f:
+c 27.05.2016    ggu     some restructuring to lower dependencies
+c
+c ./fem3d/subnsh.f:
+c 26.05.2016    ggu     new check for sections: count_sections()
+c
+c ./fem3d/newini.f:
+c 30.05.2016    ggu     changes in set_last_layer(), possible bug fix ilytyp==1
+c
+c ./fem3d/subclo.f:
+! 30.05.2016    ggu     new routine clo_add_com() (identical to clo_add_sep)
+!
+c ./fem3d/subshyutil.f:
+! 26.05.2016    ggu     new routines for opening and writing scalar file
+
+
 25.05.2016
 
 c ./fem3d/mercury.f:

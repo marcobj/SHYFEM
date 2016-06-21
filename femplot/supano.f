@@ -38,6 +38,7 @@ c 05.03.2014  ggu     in annotation use date information
 c 16.10.2014  ggu     annotes doesnt need it anymore
 c 06.05.2015  ggu     prepared for logarithmic color bar
 c 05.06.2015  ggu     new keyword vart in legend for variable text
+c 17.06.2016  ccf     include kn units and correct date/time for tzshow
 c
 c***************************************************************
 
@@ -49,7 +50,6 @@ c writes annotation for simulation
 
 	character*(*) var
 
-	include 'param.h'
 	include 'simul.h'
 
 	character*80 line
@@ -571,9 +571,9 @@ c******************************************************************
 
 c shell for color bar
 
-	implicit none
+	use color
 
-	include 'color.h'
+	implicit none
 
 	character*80 line
 	integer ndec
@@ -672,6 +672,7 @@ c color
 	brotate = .true.	!rotate numbers for vertical color bar
 
 	if( bdebug ) write(6,*) 'colbar: ',bhoriz,brotate
+	if( bdebug ) call write_color_table
 
 c blanking of window
 
@@ -708,7 +709,9 @@ c dx,dy is width of box
 
 c plot single boxes - dxc/dyc are width/height of single color box
 
-	call set_auto_color_table
+	if( bdebug ) call write_color_table
+	!call set_auto_color_table
+	if( bdebug ) call write_color_table
 
 	xlow = x0
 	ylow = y0
@@ -735,7 +738,9 @@ c plot single boxes - dxc/dyc are width/height of single color box
 	  end if
 	end do
 
-	call reset_auto_color_table
+	if( bdebug ) call write_color_table
+	!call reset_auto_color_table
+	if( bdebug ) call write_color_table
 
 c write legend
 
@@ -1464,6 +1469,9 @@ c plots date legend
         integer sdate,idate
         save sdate,idate
 
+	real, save :: tzshow
+	integer itl
+
         integer icall
         save icall
         data icall /0/
@@ -1496,6 +1504,7 @@ c plots date legend
           xdate = getpar('xdate')
           ydate = getpar('ydate')
           sdate = nint(getpar('sdate'))
+          tzshow = getpar('tzshow')
 
 	  call make_absolute1(xdate,ydate)
 
@@ -1513,29 +1522,31 @@ c plots date legend
 
 	call ptime_get_itime(it)
 
+	itl = it + nint(tzshow*3600)		!correct for time zone
+
         if( idate .eq. 1 ) then
-          call dtsgf(it,line)
-	  write(6,*) 'date/time for plot: ',it,'  ',line
+          call dtsgf(itl,line)
+	  write(6,*) 'date/time for plot: ',itl,'  ',line
         else if( idate .eq. 2 ) then
-          iday = it / 86400
-          ihour = (it - iday*86400 ) / 3600       !not yet finished
+          iday = itl / 86400
+          ihour = (itl - iday*86400 ) / 3600       !not yet finished
           year = 2002
           jd = iday
           if( jd .le. 0 ) jd = 1
-          write(6,*) 'legdate: ',it,iday,jd,ihour
+          write(6,*) 'legdate: ',itl,iday,jd,ihour
           call j2date(jd,year,month,day)
           call month_name(month,name)
           !write(line,'(a,i2,1x,a3,1x,i4)') 'data ',day,name,year
           write(line,'(i2,1x,a3,1x,i4)') day,name,year
         else if( idate .eq. 3 ) then
-          call dtsgf(it,line)
+          call dtsgf(itl,line)
 	  line(11:12) = '  '
-	  write(6,*) 'date/time for plot: ',it,'  ',line
+	  write(6,*) 'date/time for plot: ',itl,'  ',line
         else if( idate .eq. 4 ) then
-          call dtsgf(it,line)
+          call dtsgf(itl,line)
 	  line(11:12) = '  '
 	  line(23:25) = 'GMT'
-	  write(6,*) 'date/time for plot: ',it,'  ',line
+	  write(6,*) 'date/time for plot: ',itl,'  ',line
         else
           write(6,*) 'idate = ',idate
           stop 'error stop legdate: impossible value for idate'
@@ -1666,7 +1677,7 @@ c ivel = 4      waves
 
 	character*80 title,unit
 	integer ndec
-	real fact,arrlen,sclvel
+	real fact,arrlen,sclvel,eps
 	real x0,y0,x1,y1
 	logical bdebug
 
@@ -1676,6 +1687,8 @@ c ivel = 4      waves
 
 	bdebug = .true.
 	bdebug = .false.
+
+	eps = 1.e-3
 
 	if( .not. inboxdim('arr',x0,y0,x1,y1) ) return
 
@@ -1699,6 +1712,8 @@ c ivel = 4      waves
 	    unit = ' cm/s'
 	  else if( fact .eq. 1000. ) then
 	    unit = ' mm/s'
+          else if( abs(fact-1.9438445) < eps ) then   !ccf
+            unit = ' Kn'
 	  else
 	    unit = ' m/s'
 	    call make_unit(fact,unit)
@@ -2063,9 +2078,6 @@ c	+---+---+
 	integer ia(ndim,ndim)
 
 	integer iqc(4)
-
-
-	include 'param.h'
 
 	character*80 line
 	integer i,j,k,n

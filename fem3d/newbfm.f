@@ -10,6 +10,7 @@ c						shell for conz (new version)
 c revision log :
 c
 c 22.02.2016    ggu&eps     new bfm routines created from newconz
+c 06.06.2016    ggu         initialization from file changed
 c
 c*********************************************************************
 
@@ -36,8 +37,10 @@ c*********************************************************************
 
         integer, save, allocatable :: idbfm(:)
         integer, save :: ia_out(4)
+        double precision, save :: da_out(4)
 
-        real, save, allocatable :: bfm_defs(:)
+        real, save, allocatable :: bfminit(:)
+        real, save, allocatable :: bfmbound(:)
 
 	character*3, save :: what = 'bfm'
 
@@ -90,11 +93,11 @@ c initializes bfm computation
 
 	include 'femtime.h'
 
-	integer nvar,nbc,nintp,i
-	integer nmin
+	integer nvar,nbc,nintp,i,id
+	integer nmin,ishyff
 	double precision dtime0
 
-	logical has_restart,has_output
+	logical has_restart,has_output,has_output_d
 	integer nbnds
 	real getpar
 
@@ -121,22 +124,33 @@ c-------------------------------------------------------------
 	!cref=getpar('conref')
 	rkpar=getpar('chpar')
 	difmol=getpar('difmol')
+        ishyff = nint(getpar('ishyff'))
+	dtime0 = itanf
 
 	nvar = ibfm_state
-	allocate(bfm_defs(nvar))
-	bfm_defs = 0.				!default boundary condition
+	allocate(bfminit(nvar))
+	allocate(bfmbound(nvar))
+	bfminit = 0.				!default initial condition
+	bfmbound = 0.				!default boundary condition
 
         if( .not. has_restart(4) ) then	!no restart of conzentrations
-	  do i=1,nvar
-	    call conini0(nlvdi,bfmv(1,1,i),bfm_defs(i))
-	  end do
-	  call bfm_init_file(itanf,nvar,nlvdi,nlv,nkn,bfmv) !read from file
+	  call bfm_init_file(dtime0,nvar,nlvdi,nlv,nkn,bfminit,bfmv)
 	end if
 
         call init_output('itmcon','idtcon',ia_out)
+	if( ishyff == 1 ) ia_out = 0
+
 	if( has_output(ia_out) ) then
           call open_scalar_file(ia_out,nlv,nvar,'bfm')
 	end if
+
+        call init_output_d('itmcon','idtcon',da_out)
+        if( ishyff == 0 ) da_out = 0
+
+        if( has_output_d(da_out) ) then
+          call shyfem_init_scalar_file('bfm',nvar,.false.,id)
+          da_out(4) = id
+        end if
 
         call getinfo(ninfo_bfm)
 
@@ -144,10 +158,9 @@ c-------------------------------------------------------------
         allocate(idbfm(nbc))
         idbfm = 0
 
-	dtime0 = itanf
 	nintp = 2
         call bnds_init_new(what,dtime0,nintp,nvar,nkn,nlv
-     +				,bfm_defs,idbfm)
+     +				,bfmbound,idbfm)
 
 	end subroutine bfm_init
 
@@ -228,11 +241,12 @@ c*********************************************************************
 
 	include 'femtime.h'
 
-	integer id,nvar,i
+	integer id,nvar,i,idbase,idc
         real cmin,cmax,ctot
 	real v1v(nkn)
+	double precision dtime
 
-	logical next_output
+	logical next_output,next_output_d
 
 	if( ibfm < 0 ) return
 
@@ -240,13 +254,25 @@ c-------------------------------------------------------------
 c write to file
 c-------------------------------------------------------------
 
+	idbase = 30
+	idbase = 600
+	dtime = t_act
+	nvar = ibfm_state
+
 	if( next_output(ia_out) ) then
-	    nvar = ibfm_state
-	    do i=1,nvar
-	      id = 30 + i
-	      call write_scalar_file(ia_out,id,nlvdi,bfmv(1,1,i))
-	    end do
+	  do i=1,nvar
+	    idc = idbase + i
+	    call write_scalar_file(ia_out,idc,nlvdi,bfmv(1,1,i))
+	  end do
 	end if
+
+        if( next_output_d(da_out) ) then
+          id = nint(da_out(4))
+	  do i=1,nvar
+	    idc = idbase + i
+            call shy_write_scalar_record(id,dtime,idc,nlvdi,bfmv(1,1,i))
+	  end do
+        end if
 
 c-------------------------------------------------------------
 c write to info file
@@ -264,38 +290,22 @@ c*********************************************************************
 
 c*********************************************************************
 
-        subroutine bfm_init_file(it,nvar,nlvddi,nlv,nkn,cnv)
+        subroutine bfm_init_file(dtime,nvar,nlvddi,nlv,nkn,val0,val)
 
 c initialization of bfm from file
 
         implicit none
 
-        include 'param.h'
-
-        integer it
+	double precision dtime
         integer nvar
         integer nlvddi
         integer nlv
         integer nkn
-        real cnv(nlvddi,nkn)
+	real val0(nvar)
+        real val(nlvddi,nkn,nvar)
 
-        character*80 bfm_file
-
-        integer itc
-        integer iubfm(3)
-
-        call getfnm('bfmini',bfm_file)
-
-	itc = it
-
-        if( bfm_file .ne. ' ' ) then
-          write(6,*) 'bfm_init_file: opening file for concentration'
-          call tracer_file_open(bfm_file,it,nvar,nkn,nlv,iubfm)
-	  call tracer_file_descrp(iubfm,'bfm init')
-          call tracer_next_record(itc,iubfm,nvar,nlvddi,nkn,nlv,bfmv)
-          call tracer_file_close(iubfm)
-          write(6,*) 'bfm variables initialized from file ',bfm_file
-        end if
+        call tracer_file_init('bfm init','bfmini',dtime
+     +                          ,nvar,nlvddi,nlv,nkn,val0,val)
 
 	end subroutine bfm_init_file
 

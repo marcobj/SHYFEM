@@ -139,7 +139,7 @@ c--------------------------------------------------------------
 	call init_sigma_info(nlv,hlv)
 
 	if( bneedbasin ) then
-	  call outfile_make_hkv(nkn,nel,nen3v,hev,hkv)
+	  call outfile_make_hkv(nkn,nel,nen3v,hm3v,hev,hkv)
 	  call ev_init(nelous)
           call set_ev
 	  call ilhe2k(nkn,nel,nen3v,ilhv,ilhkv)
@@ -313,7 +313,8 @@ c--------------------------------------------------------------
               call transp2vel(nel,nkn,nlv,nlvdi,hev,zenv,nen3v
      +                          ,ilhv,hlv,utlnv,vtlnv
      +                          ,uprv,vprv)
-	      call gis_write_hydro(it,nlvdi,ilhkv,znv,uprv,vprv)
+	      call gis_write_hydro(dtime,nkn,nlvdi,ilhkv
+     +				,znv,uprv,vprv,xgv,ygv)
 	    else
 	     if( b2d ) then
 	      call new_write_record(nb,it,1,nndim,nvar,vars2d,ierr)

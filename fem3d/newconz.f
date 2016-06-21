@@ -20,6 +20,8 @@ c 10.07.2014    ggu     only new file format allowed
 c 20.10.2014    ggu     pass ids to scal_adv routines
 c 10.02.2015    ggu     call to bnds_read_new() introduced
 c 09.11.2015    ggu     newly structured in init, compute and write
+c 06.06.2016    ggu     initialization from file changed
+c 10.06.2016    ggu     some more re-formatting
 c
 c*********************************************************************
 
@@ -58,12 +60,15 @@ c initializes tracer computation
 
 	include 'femtime.h'
 
-	integer nvar,nbc,nintp,i
+	integer nvar,nbc,nintp,i,id,idc
+	integer ishyff
 	integer nmin
 	real cdef(1)
-	double precision dtime0
+	double precision dtime,dtime0
 
-	logical has_restart,has_output
+	logical has_restart
+	logical has_output,next_output
+	logical has_output_d,next_output_d
 	integer nbnds
 	real getpar
 
@@ -91,28 +96,59 @@ c-------------------------------------------------------------
 	rkpar=getpar('chpar')
 	difmol=getpar('difmol')
 	contau = getpar('contau')
+	ishyff = nint(getpar('ishyff'))
 
+	dtime = t_act
 	nvar = iconz
 	allocate(tauv(nvar),cdefs(nvar),massv(nvar))
+	cdefs = cref
 	tauv = contau
 	nmin = min(ndim_tau,nvar)
 	if( nmin > 0 ) tauv(1:nmin) = taupar(1:nmin)
 
         if( .not. has_restart(4) ) then	!no restart of conzentrations
 	  if( nvar == 1 ) then 
-	    call conini0(nlvdi,cnv,cref)
-	    call conz_init(itanf,nlvdi,nlv,nkn,cnv) !read from file
+	    call conz_init_file(dtime,nvar,nlvdi,nlv,nkn,cdefs,cnv)
 	  else
-	    do i=1,nvar
-	      call conini0(nlvdi,conzv(1,1,i),cref)
-	    end do
+	    call conz_init_file(dtime,nvar,nlvdi,nlv,nkn,cdefs,conzv)
 	  end if
 	end if
 
         call init_output('itmcon','idtcon',ia_out)
+	if( ishyff == 1 ) ia_out = 0
 	if( has_output(ia_out) ) then
           call open_scalar_file(ia_out,nlv,nvar,'con')
+	  if( next_output(ia_out) ) then
+	    if( nvar == 1 ) then
+              idc = 10       !for tracer
+	      call write_scalar_file(ia_out,idc,nlvdi,cnv)
+	    else if( nvar > 1 ) then
+	      do i=1,nvar
+	        idc = 30 + i
+	        call write_scalar_file(ia_out,idc,nlvdi,conzv(1,1,i))
+	      end do
+	    end if
+	  end if
 	end if
+
+        call init_output_d('itmcon','idtcon',da_out)
+        if( ishyff == 0 ) da_out = 0
+        if( has_output_d(da_out) ) then
+	  call shyfem_init_scalar_file('conz',nvar,.false.,id)
+          da_out(4) = id
+          if( next_output_d(da_out) ) then
+	    if( nvar == 1 ) then
+	      idc = 10
+	      call shy_write_scalar_record(id,dtime,idc,nlvdi,cnv)
+	    else
+	      do i=1,nvar
+	        idc = 30 + i
+	        call shy_write_scalar_record(id,dtime,idc,nlvdi
+     +						,conzv(1,1,i))
+	      end do
+            end if
+          end if
+        end if
 
         call getinfo(ninfo)
 
@@ -262,11 +298,12 @@ c*********************************************************************
 
 	include 'femtime.h'
 
-	integer id,nvar,i
+	integer id,nvar,i,idc
         real cmin,cmax,ctot
 	real v1v(nkn)
+	double precision dtime
 
-	logical next_output
+	logical next_output,next_output_d
 
 	if( iconz < 0 ) return
 
@@ -274,18 +311,36 @@ c-------------------------------------------------------------
 c write to file
 c-------------------------------------------------------------
 
+	dtime = t_act
+	nvar = iconz
+
 	if( next_output(ia_out) ) then
-	  if( iconz == 1 ) then
-            id = 10       !for tracer
-	    call write_scalar_file(ia_out,id,nlvdi,cnv)
-	  else if( iconz > 1 ) then
-	    nvar = iconz
+	  if( nvar == 1 ) then
+            idc = 10       !for tracer
+	    call write_scalar_file(ia_out,idc,nlvdi,cnv)
+	  else if( nvar > 1 ) then
 	    do i=1,nvar
-	      id = 30 + i
-	      call write_scalar_file(ia_out,id,nlvdi,conzv(1,1,i))
+	      idc = 30 + i
+	      call write_scalar_file(ia_out,idc,nlvdi,conzv(1,1,i))
 	    end do
 	  end if
 	end if
+
+        if( next_output_d(da_out) ) then
+	  id = nint(da_out(4))
+	  if( nvar == 1 ) then
+            idc = 10       !for tracer
+	    call shy_write_scalar_record(id,dtime,idc,nlvdi,cnv)
+	  else if( nvar > 1 ) then
+	    do i=1,nvar
+	      idc = 30 + i
+	      call shy_write_scalar_record(id,dtime,idc,nlvdi
+     +						,conzv(1,1,i))
+	    end do
+          end if
+        end if
+
+        call getinfo(ninfo)
 
 c-------------------------------------------------------------
 c write to info file
@@ -521,8 +576,6 @@ c simulates decay for concentration
 
         implicit none
 
-        include 'param.h'
-
 	real alpha_t90
 	!parameter( alpha_t90 = 1./2.302585 )	!-1./ln(0.1) - prob wrong
 	parameter( alpha_t90 = 2.302585 )	!-1./ln(0.1)
@@ -561,8 +614,6 @@ c simulates decay for concentration
 	use basin, only : nkn,nel,ngr,mbw
 
         implicit none
-
-        include 'param.h'
 
 	real alpha_t90
 	parameter( alpha_t90 = 1./2.302585 )	!-1./ln(0.1)
@@ -606,37 +657,22 @@ c simulates decay for concentration
 
 c*********************************************************************
 
-        subroutine conz_init(it,nlvddi,nlv,nkn,cnv)
+        subroutine conz_init_file(dtime,nvar,nlvddi,nlv,nkn,val0,val)
 
 c initialization of conz from file
 
-        implicit none
+	implicit none
 
-        include 'param.h'
-
-        integer it
+	double precision dtime
+	integer nvar
         integer nlvddi
         integer nlv
         integer nkn
-        real cnv(nlvddi,1)
+        real val0(nvar)
+        real val(nlvddi,nkn,nvar)
 
-        character*80 conzf
-
-        integer itc
-        integer iuconz(3)
-
-        call getfnm('conzin',conzf)
-
-	itc = it
-
-        if( conzf .ne. ' ' ) then
-          write(6,*) 'conz_init: opening file for concentration'
-          call ts_file_open(conzf,it,nkn,nlv,iuconz)
-	  call ts_file_descrp(iuconz,'conz init')
-          call ts_next_record(itc,iuconz,nlvddi,nkn,nlv,cnv)
-          call ts_file_close(iuconz)
-          write(6,*) 'concentration initialized from file ',conzf
-        end if
+        call tracer_file_init('conz init','conzin',dtime
+     +                          ,nvar,nlvddi,nlv,nkn,val0,val)
 
 	end
 
