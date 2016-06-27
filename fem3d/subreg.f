@@ -74,6 +74,7 @@ c 07.07.2014	ggu	new routine intp_reg()
 c 25.09.2015	ggu	new routines intp_reg_nodes(), intp_reg_elems()
 c 05.05.2016	ggu	file restructured (module)
 c 14.05.2016	ggu	allow for extension of grid -> bregextend
+c 23.06.2016	ggu	allow for eps in computing box
 c
 c notes :
 c
@@ -240,6 +241,48 @@ c******************************************************
 	dx = regpar(5)
 	dy = regpar(6)
 	flag = regpar(7)
+
+	end
+
+c******************************************************
+c******************************************************
+c******************************************************
+
+	subroutine find_position_to_coord(x,y,ix,iy)
+
+! finds closest position (ix,iy) to coordinate (x,y) in reg grid
+
+	implicit none
+
+	real x,y
+	integer ix,iy
+
+	real x0,y0,dx,dy,flag
+
+	call getgeo(x0,y0,dx,dy,flag)
+
+	ix = nint( (x-x0)/dx + 1. )
+	iy = nint( (y-y0)/dy + 1. )
+
+	end
+
+c******************************************************
+
+	subroutine find_coord_to_position(ix,iy,x,y)
+
+! finds coordinate (x,y) to given position (ix,iy) in reg grid
+
+	implicit none
+
+	integer ix,iy
+	real x,y
+
+	real x0,y0,dx,dy,flag
+
+	call getgeo(x0,y0,dx,dy,flag)
+
+	x = x0 + (ix-1)*dx
+	y = y0 + (iy-1)*dy
 
 	end
 
@@ -601,24 +644,25 @@ c************************************************
 c************************************************
 c************************************************
 
-	subroutine fm_extra_setup(nx,ny,fm,fmextra)
+	subroutine fm_extra_setup(nx,ny,fmextra)
+
+! sets up fmextra structure to allow interpolation from fem nodes to reg grid
 
 	use basin
 
 	implicit none
 
         integer nx,ny			!dimension of regular matrix
-        real fm(4,nx,ny)		!interpolation matrix
 	real fmextra(6,nkn)
 
-	logical bout
+	logical bout,berror
 	integer ix,iy,iix,iiy
 	integer j,k
 	real x0,y0,dx,dy
 	real x,y,x1,y1
 	real eps,flag
 	real t,u
-	double precision d
+	double precision d,w,d2
 
 	integer, save :: jx(4) = (/0,1,1,0/)
 	integer, save :: jy(4) = (/0,0,1,1/)
@@ -630,6 +674,11 @@ c************************************************
 
 	call getgeo(x0,y0,dx,dy,flag)
 
+!	---------------------------------------------------------
+!	set up contribution from each fem node to regular grid
+!	---------------------------------------------------------
+
+	berror = .false.
 	do k=1,nkn
 	  x = xgv(k)
 	  y = ygv(k)
@@ -642,25 +691,41 @@ c************************************************
 	  t = (x-x1)/dx
 	  u = (y-y1)/dy
 	  bout = .false.
-	  if( u.gt.1. .or. u.lt.0. ) bout = .true.
 	  if( t.gt.1. .or. t.lt.0. ) bout = .true.
+	  if( u.gt.1. .or. u.lt.0. ) bout = .true.
 	  if( bout ) then
-	    stop 'error stop fm_complete_intp: internal error (1)'
+	    write(6,*) 'out of domain: ',k,ix,iy,x0,y0,x1,y1,x,y,t,u
+	    berror = .true.
 	  end if
 	  fmextra(1,k) = ix
 	  fmextra(2,k) = iy
 	  do j=1,4
 	    iix = ix+jx(j)
 	    iiy = iy+jy(j)
-	    if( fm(4,iix,iiy) == 0 ) then
+	    !if( fm(4,iix,iiy) == 0 ) then
 	      x1 = x0+(iix-1)*dx
 	      y1 = y0+(iiy-1)*dy
-	      d = sqrt( (x1-x)**2 + (y1-y)**2 )
-	      fmextra(2+j,k) = 2. - d
-	      fmweight(iix,iiy) = fmweight(iix,iiy) + d
-	    end if
+	      d2 = ((x1-x)/dx)**2 + ((y1-y)/dy)**2	!normalized distance
+	      d = sqrt( d2 )
+	      if( d2 > 2. ) then
+		write(6,*) 'distance too large: ',ix,iy,iix,iiy,d,d2
+		berror = .true.
+	      end if
+	      !w = 2. - d			!weight - could be gaussian
+	      w = exp(-d2/2.)			!sigma is 1
+	      fmextra(2+j,k) = w
+	      fmweight(iix,iiy) = fmweight(iix,iiy) + w
+	    !end if
 	  end do
 	end do
+
+	if( berror ) then
+	  stop 'error stop fm_extra_setup: internal error (3)'
+	end if
+
+!	---------------------------------------------------------
+!	scale weight to 1
+!	---------------------------------------------------------
 
 	do k=1,nkn
 	  ix = nint(fmextra(1,k))
@@ -669,14 +734,16 @@ c************************************************
 	  do j=1,4
 	    iix = ix+jx(j)
 	    iiy = iy+jy(j)
-	    if( fm(4,iix,iiy) == 0 ) then
-	      d = fmweight(iix,iiy)
-	      if( d > 0. ) fmextra(2+j,k) = fmextra(2+j,k) / d
-	    end if
+	    !if( fm(4,iix,iiy) == 0 ) then
+	      w = fmweight(iix,iiy)
+	      if( w > 0. ) fmextra(2+j,k) = fmextra(2+j,k) / w
+	    !end if
 	  end do
 	end do
 
-!	from here do check	ggguuu
+!	---------------------------------------------------------
+!	check if weight sums up to 1
+!	---------------------------------------------------------
 
 	fmweight = 0.
 
@@ -687,23 +754,170 @@ c************************************************
 	  do j=1,4
 	    iix = ix+jx(j)
 	    iiy = iy+jy(j)
-	    if( fm(4,iix,iiy) == 0 ) then
-	      d = fmextra(2+j,k)
-	      fmweight(iix,iiy) = fmweight(iix,iiy) + d
-	    end if
+	    !if( fm(4,iix,iiy) == 0 ) then
+	      w = fmextra(2+j,k)
+	      fmweight(iix,iiy) = fmweight(iix,iiy) + w
+	    !end if
 	  end do
 	end do
 
+	berror = .false.
 	do iy=1,ny
 	  do ix=1,nx
-	    d = fmweight(ix,iy)
-	    if( d > 0 ) then
-	      if( abs(d-1.) > eps ) then
-		write(6,*) 'error... ',ix,iy,d
+	    w = fmweight(ix,iy)
+	    if( w > 0 ) then
+	      if( abs(w-1.) > eps ) then
+		berror = .true.
+		write(6,*) 'error... ',ix,iy,w
 	      end if
 	    end if
 	  end do
 	end do
+
+	if( berror ) then
+	  stop 'error stop fm_extra_setup: internal error (2)'
+	end if
+
+!	---------------------------------------------------------
+!	end of routine
+!	---------------------------------------------------------
+
+	end
+
+c************************************************
+
+	subroutine fm_extra_3d(nlvdi,nlv,il,nx,ny,fmextra,femdata,regdata)
+
+! interpolates from fem to reg grid using fmextra structure
+!
+! interpolation is done only in points that have flag set
+
+	use basin
+
+	implicit none
+
+	integer nlvdi,nlv
+	integer il(nkn)
+        integer nx,ny			!dimension of regular matrix
+	real fmextra(6,nkn)
+	real femdata(nlvdi,nkn)
+	real regdata(nlvdi,nx,ny)
+
+	integer k,l,lmax
+	real flag
+	real fem2d(nkn)
+	real reg2d(nx,ny)
+
+	call getgeoflag(flag)
+
+!	---------------------------------------------------------
+!	make sure fem data below bottom is flag
+!	---------------------------------------------------------
+
+	do k=1,nkn
+	  lmax = il(k)
+	  femdata(lmax+1:nlvdi,k) = flag
+	end do
+
+!	---------------------------------------------------------
+!	interpolate layer by layer
+!	---------------------------------------------------------
+
+	do l=1,nlv
+	  fem2d(:) = femdata(l,:)
+	  reg2d(:,:) = regdata(l,:,:)
+	!write(6,*) l,nx,ny,nx*ny
+	!write(6,*) (fem2d(k),k=1,nkn,nkn/20)
+	!write(6,*) 'before'
+	!write(6,*) reg2d
+	  call fm_extra_2d(nx,ny,fmextra,fem2d,reg2d)
+	  regdata(l,:,:) = reg2d(:,:)
+	!write(6,*) 'after'
+	!write(6,*) reg2d
+	end do
+
+!	---------------------------------------------------------
+!	end of routine
+!	---------------------------------------------------------
+
+	end
+
+c************************************************
+
+	subroutine fm_extra_2d(nx,ny,fmextra,femdata,regdata)
+
+! interpolates from fem to reg grid using fmextra structure
+!
+! interpolation is done only in points that have flag set
+
+	use basin
+
+	implicit none
+
+        integer nx,ny			!dimension of regular matrix
+	real fmextra(6,nkn)
+	real femdata(nkn)
+	real regdata(nx,ny)
+
+	integer ix,iy,iix,iiy
+	integer j,k
+	real x0,y0,dx,dy
+	real eps,flag
+	real regval,femval
+	double precision d,w
+
+	integer, save :: jx(4) = (/0,1,1,0/)
+	integer, save :: jy(4) = (/0,0,1,1/)
+	double precision fmweight(nx,ny)
+	double precision fmdata(nx,ny)
+
+	eps = 0.01
+	fmweight = 0.
+	fmdata = 0.
+
+	call getgeoflag(flag)
+
+!	---------------------------------------------------------
+!	accumulate on regular grid (only where flag is set)
+!	---------------------------------------------------------
+
+	do k=1,nkn
+	  ix = nint(fmextra(1,k))
+	  iy = nint(fmextra(2,k))
+	  if( ix == 0 .or. iy == 0 ) cycle
+	  femval = femdata(k)
+	  if( femval == flag ) cycle
+	  do j=1,4
+	    iix = ix+jx(j)
+	    iiy = iy+jy(j)
+	    regval = regdata(iix,iiy)
+	    if( regval /= flag ) cycle
+	    w = fmextra(2+j,k)
+	!write(6,*) ix,iy,iix,iiy,femval,regval,w
+	!write(6,*) ix,iy,iix,iiy,femval,regval
+	    fmweight(iix,iiy) = fmweight(iix,iiy) + w
+	    fmdata(iix,iiy) = fmdata(iix,iiy) + w * femval
+	  end do
+	end do
+	!write(6,*) 'fmweight'
+	!write(6,*) fmweight
+	!write(6,*) regdata
+
+!	---------------------------------------------------------
+!	correct for weight and set where flag
+!	---------------------------------------------------------
+
+	where ( fmweight > 0. ) 
+	  fmdata = fmdata / fmweight
+	else where
+	  fmdata = flag
+	end where
+	!write(6,*) fmdata
+	where ( regdata == flag ) regdata = fmdata
+
+!	---------------------------------------------------------
+!	end of routine
+!	---------------------------------------------------------
 
 	end
 
@@ -956,10 +1170,15 @@ c		> 0	flag found in interpolation data
 	real xn,yn
 	real zz(4)
  
-	bintpout = .false.	!interpolate even if outside
-	bintpout = .true.	!interpolate even if outside
-	bintpflag = .false.	!interpolate even if flag
-	bintpflag = .true.	!interpolate even if flag
+	real, parameter :: eps = 1.e-4
+	!real, parameter :: eps = 0.
+	logical outbox
+	outbox(t) = ( t-1. > eps .or. t < -eps )
+
+	!bintpout = .false.	!interpolate even if outside
+	!bintpout = .true.	!interpolate even if outside
+	!bintpflag = .false.	!interpolate even if flag
+	!bintpflag = .true.	!interpolate even if flag
 
 	call getregextend(bextend)
 	bintpout = bextend
@@ -1004,18 +1223,18 @@ c		> 0	flag found in interpolation data
 	    u = (yy-y1)/dy
 
 	    bout = .false.
-	    if( u.gt.1. .or. u.lt.0. ) bout = .true.
-	    if( t.gt.1. .or. t.lt.0. ) bout = .true.
+	    if( outbox(t) ) bout = .true.
+	    if( outbox(u) ) bout = .true.
 	    if( bout ) then
 	      if( bintpout ) then
-	        if( u .le. 2. ) u = min(1.,u)
 	        if( t .le. 2. ) t = min(1.,t)
-	        if( u .ge. -1. ) u = max(0.,u)
+	        if( u .le. 2. ) u = min(1.,u)
 	        if( t .ge. -1. ) t = max(0.,t)
+	        if( u .ge. -1. ) u = max(0.,u)
 	      end if
 	      bout = .false.
-	      if( u.gt.1. .or. u.lt.0. ) bout = .true.
-	      if( t.gt.1. .or. t.lt.0. ) bout = .true.
+	      if( outbox(t) ) bout = .true.
+	      if( outbox(u) ) bout = .true.
 	      if( bout ) then
 		iout = iout + 1
 		cycle
@@ -1046,6 +1265,8 @@ c		> 0	flag found in interpolation data
 	ierr = 0
 	if( iout .gt. 0 ) ierr = - iout - iflag
 	if( iflag .gt. 0 ) ierr = iflag
+
+	!write(6,*) 'intp_reg: ierr = ',ierr,iout,iflag
 
 	return
    99	continue
