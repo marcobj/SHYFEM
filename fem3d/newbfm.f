@@ -11,6 +11,7 @@ c revision log :
 c
 c 22.02.2016    ggu&eps     new bfm routines created from newconz
 c 06.06.2016    ggu         initialization from file changed
+c 28.06.2016    ggu         initialize bfmv, new routine bfm_check()
 c
 c*********************************************************************
 
@@ -74,6 +75,7 @@ c*********************************************************************
 
         if( nkn == 0 ) return
 
+	write(6,*) 'bfm mod init: ',nst,nkn,nlv
         allocate(bfmv(nlv,nkn,nst))
 
         end subroutine mod_bfm_init
@@ -114,6 +116,8 @@ c-------------------------------------------------------------
 
           call mod_bfm_init(ibfm_state,nkn,nlvdi)
 
+	  bfmv = 0.
+
           write(6,*) 'bfm initialized: ',ibfm,nkn,nlvdi
         end if
 
@@ -132,10 +136,15 @@ c-------------------------------------------------------------
 	allocate(bfmbound(nvar))
 	bfminit = 0.				!default initial condition
 	bfmbound = 0.				!default boundary condition
+	!bfmbound = 3.				!default boundary condition
+
+	!call bfm_check('before init')
 
         if( .not. has_restart(4) ) then	!no restart of conzentrations
 	  call bfm_init_file(dtime0,nvar,nlvdi,nlv,nkn,bfminit,bfmv)
 	end if
+
+	!call bfm_check('after init')
 
         call init_output('itmcon','idtcon',ia_out)
 	if( ishyff == 1 ) ia_out = 0
@@ -201,6 +210,8 @@ c-------------------------------------------------------------
 	dtime = it
 	dt = idt
 
+	!call bfm_check('before advect')
+
 	call bnds_read_new(what,idbfm,dtime)
 
 	do i=1,nvar
@@ -220,6 +231,8 @@ c-------------------------------------------------------------
 	end do	
 
 !$OMP TASKWAIT
+
+	!call bfm_check('after advect')
 
 	icall_bfm = icall_bfm + 1
 
@@ -283,6 +296,42 @@ c end of routine
 c-------------------------------------------------------------
 
 	end subroutine bfm_write
+
+c*********************************************************************
+
+	subroutine bfm_check(what)
+
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
+	character*(*) what
+
+	integer iv,nvar,k,l,lmax
+	real vmin,vmax,v
+	character*80 textgen,text,line
+
+	nvar = ibfm_state
+	vmin = -1000.
+	vmax = +1000.
+	textgen = 'NaN check'
+
+	do iv=1,nvar
+	  write(line,'(i3)') iv
+	  text = 'bfmv ' // trim(line) // '  ' // trim(what)
+	  call check2Dr(nlvdi,nlv,nkn,bfmv,vmin,vmax
+     +				,trim(textgen),trim(text))
+	  do k=1,nkn
+	    lmax = ilhkv(k)
+	    do l=1,lmax
+	      v = bfmv(l,k,iv)
+	      if( v <= 0 ) then
+		write(6,*) 'bfm_check: ',iv,k,l,v
+	      end if
+	    end do
+	  end do
+	end do
+
+	end subroutine bfm_check
 
 c*********************************************************************
 c*********************************************************************
