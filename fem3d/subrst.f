@@ -65,6 +65,8 @@
 	integer, save :: ieco_rst = 0
 	integer, save :: iflag_rst = -1
 
+	integer, save :: date_rst = 0
+	integer, save :: time_rst = 0
 !=====================================================================
 	end module mod_restart
 !=====================================================================
@@ -531,6 +533,8 @@
 
 ! returns info on record in restart file and skips data records
 
+	use mod_restart
+
 	implicit none
 
 	integer iunit,it,nvers,nrec,nkn,nel,nlv,iflag,ierr
@@ -543,6 +547,11 @@
 
 	read(iunit,end=2,err=3) it,nvers,nrec
         if( nvers > 8 ) read(iunit) date,time
+
+	nvers_rst = nvers
+	date_rst = date
+	time_rst = time
+
         read(iunit) nkn,nel,nlv
 
 	atime = 0.
@@ -563,6 +572,7 @@
 
 	if( nvers .ge. 5 ) then
 	  read(iunit) ibarcl
+	  ibarcl_rst = ibarcl
 	  if( ibarcl .gt. 0 ) then
 	    iflag = iflag + 100
 	    read(iunit)
@@ -573,6 +583,7 @@
 
 	if( nvers .ge. 6 ) then
 	  read(iunit) iconz
+	  iconz_rst = iconz
 	  if( iconz .gt. 0 ) then
 	    iflag = iflag + 1000
 	    read(iunit)
@@ -581,6 +592,7 @@
 
 	if( nvers .ge. 7 ) then
 	  read(iunit) iwvert
+	  iwvert_rst = iwvert
 	  if( iwvert .gt. 0 ) then
 	    iflag = iflag + 10000
 	    read(iunit)
@@ -589,11 +601,14 @@
 
 	if( nvers .ge. 8 ) then
           read(iunit) ieco
+	  ieco_rst = ieco
           if( ieco .gt. 0 ) then
 	    iflag = iflag + 100000
 	    call skip_restart_eco(iunit)
           end if
         end if
+
+	iflag_rst = iflag
 
 	ierr = 0
 	return
@@ -652,6 +667,9 @@
 	time = 0
 
         if( nvers > 8 ) read(iunit) date,time
+
+	date_rst = date
+	time_rst = time
 
 	atime = 0.
 	if( date > 0 ) call dts_to_abs_time(date,time,atime)
