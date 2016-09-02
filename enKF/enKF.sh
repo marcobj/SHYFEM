@@ -1,23 +1,83 @@
 #!/bin/bash
 #
-# Runs the Ensemble Kalman Filter analysis. It needs a configuration file with 
-# these inputs:
-# - name of the bas file with the extension;
-# - skel-file for the str (it is possible to give a list of nens skel-files, using a standard name "skel_list.txt"); 
-# - name of the list of the restart files. This determines the n of ens members;
-# - name of the list of the observation files, containing rows like: time obs_file.
+# In order to run the Ensemble Kalman Filter you need the following files:
 #
-# You must prepare the restart files to be read at the initial time
-# and the observation files, one at each time.
-#
-# Observations (see read_obs):
-# The file of observations must be written in ascii format, separated by spaces.
-# format:
-# n_of_rows
+# ----------
+# SETTING FILE
+# ----------
+# Must contain these lines:
+# - name of the bas-file with the bas extension;
+# - List of skel-files used to make the str files for the ensemble simulations. One for each ens member;
+# - List of restart files used as background initial states, saved at the time of the first observation. One for each ens member;
+# - List of observation files;
+# - List of observation times in seconds in the same reference as the rst files.
+# 
+# ----------
+# SKEL-FILES
+# ----------
+# It is advisable to make the skel files using the str files used to produce the initial
+# background restart files. skel files must have these lines:
+# - in the "title" section put:
+#   Whatever title of sim
+#   NAMESIM
+#   BASIN
+# - in the "para" section put:
+#   itrst = ITRST
+#   itanf = ITANF
+#   itend = ITEND
+#   nomp = NOMP
+# - in the "name" section put:
+#   restrt = RESTRT
+# 
+# ----------
+# RESTART FILES
+# ----------
+# They must contain just one state, saved at the time of the first observation. The
+# first restart file specified in the list is considered the control forecast, the
+# 0 ensemble member. The list of restart files must be sorted as that of the skel files
+# A possible way to make them is to run initial simulations ending at the first observation
+# time, varying the most uncertain forcings. Then save the final states in restart files
+# and list them.
+# 
+# ----------
+# OBSERVATIO LIST FILE
+# ----------
+# A file with the list of the observation files
+# 
+# ----------
+# TIME LIST FILE
+# ----------
+# A file with the list of the observation times, in seconds
+# 
+# ----------
+# OBSERVATION FILES
+# ----------
+# These can be timeseries or transects/satellite tracks. Only the
+# records with times near the times in the list will be assimilated
+# (default delta t = 300 sec, see read_obs). The format is:
+# ...
 # time obs_type(5 chars) x y z value stand_dev
 # time obs_type(5 chars) x y z value stand_dev
 # ...
+# 
+# time = time in seconds
+# obs_type = specify only "level" at the moment
+# x, y, z = Coordinate of the observation, in the same reference system of the bas file. For level z = 0
+# value = value of the observation
+# stand_dev = standard deviation (estimated error) of the observation
+# 
+# -----------
+# NOTES
+# -----------
+# In order to run the enKF.sh script you need a small GNU program, named
+# "parallel" and liblapack-dev.
+# Installation with Debian from root:
+# apt-get update && apt-get install parallel liblapack-dev
+# Installation with Ubuntu:
+# sudo apt-get update && apt-get install parallel liblapack-dev
+# 
 #
+# 
 #----------------------------------------------------------
 
 # This finds the path of the current script
@@ -26,7 +86,6 @@ SCRIPTPATH=$(dirname $SCRIPT)
 
 FEMDIR=$SCRIPTPATH/..	# fem directory
 SIMDIR=$(pwd)		# current dir
-
 
 
 #----------------------------------------------------------
@@ -75,48 +134,72 @@ Check_num()
 
 Read_conf()
 {
-  echo "Reading configuration file: $1"
+  echo "Read the configuration file: $1"
   Check_file $1
 
   nrows=0
   while read line
   do
+
      # Name of the bas file
      if [ $nrows = 0 ]; then
         bas_file=$line
         Check_file $bas_file
-     # Name of the skel file to make the str files
+
+     # List of the skel files
      elif [ $nrows = 1 ]; then
-        sk_file=$line
-	Check_file $sk_file
+        skel_file_list=$line
+	Check_file $skel_file_list
+
      # List of the initial restart files
      elif [ $nrows = 2 ]; then
         rst_file_list=$line
 	Check_file $rst_file_list
+
      # List of the observation files
      elif [ $nrows = 3 ]; then
         obs_file_list=$line
         Check_file $obs_file_list
+
+     # List of times with observations
+     elif [ $nrows = 4 ]; then
+        obs_time_list=$line
+        Check_file $obs_time_list
+
      else
         echo "Too many rows"
         exit 1
+
      fi
      nrows=$((nrows + 1))
   done < $1
+}
 
-  if [ $sk_file = 'skel_list.txt' ]; then
-     many_skels=1
-     nrows=0
-     while read line
-     do
-        Check_file $line
-        skel_file[$nrows]=$line
-        nrows=$((nrows + 1))
-     done < $sk_file
-     echo "Using different ensemble skel-files for the ens simulations"
-  else
-     many_skels=0
-  fi
+#----------------------------------------------------------
+
+Check_exec(){
+  echo "Check the exec programs"
+  command -v parallel > /dev/null 2>&1 || { echo "I require parallel but it's not installed.  Aborting." >&2; exit 1; }
+  [ ! -s $FEMDIR/fem3d/shyfem ] && echo "shyfem exec does not exist. Compile the model first." && exit 1
+  [ ! -s $FEMDIR/enKF/enkf_analysis ] && echo "enkf_analysis exec does not exist. Compile the enKF first." && exit 1
+}
+
+#----------------------------------------------------------
+
+Read_skel_list(){
+# Reads the list of skel files used to make the str files in the
+# ensemble data assimilation window
+  echo "Read the list of skel files"
+
+  nrow=0
+  while read line
+  do
+     Check_file $line
+     skel_file[$nrow]=$line
+     nrow=$((nrow + 1))
+  done < $skel_file_list
+  nrens=$nrow
+  echo ""; echo "Number of ensemble members: $nrens"; echo ""
 }
 
 #----------------------------------------------------------
@@ -125,7 +208,7 @@ Read_rst_list(){
 # Reads the list of the initial restart files and links them in order
 # to have a standard name (an000_en***b.rst) and determines
 # the size of the ensemble problem (nrens)
-  echo "Reading list of restart files for the initial ensemble"
+  echo "Read the list of restart files"
   
   rm -f an001_en*b.rst
 
@@ -137,32 +220,32 @@ Read_rst_list(){
     ln -s $line an001_en${nel}b.rst
     nrow=$((nrow + 1))
   done < $rst_file_list
-  nrens=$nrow
-  echo "Number of ensemble members: $nrens"
+  if [ $nrow -ne $nrens ]; then
+     echo "The number of restart files differs from the number of skel files"
+     echo "You must specify the same number, which is the dimension of the ensemble"
+     exit 1
+  fi
 }
-
 
 #----------------------------------------------------------
 
-Read_obs_list(){
-# Reads the list of the observation files and determines
+Read_obs_time_list(){
+# Reads the list of the observation times and determines
 # the number of analysis steps (nran)
-  echo "Reading list of observation files"
-  Check_file $obs_file_list
+  echo "Read the list of observation times"
   
-  # timeo nad obsfile starts from 1 as the analysis steps
+  # timeo starts from 1 as the analysis steps
   nrow=1
   while read line
   do
-    timeo[$nrow]=$(echo $line | cut -d " " -f 1)
+    timeo[$nrow]=$line
     Check_num -100000000 100000000 'real' ${timeo[$nrow]}
-    obsfile[$nrow]=$(echo $line | cut -d " " -f 2)
-    Check_file ${obsfile[$nrow]}
     nrow=$((nrow + 1))
-  done < $obs_file_list
+  done < $obs_time_list
   nran=$((nrow - 1))
-  echo "Number of analysis steps: $nran"
+  echo ""; echo "Number of analysis steps: $nran"
 }
+
 
 #----------------------------------------------------------
 
@@ -207,7 +290,8 @@ Write_info_file(){
   echo $nrens > analysis.info		# nr of ens members
   echo $na >> analysis.info		# analysis step
   echo $bas_file >> analysis.info	# name of the basin
-  echo ${obsfile[$na]} >> analysis.info	# obs file
+  echo ${timeo[$na]} >> analysis.info	# current time
+  echo $obs_file_list >> analysis.info	# obs file list
 }
 
 #----------------------------------------------------------
@@ -217,10 +301,10 @@ Run_ensemble_analysis()
 nanl=$(printf "%03d" $1)
 
 # Run fortran program
-cd $FEMDIR/enKF
-make cleanall > make.log
-make enkf_analysis > make.log
-rm -f make.log
+#cd $FEMDIR/enKF
+#make cleanall > make.log
+#make enkf_analysis > make.log
+#rm -f make.log
 
 cd $SIMDIR
 $FEMDIR/enKF/enkf_analysis
@@ -244,12 +328,7 @@ Make_ens_str(){
 strfiles=""
 for (( ne = 0; ne < $nrens; ne++ )); do
 
-   # Use different skel files if a list is provided
-   if [ $many_skels = 1 ]; then
-      ens_skel_file=${skel_file[$ne]}
-   else
-      ens_skel_file=$sk_file
-   fi
+   ens_skel_file=${skel_file[$ne]}
    Check_file $ens_skel_file
 
    nel=$(printf "%03d" $ne); nal=$(printf "%03d" $na)
@@ -259,6 +338,7 @@ for (( ne = 0; ne < $nrens; ne++ )); do
    rstfile="an${nal}_en${nel}a.rst"; strnew="${name_sim}.str"
    SkelStr $name_sim $itrst $itanf $itend $idtout $wdrag $nomp $rstfile $bas_file $ens_skel_file $strnew
    strfiles="$strfiles $strnew"
+
 done
 }
 
@@ -274,11 +354,17 @@ else
    Usage
 fi
 
+# Checking the executable programs
+Check_exec
+
+# Reading skel file list
+Read_skel_list
+
 # Reading rst file list
 Read_rst_list
 
 # Reading obs file list
-Read_obs_list
+Read_obs_time_list
 
 # Assimilation cycle for every analysis time step
 for (( na = 1; na <= $nran; na++ )); do
