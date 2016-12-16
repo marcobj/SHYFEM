@@ -82,8 +82,7 @@ c**********************************************************
 
 c 3D concentrations
 
-	use mod_plot2d
-	use mod_plot3d
+	use mod_hydro_plot
 	use levels, only : nlvdi,nlv,ilhkv
 	use basin, only : nkn,nel,ngr,mbw
 
@@ -160,7 +159,7 @@ c 3D concentrations
 
 c**********************************************************
 
-	subroutine set_uvfem(nlvddi,nkn,level,ilhkv,p3)
+	subroutine set_uvfem(nlvddi,nkn,level,ilhkv,p)
 
 	use mod_hydro_plot
 
@@ -170,7 +169,7 @@ c**********************************************************
 	integer nkn
 	integer level
 	integer ilhkv(nkn)
-	real p3(nlvddi,nkn,2)
+	real p(nlvddi,nkn,2)
 
 	integer k,lev
 
@@ -178,8 +177,8 @@ c**********************************************************
 
 	do k=1,nkn
 	  if( level .le. ilhkv(k) ) then
-	    uvnode(k) = p3(lev,k,1)
-	    vvnode(k) = p3(lev,k,2)
+	    uvnode(k) = p(lev,k,1)
+	    vvnode(k) = p(lev,k,2)
 	  else
 	    uvnode(k) = 0.
 	    vvnode(k) = 0.
@@ -190,7 +189,7 @@ c**********************************************************
 
 c**********************************************************
 
-	subroutine set_uv(nlvddi,nkn,p3)
+	subroutine set_uv(nlvddi,nkn,p)
 
 	use mod_hydro_plot
 
@@ -198,13 +197,13 @@ c**********************************************************
 
 	integer nlvddi
 	integer nkn
-	real p3(nlvddi,nkn,2)
+	real p(nlvddi,nkn,2)
 
 	integer k
 
 	do k=1,nkn
-	  uvnode(k) = p3(1,k,1)
-	  vvnode(k) = p3(1,k,2)
+	  uvnode(k) = p(1,k,1)
+	  vvnode(k) = p(1,k,2)
 	end do
 
 	end
@@ -215,8 +214,7 @@ c**********************************************************
 
 c 3D concentrations
 
-	use mod_plot2d
-	use mod_plot3d
+	use mod_hydro_plot
 	use levels, only : nlvdi,nlv
 	use basin, only : nkn,nel,ngr,mbw
 
@@ -283,8 +281,7 @@ c**********************************************************
 
 c 3D concentrations (element values)
 
-	use mod_plot2d
-	use mod_plot3d
+	use mod_hydro_plot
 	use levels, only : nlvdi,nlv
 	use basin, only : nkn,nel,ngr,mbw
 
@@ -407,7 +404,7 @@ c**********************************************************
 
 c plots barene
 
-	use mod_plot2d
+	use mod_hydro_plot
 	use basin, only : nkn,nel,ngr,mbw
 
 	implicit none
@@ -475,8 +472,7 @@ c**********************************************************
 
 	subroutine plosim(bvel)
 
-	use mod_plot2d
-	use mod_plot3d
+	use mod_hydro_plot
 
 	implicit none
 
@@ -538,7 +534,7 @@ c**********************************************************
 c plots node values
 
 	use basin
-	use mod_plot2d
+	use mod_hydro_plot
 
 	implicit none
 
@@ -611,7 +607,7 @@ c**********************************************************
 
 c plots node values
 
-	use mod_plot2d
+	use mod_hydro_plot
 
 	implicit none
 
@@ -652,7 +648,7 @@ c**********************************************************
 
 c plots element values
 
-	use mod_plot2d
+	use mod_hydro_plot
 
 	implicit none
 
@@ -760,7 +756,6 @@ c for ivel == 1,2:	utrans,vtrans must be set
 c for other values:	uvnode,vvnode must be set
 
 	use mod_hydro_plot
-	use mod_plot2d
 	use mod_depth
 	use mod_hydro
 	use basin
@@ -798,9 +793,13 @@ c for other values:	uvnode,vvnode must be set
 	real fscale
 	integer nx,ny
 
-	character*13, save :: varname(5) = (/'velocity     '
-     +				,'transport    ','wind velocity'
-     +				,'waves        ','velocity     '/)
+	character*13, save :: varname(5) =	(/
+     +						 'velocity     '
+     +						,'transport    '
+     +						,'wind velocity'
+     +						,'waves        '
+     +						,'velocity     '
+     +						/)
 
 	real getpar,getcol
 	integer getlev
@@ -825,11 +824,11 @@ c	-----------------------------------------------------------
 c	global parameters from STR file
 c	-----------------------------------------------------------
 
-        bvel   = ivel .eq. 1
-        btrans = ivel .eq. 2
+        bvel   = ivel .eq. 1		!want vel but have trans
+        btrans = ivel .eq. 2		!want trans
         bwind  = ivel .eq. 3
         bwave  = ivel .eq. 4
-        bvelok = ivel .eq. 5
+        bvelok = ivel .eq. 5		!want vel and have vel
 
 	if( ivel < 1 .or. ivel > 5 ) then
           stop 'error stop plo2vel: internal error (3)'
@@ -853,8 +852,13 @@ c	-----------------------------------------------------------
 
         anoline = title//varname(ivel)
 
-	if( bvel .or. btrans ) call mkht(hetv,href)
+c	-----------------------------------------------------------
+c	check some settings
+c	-----------------------------------------------------------
 
+	if( bvel .and. .not. bistrans ) goto 99
+	if( bistrans .and. .not. bonelem ) goto 99
+	
 c	-----------------------------------------------------------
 c	start plotting
 c	-----------------------------------------------------------
@@ -864,11 +868,15 @@ c	-----------------------------------------------------------
 	call bash(0)
 
 c------------------------------------------------------------------
-c see if regular grid
+c see if regular grid -> set bregular and nx,ny if needed
 c------------------------------------------------------------------
 
 	call getgeoflag(flag)
-	call make_regular(nx,ny,bregular)
+	if( bisreg ) then		!regular grid read
+	  bregular = bisreg
+	else				!see if we have to plot regular
+	  call prepare_regular(nx,ny,bregular)
+	end if
 
 c------------------------------------------------------------------
 c prepare for velocity or transport
@@ -878,6 +886,7 @@ c------------------------------------------------------------------
 	valmin = velmin
 
 	if( bvel ) then
+	  call mkht(hetv,href)
 	  call por2vel(nel,utrans,vtrans,uvelem,vvelem,hetv)
         else if( btrans ) then
 	  uvelem = utrans
@@ -892,12 +901,12 @@ c------------------------------------------------------------------
 c compute values on nodes -> 0 for dry nodes
 c------------------------------------------------------------------
 
-        if( bwind .or. bwave .or. bvelok ) then
-	  call intp2elem(uvnode,uvelem,bwater)
-	  call intp2elem(vvnode,vvelem,bwater)
-        else
+	if( bonelem ) then
 	  call intp2node(uvelem,uvnode,bwater)
 	  call intp2node(vvelem,vvnode,bwater)
+	else if( .not. bisreg ) then
+	  call intp2elem(uvnode,uvelem,bwater)
+	  call intp2elem(vvnode,vvelem,bwater)
         end if
 
 	nnn = 0
@@ -1053,6 +1062,10 @@ c------------------------------------------------------------------
 c end of routine
 c------------------------------------------------------------------
 
+	return
+   99	continue
+	write(6,*) 'problems... ',bvel,bistrans,bonelem
+	stop 'error stop plo2vel: internal error (1)'
 	end
 
 c**********************************************************
@@ -1972,7 +1985,7 @@ c*****************************************************************
 
 c plots node values
 
-	use mod_plot2d
+	use mod_hydro_plot
 	use basin
 
 	implicit none
@@ -2002,7 +2015,7 @@ c plots node values
 
 c*****************************************************************
 
-	subroutine make_regular(nx,ny,bregular)
+	subroutine prepare_regular(nx,ny,bregular)
 
 	use mod_hydro_plot
 
@@ -2024,7 +2037,7 @@ c*****************************************************************
 	nx = nint((xmax-xmin)/dx)
 	ny = nint((ymax-ymin)/dy)
 
-	call hydro_plot_regular(nx,ny)	!nx,ny may be changed here
+	call mod_hydro_plot_regular_init(nx,ny)	!nx,ny may be changed here
 
 	!write(6,*) 'ggu: x0,y0,dx,dy ',x0,y0,dx,dy,nx,ny
 	!write(6,*) 'ggu: ',xmin,ymin,xmax,ymax

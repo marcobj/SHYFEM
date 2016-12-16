@@ -2,19 +2,45 @@
 ! variable ids for consecutive variables:
 !
 !	1-199	single variables
-!	200	eutro
 !	230	waves
 !	250	mercury
 !	300	conz
 !	400	aquabc
 !	500	toxi
 !	600	bfm
+!	700	eutro
 !	
 !****************************************************************
 !****************************************************************
 !****************************************************************
 
         subroutine string2ivar(string,iv)
+
+        implicit none
+
+        character*(*) string
+	integer iv
+
+	call string2ivar_intern(string,iv,.true.)
+
+	end
+
+!****************************************************************
+
+        subroutine string2ivar_n(string,iv)
+
+        implicit none
+
+        character*(*) string
+	integer iv
+
+	call string2ivar_intern(string,iv,.false.)
+
+	end
+
+!****************************************************************
+
+        subroutine string2ivar_intern(string,iv,braisewarning)
 
 ! interprets string to associate a variable number iv
 !
@@ -26,9 +52,10 @@
 
         character*(*) string
         integer iv
+	logical braisewarning
 
 	integer is,isb,i
-	integer ie3,ie4,ie5,ie6,ie8,ie11
+	integer ie3,ie4,ie5,ie6,ie8,ie11,ie16
 	integer ichafs
 	character*80 s
 
@@ -38,7 +65,6 @@
 	do i=1,len(string)
 	  if( s(i:i) == '_' ) s(i:i) = ' '	!convert '_' to ' '
 	end do
-	!write(6,*) 'checking: ',trim(s)
 
 	is = ichafs(s)
 	if( is .le. 0 ) is = 1
@@ -49,6 +75,7 @@
 	ie6 = isb + 6
 	ie8 = isb + 8
 	ie11 = isb + 11
+	ie16 = isb + 16
 
         if( s(is:ie4) .eq. 'mass' ) then
           iv = 0
@@ -104,12 +131,18 @@
           iv = 26
         else if( s(is:ie4) .eq. 'evap' ) then
           iv = 27
+        else if( s(is:ie5) .eq. 'index' ) then
+          iv = 75
+        else if( s(is:ie4) .eq. 'type' ) then
+          iv = 76
         else if( s(is:ie3) .eq. 'lgr' ) then
           iv = 80
         else if( s(is:ie3) .eq. 'ice' ) then
           iv = 85
-!        else if( s(is:ie3) .eq. 'age' ) then
-!          iv = 98
+        else if( s(is:ie16) .eq. 'time over thresh' ) then
+          iv = 97
+        else if( s(is:ie3) .eq. 'age' ) then
+          iv = 98
         else if( s(is:ie3) .eq. 'wrt' ) then
           iv = 99
         else if( s(is:ie5) .eq. 'renew' ) then
@@ -136,14 +169,16 @@
           !generic - no id
         else if( s(is:ie4) .eq. 'elem' ) then
           !generic - no id
-        else if( s .eq. ' ' ) then
-          write(6,*) '*** string2ivar: no string given'
-        else
-          write(6,*) '*** string2ivar: cannot find string description: '
-          write(6,*) s
-          !write(6,*) is,isb,ie3,ie4,ie5
-          !if( string(1:3) .eq. 'fem' ) stop 'error.....'
-        end if
+        else if( braisewarning ) then
+          if( s .eq. ' ' ) then
+            write(6,*) '*** string2ivar: no string given'
+          else
+	    write(6,*) '*** string2ivar: cannot find string description:'
+            write(6,*) trim(s),'   (',trim(s),')'
+            !write(6,*) is,isb,ie3,ie4,ie5
+            !if( string(1:3) .eq. 'fem' ) stop 'error.....'
+          end if
+	end if
 
 	!write(6,*) 'string2ivar: ',string(is:ie4),'   ',iv
 
@@ -208,10 +243,16 @@ c finds direction if vector
           string = 'atmospheric pressure'
         else if( iv .eq. 26 ) then
           string = 'rain'
+        else if( iv .eq. 75 ) then
+          string = 'index'
+        else if( iv .eq. 76 ) then
+          string = 'type'
         else if( iv .eq. 85 ) then
           string = 'ice cover'
-!        else if( iv .eq. 98 ) then
-!          string = 'age'
+        else if( iv .eq. 97 ) then
+          string = 'time over threshold'
+        else if( iv .eq. 98 ) then
+          string = 'age'
         else if( iv .eq. 99 ) then
           string = 'renewal time'
         else if( iv .eq. 231 ) then
@@ -224,10 +265,14 @@ c finds direction if vector
           string = 'wave orbital velocity'
         else if( iv .eq. 235 ) then
           string = 'wave peak period'
-        else if( iv .eq. 335 ) then
-          string = 'time over threshold'
         else if( iv > 30 .and. iv < 50 ) then
           string = 'concentration (multi)'
+        else if( iv > 700 .and. iv < 720 ) then
+          string = 'weutro (pelagic)'
+        else if( iv > 720 .and. iv < 730 ) then
+          string = 'weutro (sediment)'
+        else if( iv > 730 .and. iv < 740 ) then
+          string = 'weutro (shell fish)'
         else
           !string = '*** cannot find description'
           !write(6,*) '*** cannot find description for variable: '
@@ -254,7 +299,7 @@ c gets var numbers from string description
 	integer i
 
 	do i=1,nvar
-          call string2ivar(strings(i),ivars(i))
+          call string2ivar_n(strings(i),ivars(i))
 	end do
 
 	end

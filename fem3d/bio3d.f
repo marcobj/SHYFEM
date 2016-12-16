@@ -43,10 +43,13 @@ c 23.04.2008    ggu     call to bnds_set_def() changed
 c 09.10.2008    ggu     new call to confop
 c 08.05.2014    ggu     bug in call to inicfil for es -> must be inic2fil
 c 21.10.2014    ggu     converted to new boundary treatment
-c 17.05.2015    dmc     Insert benthic feeders 
+c 17.05.2015    dmc     Insert benthic feeders (esh(:,:), eseed(:,:) 
 c 17.06.2016    dmc     light from shyfem get_light (Watt/m2) 
 c 17.06.2016    dmc     link to shyfem 7_5_13 
 c 23.06.2016    ggu     bug fix: forgot to initialize eload
+c 14.09.2016    ggu     small bug fix for shy output
+c 16.09.2016    dmc     comments on eseed. Seeding is set in weutro_seed.f
+c 05.10.2016    ggu     init conditions can now be set from file (bioin,biosin)
 c
 c notes :
 c
@@ -86,6 +89,9 @@ c
 c shellfarm     93      density of benthic filter feeding      
 c shellsize     94      size of each individual
 c shelldiag     95      diagnostic variable
+
+c eseed is the initial seeding for shellfarm, applied 
+c only in the shell farming sites, set in weutro_seed.f
 c
 c State variables used: (Haka)
 c
@@ -154,7 +160,6 @@ c eco-model cosimo
 	integer it	!time in seconds
 	real dt		!time step in seconds
 
-! Leslie: what is eseed? please document, does it has to be 3D?
 
 	include 'mkonst.h'
 
@@ -176,7 +181,8 @@ c eco-model cosimo
 
 	real, save :: einit(nstate)
 	real, save :: esinit(nsstate)
-        real, save :: eshinit(nshstate)
+        real, save :: eshinit(nshstate) !initializ. of shell var
+
         real, save :: elinit(nstate)
         real, save :: ebound(nstate)
 
@@ -242,8 +248,9 @@ c                     nh3 no2 opo4 phyto cbod do  on  op  zoo
  	 data ebound  /0., 0., 0.,   0.,  0.,  0., 0., 0., 0./
  	 data einit   /0., 0., 0.,   0.,  0.,  0., 0., 0., 0./
  	 data elinit  /0., 0., 0.,   0.,  0.,  0., 0., 0., 0./
-	 data esinit  /0.,0./
-         data eshinit /0., 0.,0. /
+
+	 data esinit  /0., 0./
+         data eshinit /0., 0., 0./
 
 c mare di taranto
 c        data einit /0.042,0.355,0.009,0.0342,3.15,7.78,0.2,0.01,0.015/
@@ -291,7 +298,9 @@ c         --------------------------------------------------
 	  allocate(e(nlvdi,nkndi,nstate))
 	  allocate(eload(nlvdi,nkndi,nstate))
 	  allocate(es(nkndi,nsstate))
-          allocate(eseed(nlvdi,nkndi,nshstate))	!Leslie - do we need 3D here?
+          allocate(eseed(nlvdi,nkndi,nshstate))	!eseed is needed 2D but has been
+                                                !set 3D in weutro_seed
+                                                !seeding occurs only in l=1
           allocate(esh(nkndi,nshstate))
 
 	  do i=1,nstate
@@ -311,17 +320,28 @@ c         --------------------------------------------------
 c	  initialize state variables from external file
 c         --------------------------------------------------
 
-          call inicfil('bio',e,nstate)
-          call inic2fil('bios',es,nsstate)
+	  call get_first_time(itanf)
+          dtime0 = itanf
+
+	  nvar = nstate
+          call tracer_file_init('bio init','bioin',dtime0
+     +                          ,nvar,nlvdi,nlv,nkn,einit,e)
+
+	  nvar = nsstate
+          call tracer_file_init('bio sed init','biosin',dtime0
+     +                          ,nvar,1,1,nkn,esinit,es)
 
 c         --------------------------------------------------
 c	  set loadings in the interal areas
 c         --------------------------------------------------
 
-          call setseed_new(eseed) !Seeding for benthic filters feeding
+	  eseed = 0.
+	  if( bshell ) then
+            call setseed_new(eseed) !seeding for benthic filters feeding
+	  end if
 
           do i=1,nshstate
-            esh(:,i) = eseed(1,:,i)	!Leslie - not clear, esh already set
+            esh(:,i) = eseed(1,:,i)	!eseed is the initial value of esh
           end do
 
 c         --------------------------------------------------
@@ -332,8 +352,6 @@ c         --------------------------------------------------
           allocate(idbio(nbc))
           idbio = 0
 
-	  call get_first_time(itanf)
-          dtime0 = itanf
           nintp = 2
 	  nvar = nstate
           call bnds_init_new(what,dtime0,nintp,nvar,nkn,nlv
@@ -432,21 +450,26 @@ c	call check_es(es)
 	  l = lmax
 
           if( bsedim ) then
+	    eaux(:) = e(l,k,:)
 	    esaux(:) = es(k,:)
 	    if( bspec ) write(6,*) 'before wsedim: ',eaux,esaux
 	    call wsedim(k,tday,dtday,vol,d,vel,t,eaux,esaux)
 	    if( bspec ) write(6,*) 'after wsedim: ',eaux,esaux
 	    e(l,k,:) = eaux(:)
 	    es(k,:) = esaux(:)
-            es(k,:) = esaux(:)
           end if
 
+c	  -----------------------------------------------------------------
+c  	  Next is supposed to enable the shellfarm cmputation only where
+c         shell have been seeded and not in the whole domain where shell=0
+c	  -----------------------------------------------------------------
+
           if( bshell ) then
-            shellfarm=eseed(1,k,1)	!FIXME - Leslie - not clear
+            shellfarm=eseed(1,k,1)
             if (shellfarm.gt.0) then
+	      eaux(:) = e(l,k,:)
               eshaux(:)=esh(k,:)
               call wshell(k,tday,dtday,vol,d,vel,t,eaux,eshaux)
-              esh(k,:) = eshaux(:)
               e(l,k,:) = eaux(:)
               esh(k,:) = eshaux(:)
             end if
@@ -489,12 +512,6 @@ c	-------------------------------------------------------------------
 !$OMP END PARALLEL	
 
 	if( bcheck ) call check_bio('after advection',e,es)
-
-        do i=1,nsstate
-          call scalmass(es(1,i),0.1,tsstot(i))   !mass ctrl sed
-	end do
-
-        !call pn_tot(it,nstate,nsstate,tstot,tsstot)  !writes to unit 17,18,19
 
 c	-------------------------------------------------------------------
 c	write of results (file BIO)
@@ -1105,14 +1122,14 @@ c*************************************************************
 
           ia_out(4) = iubp
           do i=1,nstate
-            idc = 200 + i
+            idc = 700 + i
             call write_scalar_file(ia_out,idc,nlvdi,e(1,1,i))
           end do
 
 	  if( bsedim ) then
             ia_out(4) = iubs
             do i=1,nsstate
-              idc = 220 + i
+              idc = 720 + i
               call write_scalar_file(ia_out,idc,1,es(1,i))
             end do
 	  end if
@@ -1120,7 +1137,7 @@ c*************************************************************
 	  if( bshell ) then
             ia_out(4) = iubh
             do i=1,nshstate
-              idc = 230 + i
+              idc = 730 + i
               call write_scalar_file(ia_out,idc,1,esh(1,i))
             end do
 	  end if
@@ -1131,22 +1148,22 @@ c*************************************************************
 
           id = nint(da_out(4))
           do i=1,nstate
-            idc = 200 + i
+            idc = 700 + i
             call shy_write_scalar_record(id,dtime,idc,nlvdi
      +                                          ,e(1,1,i))
           end do
 
 	  if( bsedim ) then
             do i=1,nsstate
-              idc = 220 + i
+              idc = 720 + i
               call shy_write_scalar_record(id,dtime,idc,1
      +                                          ,es(1,i))
             end do
 	  end if
 
 	  if( bshell ) then
-            do i=1,nsstate
-              idc = 230 + i
+            do i=1,nshstate
+              idc = 730 + i
               call shy_write_scalar_record(id,dtime,idc,1
      +                                          ,esh(1,i))
             end do

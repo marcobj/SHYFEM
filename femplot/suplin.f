@@ -27,6 +27,7 @@ c 05.03.2014    ggu     bug fix for reference vector
 c 22.12.2014    ggu     new routine integrate_flux()
 c 02.12.2015    ggu     bug fix in integrate_flux() - dx was used twice
 c 27.05.2016    ggu     some restructuring to lower dependencies
+c 27.10.2016    ccf     use hkv for smooth bottom
 c
 c notes :
 c
@@ -48,7 +49,7 @@ c plots section
 	real sv(nlvdi,nkn)		!scalar to be plotted
 
 	integer nldim
-	parameter (nldim=200)
+	parameter (nldim=400)
 
 c elems(1) is not used, etc..
 
@@ -64,6 +65,7 @@ c elems(1) is not used, etc..
 	real, save :: xy(nldim)		!linear distance
 
 	real, save, allocatable :: hev(:)
+	real, save, allocatable :: hkv(:)
 
 	real ya(2,0:nlvdi)
 	real xbot(2*nldim+2)
@@ -120,6 +122,7 @@ c elems(1) is not used, etc..
 	integer ialfa,ichanm
 	real getpar
 	real hlog,divdist,roundm
+	integer bsmt
 
 	integer, save :: icall = 0
 
@@ -135,9 +138,12 @@ c----------------------------------------------------------------
 	  isphe = nint(getpar('isphe'))
 	  allocate(hev(nel))
 	  call makehev(hev)
+	  allocate(hkv(nkn))
+	  call makehkv(hkv)
 	  call line_read_nodes(file,nldim,n,nodes)
+          bsmt = nint(getpar('bsmt'))
 	  call line_find_elements(n,nodes,nlv,nen3v,hev,hm3v,hlv
-     +			,elems,helems,lelems,lnodes)
+     +			,elems,helems,lelems,lnodes,hkv,bsmt)
 	  call line_find_min_max(n,nodes,helems,lelems,xgv,ygv
      +			,isphe,rlmax,rdmax,llmax,xy)
 	  call make_proj_dir(n,isphe,nodes,xgv,ygv,dxy)
@@ -233,9 +239,10 @@ c----------------------------------------------------------------
 	yrmax = 1.
 
 	call qgetvp(xmin,ymin,xmax,ymax)
-	if( bdebug ) write(6,*) 'plot_sect: ',xmin,ymin,xmax,ymax
 
 	ymax = ymax / 2.			!empirical
+	if( bdebug ) write(6,*) 'plot_sect: ',xmin,ymin,xmax,ymax
+
 	call qsetvp(xmin,ymin,xmax,ymax)
 	call qworld(xrmin,yrmin,xrmax,yrmax)
 	call pbox(xrmin,yrmin,xrmax,yrmax)	!plot outer box
@@ -278,6 +285,8 @@ c--------------------------------------------------------------------
 
 	ib = 0
 
+	call reset_color_table
+
 	do i=2,n
 	  ltot = lelems(i)
 	  ltot = min(ltot,lvmax)
@@ -286,9 +295,6 @@ c--------------------------------------------------------------------
 
 	  call make_segment_depth(ivert,ltot,helems(1,i),hvmax,hlv,ya)
 	  call insert_bottom(i,xy,ya(1,ltot),ib,xbot,ybot)
-
-	  !call plot_bottom(x1,x2,yrmin,ya(1,ltot))
-	  !write(6,*) 'bottom: ',i,yrmin,ya(1,ltot),ya(2,ltot),ib
 
 	  do l=1,ltot
 	    ltop = 2*l - 2
@@ -299,7 +305,6 @@ c--------------------------------------------------------------------
 	    call plot_scal(x1,yt1,yb1,x2,yt2,yb2,ya(1,ltot),ya(2,ltot)
      +				,val(ltop,i-1),val(ltop,i))
 	  end do
-	  !call plot_bottom(x1,x2,yrmin,ya(1,ltot))
 	end do
 
 	call plot_tot_bottom(ib,xbot,ybot,yrmin)
@@ -744,21 +749,23 @@ c************************************************************************
 
 c x coords must be the same, but y coords may be different
 c
-c       ---------------
+c       ---------------    ytt1    y(1)
 c       |\     |     /|
 c       | \  2 | 3  / |
 c       |  \   |   /  |
 c       |   \  |  /   |
 c       | 1  \ | /  4 |
 c       |     \|/     |
-c       |-------------|
+c       |-------------|    ym      y(2)
 c       |     /|\     |
 c       | 5  / | \  8 |
 c       |   /  |  \   |
 c       |  /   |   \  |
 c       | /  6 | 7  \ |
 c       |/     |     \|
-c       ---------------
+c       ---------------    ybb1    y(3)
+c
+c       x1     xm    x2
 
 	use color
 
@@ -786,8 +793,6 @@ c       ---------------
 	  ym(ii) = (y1(ii)+y2(ii))/2.
 	end do
 
-	call set_auto_color_table
-
 	!first plot upper triangles, than lower ones
 
 	call setxyf(x1,x1,xm,y1(1),y1(2),ym(2),v1(1),v1(2),vm(2),x,y,f)
@@ -807,8 +812,6 @@ c       ---------------
 	if( isdiff(ym(2)) ) call plcol(x,y,f,ciso,fiso,isoanz+1,fnull)
 	call setxyf(xm,x2,x2,ym(2),y2(3),y2(2),vm(2),v2(3),v2(2),x,y,f)
 	if( isdiff(y2(2)) ) call plcol(x,y,f,ciso,fiso,isoanz+1,fnull)
-
-	call reset_auto_color_table
 
 	end
 
@@ -846,38 +849,6 @@ c************************************************************************
 	  v(ii) = vv(ii)
 	end do
 
-	return	!useless below
-
-	if( ybot .le. yb ) then
-	  y(1) = yt
-	  y(2) = ym
-	  y(3) = yb
-	  do ii=1,3
-	    v(ii) = vv(ii)
-	  end do
-	else if( ybot .ge. yt ) then
-	  do ii=1,3
-	    y(ii) = ybot
-	    v(ii) = vv(1)
-	  end do
-	else if( ybot .ge. ym ) then
-	  y(1) = yt
-	  y(2) = ybot
-	  y(3) = ybot
-	  val = vv(1) + (ybot-y(1))*(vv(2)-vv(1))/(y(2)-y(1))
-	  v(1) = vv(1)
-	  v(2) = val
-	  v(3) = val
-	else
-	  y(1) = yt
-	  y(2) = ym
-	  y(3) = ybot
-	  val = vv(2) + (ybot-y(2))*(vv(3)-vv(2))/(y(3)-y(2))
-	  v(1) = vv(1)
-	  v(2) = vv(2)
-	  v(3) = val
-	end if
-
 	end
 
 c************************************************************************
@@ -903,8 +874,6 @@ c not used anymore -> delete
 	xm = (x1+x2)/2.
 	ym = (y1+y2)/2.
 	vm = (v1(2)+v2(2))/2.
-
-	call set_auto_color_table
 
 	if( bfirst ) then
 
@@ -937,8 +906,6 @@ c not used anymore -> delete
 	call plcol(x,y,f,ciso,fiso,isoanz+1,fnull)
 
 	end if
-
-	call reset_auto_color_table
 
 	end
 
@@ -1289,7 +1256,8 @@ c computes factor for transformation from spherical to cartesian coordinates
 c************************************************************************
 
 	subroutine line_find_elements(n,nodes,nlv,nen3v,hev,hm3v,hlv
-     +					,elems,helems,lelems,lnodes)
+     +					,elems,helems,lelems,lnodes,hkv
+     +					,bsmt)
 
 c finds elements along line given by nodes
 c
@@ -1308,6 +1276,8 @@ c deepest element is chosen
 	real helems(2,n)	!depth in chosen elements (return)
 	integer lelems(n)	!layers in element (return)
 	integer lnodes(n)	!layers in node (return)
+	real hkv(1)		!layer structure
+	integer bsmt		!factor for using smooth bottom
 
 	logical bsigma,berror,bsmooth
 	integer i,k1,k2,ie1,ie2,l
@@ -1317,8 +1287,7 @@ c deepest element is chosen
 	real h
 	integer ipext,ieext
 
-	bsmooth = .true.	!use smooth bottom?
-	bsmooth = .false.	!use smooth bottom?
+	bsmooth = bsmt .gt. 0		!use smooth bottom if bsmt > 0
 
 	call get_sigma_info(nlv,nsigma,hsigma)
 	bsigma = nsigma .gt. 0
@@ -1347,8 +1316,8 @@ c------------------------------------------------------------------
 	  ie = elems(i)
 	  if( bsmooth .or. bsigma .and. hev(ie) .le. hsigma ) then
 	    do ii=1,3
-	      if( k1 .eq. nen3v(ii,ie) ) helems(1,i) = hm3v(ii,ie)
-	      if( k2 .eq. nen3v(ii,ie) ) helems(2,i) = hm3v(ii,ie)
+	      if( k1 .eq. nen3v(ii,ie) ) helems(1,i) = hkv(k1)
+	      if( k2 .eq. nen3v(ii,ie) ) helems(2,i) = hkv(k2)
 	    end do
 	  else
 	    helems(1,i) = hev(ie)

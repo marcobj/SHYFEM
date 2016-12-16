@@ -8,6 +8,7 @@
 ! 10.10.2015	ggu	code added to handle FLX routines
 ! 22.02.2016	ggu	handle catmode
 ! 15.04.2016	ggu	handle gis files with substitution of colon
+! 08.09.2016	ggu	new options -map, -info, -areas, -dates
 !
 !************************************************************
 
@@ -38,11 +39,15 @@
 	logical, save :: bverb
 	logical, save :: bwrite
 	logical, save :: bquiet
+	logical, save :: binfo
+
 	logical, save :: bdate
 
 	integer, save :: ifreq
 	integer, save :: tmin
 	integer, save :: tmax
+
+	integer, save :: regexpand
 
 	logical, save :: bnode
 	logical, save :: bnodes
@@ -79,6 +84,10 @@
         character*80, save :: nodefile		= ' '
         character*80, save :: regstring		= ' '
         character*10, save :: outformat		= ' '
+
+        character*80, save :: areafile		= ' '
+        character*80, save :: datefile		= ' '
+	logical, save :: bmap 			= .false.
 
 	logical, save :: bcompat = .true.	!compatibility output
 
@@ -169,8 +178,9 @@
 	!call clo_add_option('mem',.false.,'if no file given use memory')
         !call clo_add_option('ask',.false.,'ask for simulation')
         call clo_add_option('verb',.false.,'be more verbose')
-        call clo_add_option('write',.false.,'write min/max of values')
-        call clo_add_option('quiet',.false.,'do not be verbose')
+        call clo_add_option('write',.false.,'write min/max of records')
+        call clo_add_option('quiet',.false.,'do not write time records')
+        call clo_add_option('info',.false.,'only give info on header')
 
         call clo_add_sep('additional options')
 
@@ -189,10 +199,19 @@
         call clo_add_option('outformat form','native','output format')
         call clo_add_option('catmode cmode',0.,'concatenation mode')
         call clo_add_option('reg rstring',' ','regular interpolation')
+        call clo_add_option('regexpand iexp',-1,'expand regular grid')
 
-        call clo_add_option('area grd-file',' '
-     +			,'line delimiting area for -averbas option')
-	call clo_hide_option('area')
+        call clo_add_option('areas grd-file',' '
+     +			,'line delimiting areas for -averbas option')
+	call clo_hide_option('areas')
+
+        call clo_add_option('dates date-file',' '
+     +			,'give dates for averaging in file')
+	call clo_hide_option('dates')
+
+        call clo_add_option('map',.false.
+     +			,'computes influence map from multi-conz')
+	call clo_hide_option('map')
 
 	call clo_add_sep('additional information')
 	call clo_add_com('  nfile is file with nodes to extract')
@@ -212,6 +231,7 @@
 	call clo_add_com('    if only dx,dy are given -> bounds computed')
 	call clo_add_com('  -diff needs two files, exits at difference')
 	call clo_add_com('    with -out writes difference to out file')
+	call clo_add_com('  iexp>0 expands iexp cells, =0 whole grid')
 
 	end subroutine elabutil_set_options
 
@@ -249,18 +269,26 @@
 
         !call clo_get_option('mem',bmem)
         !call clo_get_option('ask',bask)
+
         call clo_get_option('verb',bverb)
         call clo_get_option('write',bwrite)
         call clo_get_option('quiet',bquiet)
+        call clo_get_option('info',binfo)
 
         call clo_get_option('freq',ifreq)
         call clo_get_option('tmin',stmin)
         call clo_get_option('tmax',stmax)
         call clo_get_option('inclusive',binclusive)
 
+        call clo_get_option('regexpand',regexpand)
+
         call clo_get_option('outformat',outformat)
         call clo_get_option('catmode',catmode)
         call clo_get_option('reg',regstring)
+
+        call clo_get_option('areas',areafile)
+        call clo_get_option('dates',datefile)
+        call clo_get_option('map',bmap)
 
         if( .not. bask .and. .not. bmem ) call clo_check_files(1)
         call clo_get_file(1,infile)

@@ -1,3 +1,141 @@
+version  7_5_20    11-10-2016    VERS_7_5_20   commit_2016-11-18
+
+version  7_5_20    11-10-2016    VERS_7_5_20   commit_2016-11-08
+
+version  7_5_20    11-10-2016    VERS_7_5_20   commit_2016-11-08
+
+version  7_5_20    11-10-2016    VERS_7_5_20   commit_2016-11-04
+
+version  7_5_20    11-10-2016    VERS_7_5_20
+
+========================================================== 11-10-2016 - 7_5_20
+
+c ./fem3d/femelab.f:
+! 11.10.2016    ggu     introduced flag for min/max/med computation
+c
+c ./fem3d/subfemintp.f:
+! 11.10.2016	ggu	new routine iff_extend_vertically() for reg interp
+!
+c ./fem3d/subver.f:
+c 11.10.2016	ggu	version 7.5.20
+
+==========================================================
+
+version  7_5_19    05-10-2016    VERS_7_5_19   commit_2016-10-11
+
+version  7_5_19    05-10-2016    VERS_7_5_19
+
+========================================================== 05-10-2016 - 7_5_19
+
+c ./fem3d/femelab.f:
+! 04.10.2016    ggu     output flags now similar to shyelab
+! 05.10.2016    ggu     allow for expansion of regular grid
+c
+c ./fem3d/subver.f:
+c 05.10.2016	ggu	version 7.5.19
+c
+c ./fem3d/elab_regular.f:
+! 05.10.2016    ggu     routines dealing with regular field copied to own file
+c
+c ./fem3d/shyelab_output.f:
+! 05.10.2016    ggu     routines dealing with regular field copied to own file
+!
+c ./fem3d/bio3d.f:
+c 05.10.2016    ggu     init conditions can now be set from file (bioin,biosin)
+c
+c ./fem3d/subfemfile.f:
+c 05.10.2016	ggu	routine to clean data from NaNs
+c
+c ./fem3d/shyutil.f:
+! 05.10.2016    ggu     use zeps for computing volumes
+
+==========================================================
+
+version  7_5_18    30-09-2016    VERS_7_5_18   commit_2016-10-05
+
+version  7_5_18    30-09-2016    VERS_7_5_18
+
+========================================================== 30-09-2016 - 7_5_18
+
+c ./femplot/supano.f:
+c 13.09.2016  ggu     old legend deleted, new keyword ctxt for centering
+c
+ * ./post/psgraphf.c:
+ * 14-Sep-2016: code to ignore underscore				*
+c ./fem3d/subver.f:
+c 30.09.2016	ggu	version 7.5.18
+c
+c ./fem3d/subbas.f:
+c 23.09.2016	ggu	new routines to check if basin has been read
+c
+c ./fem3d/subreg.f:
+c 23.09.2016	ggu	allow for eps in computing box and reg intp
+c
+c ./fem3d/submeteo2.f:
+c 16.09.2016    ggu	allow for Pa and mbar in pressure
+c
+c ./fem3d/shyelab_output.f:
+! 23.09.2016    ggu     expand routine written
+!
+c ./fem3d/bio3d.f:
+c 14.09.2016    ggu     small bug fix for shy output
+c 16.09.2016    dmc     comments on eseed. Seeding is set in weutro_seed.f
+c
+c ./fem3d/subtime.f:
+c 23.09.2016    ggu     cleaned set_timestep()
+
+==========================================================
+
+version  7_5_17    09-09-2016    VERS_7_5_17   commit_2016-09-30
+
+version  7_5_17    09-09-2016    VERS_7_5_17   commit_2016-09-29
+
+version  7_5_17    09-09-2016    VERS_7_5_17   commit_2016-09-23
+
+version  7_5_17    09-09-2016    VERS_7_5_17   commit_2016-09-14
+
+version  7_5_17    09-09-2016    VERS_7_5_17
+
+========================================================== 09-09-2016 - 7_5_17
+
+c ./fem3d/elabutil.f:
+! 08.09.2016	ggu	new options -map, -info, -areas, -dates
+!
+c ./fem3d/subvintp.f:
+c 28.06.2016    ggu     bug fix: handel situation with dh == 0
+c
+c ./fem3d/newfix.f:
+c 13.07.2016    ivf     bug fix setting up ielfix
+c
+c ./fem3d/noselab1.f:
+c 08.09.2016    ggu     some minor changes, map_influence, custom dates
+c
+c ./fem3d/shyelab1.f:
+! 08.09.2016    ggu     custom dates, map_influence
+c
+c ./fem3d/newconz.f:
+c 08.09.2016    ggu     new decay function implemented (chapra), cleaned
+c
+c ./fem3d/subver.f:
+c 09.09.2016	ggu	version 7.5.17	after holiday release... sniff
+c
+c ./fem3d/submeteo2.f:
+c 23.07.2016    ivf	new heat formulation for iheat==8
+c 09.09.2016    ggu	new variable ihtype to choose between rh, wbt, dpt
+c
+c ./fem3d/newbfm.f:
+c 28.06.2016    ggu         initialize bfmv, new routine bfm_check()
+c
+c ./fem3d/subqfxu1.f:
+c 09.09.2016    ggu     new routine convert_vapor_content()
+c
+c ./fem3d/shyutil.f:
+! 08.09.2016    ggu     new flag bforce to force output
+
+==========================================================
+
+version  7_5_16    27-06-2016    VERS_7_5_16   commit_2016-09-09
+
 version  7_5_16    27-06-2016    VERS_7_5_16
 
 ========================================================== 27-06-2016 - 7_5_16

@@ -52,6 +52,21 @@ c***************************************************************
 
 c***************************************************************
 
+        function openmp_is_master()
+
+        implicit none
+
+        logical openmp_is_master
+
+	integer it
+
+	call openmp_get_thread_num(it)
+	openmp_is_master = ( it == 0 )
+
+        end
+
+c***************************************************************
+
         function openmp_is_parallel()
 
         implicit none
@@ -120,6 +135,39 @@ c gets time
 
 	openmp_get_wtime = OMP_GET_WTIME()
 	
+	end
+
+c***************************************************************
+
+	subroutine omp_compute_chunk(imax,nchunk)
+
+	implicit none
+
+	integer imax,nchunk
+
+	integer nthreads
+	integer OMP_GET_NUM_THREADS
+
+        nthreads = 1
+!$      nthreads = omp_get_num_threads()
+        nchunk = 1
+!$      nchunk = imax / ( nthreads * 10 )
+        nchunk = max(nchunk,1)
+	if( nthreads == 1 ) nchunk = imax
+
+	end
+
+c***************************************************************
+
+	subroutine omp_compute_minmax(nchunk,imax,i,iend)
+
+	implicit none
+
+	integer nchunk,imax,i,iend
+
+	iend = i + nchunk - 1
+	if( iend > imax ) iend = imax
+
 	end
 
 c***************************************************************

@@ -225,7 +225,8 @@ c		--------------------------------------------
 
 		tobsv = 0.
 		sobsv = 0.
-		rtauv = 0.
+		ttauv = 0.
+		stauv = 0.
 
 c		--------------------------------------------
 c		initialize open boundary conditions
@@ -311,7 +312,8 @@ c----------------------------------------------------------
 	  end if
 	  
 !$OMP TASK PRIVATE(what,dtime) FIRSTPRIVATE(thpar,wsink,robs,itemp,it) 
-!$OMP&     SHARED(idtemp,tempv,difhv,difv,difmol,tobsv) DEFAULT(NONE)
+!$OMP&     SHARED(idtemp,tempv,difhv,difv,difmol,tobsv,ttauv)
+!$OMP&     DEFAULT(NONE)
 !$OMP&     IF(itemp > 0)
 
           if( itemp .gt. 0 ) then
@@ -319,7 +321,8 @@ c----------------------------------------------------------
                 call scal_adv_nudge(what,0
      +                          ,tempv,idtemp
      +                          ,thpar,wsink
-     +                          ,difhv,difv,difmol,tobsv,robs)
+     +                          ,difhv,difv,difmol
+     +				,tobsv,robs,ttauv)
 	  end if
 
 !$OMP END TASK
@@ -328,7 +331,8 @@ c----------------------------------------------------------
 !	  !write(6,*) 'number of thread of salt: ',tid
 
 !$OMP TASK PRIVATE(what,dtime) FIRSTPRIVATE(shpar,wsink,robs,isalt,it) 
-!$OMP&     SHARED(idsalt,saltv,difhv,difv,difmol,sobsv) DEFAULT(NONE)
+!$OMP&     SHARED(idsalt,saltv,difhv,difv,difmol,sobsv,stauv)
+!$OMP&     DEFAULT(NONE)
 !$OMP&     IF(isalt > 0)
 
           if( isalt .gt. 0 ) then
@@ -336,7 +340,8 @@ c----------------------------------------------------------
                 call scal_adv_nudge(what,0
      +                          ,saltv,idsalt
      +                          ,shpar,wsink
-     +                          ,difhv,difv,difmol,sobsv,robs)
+     +                          ,difhv,difv,difmol
+     +				,sobsv,robs,stauv)
           end if
 
 !$OMP END TASK
@@ -661,7 +666,7 @@ c initialization of T/S from file
 
 	if( tempf .ne. ' ' ) then
 	  itt = it0
-	  write(6,*) 'ts_init: opening file for T'
+	  write(6,*) 'ts_init: opening file for temperature'
 	  call ts_file_open(tempf,itt,nkn,nlv,iutemp)
 	  call ts_file_descrp(iutemp,'temp init')
           call ts_next_record(itt,iutemp,nlvddi,nkn,nlv,tempv)
@@ -671,7 +676,7 @@ c initialization of T/S from file
 
 	if( saltf .ne. ' ' ) then
 	  its = it0
-	  write(6,*) 'ts_init: opening file for S'
+	  write(6,*) 'ts_init: opening file for salinity'
 	  call ts_file_open(saltf,its,nkn,nlv,iusalt)
 	  call ts_file_descrp(iusalt,'salt init')
           call ts_next_record(its,iusalt,nlvddi,nkn,nlv,saltv)

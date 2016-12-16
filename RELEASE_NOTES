@@ -1,4 +1,30 @@
 
+11.10.2016	VERS_7_5_20
+
+	bug fix in interpolation from reg grid
+
+05.10.2016	VERS_7_5_19
+
+	expansion of regular grid in shyelab, femelab
+	clean fem files from NaNs
+	vertical averaging -> use zeps
+	for bio3d init conditions from file
+
+29.09.2016	VERS_7_5_18
+
+	improvements in regular interpolation
+	bug fixes in bio3d
+	some changes in legend reading for plot
+
+09.09.2016	VERS_7_5_17
+
+	inprovements in post processing routines
+	bug fix in newfix.f
+	new heat formulation in meteo routines (iheat==8)
+	bug fix in subvintp.f: handel situation with dh == 0
+	more on bfm
+	in tracer computation new decay formulation from Chapras
+
 27.06.2016	VERS_7_5_16
 
 	weutro and bio3d adjourned (EUTRO)

@@ -98,6 +98,8 @@
      +                   qsens,qlat,qlong,evap,
      +                   cd)
 
+        implicit none
+
        ! surface air pressure, expsi, dry air gas constant
        real, parameter  :: ps = 1013.25
        real, parameter  :: expsi = 0.622
@@ -110,6 +112,7 @@
        integer days,ih,im
        real ddlon,ddlat
        integer kku
+       real uuw,vvw 
        real, parameter  :: stefan = 5.67e-8
        real, parameter  :: emic = 0.97
 
@@ -131,7 +134,7 @@
        real esre
        real qswa,qsens,qlong,qlat,evap
        real rel_u,rel_v,rspeed,norspeed
-
+       real tairk
 
        real,parameter, dimension(5) :: a_h =
      +           (/0.0,0.927,1.15,1.17,1.652/)
@@ -229,6 +232,8 @@
                 kku=4
             ELSE IF (norspeed > 25.0 )                   THEN
                 kku=5
+	    ELSE
+                kku=5
             ENDIF
 
 
@@ -288,6 +293,8 @@
          
         subroutine qshort1(im,days,ih,ddlat,ddlon,cc,qswa) 
 
+        implicit none
+
         real, parameter  :: pi = 3.1415927
         real, parameter  :: degrad = pi/180. 
         real, parameter  :: degradr = 180./pi 
@@ -299,8 +306,6 @@
         !Albedo monthly values from Payne (1972) as means of the values
         !at 40N and 30N for the Atlantic Ocean (hence the same latitudinal
         !band of the Mediterranean Sea) :
-
-
 
         real,parameter, dimension(12) :: alpham =
      +            (/0.095,0.08,0.065,0.065,0.06,0.06,0.06,0.06,
@@ -317,7 +322,9 @@
         real tjul
         real sunbet,sunbetd 
         real albedo 
+        real qswa 
         real, parameter  :: thco = 5.035D-04
+        real, parameter  :: aozone = 0.09  
 
         !-------- calculations start -------------------------------
 
@@ -338,7 +345,6 @@
         !cosine of the solar zenith angle :
 
         coszen =sin(alat)*sin(sundec)+cos(alat)*cos(sundec)*cos(thsun)
-        
 
         if (coszen .le. thco) then
           coszen = 0.0

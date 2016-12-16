@@ -1,5 +1,280 @@
 ============================================================
 
+Fri Nov 18 17:52:23 CET 2016
+
+small changes in shyplot
+
+ femplot/mod_hydro_plot.f | 11 ++++++++---
+ femplot/shyplot.f        | 39 ++++++++++++++++++++++++++++-----------
+ femplot/supsim.f         | 38 ++++++++++++++++++++++++++------------
+ 3 files changed, 62 insertions(+), 26 deletions(-)
+
+============================================================
+
+Tue Nov  8 16:18:33 CET 2016
+
+bug fix for compilation newcon.f
+
+ fem3d/newcon.f | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+============================================================
+
+Tue Nov  8 13:16:54 CET 2016
+
+integrated changes from Chris
+
+ LOG                     |  21 ++++++
+ fem3d/mod_ts.f          |  12 ++-
+ fem3d/newbcl.f          |  15 ++--
+ fem3d/newcon.f          |  76 ++++++++++---------
+ fem3d/newcon_omp.f      |  15 ++--
+ fem3d/newstab.f         |  23 ++++--
+ fem3d/subcus.f          | 189 +++++++++++++++++++++++++++++++++++++++++++++++-
+ fem3d/subflxu.f         |  27 ++-----
+ fem3d/subsys.f          |   3 +
+ femdoc/final/shyfem.pdf | Bin 292332 -> 292331 bytes
+ femplot/suplin.f        |  25 +++++--
+ 11 files changed, 322 insertions(+), 84 deletions(-)
+
+============================================================
+
+Fri Nov  4 13:47:38 CET 2016
+
+shyplot adjusted (still broken for vectors)
+
+ LOG                      |  21 ++++++
+ fem3d/Makefile           |   3 +-
+ fem3d/femelab.f          |  61 ++++++++++++++--
+ fem3d/new3di.f           |  29 ++------
+ fem3d/newtvd.f           | 183 ++++++++++++++++++++++++++++++++++-------------
+ fem3d/subfemfile.f       |   1 +
+ fem3d/subfemintp.f       |  48 ++++++++-----
+ fem3d/submeteo2.f        |   4 ++
+ fem3d/subn11.f           |   6 +-
+ fem3d/subomp.f           |  33 +++++++++
+ fem3d/subomp_dummy.f     |  26 +++++++
+ fem3d/subres.f           | 138 ++++++++++++++++++++---------------
+ fem3d/subwrt.f           |  42 ++++++++---
+ fembin/grd_closest.pl    |  26 ++++++-
+ femdoc/final/shyfem.pdf  | Bin 292329 -> 292332 bytes
+ femlib/perl/grd.pm       |  16 ++++-
+ femplot/Makefile         |  27 +++----
+ femplot/mod_hydro_plot.f |  51 +++++++++++--
+ femplot/plotsim.f        |  12 ++--
+ femplot/shyplot.f        | 149 ++++++++++++++++++++++++++------------
+ femplot/supdep.f         |   2 +-
+ femplot/suplag.f         |   2 +-
+ femplot/suplin1.f        |   3 +-
+ femplot/supout.f         |  13 ++--
+ femplot/supsim.f         |  49 +++++++------
+ femplot/supver.f         |   3 +-
+ param.h                  |  52 --------------
+ 27 files changed, 666 insertions(+), 334 deletions(-)
+ deleted:
+    param.h
+
+============================================================
+
+Tue Oct 11 17:20:49 CEST 2016
+
+New version 7_5_20
+
+
+============================================================
+
+Tue Oct 11 17:19:46 CEST 2016
+
+regular interpolation
+
+ LOG                     |   9 +++++++++
+ RELEASE_NOTES           |   4 ++++
+ fem3d/Makefile          |   2 +-
+ fem3d/basutil.f         |   3 +++
+ fem3d/femelab.f         |  31 ++++++++++++++++++++++++-------
+ fem3d/feminf.f          |   5 +++--
+ fem3d/newbcl.f          |   4 ++--
+ fem3d/shybas.f          |  30 +++++++++++-------------------
+ fem3d/shyelab_output.f  |  15 +++++++++++++++
+ fem3d/subfemintp.f      |  38 ++++++++++++++++++++++++++++++--------
+ fem3d/suboutput.f       |   1 +
+ fem3d/suboutputd.f      |   1 +
+ fem3d/subreg.f          |  11 ++++++++++-
+ femdoc/final/shyfem.pdf | Bin 292331 -> 292329 bytes
+ 14 files changed, 114 insertions(+), 40 deletions(-)
+
+============================================================
+
+Wed Oct  5 13:23:11 CEST 2016
+
+New version 7_5_19
+
+
+============================================================
+
+Wed Oct  5 13:21:56 CEST 2016
+
+expand regular grid
+
+ LOG                     |  22 +++
+ RELEASE_NOTES           |   7 +
+ fem3d/Makefile          |   6 +-
+ fem3d/bio3d.f           |  31 +--
+ fem3d/elab_regular.f    | 488 ++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/elabutil.f        |   8 +-
+ fem3d/femelab.f         | 196 ++++++++++++++-----
+ fem3d/newini.f          |   6 +-
+ fem3d/shydiff.f         |   2 +-
+ fem3d/shyelab1.f        |  15 +-
+ fem3d/shyelab_output.f  | 399 ++-------------------------------------
+ fem3d/shyutil.f         |  10 +-
+ fem3d/subfemfile.f      |  50 +++++
+ fem3d/subshy.f          |   4 +-
+ fem3d/subshyutil2.f     |   8 +-
+ fem3d/substrings.f      |  48 ++++-
+ fem3d/subsys.f          |   6 +-
+ femdoc/final/shyfem.pdf | Bin 292315 -> 292331 bytes
+ femplot/shyplot.f       |  10 +-
+ femplot/supiso.f        |   8 +-
+ 20 files changed, 832 insertions(+), 492 deletions(-)
+ new file:
+   fem3d/elab_regular.f
+
+============================================================
+
+Fri Sep 30 14:35:08 CEST 2016
+
+New version 7_5_18
+
+
+============================================================
+
+Fri Sep 30 14:33:50 CEST 2016
+
+documentation
+
+ femdoc/shyfem.tex | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+============================================================
+
+Thu Sep 29 14:03:43 CEST 2016
+
+better regular interpolation
+
+ LOG                      |  27 +++++++++
+ RELEASE_NOTES            |   6 ++
+ fem3d/sedi3d.f           |   6 +-
+ fem3d/shyelab_output.f   |  10 +--
+ fem3d/subbnd.f           |   2 +-
+ fem3d/submeteo2.f        |   4 +-
+ fem3d/subn35.f           |   2 +-
+ fembin/wind2speed.pl     |  57 ++++++++++++++++++
+ femdoc/bathy_interp.tex  |   8 ++-
+ femdoc/creating_mesh.tex |  50 +++++++++------
+ femdoc/final/shyfem.pdf  | Bin 289227 -> 292315 bytes
+ femdoc/grd_format.tex    |   3 +-
+ femdoc/grid_overview.tex |  21 ++++---
+ femdoc/grid_prg.tex      | 154 ++++++++++++++++++++++++++++-------------------
+ femdoc/shyfem.tex        |   8 ++-
+ 15 files changed, 248 insertions(+), 110 deletions(-)
+ new file:
+   fembin/wind2speed.pl
+
+============================================================
+
+Fri Sep 23 17:33:50 CEST 2016
+
+small fixes, regular interpolation
+
+ fem3d/bio3d.f           |  27 ++++--
+ fem3d/elabutil.f        |   6 ++
+ fem3d/shyelab_output.f  | 212 ++++++++++++++++++++++++++++++++++++++++++++++--
+ fem3d/subbas.f          |  30 ++++++-
+ fem3d/submeteo2.f       |  32 +++++++-
+ fem3d/subreg.f          |  19 ++++-
+ fem3d/subspk.f          |   5 ++
+ fem3d/subsys.f          |   2 +-
+ fem3d/subtime.f         | 125 ++++++++++++++--------------
+ fembin/average          |  84 +++++++++++++++++--
+ femdoc/final/shyfem.pdf | Bin 289227 -> 289227 bytes
+ femplot/col.f           |  18 ++--
+ femplot/shyplot.f       |   1 +
+ femplot/supbas.f        |   3 +-
+ femplot/supcol.f        |  65 +++++----------
+ femplot/suplin.f        |  54 ++----------
+ 16 files changed, 485 insertions(+), 198 deletions(-)
+
+============================================================
+
+Wed Sep 14 16:50:30 CEST 2016
+
+bug fix for bio3d
+
+ LOG                     |  11 +++++
+ fem3d/bio3d.f           |  23 ++++-----
+ fem3d/subousa.f         |   1 +
+ fem3d/substrings.f      |  17 +++++--
+ fem3d/subsys.f          |   4 +-
+ fembin/gpsinsert.pl     |   7 ++-
+ femdoc/final/shyfem.pdf | Bin 289227 -> 289227 bytes
+ femplot/supano.f        | 125 ++++++++++--------------------------------------
+ femplot/supbas.f        |   8 ++--
+ post/psgraphf.c         |  25 ++++++++--
+ 10 files changed, 93 insertions(+), 128 deletions(-)
+
+============================================================
+
+Fri Sep  9 18:00:44 CEST 2016
+
+New version 7_5_17
+
+
+============================================================
+
+Fri Sep  9 17:59:16 CEST 2016
+
+small changes after holidays
+
+ LOG                     |  34 ++++++
+ Makefile                |   4 +
+ RELEASE_NOTES           |   9 ++
+ Rules.make              |   1 -
+ fem3d/Makefile          |  18 ++-
+ fem3d/elabutil.f        |  26 ++++-
+ fem3d/femelab.f         |  33 +++++-
+ fem3d/mod_conz.f        |   1 +
+ fem3d/mod_meteo.f       |   4 +-
+ fem3d/newconz.f         | 290 +++++++++++++++---------------------------------
+ fem3d/newfix.f          |   4 +-
+ fem3d/noselab1.f        | 106 ++++++++++++++++--
+ fem3d/nosutil.f         |  29 ++---
+ fem3d/ouselab1.f        |   7 +-
+ fem3d/ousutil.f         |  22 ++--
+ fem3d/shyelab1.f        | 123 +++++++++++++++++++-
+ fem3d/shyelab_output.f  |   6 +-
+ fem3d/shyutil.f         |   6 +-
+ fem3d/subdates.f        | 189 +++++++++++++++++++++++++++++++
+ fem3d/submeteo2.f       | 155 +++++++++++---------------
+ fem3d/subomp.f          |  15 +++
+ fem3d/subomp_dummy.f    |  12 ++
+ fem3d/subqfxm6.f        |  11 +-
+ fem3d/subqfxt.f         |  77 +++++--------
+ fem3d/subqfxu1.f        | 137 +++++++++++++++++++++--
+ fem3d/subshy.f          |  26 +++--
+ fem3d/substrings.f      |  18 ++-
+ fem3d/subsys.f          |  22 +++-
+ fembin/fembat           |   6 +
+ fembin/gitdiff          |  15 ++-
+ fembin/gp               |   9 +-
+ femdoc/final/shyfem.pdf | Bin 288597 -> 289227 bytes
+ femlib/Makefile         |   1 +
+ 33 files changed, 986 insertions(+), 430 deletions(-)
+ new file:
+   fem3d/subdates.f
+
+============================================================
+
 Mon Jun 27 14:49:31 CEST 2016
 
 New version 7_5_16

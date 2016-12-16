@@ -575,14 +575,34 @@ c		\item[4] Following Dejak
 c		\item[5] As in the GOTM model
 c		\item[6] Using the COARE3.0 module
 c		\item[7] Read  sensible, latent and longwave fluxes from file
+c		\item[8] Heat fluxes as Pettenuzzo et al., 2010
 c		\end{description}
 
 	call addpar('iheat',1.)		!type of heat flux routine
 
+c |ihtype|	Different ways of how to specify water vapor content
+c		are possible. Normally reletive humidity has to be
+c		given (|ihtype|=1). However, also wet bulb temperature
+c		(|ihtype|=2) or dew point temperature (|ihtype|=3) can
+c		be given. (Default 1).
+
+	call addpar('ihtype',1.)	!type of water vapor
+
+c |isolp|       The type of solar penetration parametrization
+c               by one or more exponential decay curves.
+c               |isolp| = 0 sets an e-folding decay of radiation 
+c               (one exponential decay curve) as function of depth |hdecay|.
+c               |isolp| = 1 sets a profile of solar radiation with two length
+c               scale of penetration. Following the Jerlov (Jerlov, N. G., 1968
+c               Optical Oceanography, Elsevier, 194pp) classification the type
+c               of water is clear water (type I). 
+c               (Default 0) 
+
+        call addpar('isolp',0.)         !type of solar penetration   
+
 c |hdecay|	Depth of e-folding decay of radiation [m]. If |hdecay| = 0 
 c		everything is absorbed in first layer (Default 0).
 
-        call addpar('isolp',0.)         !solar penetration   
 	call addpar('hdecay',0.)	!depth of e-folding decay of radiation
 
 c |botabs|	Heat absorption at bottom [fraction] (Default 0).
@@ -603,7 +623,7 @@ c |albed4|	Albedo for temp below 4 degrees (Default 0.06).
 
 c |imreg| 	Regular meteo data (Default 0).
 
-	call addpar('imreg',0.)		!regular meteo data
+	call addpar('imreg',0.)		!regular meteo data - not used anymore
 
 c |ievap| 	Compute evaporation mass flux (Default 0).
 
@@ -813,10 +833,16 @@ c		any unit. (Default 0)
 c |contau|	If different from 0 simulates decay of concentration. In
 c		this case |contau| is the decay rate (e-folding time) in days.
 c		(Default 0)
+c |idecay|	Type of decay used. If 0 the value of |contau| is used.
+c		A value of 1 uses a formulation of Chapra, where the
+c		decay rate depends on T,S,light and settling. In this
+c		case the value of |contau| is ignored.
+c		(Default 0)
 
 	call addpar('iconz',0.)		!compute concentration ?
 	call addpar('conref',0.)	!reference concentration
 	call addpar('contau',0.)	!decay rate [days]
+	call addpar('idecay',0.)	!type of decay
 
 c |chpar|	Horizontal diffusion parameter for the tracer.
 c		This value overwrites the general parameter for
@@ -1636,12 +1662,12 @@ c |reggry|		If plotting the regular overlay grid this gives
 c			the gray value used for the grid. 0 is black, and
 c			1 is white. A value of 1 does not plot the
 c			overlay grid, but still writes the labels. 
-c			(Default 0.5)
+c			(Default 1)
 
 	call addpar('isphe',-1.)	!spherical coordinate system
 	call addpar('reggrd',-1.)	!regular grid spacing
 	call addpar('regdst',0.)	!regular micro grid spacing
-	call addpar('reggry',0.5)	!gray value
+	call addpar('reggry',1.)	!gray value
 
 c |bndlin|		Name of file that gives the boundary line
 c			that is not part of the finite element domain.
@@ -1697,6 +1723,8 @@ c DOCS	END
 cc not documented
 
 	call addpar('ifreg',0.)		!plot regular grid from fem file
+	call addpar('iexreg',1.)	!plot half valid boxes in reg grid
+
 	call addfnm('obspnt'," ")	!name of file with obs points
 	call addfnm('metpnt'," ")	!name of file with meteo points
 	call addfnm('spcvel'," ")	!name of file for velocity points
@@ -2179,11 +2207,14 @@ c			be imposed. The values may be also higher than
 c			the maximum depth/layer. In this case extra space
 c			is added below the plotting area. Only one
 c			of the two parameters can be set.
+c |bsmt|		Set to 1 to have smooth bottom profile even in 
+c			case of z-layer structure. (Default 0)
 
 	call addpar('ivert',0.)		!0: depth  1: layers  2: log depth
 	call addpar('ivgrid',0.)	!plot grid layout over plot
 	call addpar('hvmax',0.)		!maximum depth to be plotted
 	call addpar('lvmax',0.)		!maximum layer to be plotted
+	call addpar('bsmt',0.)		!1: smooth bottom
 
 c The vertical section plot also creates a color bar. This color bar is
 c normally put on the right side of the plot. If there is space inside the
@@ -2386,8 +2417,8 @@ c DOCS	END
 
 cc non-documented -> try first	HACK	-> initial conditions
 
-        call addfnm('bio',' ')
-        call addfnm('bios',' ')
+        call addfnm('bioin',' ')
+        call addfnm('biosin',' ')
         call addfnm('toxi',' ')
         call addfnm('mercin',' ')	!mercury
 
@@ -2415,7 +2446,7 @@ cc DOCS	INTERNAL	internal administration - blank section
 	if( .not. haspar('apnnam') ) call addfnm('apnnam',' ')
 
 	call addfnm('apnfil','apnstd.str')
-	call addfnm('colfil','apncol.str')
+	!call addfnm('colfil','apncol.str')
 	call addfnm('memfil','.memory')
 cdos#	call putfnm('memfil','_memory')
 clahey#	call putfnm('memfil','_memory')

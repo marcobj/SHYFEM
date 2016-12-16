@@ -47,6 +47,18 @@ c***************************************************************
 
 c***************************************************************
 
+        function openmp_is_master()
+
+        implicit none
+    
+        logical openmp_is_master
+
+        openmp_is_master = .true.
+
+        end
+
+c***************************************************************
+
 	function openmp_is_parallel()
 
 	implicit none
@@ -112,6 +124,32 @@ c gets time
         double precision openmp_get_wtime
 
         openmp_get_wtime = 0.
+
+        end
+
+c***************************************************************
+c***************************************************************
+c***************************************************************
+
+        subroutine omp_compute_chunk(imax,nchunk)
+
+        implicit none
+
+        integer imax,nchunk
+
+        nchunk = 1
+
+        end
+
+c***************************************************************
+
+        subroutine omp_compute_minmax(nchunk,imax,i,iend)
+
+        implicit none
+
+        integer nchunk,imax,i,iend
+
+        iend = i
 
         end
 

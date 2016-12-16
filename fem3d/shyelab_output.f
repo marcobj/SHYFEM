@@ -1,7 +1,16 @@
-
-!==================================================================
+!
+! routines for shy post processing output
+!
+! revision log :
+!
+! 23.09.2016    ggu     expand routine written
+! 05.10.2016    ggu     routines dealing with regular field copied to own file
+!
+!***************************************************************
+!
+!===============================================================
         module shyelab_out
-!==================================================================
+!===============================================================
 
 	implicit none
 
@@ -39,9 +48,9 @@
 	real, save, allocatable :: value3d(:,:,:)
 	real, save, allocatable :: vnc3d(:,:,:)
 
-!==================================================================
+!===============================================================
         end module shyelab_out
-!==================================================================
+!===============================================================
 
 !***************************************************************
 !***************************************************************
@@ -71,6 +80,8 @@
 	character*60 file,form
 	character*80 string,title
 	integer ifileo
+
+	idout = 0
 
 	if( .not. boutput ) return
 
@@ -126,7 +137,7 @@
 	    if( idout <= 0 ) goto 74
             call shy_clone(id,idout)
             if( b2d ) call shy_convert_2d(idout)
-	    if( bsumvar ) call shy_convert_1var(idout)
+	    if( nvar == 1 ) call shy_convert_1var(idout)
             call shy_write_header(idout,ierr)
             if( ierr /= 0 ) goto 75
 	  else if( outformat == 'gis' ) then
@@ -257,7 +268,7 @@
 	if( breg ) then
 	  if( n /= nkn ) goto 98
 	  np = nxreg * nyreg
-	  call fem_regular_interpolate(nlvdi,cv3,svalue)
+	  call fem_regular_interpolate_shell(regexpand,nlvdi,cv3,svalue)
 	else if( n == nkn ) then
 	  np = nkn
 	  svalue(:,1:nkn) = cv3(:,1:nkn)
@@ -341,7 +352,7 @@
 	real cv3all(nlvddi,nndim,0:nvar)
 
 	integer ierr,iunit,nvers
-	integer it,nb,ivar,np,ncid
+	integer it,nb,ivar,np,ncid,irx
 	integer id_out
 	integer ftype
 	logical bscalar,bhydro,bshy
@@ -369,9 +380,10 @@
           call convert_to_speed(uprv,vprv,sv,dv)
 	  if( breg ) then
 	    np = nxreg * nyreg
-	    call fem_regular_interpolate(1,znv,zvalue)
-	    call fem_regular_interpolate(nlvddi,uprv,uvalue)
-	    call fem_regular_interpolate(nlvddi,vprv,vvalue)
+	    irx = regexpand
+	    call fem_regular_interpolate_shell(irx,1,znv,zvalue)
+	    call fem_regular_interpolate_shell(irx,nlvddi,uprv,uvalue)
+	    call fem_regular_interpolate_shell(irx,nlvddi,vprv,vvalue)
 	  else
 	    np = nkn
 	    zvalue = znv
@@ -391,7 +403,7 @@
 	    else if( bsumvar ) then
               cv3all(:,:,0) = 0.
               cv3all(:,:,0) = sum(cv3all,dim=3)
-              ivar = 30
+              ivar = 10
 	      call shy_write_output_record(idout,dtime,ivar,n,m
      +					,lmax,nlvddi,cv3all(:,:,0))
 	    else
@@ -577,204 +589,36 @@
 !***************************************************************
 !***************************************************************
 
-	subroutine fem_regular_parse(string,regpar,nx,ny)
-
-	use basin
-
-	implicit none
-
-	character*(*) string
-	real regpar(7)
-	integer nx,ny
-
-	integer ianz
-	real dx,dy,x0,y0,x1,y1
-	real ddx,ddy
-	double precision d(6)
-	integer iscand
-	real, parameter :: flag = -999.
-
-	regpar = 0.
-	ianz = iscand(string,d,6)
-
-	if( ianz == 0 ) then
-	  nx = 0
-	  ny = 0
-	else if( ianz == 1 ) then
-	  dx = d(1)
-	  dy = dx
-	else if( ianz == 2 ) then
-	  dx = d(1)
-	  dy = d(2)
-	else if( ianz == 6 ) then
-	  dx = d(1)
-	  dy = d(2)
-	else
-	  write(6,*) ianz,'  ',trim(string)
-	  write(6,*) 'read error or wrong number of parameters'
-	  stop 'error stop fem_regular_parse: string'
-	end if
-
-	if( ianz == 0 ) then
-	  return
-	else if( ianz == 6 ) then
-	  x0 = d(3)
-	  y0 = d(4)
-	  x1 = d(5)
-	  y1 = d(6)
-	else
-	  x0 = minval(xgv)
-	  y0 = minval(ygv)
-	  x1 = maxval(xgv)
-	  y1 = maxval(ygv)
-	end if
-
-	if( ianz /= 6 ) then		!correct x0/y0
-          x0 = dx * (int(x0/dx))
-          y0 = dy * (int(y0/dy))
-          x1 = dx * (int(x1/dx)+1)
-          y1 = dy * (int(y1/dy)+1)
-	end if
-
-        nx = 1 + nint((x1-x0)/dx)
-        ny = 1 + nint((y1-y0)/dy)
-
-	!if( ianz /= 6 ) then		!correct x0/y0
-	!  ddx = (nx-1)*dx - (x1-x0)
-	!  if( ddx > 0. ) x0 = x0 - ddx/2.
-	!  ddy = (ny-1)*dy - (y1-y0)
-	!  if( ddy > 0. ) y0 = y0 - ddy/2.
-	!end if
-
-        x1 = x0 + (nx-1)*dx
-        y1 = y0 + (ny-1)*dy
-
-	regpar = (/float(nx),float(ny),x0,y0,dx,dy,flag/)
-
-	call setgeo(x0,y0,dx,dy,flag)
-
-	end
-
-!***************************************************************
-
-	subroutine fem_regular_setup(nx,ny,regpar,ilhv
-     +				,fmreg,fmextra
-     +				,ilcoord,xcoord,ycoord,hcoord
-     +				,xlon,ylat)
-
-	use basin
-
-	implicit none
-
-	integer nx,ny
-	real regpar(7)
-	integer ilhv(nel)
-	real fmreg(4,nx,ny)
-	real fmextra(6,nkn)
-	integer ilcoord(nx,ny)
-	real xcoord(nx,ny)
-	real ycoord(nx,ny)
-	real hcoord(nx,ny)
-	real xlon(nx)
-	real ylat(ny)
-
-	integer ix,iy,ie
-	real dx,dy,x0,y0,x,y
-	real hkv(nkn)
-
-	call makehkv_minmax(hkv,+1)
-	call av2fm(fmreg,nx,ny)
-	call fm_extra_setup(nx,ny,fmextra)
-
-	ilcoord = 0
-	hcoord = 0.
-	
-	x0 = regpar(3)
-	y0 = regpar(4)
-	dx = regpar(5)
-	dy = regpar(6)
-
-	do iy=1,ny
-	  y = y0 + (iy-1)*dy
-	  do ix=1,nx
-	    x = x0 + (ix-1)*dx
-	    xcoord(ix,iy) = x
-	    ycoord(ix,iy) = y
-	    ie = fmreg(4,ix,iy)
-	    if( ie > 0 ) then
-	      ilcoord(ix,iy) = ilhv(ie)
-	      hcoord(ix,iy) = sum(hm3v(:,ie))/3.	!average in element
-	    end if
-	  end do
-	end do
-
-	! the next way to compute depth is compatible with nos/ous2nc
-
-	call fm2am2d(hkv,nx,ny,fmreg,hcoord)	!other way to compute depth
-
-	do ix=1,nx
-	  x = x0 + (ix-1)*dx
-	  xlon(ix) = x
-	end do
-
-	do iy=1,ny
-	  y = y0 + (iy-1)*dy
-	  ylat(iy) = y
-	end do
-
-	end
-
-!***************************************************************
-
-	subroutine fem_regular_interpolate(lmax,cv3,am)
+        subroutine fem_regular_interpolate_shell(regexpand,lmax,cv3,am)
 
         use basin
-	use levels
-	use shyelab_out
+        use levels
+        use shyelab_out
 
         implicit none
 
+        integer regexpand
         integer lmax                   !vertical dimension of regular array
         real cv3(nlvdi,nkn)            !values of fem array
         real am(nlvdi,nxreg*nyreg)     !interpolated values (return)
 
-	logical binelem,bfromnode
-	integer mode
-	integer nx,ny
+	integer k,l,lm
 	real flag
-	real fem2d(nkn)
-	real am2d(nxreg*nyreg)
-
-	mode = 3	!1: only in element, 3: only from nodes, 2: both
-
-	binelem = mode <= 2
-	bfromnode = mode >= 2
 
 	call getgeoflag(flag)
-	nx = nxreg
-	ny = nyreg
 
-	am = flag
+	do k=1,nkn
+	  lm = ilhkv(k)
+	  !do l=1,lm
+	  !  if( cv3(l,k) == flag ) then
+	  !    write(6,*) 'warning: flag in scals ',l,k
+	  !  end if
+	  !end do
+	  cv3(lm+1:nlvdi,k) = flag
+	end do
 
-	if( binelem ) then
-	  if( lmax <= 1 ) then
-	    fem2d = cv3(1,:)
-	    call fm2am2d(fem2d,nx,ny,fmreg,am2d)
-	    am(1,:) = am2d
-	  else
-	    call fm2am3d(nlvdi,ilhv,cv3,nlvdi,nx,ny,fmreg,am)
-	  end if
-	end if
-
-	if( bfromnode ) then
-	  if( lmax <= 1 ) then
-	    fem2d = cv3(1,:)
-	    call fm_extra_2d(nx,ny,fmextra,fem2d,am2d)
-	    am(1,:) = am2d
-	  else
-	    call fm_extra_3d(nlvdi,nlv,ilhkv,nx,ny,fmextra,cv3,am)
-	  end if
-	end if
+	call fem_regular_interpolate(nxreg,nyreg,regexpand,lmax
+     +                  ,fmreg,fmextra,ilcoord,cv3,am)
 
 	end
 

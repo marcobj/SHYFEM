@@ -7,6 +7,10 @@
 ! 20.05.2015    ggu     use bhuman to convert to human readable time
 ! 05.06.2015    ggu     iextract to extract nodal value
 ! 05.11.2015    ggu     new option chform to change format
+! 04.10.2016    ggu     output flags now similar to shyelab
+! 05.10.2016    ggu     allow for expansion of regular grid
+! 11.10.2016    ggu     introduced flag for min/max/med computation
+! 31.10.2016    ggu     new flag condense (bcondense)
 !
 !******************************************************************
 
@@ -22,7 +26,8 @@ c writes info on fem file
 	integer nfile
 	double precision tmin,tmax
 	character*80 stmin,stmax
-	logical bdebug,bskip,bwrite,bout,btmin,btmax,bquiet
+	logical bdebug,bskip,bout,btmin,btmax
+	logical bverb,bwrite,bquiet,binfo
 	logical bchform,bcheckdt
 
 	bdebug = .true.
@@ -41,11 +46,16 @@ c--------------------------------------------------------------
 	call clo_add_option('out',.false.,'create output file out.fem')
         call clo_add_option('node node',-1,'extract value for node')
 	call clo_add_option('split',.false.,'splits to single variables')
+        call clo_add_option('regexpand iexp',-1,'expand regular grid')
 
         call clo_add_sep('options in/output')
 
-	call clo_add_option('write',.false.,'write min/max of values')
-	call clo_add_option('quiet',.false.,'do not be verbose')
+        call clo_add_option('verb',.false.,'be more verbose')
+        call clo_add_option('write',.false.,'write min/max of records')
+        call clo_add_option('quiet',.false.,'do not write time records')
+        call clo_add_option('info',.false.,'only give info on header')
+	call clo_add_option('condense',.false.
+     +				,'condense data to one node')
 
 	call clo_add_sep('additional options')
 
@@ -73,10 +83,13 @@ c--------------------------------------------------------------
 c get command line options
 c--------------------------------------------------------------
 
+	call clo_get_option('verb',bverb)
 	call clo_get_option('write',bwrite)
+	call clo_get_option('quiet',bquiet)
+	call clo_get_option('info',binfo)
+
 	call clo_get_option('out',bout)
 	call clo_get_option('chform',bchform)
-	call clo_get_option('quiet',bquiet)
         call clo_get_option('checkdt',bcheckdt)
 	call clo_get_option('tmin',stmin)
 	call clo_get_option('tmax',stmax)
@@ -137,25 +150,31 @@ c writes info on fem file
 	integer idt,idtact
 	double precision dtime,atmin,atmax,atime0,atime1997
 	double precision atime,atimeold,atimeanf,atimeend
-	real dmin,dmax
+	real dmin,dmax,dmed
 	integer ierr
 	integer nfile
-	integer irec,iv,ich,isk,nrecs,iu88,l,i
+	integer irec,iv,ich,isk,nrecs,iu88,l,i,ivar
 	integer itype(2)
 	integer iformat,iformout
 	integer datetime(2),dateanf(2),dateend(2)
 	integer iextract,it
 	integer ie,nx,ny,ix,iy
+	integer regexpand
+	integer np_out
 	real regpar(7)
-	logical bdebug,bfirst,bskip,bwrite,bout,btmin,btmax,boutput
-	logical bquiet,bhuman,blayer
-	logical bchform,bcheckdt,bdtok,bextract,breg,bintime
+	real flag
+	logical bdebug,bfirst,bskip,bout,btmin,btmax,boutput
+	logical bhuman,blayer,bcondense
+	logical bverb,bwrite,bquiet,binfo
+	logical bchform,bcheckdt,bdtok,bextract,breg,bintime,bexpand
 	logical bsplit,bread
+	integer, allocatable :: ivars(:)
 	character*80, allocatable :: strings(:)
-	character*20 line,aline
+	character*20 dline,aline,fline
 	character*40 eformat
 	character*80 stmin,stmax
 	real,allocatable :: data(:,:,:)
+	real,allocatable :: data_profile(:)
 	real,allocatable :: dext(:)
 	real,allocatable :: d3dext(:,:)
 	real,allocatable :: hd(:)
@@ -168,8 +187,8 @@ c writes info on fem file
 	bdebug = .true.
 	bdebug = .false.
 	bhuman = .true.		!convert time in written fem file to dtime=0
-	blayer = .true.		!write layer structure - should be given by CLO
 	blayer = .false.
+	blayer = .true.		!write layer structure - should be given by CLO
 
 	iextract = 0
 	iu88 = 0
@@ -181,19 +200,27 @@ c writes info on fem file
 
         datetime = 0
         irec = 0
+	regpar = 0.
 
+	call clo_get_option('verb',bverb)
 	call clo_get_option('write',bwrite)
+	call clo_get_option('quiet',bquiet)
+	call clo_get_option('info',binfo)
+	call clo_get_option('condense',bcondense)
+
 	call clo_get_option('out',bout)
+	call clo_get_option('regexpand',regexpand)
         call clo_get_option('node',iextract)
         call clo_get_option('split',bsplit)
 	call clo_get_option('chform',bchform)
-	call clo_get_option('quiet',bquiet)
         call clo_get_option('checkdt',bcheckdt)
 	call clo_get_option('tmin',stmin)
 	call clo_get_option('tmax',stmax)
 
 	if( bchform ) bout = .true.
+	if( bcondense ) bout = .true.
 	bextract = iextract > 0
+	bexpand = regexpand > -1
 
 	atmin = 0.
 	atmax = 0.
@@ -216,8 +243,8 @@ c--------------------------------------------------------------
 	if( iunit .le. 0 ) stop
 
 	write(6,*) 'file name: ',infile(1:len_trim(infile))
-	call fem_file_get_format_description(iformat,line)
-	write(6,*) 'format: ',iformat,"  (",line(1:len_trim(line)),")"
+	call fem_file_get_format_description(iformat,fline)
+	write(6,*) 'format: ',iformat,"  (",trim(fline),")"
 
 c--------------------------------------------------------------
 c prepare for output if needed
@@ -246,13 +273,11 @@ c--------------------------------------------------------------
 
 	if( ierr .ne. 0 ) goto 99
 
-	if( .not. bquiet ) then
-	  write(6,*) 'nvers:  ',nvers
-	  write(6,*) 'np:     ',np
-	  write(6,*) 'lmax:   ',lmax
-	  write(6,*) 'nvar:   ',nvar
-	  write(6,*) 'ntype:  ',ntype
-	end if
+	write(6,*) 'nvers:  ',nvers
+	write(6,*) 'np:     ',np
+	write(6,*) 'lmax:   ',lmax
+	write(6,*) 'nvar:   ',nvar
+	write(6,*) 'ntype:  ',ntype
 
 	allocate(hlv(lmax))
 	call fem_file_make_type(ntype,2,itype)
@@ -261,17 +286,22 @@ c--------------------------------------------------------------
      +			,hlv,regpar,ierr)
 	if( ierr .ne. 0 ) goto 98
 
-	if( lmax > 1 .and. .not. bquiet ) then
-	  write(6,*) 'vertical layers: ',lmax
-	  write(6,*) hlv
+	if( lmax > 1 ) then
+	  write(6,*) 'levels: ',lmax
+	  write(6,'(5f12.4)') hlv
 	end if
-	if( itype(1) .gt. 0 .and. .not. bquiet ) then
+	if( itype(1) .gt. 0 ) then
 	  write(6,*) 'date and time: ',datetime
 	end if
 	breg = .false.
-	if( itype(2) .gt. 0 .and. .not. bquiet ) then
+	if( itype(2) .gt. 0 ) then
 	  breg = .true.
-	  write(6,*) 'regpar: ',regpar
+	  write(6,*) 'regpar: '
+	  !write(6,'(4f12.4)') regpar
+	  write(6,'(4x,a,2i12)') 'nx,ny: ',nint(regpar(1)),nint(regpar(2))
+	  write(6,'(4x,a,4x,2f12.4)') 'x0,y0: ',regpar(3),regpar(4)
+	  write(6,'(4x,a,2f12.4)') 'dx,dy: ',regpar(5),regpar(6)
+	  write(6,'(4x,a,2f12.4)') 'flag : ',regpar(7)
 	end if
 
 	call dts_convert_to_atime(datetime,dtime,atime)
@@ -301,22 +331,35 @@ c--------------------------------------------------------------
 	lmax0 = lmax
 	nlvdi = lmax
 	np0 = np
+	allocate(ivars(nvar))
 	allocate(strings(nvar))
 	allocate(dext(nvar))
 	allocate(d3dext(nlvdi,nvar))
 	allocate(data(nlvdi,np,nvar))
+	allocate(data_profile(nlvdi))
 	allocate(hd(np))
 	allocate(ilhkv(np))
 	allocate(ius(nvar))
 	ius = 0
 
+c--------------------------------------------------------------
+c write info to terminal
+c--------------------------------------------------------------
+
+        write(6,*) 'available variables contained in file: '
+        write(6,*) 'total number of variables: ',nvar
+        write(6,*) '   varnum     varid    varname'
+
 	do iv=1,nvar
 	  call fem_file_skip_data(iformat,iunit
      +                          ,nvers,np,lmax,string,ierr)
 	  if( ierr .ne. 0 ) goto 97
-	  if( .not. bquiet ) write(6,*) 'data:   ',iv,'  ',trim(string)
+	  call string2ivar_n(string,ivar)
+	  write(6,'(2i10,4x,a)') iv,ivar,trim(string)
+	  ivars(iv) = ivar
 	  strings(iv) = string
 	end do
+	if( binfo ) return
 
 c--------------------------------------------------------------
 c close and re-open file
@@ -351,13 +394,20 @@ c--------------------------------------------------------------
 	  if( np .ne. np0 ) goto 96
 
 	  call dts_convert_to_atime(datetime,dtime,atime)
-	  call dts_format_abs_time(atime,line)
+	  call dts_format_abs_time(atime,dline)
 
-	  if( bdebug ) write(6,*) irec,atime,line
+	  if( bdebug ) write(6,*) irec,atime,dline
+	  if( .not. bquiet ) then
+            write(6,'(a,2f20.2,3x,a20)') 'time : ',atime,dtime,dline
+	  end if
 
 	  call fem_file_read_2header(iformat,iunit,ntype,lmax
      +			,hlv,regpar,ierr)
 	  if( ierr .ne. 0 ) goto 98
+
+	  flag = regpar(7)
+	  call fem_file_make_type(ntype,2,itype)
+	  breg = ( itype(2) .gt. 0 )
 
 	  bdtok = atime > atimeold
           boutput = bout .and. bdtok
@@ -374,8 +424,10 @@ c--------------------------------------------------------------
 	    if( bhuman ) then
 	      call dts_convert_from_atime(datetime,dtime,atime)
 	    end if
+	    np_out = np
+	    if( bcondense ) np_out = 1
             call fem_file_write_header(iformout,iout,dtime
-     +                          ,nvers,np,lmax,nvar,ntype,lmax
+     +                          ,0,np_out,lmax,nvar,ntype,lmax
      +                          ,hlv,datetime,regpar)
           end if
 
@@ -394,24 +446,35 @@ c--------------------------------------------------------------
 	    if( ierr .ne. 0 ) goto 97
 	    if( string .ne. strings(iv) ) goto 95
             if( boutput ) then
-              call fem_file_write_data(iformout,iout
-     +                          ,nvers,np,lmax
+	      !call custom_elab(nlvdi,np,string,iv,data(1,1,iv))
+	      if( breg .and. bexpand ) then
+		call reg_set_flag(nlvdi,np,ilhkv,regpar,data(1,1,iv))
+		call reg_expand_shell(nlvdi,np,lmax,regexpand
+     +					,regpar,ilhkv,data(1,1,iv))
+	      end if
+	      if( bcondense ) then
+		call fem_condense(np,lmax,data(1,1,iv),flag,data_profile)
+                call fem_file_write_data(iformout,iout
+     +                          ,0,np_out,lmax
+     +                          ,string
+     +                          ,ilhkv,hd
+     +                          ,nlvdi,data_profile)
+	      else
+                call fem_file_write_data(iformout,iout
+     +                          ,0,np_out,lmax
      +                          ,string
      +                          ,ilhkv,hd
      +                          ,nlvdi,data(1,1,iv))
+	      end if
             end if
-	    if( bwrite ) then
-	     if( blayer ) then
+	    if( bwrite .and. .not. bskip ) then
+	      write(6,*) irec,iv,ivars(iv),trim(strings(iv))
 	      do l=1,lmax
-               call minmax_data(l,lmax,np,ilhkv,data(1,1,iv),dmin,dmax)
-	       write(6,1200) irec,iv,l,atime,dmin,dmax,line
- 1200	       format(i6,i3,i4,f15.2,2g14.5,1x,a20)
+                call minmax_data(l,lmax,np,flag,ilhkv,data(1,1,iv)
+     +					,dmin,dmax,dmed)
+	        write(6,1000) 'l,min,aver,max : ',l,dmin,dmed,dmax
+ 1000	        format(a,i5,3g16.6)
 	      end do
-	     else
-              call minmax_data(0,lmax,np,ilhkv,data(1,1,iv),dmin,dmax)
-	      write(6,1100) irec,iv,atime,dmin,dmax,line
- 1100	      format(i6,i3,f15.2,2g16.5,1x,a20)
-	     end if
 	    end if
 	    if( bextract ) then
 	      dext(iv) = data(1,iextract,iv)
@@ -445,10 +508,10 @@ c--------------------------------------------------------------
 
 	nrecs = irec - 1
 	write(6,*) 'nrecs:  ',nrecs
-	call dts_format_abs_time(atimeanf,line)
-	write(6,*) 'start time: ',atimeanf,line
-	call dts_format_abs_time(atimeend,line)
-	write(6,*) 'end time:   ',atimeend,line
+	call dts_format_abs_time(atimeanf,aline)
+	write(6,*) 'start time: ',atimeanf,aline
+	call dts_format_abs_time(atimeend,aline)
+	write(6,*) 'end time:   ',atimeend,aline
 
         if( ich == 0 ) then
           write(6,*) 'idt:    ',idt
@@ -509,36 +572,53 @@ c*****************************************************************
 c*****************************************************************
 c*****************************************************************
 
-        subroutine minmax_data(level,nlvddi,np,ilhkv,data,vmin,vmax)
+        subroutine minmax_data(level,nlvddi,np,flag,ilhkv,data
+     +				,vmin,vmax,vmed)
 
         implicit none
 
 	integer level		!level for which minmax to compute (0 for all)
         integer nlvddi,np
+	real flag
         integer ilhkv(1)
         real data(nlvddi,1)
-	real vmin,vmax
+	real vmin,vmax,vmed
 
-        integer k,l,lmin,lmax,lm
-        real v
+        integer k,l,lmin,lmax,lm,ntot
+        real v,high
+	double precision vtot
 
 	lmin = max(1,level)
 	lmax = level
 	if( level == 0 ) lmax = nlvddi
 
-        vmin = data(1,1)
-        vmax = data(1,1)
+	ntot = 0
+	vtot = 0.
+	high = 1.e+30
+        vmin = high
+        vmax = -high
 
         do k=1,np
           lm = min(ilhkv(k),lmax)
           do l=lmin,lm
             v = data(l,k)
+	    if( v == flag ) cycle
+	    ntot = ntot + 1
+	    vtot = vtot + v
             vmax = max(vmax,v)
             vmin = min(vmin,v)
           end do
         end do
 
-        !write(86,*) 'min/max: ',it,vmin,vmax
+	if( ntot > 0 ) then
+	  vmed = vtot / ntot
+	else
+	  vmin = 0.
+	  vmax = 0.
+	  vmed = 0.
+	end if
+
+        !write(86,*) 'min/max: ',it,vmin,vmax,vmed
 
         end
 
@@ -655,7 +735,7 @@ c*****************************************************************
 	integer, save :: iusold
 
 	if( ius == 0 ) then
-	  call string2ivar(string,ivar)
+	  call string2ivar_n(string,ivar)
 	  call string_direction(string,dir)
 	  if( dir == 'y' ) then		!is second part of vector
 	    ius = iusold
@@ -688,6 +768,123 @@ c*****************************************************************
    99	continue
 	write(6,*) 'cannot open file ',trim(file)
 	stop 'error stop femsplit: cannot open output file'
+	end
+
+c*****************************************************************
+
+	subroutine custom_elab(nlvdi,np,string,iv,data)
+
+	implicit none
+
+	integer nlvdi,np,iv
+	character*(*) string
+	real data(nlvdi,np)
+
+	real fact
+
+	return
+
+	if( string(1:13) /= 'wind velocity' ) return
+	if( iv < 1 .or. iv > 2 ) return
+
+	fact = 2.
+
+	!write(6,*) iv,'  ',trim(string)
+	write(6,*) 'attention: wind speed changed by a factor of ',fact
+
+	data = fact * data
+
+	end
+
+c*****************************************************************
+
+	subroutine reg_expand_shell(nlvddi,np,lmax,regexpand
+     +					,regpar,il,data)
+
+c shell to call expansion routine
+
+	implicit none
+
+	integer nlvddi,np,lmax,regexpand
+	real regpar(7)
+	integer il(np)
+	real data(nlvddi,np)
+
+	integer nx,ny
+	real flag
+
+        nx = nint(regpar(1))
+        ny = nint(regpar(2))
+        flag = regpar(7)
+
+	if( nx*ny /= np ) then
+	  write(6,*) 'np,nx,ny,nx*ny: ',np,nx,ny,nx*ny
+	  stop 'error stop reg_expand_shell: incompatible params'
+	end if
+
+	write(6,*) 'expanding regular grid: ',nx,ny,regexpand
+
+	call reg_expand_3d(nlvddi,nx,ny,lmax,regexpand,flag,data)
+
+	call adjust_reg_vertical(nlvddi,nx,ny,flag,data,il)
+
+	end
+
+c*****************************************************************
+
+	subroutine reg_set_flag(nlvddi,np,il,regpar,data)
+
+	implicit none
+
+	integer nlvddi,np
+	integer il(np)
+	real regpar(7)
+	real data(nlvddi,np)
+
+	integer k,lmax
+	real flag
+
+	flag = regpar(7)
+
+	do k=1,np
+	  lmax = il(k)
+	  data(lmax+1:nlvddi,k) = flag
+	end do
+
+	end
+
+c*****************************************************************
+
+	subroutine fem_condense(np,lmax,data,flag,data_profile)
+
+	implicit none
+
+	integer np,lmax
+	real data(lmax,np)
+	real flag
+	real data_profile(lmax)
+
+	integer l,i,nacu
+	double precision val,acu
+
+	do l=1,lmax
+	  nacu = 0
+	  acu = 0.
+	  do i=1,np
+	    val = data(l,i)
+	    if( val /= flag ) then
+	      nacu = nacu + 1
+	      acu = acu + val
+	    end if
+	  end do
+	  if( nacu == 0 ) then
+	    val = flag
+	  else
+	    val = acu / nacu
+	  end if
+	  data_profile(l) = val
+	end do
+
 	end
 
 c*****************************************************************
