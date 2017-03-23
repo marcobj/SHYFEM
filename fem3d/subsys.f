@@ -830,11 +830,15 @@ c		and diffusion of the substance. If greater than 1
 c		|iconz| concentrations are simulated. (Default 0)
 c |conref|	Reference (initial) concentration of the tracer in
 c		any unit. (Default 0)
-c |contau|	If different from 0 simulates decay of concentration. In
+c |contau|	Decay rate for concentration if different from 0. In
 c		this case |contau| is the decay rate (e-folding time) in days.
+c		There also is the possibility to set different decay rates
+c		for multi-concentration runs. In this case the value of
+c		|taupar| has to be adjusted in the program code.
 c		(Default 0)
-c |idecay|	Type of decay used. If 0 the value of |contau| is used.
-c		A value of 1 uses a formulation of Chapra, where the
+c |idecay|	Type of decay used. If 0 no decay is used.
+c		A value of 1 uses the value of |contau| as exponential decay.
+c		A value of 2 uses a formulation of Chapra, where the
 c		decay rate depends on T,S,light and settling. In this
 c		case the value of |contau| is ignored.
 c		(Default 0)
@@ -1630,12 +1634,19 @@ c			will be used as |velref|. (Default 0)
 c |velmin|		Minimum value for which an arrow will be plotted.
 c			With this value you can eliminate small arrows
 c			in low dynamic areas. (Default 0)
+c |velmax|		Maximum value for which an arrow will be plotted.
+c			With this value you can eliminate arrows that are
+c			too big. This is usefull if you would like to study an
+c			area with low current speed but adjacent area have
+c			high current speeds that would overplot the area.
+c			(Default -1, no limitation)
 
 	call addpar('dxygrd',0.)	!grid size for regular grid
 	call addpar('typls',0.)		!typical length scale for arrow plot
 	call addpar('typlsf',1.)	!factor for typical length scale
 	call addpar('velref',0.)	!reference velocity for length scale
 	call addpar('velmin',0.)	!minimum velocity to be plotted
+	call addpar('velmax',-1.)	!maximum velocity to be plotted
 
 c |isphe|		If 0 a cartesian coordinate system is used,
 c			If 1 the coordinates are in the spherical 

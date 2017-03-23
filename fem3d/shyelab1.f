@@ -90,7 +90,6 @@
 !--------------------------------------------------------------
 
 	nread=0
-	nwrite=0
 	nelab=0
 	nrec=0
 	ndiff = 0
@@ -197,13 +196,13 @@
 	! time averaging
 	!--------------------------------------------------------------
 
-	call elabutil_set_averaging(nvar)	!sets btrans
+	call elabutil_set_averaging(nvar)	!sets btrans and avermode
 	call elabutil_check_options		!see if b2d and btrans
 
 	if( btrans ) then
-	  call shyutil_init_accum(nlvdi,nndim,nvar,istep)
+	  call shyutil_init_accum(avermode,nlvdi,nndim,nvar,istep)
 	else
-	  call shyutil_init_accum(1,1,1,1)
+	  call shyutil_init_accum(avermode,1,1,1,1)
 	end if
 
 	!--------------------------------------------------------------
@@ -245,13 +244,8 @@
 	! write info to terminal
 	!--------------------------------------------------------------
 
-        write(6,*) 'available variables contained in file: '
-        write(6,*) 'total number of variables: ',nvar
-        write(6,*) '   varnum     varid    varname'
-        do iv=1,nvar
-          ivar = ivars(iv)
-          write(6,'(2i10,4x,a)') iv,ivar,trim(strings(iv))
-        end do
+	call shy_print_descriptions(nvar,ivars,strings)
+
 	if( binfo ) return
 
 !--------------------------------------------------------------
@@ -355,7 +349,7 @@
 	  end if
 
 	  if( btrans ) then
-	    call shy_time_aver(bforce,mode,iv,nread,ifreq,istep,nndim
+	    call shy_time_aver(bforce,avermode,iv,nread,ifreq,istep,nndim
      +			,idims,threshold,cv3,boutput)
 	  end if
 
@@ -367,7 +361,7 @@
 	    ! only write at end of loop over variables
 	  else
 	    call shyelab_record_output(id,idout,dtime,ivar,iv,n,m
-     +						,nlv,nlvdi,cv3)
+     +						,lmax,nlvdi,cv3)
 	  end if
 
 	  if( baverbas .and. bscalar ) then
@@ -396,7 +390,7 @@
 	   iv = 1
            call comp_map(nlvdi,nkn,nvar,pthresh,cthresh,cv3all,cv3)
 	   call shyelab_record_output(id,idout,dtime,ivar,iv,n,m
-     +						,nlv,nlvdi,cv3)
+     +						,lmax,nlvdi,cv3)
 	 end if
 
 	 !if( bsumvar ) then
@@ -437,9 +431,9 @@
 	   do iv=1,nvar
 	    naccum = naccu(iv,ip)
 	    if( naccum > 0 ) then
-	      nwrite = nwrite + 1
+	      call shyelab_increase_nwrite
 	      write(6,*) 'final aver: ',ip,iv,naccum
-	      call shy_time_aver(bforce,-mode,iv,ip,0,istep,nndim
+	      call shy_time_aver(bforce,-avermode,iv,ip,0,istep,nndim
      +			,idims,threshold,cv3,boutput)
 	      n = idims(1,iv)
 	      m = idims(2,iv)
@@ -461,6 +455,8 @@
 	write(6,*) 'first time record: ',dline
 	call dts_format_abs_time(alast,dline)
 	write(6,*) 'last time record:  ',dline
+
+	call shyelab_get_nwrite(nwrite)
 
 	write(6,*)
 	write(6,*) nrec,  ' records read'
