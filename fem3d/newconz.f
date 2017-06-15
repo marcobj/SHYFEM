@@ -24,6 +24,7 @@ c 06.06.2016    ggu     initialization from file changed
 c 10.06.2016    ggu     some more re-formatting
 c 08.09.2016    ggu     new decay function implemented (chapra), cleaned
 c 13.02.2017    mic     idecay has new meaning!!! (incompatible)
+c 13.04.2017    ggu     contau deprecated... use taupar (array)
 c
 c*********************************************************************
 
@@ -57,6 +58,7 @@ c initializes tracer computation
 	!use mod_diff_visc_fric
 	use levels, only : nlvdi,nlv
 	use basin, only : nkn,nel,ngr,mbw
+	use para
 
 	implicit none
 
@@ -64,8 +66,8 @@ c initializes tracer computation
 
 	integer nvar,nbc,nintp,i,id,idc
 	integer ishyff
-	integer nmin
-	real cdef(1)
+	integer n
+	real, allocatable :: aux(:)
 	double precision dtime,dtime0
 
 	logical has_restart
@@ -97,7 +99,6 @@ c-------------------------------------------------------------
 	cref=getpar('conref')
 	rkpar=getpar('chpar')
 	difmol=getpar('difmol')
-	contau = getpar('contau')
 	idecay = getpar('idecay')
 	ishyff = nint(getpar('ishyff'))
 
@@ -105,9 +106,20 @@ c-------------------------------------------------------------
 	nvar = iconz
 	allocate(tauv(nvar),cdefs(nvar),massv(nvar))
 	cdefs = cref
-	tauv = contau
-	nmin = min(ndim_tau,nvar)
-	if( nmin > 0 ) tauv(1:nmin) = taupar(1:nmin)
+
+	call para_get_array_size('taupar',n)
+	if( n > 1 .and. n /= nvar ) then
+	  write(6,*) 'array has wrong size: ','taupar'
+	  write(6,*) 'size should be 1 or ',nvar
+	  write(6,*) 'size from STR file is ',n
+	  allocate(aux(n))
+	  call para_get_array_value('taupar',n,n,aux)
+          write(6,*) aux
+	  stop 'error stop tracer_init: wrong array size'
+	end if
+	call para_get_array_value('taupar',nvar,n,tauv)
+	contau = tauv(1)
+	if( n == 1 ) tauv(:) = contau
 
 	if( idecay == 0 ) then 
 	  write(6,*) 'no decay for tracer used'

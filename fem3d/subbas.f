@@ -86,10 +86,10 @@ c***********************************************************
 	if( nk == nkn_basin .and. ne == nel_basin ) return
 
         if( ne > 0 .or. nk > 0 ) then
-          if( ne == 0 .or. nk == 0 ) then
-            write(6,*) 'nel,nkn: ',ne,nk
-            stop 'error stop basin_init: incompatible parameters'
-          end if
+          !if( ne == 0 .or. nk == 0 ) then
+          !  write(6,*) 'nel,nkn: ',ne,nk
+          !  stop 'error stop basin_init: incompatible parameters'
+          !end if
         end if
 
 	if( nkn_basin > 0 ) then
@@ -662,6 +662,53 @@ c*************************************************
 c*************************************************
 c*************************************************
 
+	subroutine bas_insert_irregular(nx,ny,xx,yy)
+
+	use basin
+
+c inserts irregular (but structured) basin (boxes) into basin structure
+
+	implicit none
+
+	integer nx,ny
+	real xx(nx,ny)
+	real yy(nx,ny)
+
+	logical bdebug
+	integer ix,iy
+	integer k
+	real xm,ym
+	real regpar(7)
+
+	regpar = 0.		!this is wrong for coordinates - corrected later
+        regpar(1) = nx
+        regpar(2) = ny
+
+	call bas_insert_regular(regpar)		!index is right now
+
+	k = 0
+        do iy=1,ny
+          do ix=1,nx
+	    k = k + 1
+	    xgv(k) = xx(ix,iy)
+	    ygv(k) = yy(ix,iy)
+          end do
+        end do
+
+        do iy=2,ny
+          do ix=2,nx
+	    k = k + 1
+	    xm = xx(ix,iy) + xx(ix-1,iy) + xx(ix,iy-1) + xx(ix-1,iy-1)
+	    ym = yy(ix,iy) + yy(ix-1,iy) + yy(ix,iy-1) + yy(ix-1,iy-1)
+	    xgv(k) = xm/4.
+	    ygv(k) = ym/4.
+          end do
+        end do
+
+	end
+
+c*************************************************
+
 	subroutine bas_insert_regular(regpar)
 
 	use basin
@@ -758,7 +805,7 @@ c inserts regular basin (boxes) into basin structure
 	deallocate(indexv)
 	deallocate(indexm)
 
-	bdebug = .true.
+	bdebug = .false.
 	if( bdebug ) then
 	  write(6,*) 'regular basin inserted: ',nk,ne
 	  write(6,*) nx,ny,x0,y0,dx,dy
@@ -873,6 +920,74 @@ c*************************************************
 	ngv(n,k1) = k2
 
         end
+
+c*************************************************
+c*************************************************
+c*************************************************
+
+	subroutine bas_get_node_coordinates(xp,yp)
+
+	use basin
+
+	implicit none
+
+	real xp(nkn)
+	real yp(nkn)
+
+	xp = xgv
+	yp = ygv
+
+	end
+
+c*************************************************
+
+	subroutine bas_get_elem_coordinates(xp,yp)
+
+        use basin
+
+        implicit none
+
+        real xp(nel),yp(nel)
+
+        integer ie,ii,k
+        double precision x,y
+
+        do ie=1,nel
+          x = 0.
+          y = 0.
+          do ii=1,3
+            k = nen3v(ii,ie)
+            x = x + xgv(k)
+            y = y + ygv(k)
+          end do
+          xp(ie) = x / 3.
+          yp(ie) = y / 3.
+        end do
+
+        end
+
+c*************************************************
+
+	subroutine bas_get_special_coordinates(np,nodes,xp,yp)
+
+	use basin
+
+	implicit none
+
+	integer np
+	integer nodes(np)
+	real xp(nkn)
+	real yp(nkn)
+
+	integer i,k
+
+	do i=1,np
+	  k = nodes(i)
+	  xp(i) = xgv(k)
+	  yp(i) = ygv(k)
+	end do
+
+	end
 
 c*************************************************
 

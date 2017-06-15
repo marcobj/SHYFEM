@@ -712,7 +712,7 @@ c*****************************************************************
 
 	integer ncid
 
-	integer ndims,dim_id,len,i
+	integer ndims,dim_id,length,i
 	character*30 name
 	integer retval
 
@@ -722,10 +722,30 @@ c*****************************************************************
 	write(6,*) 'dimensions: '
 	do i=1,ndims
 	  dim_id = i
-	  retval = nf_inq_dim(ncid,dim_id,name,len)
+	  retval = nf_inq_dim(ncid,dim_id,name,length)
 	  call nc_handle_err(retval)
-	  write(6,*) dim_id,len,name
+	  write(6,*) dim_id,length,name
 	end do
+
+	end
+
+c*****************************************************************
+
+        subroutine nc_get_dim_totnum(ncid,ndims)
+
+	use netcdf
+
+        implicit none
+
+	include 'netcdf.inc'
+
+        integer ncid
+	integer ndims
+
+        integer retval
+
+	retval = nf_inq_ndims(ncid,ndims)
+	call nc_handle_err(retval)
 
 	end
 
@@ -770,6 +790,28 @@ c*****************************************************************
 	call nc_handle_err(retval)
 
 	end
+
+c*****************************************************************
+
+        subroutine nc_has_dim_name(ncid,name,dim_id)
+
+	use netcdf
+
+        implicit none
+
+	include 'netcdf.inc'
+
+        integer ncid
+        character*(*) name
+	integer dim_id
+
+        integer retval
+	logical nc_has_err
+
+	retval = nf_inq_dimid(ncid,name,dim_id)
+	if( nc_has_err(retval) ) dim_id = 0
+
+        end
 
 c*****************************************************************
 
@@ -826,13 +868,7 @@ c*****************************************************************
 	call nc_get_time_name(time_d,time_v)
 	time = time_v
 
-	time_id = 0
-	do i=1,nvars
-	  var_id = i
-	  retval = nf_inq_varname(ncid,var_id,name)
-	  call nc_handle_err(retval)
-	  if( name .eq. time ) time_id = var_id
-	end do
+	call nc_get_var_id(ncid,time,time_id)
 	if( time_id .eq. 0 ) then
 	  stop 'error stop nc_get_time_rec: cannot find time variable'
 	end if
@@ -885,11 +921,13 @@ c*****************************************************************
 	trecs = 0
 
 	call nc_get_time_name(time_d,time_v)
-	time = time_d
-	call nc_get_dim_id(ncid,time,dim_id)
+	!write(6,*) time_d,time_v
+	if( time_d == ' ' .or. time_v == ' ' ) return
+
+	call nc_get_dim_id(ncid,time_d,dim_id)
 
 	if( dim_id .gt. 0 ) then
-	  retval = nf_inq_dim(ncid,dim_id,name,len)
+	  retval = nf_inq_dim(ncid,dim_id,time_d,len)
 	  call nc_handle_err(retval)
 	  trecs = len
 	end if
@@ -902,7 +940,7 @@ c read variables
 c*****************************************************************
 c*****************************************************************
 
-	subroutine nc_vars_info(ncid)
+	subroutine nc_var_info(ncid,var_id,bverb)
 
 	use netcdf
 
@@ -911,11 +949,58 @@ c*****************************************************************
 	include 'netcdf.inc'
 
 	integer ncid
+	integer var_id
+	logical bverb
 
-	integer nvars,var_id,i,j
-	integer type,ndims,natts
+	integer nvars,i,j,ia
+	integer type,ndims,natts,xtype,length
 	integer dimids(10)
-	character*30 name
+	double precision avalue
+	character*80 name,aname,atext
+	integer retval
+
+	logical, save :: blong = .false.
+
+	blong = bverb
+
+	  retval = nf_inq_var(ncid,var_id,name,type,ndims,dimids,natts)
+	  call nc_handle_err(retval)
+	  if( ndims .gt. 10 ) stop 'error stop nc_var_info: ndims'
+	  write(6,1010) var_id,natts,ndims,'   ',trim(name)
+ 1010     format(3i5,a,a)
+
+	  if( blong ) then
+	    do ia=1,natts
+	      retval = nf_inq_attname(ncid,var_id,ia,aname)
+	      call nc_handle_err(retval)
+	      retval = nf_inq_att(ncid,var_id,aname,xtype,length)
+	      if( retval .ne. nf_noerr ) cycle	!no such attribute name
+	      atext = ' '
+	      call nc_get_var_attrib(ncid,var_id,aname,atext,avalue)
+	      if( xtype .ne. NF_CHAR ) then	!attribute is not a string
+		write(atext,*) avalue
+	      end if
+	      write(6,1000) '    ',ia,'  ',trim(aname),'  ',trim(atext)
+ 1000	      format(a,i5,a,a,a,a)
+	    end do
+	  end if
+
+	end
+
+c*****************************************************************
+
+	subroutine nc_vars_info(ncid,bverb)
+
+	use netcdf
+
+	implicit none
+
+	include 'netcdf.inc'
+
+	integer ncid
+	logical bverb
+
+	integer nvars,var_id,i
 	integer retval
 
 	retval = nf_inq_nvars(ncid,nvars)
@@ -924,11 +1009,7 @@ c*****************************************************************
 	write(6,*) 'variables: '
 	do i=1,nvars
 	  var_id = i
-	  retval = nf_inq_var(ncid,var_id,name,type,ndims,dimids,natts)
-	  if( ndims .gt. 10 ) stop 'error stop nc_vars_info: ndims'
-	  call nc_handle_err(retval)
-	  !write(6,*) var_id,natts,ndims,(dimids(j),j=1,ndims),name
-	  write(6,*) var_id,natts,ndims,name
+	  call nc_var_info(ncid,var_id,bverb)
 	end do
 
 	end
@@ -1005,6 +1086,10 @@ c*****************************************************************
 
 	subroutine nc_get_var_ndims(ncid,var_id,ndims,dimids)
 
+c if ndims == 0 -> just compute total number of dimensions
+c
+c if ndims > 0 and smaller than total number of dimensions -> negative return value
+
 	use netcdf
 
 	implicit none
@@ -1013,13 +1098,22 @@ c*****************************************************************
 
 	integer ncid
 	integer var_id
-	integer ndims
-	integer dimids(1)
+	integer ndims		!on entry dimension, on return number of dimensions
+	integer dimids(ndims)
 
 	integer retval
+	integer ndim
+
+	ndim = ndims
 
 	retval = nf_inq_varndims(ncid,var_id,ndims)
 	call nc_handle_err(retval)
+
+	if( ndim == 0 ) return
+	if( ndims > ndim ) then
+	  ndims = -ndims
+	  return
+	end if
 
 	retval = nf_inq_vardimid(ncid,var_id,dimids)
 	call nc_handle_err(retval)
@@ -1106,6 +1200,43 @@ c*****************************************************************
 	if( xtype .ne. NF_CHAR ) return		!attribute is not a string
 
 	retval = nf_get_att_text(ncid,var_id,aname,atext)
+	call nc_handle_err(retval)
+
+	end
+
+c*****************************************************************
+
+	subroutine nc_get_var_attrib(ncid,var_id,aname,atext,avalue)
+
+	use netcdf
+
+	implicit none
+
+	include 'netcdf.inc'
+
+	integer ncid
+	integer var_id
+	character*(*) aname
+	character*(*) atext
+	double precision avalue
+
+	integer retval
+	integer xtype,len
+
+	atext = ' '
+	avalue = 0.
+
+	retval = nf_inq_att(ncid,var_id,aname,xtype,len)
+	if( retval .ne. nf_noerr ) return	!no such attribute name
+
+	if( xtype .eq. NF_CHAR ) then
+	  retval = nf_get_att_text(ncid,var_id,aname,atext)
+	  if( len == 1 .and. ichar(atext(1:1)) == 0 ) atext=' '	!FIX
+	else
+	  retval = nf_get_att_double(ncid,var_id,aname,avalue)
+	end if
+
+	call nc_handle_err(retval)
 
 	end
 
@@ -1170,16 +1301,17 @@ c reads time record trec of variable name
 	integer ndim		!dimension of data array
 	integer ndimens		!expected dimensionality of data to read
 				!(this should exclude time dimension)
-	integer dims(*)		!length of dimensions (return)
-	real data(*)		!data (return)
+	integer dims(ndimens+1)	!length of dimensions (return)
+	real data(ndim)		!data (return)
 
 	integer retval
 	integer i,dim_id,dim_len
 	integer var_id,itime
 	integer ndims,nlength
-	integer icount(4)
-	integer istart(4)
-	integer dimids(4)
+	integer, allocatable :: icount(:)
+	integer, allocatable :: istart(:)
+	integer, allocatable :: dimids(:)
+	character*80, allocatable :: dimn(:)
 	character*80 dimname
 	character*30 time,time_d,time_v
 
@@ -1196,6 +1328,8 @@ c reads time record trec of variable name
 
 	retval = nf_inq_varndims(ncid,var_id,ndims)
 	call nc_handle_err(retval)
+	if( ndims > ndimens+1 ) goto 95
+	allocate(icount(ndims),istart(ndims),dimids(ndims),dimn(ndims))
 
 	retval = nf_inq_vardimid(ncid,var_id,dimids)
 	call nc_handle_err(retval)
@@ -1207,12 +1341,13 @@ c reads time record trec of variable name
 	  call nc_get_dim_name(ncid,dim_id,dimname)
 	  call nc_get_dim_len(ncid,dim_id,dim_len)
 	  dims(i) = dim_len
+	  dimn(i) = dimname
 	  !write(6,*) 'name of dim: ',i,dimname(1:30)
 	  if( dimname .eq. time ) then
 	    itime = i
 	  else
-	    icount(i) = dim_len
 	    istart(i) = 1
+	    icount(i) = dim_len
 	    nlength = nlength * dim_len
 	  end if
 	  !write(6,*) i,dim_id,dim_len,dimname(1:20)
@@ -1224,13 +1359,16 @@ c reads time record trec of variable name
 	  !write(6,*) 'variable has time... ',itime
 	  if( itime .ne. ndims ) goto 99
 	  ndims = ndims - 1		! time is always last
-	  icount(itime) = 1
 	  istart(itime) = trec
+	  icount(itime) = 1
 	end if
 
 	if( ndims .ne. ndimens ) then
 	  write(6,*) 'expected dimension of data: ',ndimens
 	  write(6,*) 'real dimension of data: ',ndims
+	  do i=1,ndims
+	    write(6,*) i,dims(i),'  ',trim(dimn(i))
+	  end do
 	  stop 'error stop nc_get_var_data: ndimens'
 	end if
 
@@ -1244,10 +1382,12 @@ c reads time record trec of variable name
 	call nc_handle_err(retval)
 
 	return
+   95	continue
+	write(6,*) 'dimensions to small: ',ndims,ndimens+1
+	stop 'error stop nc_get_var_data: ndimens'
    99	continue
 	write(6,*) 'time variable is not last: ',itime,ndims
 	stop 'error stop nc_get_var_data: itime'
-
 	end
 
 c*****************************************************************
@@ -1460,6 +1600,34 @@ c*****************************************************************
 c*****************************************************************
 c*****************************************************************
 
+	subroutine nc_has_vertical_dimension(ncid,name,bvert)
+
+c checks if variable is 3d
+
+	implicit none
+
+	integer ncid
+	character*(*) name
+	logical bvert
+
+	logical btime
+	integer var_id,ndims
+	integer, allocatable :: dim_id(:)
+
+	call nc_get_var_id(ncid,name,var_id)
+
+	ndims = 0
+	call nc_get_var_ndims(ncid,var_id,ndims,dim_id)
+
+	call nc_has_time_dimension(ncid,name,btime)
+	if( btime ) ndims = ndims - 1
+
+	bvert = ( ndims == 3 )
+
+	end
+
+c*****************************************************************
+
 	subroutine nc_has_time_dimension(ncid,name,btime)
 
 c checks if variable name has time dimension
@@ -1470,14 +1638,17 @@ c checks if variable name has time dimension
 	character*(*) name
 	logical btime
 
-	integer var_id,ndim,time_id
-	integer dim_id(10)
+	integer var_id,ndims,time_id
+	integer, allocatable :: dim_id(:)
 	character*30 tname,time_d,time_v
 
 	call nc_get_var_id(ncid,name,var_id)
-	call nc_get_var_ndims(ncid,var_id,ndim,dim_id)
+	ndims = 0
+	call nc_get_var_ndims(ncid,var_id,ndims,dim_id)
+	allocate(dim_id(ndims))
+	call nc_get_var_ndims(ncid,var_id,ndims,dim_id)
 
-	time_id = dim_id(ndim)
+	time_id = dim_id(ndims)				!time is always last
         call nc_get_dim_name(ncid,time_id,tname)
 	call nc_get_time_name(time_d,time_v)
 
@@ -1497,8 +1668,8 @@ c*****************************************************************
         common /time_netcdf/ time_d_c,time_v_c
 	save /time_netcdf/
 
-	if( time_d .ne. ' ' )  time_d_c  = time_d
-	if( time_v .ne. ' ' )  time_v_c  = time_v
+	if( time_d .ne. ' ' )  time_d_c  = time_d	!dimension name of time
+	if( time_v .ne. ' ' )  time_v_c  = time_v	!variable name of time
 
 	end
 
@@ -1527,7 +1698,7 @@ c*****************************************************************
         common /time_netcdf/ time_d_c,time_v_c
 	save /time_netcdf/
 
-        data time_d_c,time_v_c /'time','time'/
+        data time_d_c,time_v_c /' ',' '/
 
         end
 
@@ -2004,6 +2175,8 @@ c writes global conventions
 	end
 
 c*****************************************************************
+c*****************************************************************
+c*****************************************************************
 
 	subroutine nc_handle_err(errcode)
 
@@ -2018,6 +2191,21 @@ c*****************************************************************
 	write(6,*) 'Error: ', nf_strerror(errcode)
 
 	stop 'error stop nc_handle_err'
+	end
+
+c*****************************************************************
+
+	function nc_has_err(errcode)
+
+	implicit none
+
+	include 'netcdf.inc'
+
+	logical nc_has_err
+	integer errcode
+
+	nc_has_err = ( errcode .ne. nf_noerr )
+
 	end
 
 c*****************************************************************

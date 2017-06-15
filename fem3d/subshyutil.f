@@ -187,9 +187,9 @@
         implicit none
 
         character*(*) type      !type of file, e.g., hydro, ts, wave
-        integer nvar
-        logical b2d
-        integer id
+        integer nvar		!total number of scalars to be written
+        logical b2d		!2d fields
+        integer id		!id for file (return)
 
         integer ftype,npr,nl
         character*80 file,ext,aux
@@ -346,7 +346,7 @@ c-----------------------------------------------------
 	integer ivars(nvar)
 	character*(*) strings(nvar)
 
-	integer irec,nrec,ierr,i
+	integer irec,nrec,ierr,i,isub
 	integer ftype
 	integer ivar,n,m,lmax
 	double precision dtime
@@ -372,7 +372,7 @@ c-----------------------------------------------------
 	    if( ivar < 0 ) cycle
 	    irec = irec + 1
 	    ivars(irec) = ivar
-	    call ivar2string(ivar,strings(irec))
+	    call ivar2string(ivar,strings(irec),isub)
 	    if( irec == nvar ) exit
 	  end do
 	  do i=1,nrec

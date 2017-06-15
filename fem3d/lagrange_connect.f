@@ -20,20 +20,15 @@ c continuous release from points
 	end
 
 c*******************************************************************
-c*******************************************************************
-c*******************************************************************
 
-	subroutine lagr_connect_count(ibdy,ie,ieorig,time,ic)
+	subroutine lagr_connect_count(ibdy,ie,ieorig,time)
 
 	implicit none
 
 	integer ibdy,ie,ieorig
 	real time
-	integer ic
 
 	end
-
-c*******************************************************************
 
 c******************************************************************
 
@@ -44,10 +39,30 @@ c******************************************************************
 	integer ie,ip_station
 	real r_station
 
-	  ip_station = 0
-	  r_station = 0.5
+	ip_station = 0
+	r_station = 0.5
 
 	end
+
+c******************************************************************
+
+        subroutine lagr_connect_bitmap_init(ip)
+
+        implicit none
+
+        integer ip
+
+        end
+
+c******************************************************************
+
+        subroutine lagr_connect_bitmap_copy(ifrom,ito)
+
+        implicit none
+
+        integer ifrom,ito
+
+        end
 
 c******************************************************************
 

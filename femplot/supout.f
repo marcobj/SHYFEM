@@ -157,7 +157,7 @@ c set bshowdry = .false. if you want to plot all areas
 
 	  write(6,*) 'using zeta for dry areas'
 	  if( bshowdry ) then
-            call set_dry_mask(bwater,znv,href,hzmin)	!false if znv/=zenv
+            call set_dry_mask(bwater,znv,zenv,href,hzmin)	!false if znv/=zenv
 	  end if
           call set_level_mask(bwater,ilhv,level)	!element has this level
 	  call make_dry_node_mask(bwater,bkwater)	!copy elem to node mask
@@ -1490,6 +1490,8 @@ c reads next FEM record - is true if a record has been read, false if EOF
 	breg = fem_file_regular(ntype) > 0
 	if( .not. breg .and. np .ne. nkn ) goto 99
 	if( breg .and. lmax > 1 ) goto 98
+
+	write(6,*) 'ggggggguuuuu breg: ',breg,np
 
 	if( breg ) then
 	  write(6,*) 'plotting regular grid...'

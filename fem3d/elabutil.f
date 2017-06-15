@@ -10,6 +10,7 @@
 ! 15.04.2016	ggu	handle gis files with substitution of colon
 ! 08.09.2016	ggu	new options -map, -info, -areas, -dates
 ! 21.03.2017	ggu	mode renamed to avermode
+! 23.03.2017	ccf	line routines introduced
 !
 !************************************************************
 
@@ -70,6 +71,10 @@
 	integer, save :: nnodes = 0
 	integer, save, allocatable :: nodes(:)
 	integer, save, allocatable :: nodese(:)
+
+        logical, save :: barea
+        integer, save, allocatable :: ieflag(:)
+        integer, save, allocatable :: ikflag(:)
 
 	real, save :: fact			= 1
 
@@ -315,6 +320,8 @@
         bnode = nodesp > 0
         bnodes = nodefile .ne. ' '
 
+	barea = areafile /= ' '
+
         boutput = bout .or. b2d
 	boutput = boutput .or. outformat /= 'native'
         !btrans is added later
@@ -524,7 +531,7 @@ c***************************************************************
 c***************************************************************
 c***************************************************************
 
-        subroutine shy_write_aver(dtime,ivar,cmin,cmax,cmed,vtot)
+        subroutine shy_write_aver(dtime,ivar,cmin,cmax,cmed,cstd,vtot)
 
 c writes basin average to file
 
@@ -532,7 +539,7 @@ c writes basin average to file
 
         double precision dtime
         integer ivar
-        real cmin,cmax,cmed,vtot
+        real cmin,cmax,cmed,cstd,vtot
 
 	integer it
         real totmass
@@ -540,20 +547,20 @@ c writes basin average to file
 	it = nint(dtime)
         totmass = cmed * vtot
 
-        !write(6,1234) it,ivar,cmin,cmed,cmax,totmass
-        write(100+ivar,1235) it,cmin,cmed,cmax,totmass
+        !write(6,1234) it,ivar,cmin,cmed,cmax,cstd,totmass
+        write(100+ivar,1235) it,cmin,cmed,cmax,cstd,totmass
         write(100,1236) it,vtot
 
-        write(6,2234) dtime,ivar,cmin,cmed,cmax,totmass
-        write(200+ivar,2235) dtime,cmin,cmed,cmax,totmass
+        write(6,2234) dtime,ivar,cmin,cmed,cmax,cstd,totmass
+        write(200+ivar,2235) dtime,cmin,cmed,cmax,cstd,totmass
         write(200,2236) dtime,vtot
 
 	return
- 1234   format(i10,i10,3f12.4,e14.6)
- 1235   format(i10,3f12.4,e14.6)
+ 1234   format(i10,i10,4f12.4,e14.6)
+ 1235   format(i10,4f12.4,e14.6)
  1236   format(i10,e14.6)
- 2234   format(f15.2,i10,3f12.4,e14.6)
- 2235   format(f15.2,3f12.4,e14.6)
+ 2234   format(f15.2,i10,4f12.4,e14.6)
+ 2235   format(f15.2,4f12.4,e14.6)
  2236   format(f15.2,e14.6)
         end
 
@@ -668,6 +675,41 @@ c nunit is 0 if no other file exists
         end if
 
         end
+
+c***************************************************************
+
+	function concat_cycle_a(atime,atlast,atstart)
+
+	use elabutil
+
+c decides if with concatenation we have to use record or not
+
+	implicit none
+
+	logical concat_cycle_a
+	double precision atime,atlast,atstart
+
+	character*20 dline
+
+	concat_cycle_a = .false.
+
+        !write(66,*) 'ggu: ',atime,atlast,atstart
+
+        if( catmode < 0 ) then
+          if( atime <= atlast ) then
+	    call dts_format_abs_time(atime,dline)
+            write(6,*) 'skipping record: ',atime,dline
+	    concat_cycle_a = .true.
+          end if
+        else if( catmode > 0 .and. atstart /= -1 ) then
+          if( atime >= atstart ) then
+	    call dts_format_abs_time(atime,dline)
+            write(6,*) 'skipping record: ',atime,dline
+	    concat_cycle_a = .true.
+          end if
+        end if
+
+	end
 
 c***************************************************************
 

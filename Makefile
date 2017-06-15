@@ -45,7 +45,7 @@ FEMBIN    = $(FEMDIR)/fembin
 TMPDIR    = $(HOME)/fem/tmp
 ACTFEMDIR = `pwd`
 
-REGRESSDIR = femregress/tests
+REGRESSDIR = femregress
 
 SUBDIRS   = `ls -dF * | grep  '/' | sed -e 's/\///'`
 FEMLIBS   = femcheck post hcbs
@@ -133,8 +133,7 @@ links:
 	-rm -f bin lib
 	-ln -sf fembin bin
 	-ln -sf femlib lib
-	@#[ ! -d ./femregress ] && -ln -fs femdummy femregress
-	if test ! -d ./femregress; then ln -fs femdummy femregress; fi
+	if [ ! -d ./femregress ]; then ln -fs femdummy femregress; fi
 
 #---------------------------------------------------------------
 # cleaning
@@ -288,6 +287,7 @@ help_dev:
 	@echo "last_commit        name of last commit"
 	@echo "dist               prepares distribution (Rules.make)"
 	@echo "rules_save         copies back last Rules.make file"
+	@echo "rules_dist         substitutes Rules.make with Rules.dist file"
 	@echo "advance_time       advances modification time of VERSION"
 
 test_compile:
@@ -300,16 +300,19 @@ check_var:
 	@femcheck/check_var.sh
 
 regress:
-	if [ -d $(REGRESSDIR) ]; then cd $(REGRESSDIR); ./regress_all.sh; fi
+	if [ -d $(REGRESSDIR) ]; then cd $(REGRESSDIR); make regress; fi
 
 revision:
-	 $(FEMBIN)/revision_last
+	 $(FEMBIN)/revision_last.sh
 
 rules_ggu:
 	cp -f arc/rules/Rules.ggu ./Rules.make
 
 rules_save:
 	cp -f arc/rules/Rules.save ./Rules.make
+
+rules_dist:
+	cp -f femcheck/Rules.dist ./Rules.make
 
 dist: cleandist
 	mkdir -p arc/rules

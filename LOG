@@ -1,4 +1,115 @@
 
+13.06.2017
+
+c ./fem3d/subsys.f:
+c 26.05.2017	ggu	default of ishyff is 1 - no nos or ous files
+
+
+25.05.2017
+
+c ./fem3d/femelab.f:
+! 16.05.2017    ggu&mbj better handling of points to extract
+c
+c ./fem3d/subreg.f:
+c 23.05.2017	ggu	file split into subreg, submask and subfind
+
+
+16.05.2017
+
+c ./fem3d/subtsfile.f:
+c 15.05.2017    ggu     new version to also read time string
+c
+c ./fem3d/subiso8601.f:
+! 10.05.2017    ggu     started
+! 15.05.2017    ggu     finished
+!
+c ./fem3d/subscn.f:
+c 15.05.2017	ggu	bug fix in istod -> do not change ioff on error
+c
+c ./fem3d/shyelab1.f:
+! 11.05.2017    ggu     use catmode to concatenate files
+
+
+09.05.2017
+
+c ./fem3d/netcdf.f:
+c 21.04.2017    ggu	some more utility routines
+c
+c ./fem3d/subfemintp.f:
+! 23.04.2017	ggu	prepared for regular grid BC interpolation
+!
+c ./fem3d/subscn.f:
+c 15.04.2017	ggu	new routines istot
+c
+c ./fem3d/subdef.f:
+c 09.05.2017    ggu     add_extension renamed to subst_extension, new add_extension
+c
+c ./fem3d/subssed.f:
+! 09.05.2017	ggu	some bugs fixed
+!
+c ./fem3d/subreg.f:
+c 23.04.2017	ggu	new routine intp_reg_single_nodes()
+c
+c ./fem3d/subn35.f:
+c 09.05.2017    ggu     bug fix for computing bottom stress
+
+
+13.04.2017
+
+c ./fem3d/subwaves.f:
+! 12.04.2017    ggu     routines integrated to compute bottom stress, new module
+!
+c ./fem3d/subpar3.f:
+c 13.04.2017    ggu     new array feature
+c
+c ./fem3d/newconz.f:
+c 13.04.2017    ggu     contau deprecated... use taupar (array)
+c
+c ./fem3d/subn35.f:
+c 10.04.2017    ggu     compute cd, normalized bottom stress and bottom stress
+c
+c ./fem3d/subbnd.f:
+c 13.04.2017    ggu     use array feature of para for kbound
+
+
+31.03.2017
+
+c ./femplot/supsim.f:
+c 21.03.2017    ggu     new parameter valmax introduced
+c
+c ./femplot/shyplot.f:
+! 14.02.2017    ggu     bug fix in plotting regular fem files - introduced il
+c
+c ./fem3d/elabutil.f:
+! 21.03.2017    ggu     mode renamed to avermode
+! 23.03.2017    ccf     line routines introduced
+!
+c ./fem3d/subflxu.f:
+c 30.03.2017    ggu     changed accumulator to time step dt, not number of calls
+c
+c ./fem3d/basutil.f:
+! 21.03.2017    ggu     new flag area to compute area/vol on area code
+!
+c ./fem3d/ouselab1.f:
+c 21.03.2017    ggu     mode to avermode, min/max now working (new initialization)
+c
+c ./fem3d/new3di.f:
+c 24.03.2017    ggu     new treatment for afix in sp256v_intern()
+c
+c ./fem3d/subnev.f:
+c 29.03.2017    ggu     xi2xy changed to correct for small det
+c
+c ./fem3d/suboff.f:
+c 29.03.2017    ggu     bug fix - input file opened on unit 1
+c
+c ./fem3d/shybas.f:
+C 21.03.2017    ggu     new routine to compute area/vol on area code
+c
+c ./fem3d/shyutil.f:
+! 21.03.2017    ggu     use new values for initialization of accum
+! 21.03.2017    ggu     computation of std revised (no NaNs)
+
+
 13.02.2017
 
 c ./fem3d/subver.f:

@@ -129,7 +129,8 @@ SOLVER=SPARSKIT
 # If you want output in NetCDF format and have
 # the library installed, then you can specify
 # it here. The directory where the netcdf files
-# reside must also be indicated.
+# (include and libraries) reside must also be 
+# indicated. This is normally /usr.
 #
 ##############################################
 
@@ -577,8 +578,8 @@ endif
 
 FINTEL_OMP   =
 ifeq ($(PARALLEL),true)
-  FINTEL_OMP   = -threads -openmp
-  FINTEL_OMP   = -openmp
+  FINTEL_OMP   = -threads -qopenmp
+  FINTEL_OMP   = -qopenmp
 endif
 
 ifeq ($(FORTRAN_COMPILER),INTEL)

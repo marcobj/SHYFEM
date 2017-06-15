@@ -10,6 +10,7 @@
 ! 30.09.2015    ccf     converted previous routines to module
 ! 01.10.2015    ccf     bug fix in hour, now handle negative time
 ! 21.10.2015	ccf	documentation included
+! 29.03.2017	ccf	bug fix in the astronomical arguments chi
 !
 !********************************************************************
 c DOCS  START   S_tidef
@@ -24,7 +25,9 @@ c The term $\eta$ in the momentum equations is calculated as a sum
 c of the tidal potential of each tidal constituents multiplied by the
 c frequency-dependent elasticity factor. The factor $\beta$ accounts 
 c for the effect of the load tides, assuming that loading tides are
-c in-phase with the oceanic tide. 
+c in-phase with the oceanic tide. $\beta$ is function of the water depth
+c as $\beta=ltidec*H$ with |ltidec| a calibration factor to be set in the
+c str |para| section.
 c
 c The model cosiders the following tidal costituents:
 c \begin{itemize}
@@ -63,6 +66,7 @@ c DOCS  END
         integer, private, save  :: nkn_tide = 0
 
         integer, save           :: rtide	! parameter to the tide model
+        real, save           	:: ltidec	! calibration coefficient for load tide
         integer, parameter      :: ntd = 12 	! number of tidal constituents
         real, allocatable, save :: zeqv(:)	! tidal equilibrium
 
@@ -117,7 +121,14 @@ c DOCS  END
         integer  	   :: i
         real		   :: d,t,h0,s0,p0
 
-        d  = jd + 365.0*(iyear - 1975.0) + int((iyear-1973.0)/4.0)
+	if (iyear < 1975 ) then
+            write(6,*) 'astronomical arguments chi could be computed'
+            write(6,*) 'only for year >= 1975'
+            write(6,*) 'year = ', iyear
+            stop 'error stop get_chi: year < 1975'
+	end if
+
+        d  = jd + 365.0*(iyear - 1975.0) + int((iyear-1975.0)/4.0)
         t  = t1 + t2*d
         h0 = h01 + h02*t + h03*(t**2.0)
         s0 = s01 + s02*t + s03*(t**2.0) + s04*(t**3.0)
@@ -171,7 +182,7 @@ c DOCS  END
         real, parameter, dimension(ntd) :: mask_t =   !Mask: =1, tide included
      +         (/1., 1., 1., 1., 
      +           1., 1., 1., 1., 
-     +           1., 1., 1., 1./)
+     +           1., 1., 0., 0./)
 
         real, parameter 	:: pi2 = 6.283185307177960
         real, parameter         :: rad = pi2/360.0
@@ -230,6 +241,8 @@ c DOCS  END
 
         if( rtide <= 0. ) return
 
+        ltidec = dgetpar('ltidec')
+
         call get_coords_ev(isphe)
 
         if( isphe <= 0 .AND. iproj <= 0 ) then
@@ -261,9 +274,8 @@ c DOCS  END
         integer  		:: iy,im,id,ih,imn,isec
         integer			:: k,jd
         real			:: hour
-        real, dimension(ntd) 	:: chi		!astronomical arguments [rad]
-        real, parameter 	:: lbd = 7e-5	!calibration coefficient for load
-        real			:: loadb	!loading tide factor [0.054,0.047,= lbd*depth]
+        real, dimension(ntd) 	:: chi    !astronomical arguments [rad]
+        real			:: loadb  !loading tide factor [0.054,0.047,= ltidec*depth]
 
 !--------------------------------------------------------
 !------ compute tidal potential? ------------------------
@@ -293,7 +305,7 @@ c DOCS  END
             lat = ygeov(k)
             lon = xgeov(k)
             call equilibrium_tide(lat,lon,hour,chi,eqt)
-            loadb = lbd * (hkv(k) + zov(k))
+            loadb = ltidec * (hkv(k) + zov(k))
             zeqv(k) = eqt + loadb*zov(k)
         end do
 

@@ -380,10 +380,12 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
            call parwaves(it)            !parametric wave model
            call sedi(it,dt)             !sediment transport
 	   call submud(it,dt)           !fluid mud (ARON)
+	   call simple_sedi		!simplified sediment module
 
 	   call renewal_time
 	   call ecological_module(it,dt)	!ecological model
            call atoxi3d(it,dt)			!toxi
+           call mercury_module
 
            call lagrange
 
@@ -720,11 +722,15 @@ c*****************************************************************
 
 	subroutine check_point(text)
 
+	use basin
+	use mod_hydro
 	use mod_bndo
 
 	implicit none
 
 	character*(*) text
+
+	integer k
 
 	return
 
@@ -732,6 +738,8 @@ c*****************************************************************
 	write(6,*) text
 	call mod_bndo_info
 	call check_ilevels
+	write(6,*) 'znv: ',size(znv),minval(znv),maxval(znv)
+	write(6,*) 'zov: ',size(zov),minval(zov),maxval(zov)
 	write(6,*) '========= end of check_point ========='
 
 	end

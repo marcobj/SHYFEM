@@ -118,6 +118,7 @@ c 29.09.2015	ggu	new initial file uvinit, new flgrst
 c 01.02.2016	ggu	some plot params shifted to para section (bbgray, etc.)
 c 22.02.2016	ggu	new file for initial conditions bfmini
 c 05.04.2016	ggu	new parameter iaicef for ice free areas
+c 26.05.2017	ggu	default of ishyff is 1 - no nos or ous files
 c
 c************************************************************************
 
@@ -137,12 +138,15 @@ c initializes the parameter file for the main FE model
 	call nlsinh_unused
 	call nlsinh_waves
 	call nlsinh_nonhydro
+	call nlsinh_connect
 
 	end
 
 c************************************************************************
 
 	subroutine nlsinh_general
+
+	use para
 
 	implicit none
 
@@ -762,6 +766,13 @@ c		free surface (Default 0).
 
 	call addpar('rtide',0.)
 
+c |ltidec|	Calibration factor for calculating the loading tide, 
+c		which is computed in function of the total water depth as
+c		$\beta=ltidec*H$. Usually it has a value of order 1e-6. 
+c		If 0 no loading tide is computed (Default 0).
+
+	call addpar('ltidec',0.)
+
 cc------------------------------------------------------------------------
 
 c DOCS	ST	Temperature and salinity
@@ -830,23 +841,26 @@ c		and diffusion of the substance. If greater than 1
 c		|iconz| concentrations are simulated. (Default 0)
 c |conref|	Reference (initial) concentration of the tracer in
 c		any unit. (Default 0)
-c |contau|	Decay rate for concentration if different from 0. In
-c		this case |contau| is the decay rate (e-folding time) in days.
-c		There also is the possibility to set different decay rates
-c		for multi-concentration runs. In this case the value of
-c		|taupar| has to be adjusted in the program code.
+c |taupar|	Decay rate for concentration if different from 0. In
+c		this case |taupar| is the decay rate (e-folding time) in days.
+c		This parameter is also used for multi-concentration runs.
+c		In this case either one value has to be given that is used
+c		for all concentrations, or |iconz| values have to be given,
+c		one for each concentration.
 c		(Default 0)
 c |idecay|	Type of decay used. If 0 no decay is used.
-c		A value of 1 uses the value of |contau| as exponential decay.
+c		A value of 1 uses the value of |taupar| as exponential decay.
 c		A value of 2 uses a formulation of Chapra, where the
 c		decay rate depends on T,S,light and settling. In this
-c		case the value of |contau| is ignored.
+c		case the value of |taupar| is ignored.
 c		(Default 0)
 
 	call addpar('iconz',0.)		!compute concentration ?
 	call addpar('conref',0.)	!reference concentration
-	call addpar('contau',0.)	!decay rate [days]
 	call addpar('idecay',0.)	!type of decay
+
+	call para_deprecate('contau','taupar')	!no contau anymore -> use taupar
+	call para_add_array_value('taupar',0.)	!decay rate [days]
 
 c |chpar|	Horizontal diffusion parameter for the tracer.
 c		This value overwrites the general parameter for
@@ -883,6 +897,14 @@ cc biological reactor
 
 	call addpar('ibio',0.)		!run biological reactor
 
+cc mercury reactor
+
+        call addpar('imerc',0.)		!run mercury reactor
+
+cc simple sediments
+
+        call addpar('issedi',0.)	!run simple sediments
+
 cc toxicological routines from ARPAV
 
 	call addpar('itoxi',0.)		!run toxicological routines
@@ -900,7 +922,7 @@ cc custom call
 	call addpar('icust',0.)		!call custom routine
 	call addpar('tcust',0.)		!time for custom routine
 
-	call addpar('ishyff',0.)	!shyfem file format
+	call addpar('ishyff',1.)	!shyfem file format
 					!0=old 1=new 2=both
 
 	call addpar('ipoiss',0.)	!solve poisson equation
@@ -1401,6 +1423,27 @@ c parameters for non hydrostatic model (experimental)
         call addpar('inhbnd',0.)        !exclude NH dynamics for boundaries
         call addpar('iwvel',1.)         !write vertical velocity
         call addpar('iqpnv',1.)         !write NH pressure
+
+	end
+
+c************************************************************************
+
+	subroutine nlsinh_connect
+
+c parameters for connectivity (experimental)
+
+	implicit none
+
+        call sctpar('connec')          !sets default section
+        call sctfnm('connec')
+
+	call addpar('icnn',0.)	        !set to number of stations for connectivity
+
+        call addpar('radcnn',0.)	!radius of release area
+        call addpar('ppscnn',0.)	!particles per second to be released
+        call addpar('idtcnn',0.)	!output every idtcnn
+
+        call addfnm('statcnn',' ')      !connectivity file with stations
 
 	end
 

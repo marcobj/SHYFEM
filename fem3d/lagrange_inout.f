@@ -108,8 +108,7 @@ c 1 inserts at end of time step - no advection for this time step needed
 	end if
 	lgr_ar(nbdy)%id = idbdy
 
-	lgr_ar(nbdy)%bitmap_in = 0
-	lgr_ar(nbdy)%bitmap_out = 0
+	call lagr_connect_bitmap_init(nbdy)
 
 	pt = ity 	!by default use boundary number
 	if( lmytype ) then
@@ -199,14 +198,13 @@ c itype > 0	release n particles regularly
 c itype < 0	release n particles randomly
 c itype == -1	release particles in every layer
 
-	include 'param.h'
-
 	logical b2d,bdebug
 	integer n,lmax,l,i
 	real h,dh,hact,r
 	integer itype	!type of vertical distribution
 	integer lb	!layer [1-lmax]
 	integer linf	!bottom layer [1-lmax]
+	integer lsrf	!surface layer [1-lmax]
 	real z		!vertical (relative) coordinate [0-1]
 	real hl(nlv)
 	real htot,htotz
@@ -216,14 +214,20 @@ c itype == -1	release particles in every layer
 
 	lmax = ilhv(ie)
 	linf = linbot	 
+	lsrf = lintop	 
 	itype = ipvert
 	b2d = nlv <= 1
 
 	if( itype /= 0 ) then
 	  if( linf .gt. lmax ) then 
 	    linf = lmax 
-	  else if (linf.eq.0)then 
+	  else if ( linf .eq. 0 ) then 
 	    linf = lmax 
+	  end if	
+	  if( lsrf .lt. 1 ) then 
+	    lsrf = 1 
+	  else if ( lsrf .eq. 0 ) then 
+	    lsrf = 1 
 	  end if	
 	end if
 
@@ -239,7 +243,7 @@ c itype == -1	release particles in every layer
 	end if
 
 	if( itype == -1 ) then	! realease one particle in every layer
-	  do l=1,linf
+	  do l=lsrf,linf
 	    z = 0.5
 	    call insert_particle(ie,ity,l,rtime,x,y,z)
 	  end do
@@ -350,8 +354,6 @@ c copies particle from ifrom to ito
 
 	implicit none
 
-	include 'param.h'
-
 	integer ifrom,ito
 
 	if( ifrom .eq. ito ) return
@@ -379,8 +381,7 @@ c copies particle from ifrom to ito
 	
         lgr_ar(ito)%xi(:)  = lgr_ar(ifrom)%xi(:)
 
-	!lgr_bitmap_in(ito) = lgr_bitmap_in(ifrom)
-	!lgr_bitmap_out(ito) = lgr_bitmap_out(ifrom)
+	call lagr_connect_bitmap_copy(ifrom,ito)
 
 	end
 
@@ -394,11 +395,8 @@ c deletes particle ip
 
 	implicit none
 
-	include 'param.h'
-
 	integer ip
 
-	!if( ie_body(ip) .gt. 0 ) ie_body(ip) = -ie_body(ip)
 	if( lgr_ar(ip)%ie .gt. 0 ) lgr_ar(ip)%ie = 0
 
 	end
@@ -412,8 +410,6 @@ c returns total number of particles
 	use mod_lagrange
 
 	implicit none
-
-	include 'param.h'
 
 	integer ntot
 
@@ -446,7 +442,7 @@ c*******************************************************************
 	pc = 0.
 	
 	if ( bsedim ) call lgr_set_sedim(pt,ps,pc)
-	!if ( blarvae ) call lgr_set_larvae(pt,ps,pc) 	!pc=length 
+	!if ( blarvae ) call lgr_set_larvae(pt,ps,pc) 	    !pc=length 
 	!if ( boilsim ) call lgr_set_boilsim(pt,ps,pc) 	!TODO ccf
 
         end subroutine lgr_set_properties
@@ -469,8 +465,6 @@ c mic : suggests to write for each release a small file_ini.lgr
 	use levels
 
 	implicit none
-
-        include 'param.h'
 
 	integer iu,it
 
@@ -605,10 +599,7 @@ c outputs particles as density (concentration) to NOS file
 
         implicit none
 
-        include 'param.h'
-
 	include 'femtime.h'
-
 
 	integer ie,ii,k
 	integer ic,i
@@ -706,8 +697,6 @@ c writes element numbers of particles to terminal
 
 	implicit none
 
-	include 'param.h'
-
 	character*(*) text
 
 	integer i,ii
@@ -729,8 +718,6 @@ c deletes particles not in system and compresses array
 	use mod_lagrange
 
 	implicit none
-
-	include 'param.h'
 
 	include 'femtime.h'
 

@@ -22,6 +22,7 @@ c 25.09.2015    ggu     prepared for nudging velocities
 c 29.09.2015    ggu     finished nudging velocities
 c 04.11.2015    ggu     bug in velocitiy nudging fixed
 c 15.04.2016    ggu     started cleaning module
+c 09.04.2017    ccf     new format for nduge file, use more stations for nudging
 c
 c****************************************************************
 
@@ -35,6 +36,8 @@ c****************************************************************
 	integer, parameter :: ndgdatdim	= 10*ndgdim	!max size for BC file
 
 	integer, save, private :: nkn_nudge = 0
+
+	logical, save :: bmulti = .true.	!nudge with more than one station
 
 	integer, save :: idsurf = 0
 
@@ -52,6 +55,14 @@ c****************************************************************
 
 	integer, allocatable :: ndg_nodes(:)	!nodes of influence
 	integer, allocatable :: ndg_area(:)	!area of influence
+
+	type :: ndg_info_type
+          integer :: nstations = 0
+	  integer, allocatable :: stations(:)
+	  real, allocatable :: weights(:)
+	end type ndg_info_type
+        
+	type(ndg_info_type), save, allocatable :: ndg_info(:)
 
 !==================================================================
         contains
@@ -73,6 +84,7 @@ c****************************************************************
 	  deallocate(andg_obs)
 	  deallocate(ndg_nodes)
 	  deallocate(ndg_area)
+	  deallocate(ndg_info)
 	end if
 
 	nkn_nudge = nkn
@@ -88,6 +100,7 @@ c****************************************************************
 	allocate(andg_obs(nkn))
 	allocate(ndg_nodes(nkn))
 	allocate(ndg_area(nkn))
+	allocate(ndg_info(nkn))
 	
 	end subroutine mod_nudge_init
 
@@ -105,27 +118,26 @@ c****************************************************************
 
 	logical binfl,binsert
 	integer nintp,nsize,ndim
-	integer k,i,node,ivar
+	integer k,i,node,ivar,ios
 	real ttau,sigma
 	character*40 file_obs,file_stations
 	character*16 cname
-	character*4 cdummy
 
 	integer ipint
 
-	nvars = 27
-	nvars = 30
+        nvars = 29                                      !Nov-Dic_2013
 	nvars = 0
-	file_obs='data_level_18-27_06_2008.dat'
-	file_stations='mareo_input.txt'
-	tramp = 43200
-	ttau = 0
-	ttau = 3600
-	ttau = 600
-	ttau = 100
-	sigma = 0
-	sigma = 2000
-	ivar = 0
+        file_obs='all_data_Nov-Dic_2013.dat'            !Nov-Dic_2013
+        file_stations='stazioni_list_Nov-Dic_2013.txt'	!Nov-Dic_2013
+
+        tramp = 43200
+        ttau = 0
+        ttau = 3600
+        ttau = 600
+        ttau = 100
+        sigma = 0
+        sigma = 2000
+        ivar = 0
 
 	binfl = sigma .gt. 0.
 
@@ -143,23 +155,13 @@ c****************************************************************
 
 	call exffil(file_obs,nintp,nvars,nsize,ndim,andg_data)
 
-	ivar = 0
-	open(1,file='NUDGE',status='old',form='formatted',err=1)
-	read(1,*) ivar
-	close(1)
-    1	continue
-
-	do i=1,nvars
-	  ndg_use(i) = 1			! use all data
-	  !if( mod(i,2) .ne. 0 ) ndg_use(i) = 0	! only use even vars
-	  !if( i .eq. 10 ) ndg_use(i) = 0	! no Saline
-	  if( i .eq. ivar ) ndg_use(i) = 0
-	end do
+	ndg_use = 1
 
 	open(1,file=file_stations,status='old',form='formatted')
 	write(6,*) 'initializing zeta nudging... nvars = ',nvars
 	do i=1,nvars
-	  read(1,'(a16,a4,i6)') cname,cdummy,node
+	  !read(1,'(a16,a4,i6)') cname,cdummy,node
+	  read(1,*) cname,node,ndg_use(i)
 	  write(6,*) i,cname,node,ndg_use(i)
 	  k = ipint(node)
 	  if( k .le. 0 ) goto 99
@@ -189,11 +191,19 @@ c****************************************************************
 	end do
 
 	if( binfl ) then
-	  call nudge_influence
-	  call distance(ttau,sigma)
+	  if( bmulti ) then
+	    call nudge_setup_multi(ttau,sigma)
+	  else
+	    call nudge_influence
+	    call distance(ttau,sigma)
+	  end if
 	end if
 
 	return
+   98	continue
+	write(6,*) 'error reading stations to exclude'
+	write(6,*) ios,ivar,nvars
+	stop 'error stop nudge_init: error exclude stations'
    99	continue
 	write(6,*) 'Cannot find internal node: ',node
 	stop 'error stop nudge_init: no internal node'
@@ -212,9 +222,9 @@ c****************************************************************
 
 	include 'femtime.h'
 
-	integer i,k,kk,ia
+	integer i,k,kk,ia,ns
 	integer nnudge,iuse,iu
-	real talpha,ttau,t,zobs,zcontrib,w
+	real talpha,ttau,t,zobs,zcontrib,w,zc
 	real rint(ndgdim)
 	real zeta(ndgdim)
 	real cont(ndgdim)
@@ -249,15 +259,22 @@ c****************************************************************
 	nnudge = 0
 	do k=1,nkn
 	  w = andg_weight(k)
-	  !kk = ndg_nodes(k)
 	  ia = ndg_area(k)
 	  zcontrib = 0.
-	  if( ia .gt. 0 ) then
+	  if( bmulti ) then
+	    ns = ndg_info(k)%nstations
+	    do i=1,ns
+	      ia = ndg_info(k)%stations(i)
+	      w = ndg_info(k)%weights(i)
+	      zobs = rint(ia)
+	      zc = talpha * w * ( zobs - zov(k) )
+	      zcontrib = zcontrib + zc
+	    end do
+	  else if( ia .gt. 0 ) then
 	    zobs = rint(ia)
 	    zcontrib = talpha * w * ( zobs - zov(k) )
 	    nnudge = nnudge + 1
 	  end if
-	  !zcontrib = 0.
 	  andgzv(k) = zcontrib
 	end do
 
@@ -267,6 +284,78 @@ c****************************************************************
 
 c*******************************************************************
 c*******************************************************************
+c*******************************************************************
+
+	subroutine nudge_setup_multi(ttau,sigma)
+
+	use basin
+	use mod_nudge
+
+	implicit none
+
+	real ttau,sigma
+
+	integer k,ns,ks,i,nsmax
+	real radmax,s,dx,dy,dist2,dist
+	integer stats(nvars)
+	real weight(nvars)
+	integer nsstats(nvars)
+
+	radmax = 2.*sigma
+	s = 2.*sigma*sigma
+
+!------------------------------------------------------------
+! compute weights
+!------------------------------------------------------------
+
+	do k=1,nkn
+	  ndg_info(k)%nstations = 0
+	  ns = 0
+	  do i=1,nvars
+	    if( ndg_use(i) == 0 ) cycle
+	    ks = ndg_nodelist(i)
+	    dx = xgv(ks) - xgv(k)
+	    dy = ygv(ks) - ygv(k)
+	    dist2 = dx*dx+dy*dy
+	    dist = sqrt(dist2)
+	    if( dist <= radmax ) then
+	      ns = ns + 1
+	      stats(ns) = i
+	      weight(ns) = exp(-dist2/s) / ttau
+	    end if
+	  end do
+	  if( ns == 0 ) cycle	!nothing to be done
+	  allocate(ndg_info(k)%stations(ns))
+	  allocate(ndg_info(k)%weights(ns))
+	  ndg_info(k)%nstations = ns
+	  ndg_info(k)%stations(1:ns) = stats(1:ns)
+	  ndg_info(k)%weights(1:ns) = weight(1:ns)/ns
+	end do
+	
+!------------------------------------------------------------
+! compute statistics
+!------------------------------------------------------------
+
+	nsmax = 0
+	nsstats = 0
+
+	do k=1,nkn
+	  ns = ndg_info(k)%nstations
+	  nsmax = max(nsmax,ns)
+	  nsstats(ns) = nsstats(ns) + 1
+	end do
+
+	write(6,*) 'max number of stations for one node: ',nsmax
+	do i=0,nsmax
+	  write(6,*) i,nsstats(i)
+	end do
+	
+!------------------------------------------------------------
+! end of routine
+!------------------------------------------------------------
+
+	end
+
 c*******************************************************************
 
 	subroutine distance(ttau,sigma)

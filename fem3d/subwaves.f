@@ -15,6 +15,7 @@
 ! 10.02.2015	ggu	randomixe change of coordinates if on node (bug fix)
 ! 10.03.2016	ggu	in parametric wave module fix segfault (allocatable)
 ! 15.04.2016	ggu	parametric wave module cleaned
+! 12.04.2017	ggu	routines integrated to compute bottom stress, new module
 !
 !**************************************************************
 c DOCS  START   S_wave
@@ -978,17 +979,14 @@ c Uw = pi H / (T sinh(kh))
 c
 c**************************************************************
 
-        subroutine parwaves(it)
+!==============================================================
+	module mod_parwaves
+!==============================================================
 
-c called for iwave == 1
+	implicit none
 
-	use mod_meteo
-	use mod_waves
-	use basin
-
-        implicit none
-
-        integer it
+        real, parameter :: z0 = 5.e-4
+        real, parameter :: awice = 1.	!use wave reduction due to ice cover
 
 c --- input variable
 
@@ -1003,19 +1001,37 @@ c --- output variable
         real, save, allocatable :: waep(:)	!wave period [s]
         real, save, allocatable :: waed(:)	!wave direction (same as wind)
 
+!==============================================================
+	end module mod_parwaves
+!==============================================================
+
+        subroutine parwaves(it)
+
+c called for iwave == 1
+
+	use mod_meteo
+	use mod_waves
+	use basin
+	use mod_parwaves
+
+        implicit none
+
+        integer it
+
 c --- aux variable
 
         real, save, allocatable :: v1v(:)	!aux variable
+        real, save, allocatable :: icecover(:)	!ice cover
 
 c --- local variable
 
-	logical debug
+	logical debug,bstress
         real depele             !element depth function [m]
         real hbr		!limiting wave height [m]
         real dep,depe
         real gh,gx,hg
 	real wis,wid
-	real wx,wy
+	real wx,wy,fice
         real auxh,auxh1,auxt,auxt1
         integer ie,icount,ii,k
 	integer id,nvar
@@ -1023,7 +1039,6 @@ c --- local variable
 	double precision dtime
 
         real, parameter :: g = 9.81		!gravity acceleration [m2/s]
-        real, parameter :: z0 = 5.e-4
 
         real ah1,ah2,ah3,eh1,eh2,eh3,eh4
         real at1,at2,at3,et1,et2,et3,et4
@@ -1051,6 +1066,7 @@ c------------------------------------------------------
 
 	debug = .true.
 	debug = .false.
+	bstress = .true.			!compute and write bottom stress
 
 c ----------------------------------------------------------
 c Initialization
@@ -1080,13 +1096,14 @@ c         --------------------------------------------------
 
 	  allocate(winds(nel),windd(nel))
 	  allocate(fet(nel),daf(nel))
-	  allocate(v1v(nkn))
+	  allocate(icecover(nkn),v1v(nkn))
 
 c         --------------------------------------------------
 c         Initialize output
 c         --------------------------------------------------
 
 	  nvar = 3
+	  if( bstress ) nvar = 4
 
           call init_output('itmwav','idtwav',ia_out)
           if( ishyff == 1 ) ia_out = 0
@@ -1109,6 +1126,8 @@ c -------------------------------------------------------------------
 c normal call
 c -------------------------------------------------------------------
 
+	call get_ice_all(icecover)
+
 c       -------------------------------------------------------------
 c	get wind speed and direction
 c       -------------------------------------------------------------
@@ -1118,8 +1137,9 @@ c       -------------------------------------------------------------
 	  wy = 0.
 	  do ii=1,3
 	    k = nen3v(ii,ie)
-	    wx = wx + wxv(k)
-	    wy = wy + wyv(k)
+	    fice = 1. - awice*icecover(k)
+	    wx = wx + fice * wxv(k)
+	    wy = wy + fice * wyv(k)
 	  end do
 	  wx = wx / 3.
 	  wy = wy / 3.
@@ -1127,7 +1147,7 @@ c       -------------------------------------------------------------
 	end do
 
 c       -------------------------------------------------------------
-c	get wind fetch
+c	get wind fetch (fet is fetch on elements)
 c       -------------------------------------------------------------
 
         call fetch(windd,fet,daf)
@@ -1242,12 +1262,15 @@ c       -------------------------------------------------------------------
         call e2n2d(waep,wavep,v1v)
         call e2n2d(waed,waved,v1v)
 
+	if( bstress ) call simple_sedi_bottom_stress(v1v)	!FIXME
+
 	wavepp = wavep
 
         if( next_output(ia_out) ) then
           call write_scalar_file(ia_out,231,1,waveh)
           call write_scalar_file(ia_out,232,1,wavep)
           call write_scalar_file(ia_out,233,1,waved)
+          if( bstress ) call write_scalar_file(ia_out,60,1,v1v)
         end if
 
 	dtime = it
@@ -1256,10 +1279,8 @@ c       -------------------------------------------------------------------
 	  call shy_write_scalar_record(id,dtime,231,1,waveh)
 	  call shy_write_scalar_record(id,dtime,232,1,wavep)
 	  call shy_write_scalar_record(id,dtime,233,1,waved)
-          !write(6,*) 'results for parametric wave model written...'
+	  if( bstress ) call shy_write_scalar_record(id,dtime,60,1,v1v)
 	end if
-
-        !write(6,*) 'computations with parametric wave model finished...'
 
 c       -------------------------------------------------------------------
 c       end of routine
@@ -1267,6 +1288,8 @@ c       -------------------------------------------------------------------
 
         end
 
+c**************************************************************
+c**************************************************************
 c**************************************************************
 
         subroutine fetch(windd,fet,daf)
@@ -1521,6 +1544,47 @@ c line and one of the border line of the element
         end
 
 c******************************************************************
+c******************************************************************
+c******************************************************************
+
+	subroutine compute_wave_bottom_stress(h,p,depth,z0,tau)
+
+	implicit none
+
+	real h,p	!wave height and period
+	real depth	!depth of water column
+	real z0		!bottom roughness
+	real tau	!stress at bottom (return)
+
+	include 'pkonst.h'
+
+	real omega,zeta,a,eta,fw,uw
+	real, parameter :: pi = 3.14159
+
+	tau = 0.
+	if( p == 0. ) return
+
+        omega = 2.*pi/p
+        zeta = omega * omega * depth / grav
+        if( zeta .lt. 1. ) then
+          eta = sqrt(zeta) * ( 1. + 0.2 * zeta )
+        else
+          eta = zeta * ( 1. + 0.2 * exp(2.-2.*zeta) )
+        end if
+
+        uw = pi * h / ( p * sinh(eta) )
+        a = uw * p / (2.*pi)
+        if( a .gt. 0. ) then
+          fw = 1.39 * (z0/a)**0.52
+        else
+          fw = 0.
+        end if
+
+        tau = 0.5 * rowass * fw * uw * uw
+
+	end
+
+c******************************************************************
 
         subroutine make_stress(waeh,waep,z0,tcv,twv,tmv)
 
@@ -1633,6 +1697,46 @@ c mean wave direction
         wd  = waved(k)
 
         end subroutine get_wave_values
+
+!*********************************************************************
+
+	subroutine wave_bottom_stress(tau)
+
+! computes bottom stress from waves (on nodes)
+
+	use basin
+	use mod_parwaves
+	use mod_waves
+
+	implicit none
+
+	real tau(nkn)
+
+	integer ie
+	real h,p,depth
+	real tauele(nel)
+	real v1v(nkn)
+
+	real depele
+
+	if( iwave == 0 ) then
+	  tau = 0.
+	  return
+	else if( iwave > 1 ) then
+	  write(6,*) 'not yet ready for iwave > 1'
+	  stop 'error stop wave_bottom_stress: not ready'
+	end if
+
+	do ie=1,nel
+	  h = waeh(ie)
+	  p = waep(ie)
+	  depth = depele(ie,1)
+	  call compute_wave_bottom_stress(h,p,depth,z0,tauele(ie))
+	end do
+
+        call e2n2d(tauele,tau,v1v)
+
+	end
 
 !*********************************************************************
 
