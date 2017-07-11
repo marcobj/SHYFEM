@@ -34,6 +34,7 @@
 ! 20.10.2015    ggu     bug fix to get correct restart time (itanf)
 ! 30.10.2015    ggu     new names, restructured
 ! 30.11.2015    ggu     allocate cnv/conzv before read
+! 06.07.2017    ggu     saved hlv
 !
 ! notes :
 !
@@ -139,6 +140,9 @@
             write(6,*) '*** No data in restart file ...'
             write(6,*) '*** Continuing with cold start...'
             return
+	  else if( ierr == 94 ) then
+            write(6,*) '*** hlv not compatible'
+            stop 'error stop inirst: hlv'
           end if
           write(6,*) '*** Another time record is used for restart'
 	  call dts_format_abs_time(atrst,line)
@@ -221,6 +225,7 @@
 
         do while( bloop )
           call rst_read_record(atime,it,iunit,ierr)
+          if( ierr .gt. 0 ) goto 94
           if( ierr .eq. 0 ) irec = irec + 1
 	  bnext = atime .lt. atrst .or. blast	!look for more records
           bloop = ierr .eq. 0 .and. bnext
@@ -248,6 +253,10 @@
         end if
 
         return
+   94   continue
+        write(6,*) 'error reading restart file: ',ierr
+        ierr = 94
+	return
    95   continue
         write(6,*) 'reading restart file... '
         write(6,*) 'no records in file (file is empty)'
@@ -464,7 +473,7 @@
 	use mod_ts
 	use mod_hydro_vel
 	use mod_hydro
-	use levels, only : nlvdi,nlv
+	use levels, only : nlvdi,nlv,hlv
 	use basin
 
         implicit none
@@ -480,7 +489,7 @@
 	real getpar
         double precision dgetpar
 
-        nvers = 9
+        nvers = 10
 
 	ibarcl = nint(getpar('ibarcl'))
 	iconz = nint(getpar('iconz'))
@@ -491,6 +500,8 @@
         write(iunit) it,nvers,1
         write(iunit) date,time
         write(iunit) nkn,nel,nlv
+
+        write(iunit) (hlv(l),l=1,nlv)
 
         write(iunit) (iwegv(ie),ie=1,nel)
         write(iunit) (znv(k),k=1,nkn)
@@ -560,11 +571,13 @@
 
 	iflag = 1
 
+	if( nvers .ge. 10 ) read(iunit)	! added hlv
 	read(iunit)
 	read(iunit)
 	read(iunit)
 	read(iunit)
 	read(iunit)
+
 	if( nvers .ge. 4 ) then
 	  iflag = iflag + 10
 	  read(iunit)
@@ -633,7 +646,7 @@
 	use mod_ts
 	use mod_hydro_vel
 	use mod_hydro
-	use levels, only : nlvdi,nlv
+	use levels, only : nlvdi,nlv,hlv
 	use basin
 	use mod_restart
 
@@ -649,6 +662,7 @@
         integer nknaux,nelaux,nlvaux
 	integer date,time
 	integer iflag
+	real, allocatable :: hlvaux(:)
 
 	logical rst_want_restart
 
@@ -666,7 +680,7 @@
 	date = 0
 	time = 0
 
-        if( nvers > 8 ) read(iunit) date,time
+        if( nvers >= 9 ) read(iunit) date,time
 
 	date_rst = date
 	time_rst = time
@@ -679,6 +693,24 @@
           if( nknaux .ne. nkn ) goto 99
           if( nelaux .ne. nel ) goto 99
           if( nlvaux .ne. nlv ) goto 99
+
+	  if( nvers >= 10 ) then
+	    allocate(hlvaux(nlv))
+            read(iunit) (hlvaux(l),l=1,nlv)
+	    if( any(hlv/= 0.) ) then
+	      if( any(hlv/=hlvaux) ) then
+	        write(6,*) 'mismatch hlv: ',nlv
+	        write(6,*) hlv
+	        write(6,*) hlvaux
+		ierr = 94
+		return
+	        !stop 'error stop rst_read_record: hlv mismatch'
+	      end if
+	    else
+	      hlv = hlvaux
+	    end if
+	    deallocate(hlvaux)
+	  end if
 
 	  if( rst_want_restart(1) ) then
             read(iunit) (iwegv(ie),ie=1,nel)

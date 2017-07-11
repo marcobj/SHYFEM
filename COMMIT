@@ -1,5 +1,72 @@
 ============================================================
 
+Tue Jul 11 11:08:50 CEST 2017
+
+New version 7_5_30
+
+
+============================================================
+
+Tue Jul 11 11:07:20 CEST 2017
+
+LCC projection, nc2fem 3d (experimental)
+
+ LOG                     |  12 ++
+ RELEASE_NOTES           |   6 +
+ fem3d/femelab.f         |   1 +
+ fem3d/mod_lagrange.f    |  15 +-
+ fem3d/nc2fem.f          |  95 +++++++-----
+ fem3d/nc_dim_coords.f   |   4 +-
+ fem3d/nc_domain.f       |   7 +
+ fem3d/nc_util.f         |  43 +++++-
+ fem3d/shyproj.f         |   8 +
+ fem3d/subproj.f         | 395 +++++++++++++++++++++++++++++++++++++++++++++++-
+ fem3d/subrst.f          |  40 ++++-
+ fem3d/substrings.f      |   1 +
+ fem3d/subsys.f          |  10 +-
+ femdoc/final/shyfem.pdf | Bin 291747 -> 291809 bytes
+ femplot/shyplot.f       |   6 +-
+ femplot/supsim.f        |  23 +--
+ 16 files changed, 595 insertions(+), 71 deletions(-)
+
+============================================================
+
+Tue Jun 27 14:13:41 CEST 2017
+
+compiler errors
+
+ femplot/Makefile  | 9 ++++++---
+ femplot/shyplot.f | 3 ++-
+ 2 files changed, 8 insertions(+), 4 deletions(-)
+
+============================================================
+
+Tue Jun 27 14:06:32 CEST 2017
+
+changes in shyelab
+
+ Rules.make        |  4 ++--
+ fem3d/elabutil.f  |  7 ++++---
+ fem3d/shyelab1.f  | 11 ++++++-----
+ fem3d/shyutil.f   | 13 ++++++++++++-
+ fembin/git-setup  |  2 +-
+ femplot/shyplot.f |  2 +-
+ 6 files changed, 26 insertions(+), 13 deletions(-)
+
+============================================================
+
+Fri Jun 23 18:05:50 CEST 2017
+
+more on vector plot
+
+ femplot/shyplot.f | 63 ++++++++++++++++++++++++++++---------------------------
+ femplot/supbas.f  |  1 +
+ femplot/supout.f  | 28 ++++++++++++-------------
+ femplot/supsim.f  | 60 +++++++++++++++++++++++++++++++---------------------
+ 4 files changed, 83 insertions(+), 69 deletions(-)
+
+============================================================
+
 Tue Jun 20 18:26:07 CEST 2017
 
 mainly plotting enhancements

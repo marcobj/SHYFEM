@@ -530,21 +530,20 @@ c**********************************************************
 
 c**********************************************************
 
-	subroutine ploreg(nreg,preg,regpar,title,bintp,bgrid)
+	subroutine ploreg(nreg,preg,regpar,title,bintp)
 
-c plots node values
+c plots scalar values from regular grid
 
 	use basin
 	use mod_hydro_plot
 
 	implicit none
 
-	integer nreg
-	real preg(nreg)
-	real regpar(7)
-        character*(*) title
+	integer nreg		!total number of regular values
+	real preg(nreg)		!regular scalar values
+	real regpar(7)		!description of regular data
+        character*(*) title	!title for plot
 	logical bintp		!interpolate on fem grid
-	logical bgrid		!overlay regular grid - not yet implemented
 
 	integer nflag
 	integer nx,ny
@@ -769,6 +768,19 @@ c**********************************************************
 
 	subroutine plo2vel(ivel,title)
 
+	implicit none
+
+	integer ivel			!what to plot
+        character*(*) title
+
+	call plovect(ivel,title,.false.)
+
+	end
+
+c**********************************************************
+
+	subroutine plovect(ivel,title,bregdata)
+
 c plots entity with vectors
 c
 c ivel = 1	velocities
@@ -780,7 +792,7 @@ c
 c for ivel == 1,2:	utrans,vtrans must be set
 c for other values:	uvnode,vvnode must be set
 c
-c bonelem,bisreg,bistrans are set in mod_hydro_plot
+c bonelem,bistrans are set in mod_hydro_plot
 
 	use mod_hydro_plot
 	use mod_depth
@@ -791,14 +803,15 @@ c bonelem,bisreg,bistrans are set in mod_hydro_plot
 	implicit none
 
 	integer ivel			!what to plot
-        character*(*) title
+        character*(*) title		!title for annotation
+	logical bregdata		!is data on regular grid?
 
 	real uvmod(nkn)
 
 	logical boverl,bnode,bbound,bnorm
         logical bspecial,bhasbasin
 	logical bdebug
-	logical bregular
+	logical bregplot
 	logical bvel,btrans,bwind,bwave,bvelok
         character*80 anoline
         character*80 spcvel
@@ -888,6 +901,7 @@ c	check some settings
 c	-----------------------------------------------------------
 
 	if( bvel .and. .not. bistrans ) goto 99
+	if( btrans .and. .not. bistrans ) goto 99
 	if( bistrans .and. .not. bonelem ) goto 99
 	
 c	-----------------------------------------------------------
@@ -899,16 +913,16 @@ c	-----------------------------------------------------------
 	call bash(0)
 
 c------------------------------------------------------------------
-c see if regular grid -> set bregular and nx,ny if needed
+c see if regular grid -> set bregplot and nx,ny if needed
 c------------------------------------------------------------------
 
 	call getgeoflag(flag)
-	if( bisreg ) then		!regular grid read (global value)
-	  bregular = bisreg
+	if( bregdata ) then		!regular grid read (global value)
+	  bregplot = .true.
 	else				!see if we have to plot regular
-	  call prepare_regular(nx,ny,bregular)
+	  call prepare_regular(nx,ny,bregplot)
 	end if
-	!if( bregular ) write(6,*) 'plotting on regular grid'
+	!if( bregplot ) write(6,*) 'plotting on regular grid'
 
 c------------------------------------------------------------------
 c prepare for velocity or transport
@@ -937,9 +951,12 @@ c------------------------------------------------------------------
 	if( bonelem ) then
 	  call intp2node(uvelem,uvnode,bwater)
 	  call intp2node(vvelem,vvnode,bwater)
-	else if( .not. bisreg ) then
+	else if( .not. bregdata ) then
 	  call intp2elem(uvnode,uvelem,bwater)
 	  call intp2elem(vvnode,vvelem,bwater)
+	else
+	  uvelem = 0.
+	  vvelem = 0.
         end if
 
 	nnn = 0
@@ -962,8 +979,8 @@ c------------------------------------------------------------------
 c regular interpolation
 c------------------------------------------------------------------
 
-	if( bisreg ) then	!is already regular grid - we just copy
-	  call mod_hydro_get_regpar(regpar)
+	if( bregdata ) then	!is already regular grid - we just copy
+	  call mod_hydro_get_regpar(regpar)	!regular data description
 	  nx = nint(regpar(1))
 	  ny = nint(regpar(2))
 	  x0 = regpar(3)
@@ -983,7 +1000,7 @@ c------------------------------------------------------------------
 	    uvnode = 0.
 	    vvnode = 0.
 	  end if
-	else if( bregular ) then
+	else if( bregplot ) then
 	  call av2amk(bwater,uvnode,ureg,nx,ny)
 	  call av2amk(bwater,vvnode,vreg,nx,ny)
 	end if
@@ -1056,7 +1073,7 @@ c------------------------------------------------------------------
 	if( bspecial ) then
 	  scale = typsca / valref
           call aspecial(spcvel,xgv,ygv,uvnode,vvnode,scale)
-        else if( bregular ) then
+        else if( bregplot ) then
 	  call getgeo(x0,y0,dx,dy,flag)
 	  do j=1,ny
 	    do i=1,nx
@@ -1118,7 +1135,7 @@ c------------------------------------------------------------------
 
 	return
    99	continue
-	write(6,*) 'problems... ',bvel,bistrans,bonelem
+	write(6,*) 'problems... ',bvel,btrans,bistrans,bonelem
 	stop 'error stop plo2vel: internal error (1)'
 	end
 
@@ -2115,7 +2132,7 @@ c*****************************************************************
 
 c*****************************************************************
 
-	subroutine prepare_regular(nx,ny,bregular)
+	subroutine prepare_regular(nx,ny,bregplot)
 
 ! checks if we have to plot results on regular grid
 
@@ -2124,7 +2141,7 @@ c*****************************************************************
 	implicit none
 
 	integer nx,ny
-	logical bregular
+	logical bregplot
 
 	real x0,y0,dx,dy,flag
 	real xmin,ymin,xmax,ymax
@@ -2132,8 +2149,8 @@ c*****************************************************************
 	nx = 0
 	ny = 0
 	call getgeo(x0,y0,dx,dy,flag)
-	bregular = dx .gt. 0. .and. dy .gt. 0.
-	if( .not. bregular ) return
+	bregplot = dx .gt. 0. .and. dy .gt. 0.
+	if( .not. bregplot ) return
 	
 	call getbas(xmin,ymin,xmax,ymax)
 	nx = nint((xmax-xmin)/dx)
@@ -2148,16 +2165,16 @@ c*****************************************************************
 
 c*****************************************************************
 
-	subroutine info_regular(bregular,nx,ny,dx,dy)
+	subroutine info_regular(bregplot,nx,ny,dx,dy)
 
 	implicit none
 
-	logical bregular
+	logical bregplot
 	integer nx,ny
 	real x0,y0,dx,dy,flag
 
-	call prepare_regular(nx,ny,bregular)
-	if( .not. bregular ) return
+	call prepare_regular(nx,ny,bregplot)
+	if( .not. bregplot ) return
 
 	call getgeo(x0,y0,dx,dy,flag)
 
