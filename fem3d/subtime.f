@@ -71,8 +71,7 @@ c 07.01.2015    ggu     fractional time step without rounding (itsplt=3)
 c 23.09.2015    ggu     time step is now working with dt as double
 c 10.10.2015    ggu     use bsync as global to check for syncronization
 c 23.09.2016    ggu     cleaned set_timestep()
-c
-c************************************************************
+c 20.10.2017    ggu     new get_absolute_act_time(),get_absolute_ref_time()
 c
 c**********************************************************************
 c**********************************************************************
@@ -200,7 +199,7 @@ c---------------------------------------------------------------
  1001   format(' time =',i12,'    dt =',i5,'    iterations ='
      +                 ,i8,' /',i8,f10.2,' %')
  1002   format(i12,i9,5i3,i9,i8,' /',i8,f10.2,' %')
- 1003   format(8x,'time',13x,'date',14x,'dt',8x,'iterations'
+ 1003   format(8x,'time',19x,'date',8x,'dt',8x,'iterations'
      +              ,5x,'percent')
  1005   format(i12,3x,a20,1x,i9,i8,' /',i8,f10.2,' %')
  1006   format(i12,3x,a20,1x,a9,i8,' /',i8,f10.2,' %')
@@ -235,7 +234,9 @@ c setup and check time parameters
 
 	include 'femtime.h'
 
+	integer date,time
 	double precision didt
+	character*20 dline
 
 	double precision dgetpar
 
@@ -243,10 +244,20 @@ c setup and check time parameters
 	call convert_date('itend',itend)
 	call convert_time_d('idt',didt)
 
-	if( didt .le. 0 .or. itanf+didt .gt. itend ) then
-	   write(6,*) 'Error in compulsory time parameters'
-	   write(6,*) 'itanf,itend,idt :',itanf,itend,didt
-	   stop 'error stop : cktime'
+	if( didt .le. 0 ) then
+	  write(6,*) 'Error in compulsory time parameters'
+	  write(6,*) 'Time step is not positive'
+	  write(6,*) 'idt :',didt
+	  stop 'error stop setup_time: idt'
+	else if( itanf+didt .gt. itend ) then
+	  write(6,*) 'Error in compulsory time parameters'
+	  write(6,*) 'itend too small, no time step will be performed'
+	  write(6,*) 'itanf,itend,idt :',itanf,itend,didt
+	  call dtsgf(itanf,dline)
+	  write(6,*) 'initial time: ',dline
+	  call dtsgf(itend,dline)
+	  write(6,*) 'final time:   ',dline
+	  stop 'error stop setup_time: itend'
 	end if
 
 	niter = 0
@@ -260,6 +271,9 @@ c setup and check time parameters
 	idt = didt
 	itunit = nint(dgetpar('itunit'))
 	idtorig = idt
+
+	call dts_get_date(date,time)
+	call dts_to_abs_time(date,time,atime0)
 
 	end
 
@@ -618,6 +632,38 @@ c returns actual time
 	include 'femtime.h'
 
 	itact = it
+
+	end
+
+c**********************************************************************
+
+        subroutine get_absolute_act_time(atime)
+
+c returns actual time
+
+        implicit none
+
+	double precision atime
+
+	include 'femtime.h'
+
+	atime = t_act + atime0
+
+	end
+
+c**********************************************************************
+
+        subroutine get_absolute_ref_time(atime_ref)
+
+c returns actual time
+
+        implicit none
+
+	double precision atime_ref
+
+	include 'femtime.h'
+
+	atime_ref = atime0
 
 	end
 

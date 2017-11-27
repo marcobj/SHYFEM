@@ -12,6 +12,8 @@
 ! 28.05.2015    ggu     new routine clo_add_sep()
 ! 30.05.2016    ggu     new routine clo_add_com() (identical to clo_add_sep)
 ! 01.06.2016    ggu     new routine clo_hide_option() and -hh,-fullhelp
+! 05.10.2017    ggu     new routines to hide options
+! 09.10.2017    ggu     new routine to access last file
 !
 ! notes :
 !
@@ -70,8 +72,10 @@
 	integer, save, private :: ndim = 0
 	type(entry), save, private, allocatable :: pentry(:)
 
+	logical, save, private :: hide_options = .false.
 	integer, save, private :: last_option = 0
-	integer, save, private :: last_file = 0
+	integer, save, private :: last_item = 0
+	integer, save, private :: i_file = 0
 
 	integer, save, private :: ielast = 0
 	character*80, save, private :: info = ' '
@@ -240,9 +244,9 @@
 	character*(*) name
 	character*(*) text
 
-	write(6,*) 'option ',trim(name),' error: ',trim(text)
-
+	write(6,*) ' error: ',trim(text),': ',trim(name)
 	stop 'error stop clo_error'
+
 	end subroutine clo_error
 
 !******************************************************************
@@ -258,6 +262,22 @@
 	pentry(id)%hidden = .true.
 
 	end subroutine clo_hide_option
+
+!******************************************************************
+
+	subroutine clo_hide_next_options
+
+	hide_options = .true.
+
+	end subroutine clo_hide_next_options
+
+!******************************************************************
+
+	subroutine clo_show_next_options
+
+	hide_options = .false.
+
+	end subroutine clo_show_next_options
 
 !******************************************************************
 !******************************************************************
@@ -309,7 +329,9 @@
 
 	id = clo_get_id(name)
 	if( id == 0 ) call clo_error(name,'option not existing')
-	if( pentry(id)%itype /= 1 ) call clo_error(name,'wrong type')
+	if( pentry(id)%itype /= 1 ) then
+	  call clo_error(name,'wrong type for option')
+	end if
 
 	pentry(id)%value = value
 
@@ -326,7 +348,9 @@
 
 	id = clo_get_id(name)
 	if( id == 0 ) call clo_error(name,'option not existing')
-	if( pentry(id)%itype /= 2 ) call clo_error(name,'wrong type')
+	if( pentry(id)%itype /= 2 ) then
+	  call clo_error(name,'wrong type for option')
+	end if
 
 	pentry(id)%flag = flag
 
@@ -343,7 +367,9 @@
 
 	id = clo_get_id(name)
 	if( id == 0 ) call clo_error(name,'option not existing')
-	if( pentry(id)%itype /= 3 ) call clo_error(name,'wrong type')
+	if( pentry(id)%itype /= 3 ) then
+	  call clo_error(name,'wrong type for option')
+	end if
 
 	pentry(id)%string = string
 
@@ -419,6 +445,7 @@
 	pentry(id)%itype = 1
 	pentry(id)%value = value
 	pentry(id)%textra = name2
+	pentry(id)%hidden = hide_options
 	if( present(text) ) pentry(id)%text = text
 
 	end subroutine clo_add_option_n
@@ -446,6 +473,7 @@
 	pentry(id)%itype = 2
 	pentry(id)%flag = flag
 	pentry(id)%textra = name2
+	pentry(id)%hidden = hide_options
 	if( present(text) ) pentry(id)%text = text
 
 	end subroutine clo_add_option_f
@@ -473,6 +501,7 @@
 	pentry(id)%itype = 3
 	pentry(id)%string = string
 	pentry(id)%textra = name2
+	pentry(id)%hidden = hide_options
 	if( present(text) ) pentry(id)%text = text
 
 	end subroutine clo_add_option_s
@@ -490,6 +519,7 @@
 	pentry(id)%name = ' '
 	pentry(id)%itype = 4
 	pentry(id)%text = text
+	pentry(id)%hidden = hide_options
 
 	end subroutine clo_add_sep
 
@@ -506,6 +536,7 @@
 	pentry(id)%name = ' '
 	pentry(id)%itype = 4
 	pentry(id)%text = text
+	pentry(id)%hidden = hide_options
 
 	end subroutine clo_add_com
 
@@ -561,7 +592,9 @@
 
 	id = clo_get_id(name)
 	if( id == 0 ) call clo_error(name,'option not existing')
-	if( pentry(id)%itype /= 1 ) call clo_error(name,'wrong type')
+	if( pentry(id)%itype /= 1 ) then
+	  call clo_error(name,'wrong type for option')
+	end if
 
 	value = pentry(id)%value
 
@@ -578,7 +611,9 @@
 
 	id = clo_get_id(name)
 	if( id == 0 ) call clo_error(name,'option not existing')
-	if( pentry(id)%itype /= 2 ) call clo_error(name,'wrong type')
+	if( pentry(id)%itype /= 2 ) then
+	  call clo_error(name,'wrong type for option')
+	end if
 
 	flag = pentry(id)%flag
 
@@ -595,7 +630,9 @@
 
 	id = clo_get_id(name)
 	if( id == 0 ) call clo_error(name,'option not existing')
-	if( pentry(id)%itype /= 3 ) call clo_error(name,'wrong type')
+	if( pentry(id)%itype /= 3 ) then
+	  call clo_error(name,'wrong type for option')
+	end if
 
 	string = pentry(id)%string
 
@@ -672,7 +709,7 @@
 
 	integer clo_number_of_files
 
-	clo_number_of_files = last_file - last_option
+	clo_number_of_files = last_item - last_option
 
 	end function clo_number_of_files
 
@@ -698,12 +735,35 @@
 	character*(*) file
 
 	file = ' '
-	if( i < 1 ) return
-	if( last_option + i > last_file ) return
+	i_file = i
+	if( i_file < 1 ) return
+	if( last_option + i_file > last_item ) return
 
-	call get_command_argument(last_option+i,file)
+	call get_command_argument(last_option+i_file,file)
 
 	end subroutine clo_get_file
+
+!**************************************************************
+
+	subroutine clo_reset_files
+
+	i_file = 0
+
+	end subroutine clo_reset_files
+
+!**************************************************************
+
+	subroutine clo_get_next_file(file)
+
+	character*(*) file
+
+	file = ' '
+	i_file = i_file + 1
+	if( last_option + i_file > last_item ) return
+
+	call get_command_argument(last_option+i_file,file)
+
+	end subroutine clo_get_next_file
 
 !**************************************************************
 
@@ -711,11 +771,50 @@
 
 	integer nexpect
 
-	if( nexpect > last_file - last_option ) then
+	if( nexpect > last_item - last_option ) then
 	  call clo_usage
 	end if
 
 	end subroutine clo_check_files
+
+!**************************************************************
+
+	subroutine clo_get_last_file(file)
+
+	character*(*) file
+
+	integer nc
+
+	file = ' '
+	nc = command_argument_count()
+	if( nc < 1 ) return
+
+	call get_command_argument(nc,file)
+	if( file(1:1) == '-' ) file = ' '
+
+	end subroutine clo_get_last_file
+
+!**************************************************************
+
+	function clo_want_extended_help()
+
+! returns true if option -hh is given
+
+	logical clo_want_extended_help
+
+	integer nc
+	character*80 option
+
+	clo_want_extended_help = .false.
+
+	nc = command_argument_count()
+	if( nc < 1 ) return
+
+	option = ' '
+	call get_command_argument(1,option)
+	if( option == '-hh' ) clo_want_extended_help = .true.
+
+	end function clo_want_extended_help
 
 !**************************************************************
 !**************************************************************
@@ -749,7 +848,7 @@
 	if( present(opt_nexpect) ) nexpect = opt_nexpect
 
 	nc = command_argument_count()
-	last_file = nc
+	last_item = nc
 	last_option = 0
 
 	i = 0
@@ -928,7 +1027,7 @@
 	  text = pentry(id)%text
 	  bhidden = pentry(id)%hidden
 	  if( bshowall ) bhidden = .false.
-	  if( name == ' ' ) then
+	  if( name == ' ' .and. .not. bhidden ) then
 	    write(6,*) ' ',trim(text)
 	  else if( .not. bhidden ) then
 	    call clo_write_line(length,name,textra,text)

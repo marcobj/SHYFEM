@@ -1,6 +1,21 @@
-c
-c $Id: subver.f,v 1.136 2010-03-22 15:32:47 georg Exp $
-c
+!
+!    Copyright (C) 1985-2017  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. If not, see <http://www.gnu.org/licenses/>.
+!
 c version routines and log
 c
 c contents :
@@ -310,54 +325,72 @@ c 16.05.2017	ggu	version 7.5.27	Beppe's 50th birthday release '
 c 25.05.2017	ggu	version 7.5.28
 c 13.06.2017	ggu	version 7.5.29	San Antonio's name day release '
 c 11.07.2017	ggu	version 7.5.30	pre holiday release
+c 02.09.2017	ggu	version 7.5.31	Memel release
+c 26.09.2017	ggu	version 7.5.32	Murcia release
+c 09.10.2017	ggu	version 7.5.33
+c 04.11.2017	ggu	version 7.5.34	Forze armate release
+c 04.11.2017	ggu	version 7.5.35	... and some stupid forgotten things
+c 14.11.2017	ggu	version 7.5.36
+c 17.11.2017	ggu	version 7.5.37
+c 17.11.2017	ggu	version 7.5.38	brown paper bag bug...
 c
 c*****************************************************************
 
-        blockdata shyfem_version_blockdata
+!=================================================================
+	module shyfem_version
+!=================================================================
 
 c DOCS	START	P_version
 c
-c \newcommand{\VERSION}{7.5.30}
-c \newcommand{\version}{7\_5\_30}
+c \newcommand{\VERSION}{7.5.38}
+c \newcommand{\version}{7\_5\_38}
+c \newcommand{\COMMIT}{2017-11-27}
 c
 c DOCS	END
 
         implicit none
 
-        character*10 version
-        parameter (version='7.5.30')
+        character*10, parameter :: version = '7.5.38'
+        character*10, parameter :: commit  = '2017-11-27'
+        character*17, parameter :: text    = 'SHYFEM VERSION = '
 
-        character*30 string
-        parameter (string='SHYFEM VERSION = '//version)
+        character*40, parameter :: string = text//version//'  '//commit
 
-        character*10 shyver
-        character*30 shystr
-        common /shyver/shyver,shystr
-        save /shyver/
-
-        data shyver / version /
-        data shystr / string /
-
-        end
+!=================================================================
+	end module shyfem_version
+!=================================================================
 
 c*****************************************************************
 c*****************************************************************
 c*****************************************************************
 
-        subroutine get_shyfem_version(version)
+        subroutine get_shyfem_version(vers)
 
 c returns version of model
 
+	use shyfem_version
+
 	implicit none
 
-	character*(*) version
+	character*(*) vers
 
-        character*10 shyver
-        character*30 shystr
-        common /shyver/shyver,shystr
-        save /shyver/
+	vers = version
 
-	version = shyver
+	end
+
+c*****************************************************************
+
+        subroutine get_shyfem_commit(comm)
+
+c returns version/commit of model
+
+	use shyfem_version
+
+	implicit none
+
+	character*(*) comm
+
+	comm = commit
 
 	end
 
@@ -374,16 +407,19 @@ c writes copyright and version/dimension
         character*(*) routine
 
         character*10 vers
+        character*10 comm
 
 	call get_shyfem_version(vers)
+	call get_shyfem_commit(comm)
 
         write(6,*)
         write(6,*) ' ----------------------------------------------'
         write(6,*)
         write(6,*) ' SHYFEM - Finite Element Model for coastal seas'
-        write(6,*) ' Copyright (c) The Shyfem Team 1985-2016'
+        write(6,*) ' Copyright (c) The Shyfem Team 1985-2017'
         write(6,*)
         write(6,*) ' version: ',vers
+        write(6,*) ' commit : ',comm
         write(6,*) ' routine: ',routine
         write(6,*)
         write(6,*) ' ----------------------------------------------'

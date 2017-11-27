@@ -13,6 +13,8 @@
 	integer, private, save  :: ny_hydro_plot = 0
 	integer, private, save  :: nxy_limit = 1000	!0 for no limit
 
+	logical, save :: bminmax = .false.
+	logical, save :: berrintp = .false.
 	logical, save :: bonelem
 	logical, save :: bisreg
 	logical, save :: bistrans
@@ -39,6 +41,7 @@
 
         logical, allocatable, save :: bwater(:)
         logical, allocatable, save :: bkwater(:)
+        logical, allocatable, save :: bplot(:)
 
         real, allocatable, save :: fvlv(:,:)
         real, allocatable, save :: wauxv(:,:)
@@ -80,6 +83,7 @@
           deallocate(parray)
           deallocate(bwater)
           deallocate(bkwater)
+          deallocate(bplot)
 
           deallocate(fvlv)
           deallocate(wauxv)
@@ -110,6 +114,7 @@
         allocate(parray(np))
         allocate(bwater(nel))
         allocate(bkwater(nkn))
+        allocate(bplot(nel))
 
         allocate(fvlv(nlv,nkn))
         allocate(wauxv(0:nlv,nkn))

@@ -44,8 +44,11 @@ c subroutine dts2it(it,year,month,day,hour,min,sec) converts date and time to it
         integer, save :: hour0 = 0
         integer, save :: min0 = 0
         integer, save :: sec0 = 0
+
         integer, save :: last = 0
         integer, save :: dinit = 0
+
+        double precision, parameter :: atime1000 = 1000*365*86400. !year 1000
 
 !==================================================================
         end module dts
@@ -697,7 +700,7 @@ c************************************************************************
 
 c************************************************************************
 
-	subroutine dts_get_init(year,month,day,hour,min,sec)
+	subroutine dts_get_init_0(year,month,day,hour,min,sec)
 
 	use dts
 
@@ -717,7 +720,7 @@ c************************************************************************
 
 c************************************************************************
 
-	function dts_initialized()
+	function dts_initialized_0()
 
 c checks if dts routines are already initialized
 
@@ -725,12 +728,12 @@ c checks if dts routines are already initialized
 
 	implicit none
 
-	logical dts_initialized
+	logical dts_initialized_0
 
 	if( dinit .eq. 0 ) then
-	  dts_initialized = .false.
+	  dts_initialized_0 = .false.
 	else
-	  dts_initialized = .true.
+	  dts_initialized_0 = .true.
 	end if
 
 	end
@@ -755,10 +758,6 @@ c checks if dts routines have a valid date
 
 	end
 
-c************************************************************************
-c
-c common block /dtsdts/ is initialized in block data statement
-c
 c************************************************************************
 c************************************************************************
 c************************************************************************
@@ -809,6 +808,8 @@ c************************************************************************
  
 c given date returns total days from 1/1/1
  
+	use dts
+
 	implicit none
 
 	integer days
@@ -1315,6 +1316,8 @@ c************************************************************
 
 c converts from atime to datetime and dtime (only if in atime is real date)
 
+	use dts
+
 	implicit none
 
 	integer datetime(2)		!reference date (return)
@@ -1322,10 +1325,8 @@ c converts from atime to datetime and dtime (only if in atime is real date)
 	double precision atime		!absolute time (in)
 
 	double precision atime0
-	double precision atime1000	!1000 year limit
-	parameter (atime1000 = 1000*365*86400.)
 
-	if( atime > atime1000 ) then	!real date
+	if( atime > atime1000 ) then	!absolute time
 	  call dts_from_abs_time(datetime(1),datetime(2),atime)
 	  call dts_to_abs_time(datetime(1),datetime(2),atime0)
 	  dtime = 0.
@@ -1335,7 +1336,7 @@ c converts from atime to datetime and dtime (only if in atime is real date)
 	    write(6,*) 'are you dealing with sub second units?'
 	    write(6,*) dtime,atime,atime0,datetime
 	  end if
-	else				!no date - keep relative time
+	else				!no absolute time - keep relative time
 	  datetime = 0
 	  dtime = atime
 	end if

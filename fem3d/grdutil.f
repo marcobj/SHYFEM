@@ -12,7 +12,7 @@
 	integer k,ie,ii,ibase,n,i
 	integer nhn,nhe
 	real flag
-	logical bdebug
+	logical bdebug,bwrite
 
 !--------------------------------------------------------
 ! initialize
@@ -20,6 +20,7 @@
 
 	flag = -999.
 	bdebug = .false.
+	bwrite = .false.
 
 	call grd_get_params(nk,ne,nl,nne,nnl)
 	call basin_init(nk,ne)
@@ -94,7 +95,7 @@
 	  end if
 	end if
 
-	write(6,*) 'nhe,nhn: ',nhe,nhn
+	if( bwrite ) write(6,*) 'nhe,nhn: ',nhe,nhn
 
 	if( nhn == 0 ) then
 	  do ie=1,ne
@@ -204,6 +205,7 @@
 
 	hhnv = flag
 	hhev = flag
+	h = flag
 
 	bunique = .true.
 	bconst = .true.
@@ -224,7 +226,7 @@
 	end do
 
 	if( bconst .and. bunique ) then		!constant depth
-	  hhev = hm3v(1,1)
+	  hhev = h
 	  hhnv = flag
 	else if( bunique ) then			!unique depth at nodes
 	  hhev = flag
@@ -235,6 +237,49 @@
 !--------------------------------------------------------
 ! end of routine
 !--------------------------------------------------------
+
+	end
+
+!***************************************************************
+
+	subroutine grd_get_nodal_depth(hk)
+
+	use grd
+
+	implicit none
+
+	real hk(nk_grd)
+
+	hk = hhnv
+
+	end
+
+!***************************************************************
+
+	subroutine grd_set_unused_node_depth(hk)
+
+	use basin
+	use grd
+
+	implicit none
+
+	real hk(nkn)
+
+	integer ie,ii,k
+	integer iuse(nkn)
+
+	iuse = 0
+
+	do ie=1,nel
+	  do ii=1,3
+	    k = nen3v(ii,ie)
+	    iuse(k) = iuse(k) + 1
+	  end do
+	end do
+
+	do k=1,nkn
+	  if( iuse(k) == 0 ) hhnv(k) = hk(k)
+	end do
 
 	end
 

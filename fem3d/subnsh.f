@@ -89,7 +89,6 @@ c writes output to terminal or log file
 
 	implicit none
 
-	include 'param.h'
 	!include 'basin.h'
 	include 'modules.h'
 	include 'femtime.h'
@@ -177,7 +176,6 @@ c id    identifier
 
 	integer id
 
-	include 'param.h'
 	include 'modules.h'
 
 	include 'simul.h'
@@ -273,15 +271,18 @@ c to do in time loop after time step
 	implicit none
 
 	include 'modules.h'
-
 	include 'femtime.h'
+
+	double precision dtime
 
 	call modules(M_AFTER)
 
+	dtime = it
+
 c	call wrouta
 	call wrousa
-c	call wrexta(it)
-	call wrflxa(it)
+c	call wrexta(dtime)
+	call wrflxa(dtime)
 	call wrvola(it)
 	call wrboxa(it)
 
@@ -315,12 +316,12 @@ c revised ...06.97 by ggu !complete revision
 c 18.03.1998	ggu	use variable section instead name
 
 	use levels
+	use nls
 
 	implicit none
 
 	integer iunit
 
-	include 'param.h'
 	include 'modules.h'
 
 c---------------------------------------------------------------
@@ -328,10 +329,10 @@ c---------------------------------------------------------------
 
 	character*6 section,extra,last
 	logical bdebug
-	integer nsc,num
+	integer nsc,num,iline
 c	integer nrdsec,nrdveci,nrdvecr
 	integer nrdsec,nrdvecr
-	character*80 vers
+	character*80 vers,aline
 
 	logical hasreadsec
 
@@ -440,6 +441,9 @@ c end of read %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    69	continue
 	write(6,*) 'section $end is not allowed on its own'
 	write(6,*) 'last section found was: ',last
+	write(6,*) 'no section has been opened'
+	call nls_return_line(aline,iline)
+	write(6,*) trim(aline),'     line number = ',iline
 	stop 'error stop : nlsh2d'
    77	continue
 	if( nlv .eq. -1 ) then
@@ -485,9 +489,9 @@ c************************************************************************
 
         implicit none
 
-	include 'param.h'
-
         integer n,nlvddi
+
+	call nls_init_section
 
         n = nls_read_vector()
         !call levels_init(nkn,nel,n)
@@ -500,6 +504,8 @@ c************************************************************************
 	end if
         call nls_copy_real_vect(n,hlv)
 
+	call nls_finish_section
+
         end subroutine read_hlv
 
 c************************************************************************
@@ -510,7 +516,6 @@ c reads title section
 
 	implicit none
 
-	include 'param.h'
 	include 'simul.h'
 
 	character*80 line,extra
@@ -519,16 +524,16 @@ c reads title section
 	integer num
 
 	if( nrdlin(line) .eq. 0 ) goto 65
-	call triml(line)
+	line = adjustl(line)
 	descrp=line
 	call putfnm('title',line)
 
 	if( nrdlin(line) .eq. 0 ) goto 65
-	call triml(line)
+	line = adjustl(line)
 	call putfnm('runnam',line)
 
 	if( nrdlin(line) .eq. 0 ) goto 65
-	call triml(line)
+	line = adjustl(line)
 	call putfnm('basnam',line)
 
 	!if( nrdlin(line) .gt. 0 ) goto 65

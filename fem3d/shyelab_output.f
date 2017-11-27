@@ -15,6 +15,7 @@
 	implicit none
 
 	integer, save :: nwrite = 0
+	integer, save :: nwtime = 0
 
 	integer, save :: iformat = 1
 	integer, save :: ntype = 1
@@ -317,6 +318,7 @@
 	end if
 
 	nwrite = nwrite + 1
+	if( iv == 1 ) nwtime = nwtime + 1 
 
 	return
    98   continue
@@ -422,7 +424,10 @@
 	    write(6,*) 'outformat = ',trim(outformat)
 	    stop 'error stop: outformat not recognized'
 	  end if
-          if( .not. (bshy.and.bhydro) ) nwrite = nwrite + 1
+          if( .not. (bshy.and.bhydro) ) then
+	    nwrite = nwrite + 1
+	    nwtime = nwtime + 1
+	  end if
 	end if
 
 	if( bhydro ) deallocate(znv,uprv,vprv,sv,dv)
@@ -431,7 +436,7 @@
 
 !***************************************************************
 
-	subroutine shyelab_final_output(id,idout,nvar)
+	subroutine shyelab_final_output(id,idout,nvar,ivars)
 
 ! writes info on end of routine
 
@@ -440,20 +445,26 @@
 	use elabutil
 	use shyelab_out
 	use shyfile
+	use shyfem_strings
 
 	implicit none
 
 	integer id,idout
 	integer nvar
+	integer ivars(nvar)
 
 	integer ierr,iunit,nvers
-	integer it,nb,ivar,ncid
+	integer it,nb,ivar,ncid,iv
 	integer id_out
 	integer ftype
 	logical bscalar,bhydro,bshy
 	character*80 file
+	character*5 format
+	character*10 short
+	character*40 full
 
 	if( .not. boutput ) return
+	if( bsilent ) return
 
 	write(6,*) 'output written to following files: '
 
@@ -461,6 +472,24 @@
         bhydro = ftype == 1
         bscalar = ftype == 2
 	bshy = ( outformat == 'shy' .or. outformat == 'native' )
+
+	if( bnodes ) then
+	  write(6,*) '  what.dim.node'
+          write(6,*) 'what is one of the following:'
+	  do iv=1,nvar
+	    ivar = ivars(iv)
+            call strings_get_short_name(ivar,short)
+            call strings_get_full_name(ivar,full)
+            write(6,*) '  ',short,full
+          end do
+          write(6,*) 'dim is 2d or 3d'
+          write(6,*) '  2d for depth averaged variables'
+          write(6,*) '  3d for output at each layer'
+          write(format,'(i5)') nnodes
+          format = adjustl(format)
+	  write(6,'(a)') ' node is consecutive node numbering: '
+     +				//'1-'//format
+	end if
 
 	if( bsplit ) then
 	  if( bhydro ) then
@@ -481,6 +510,8 @@
 	      end if
 	    end do
 	  end if
+	!end if
+
 	else
 	  if( bshy ) then
 	    write(6,*) 'out.shy'
@@ -642,15 +673,16 @@
 
 !***************************************************************
 
-	subroutine shyelab_get_nwrite(nw)
+	subroutine shyelab_get_nwrite(nw,nt)
 
         use shyelab_out
 
 	implicit none
 
-	integer nw
+	integer nw,nt
 
 	nw = nwrite
+	nt = nwtime
 
 	end
 

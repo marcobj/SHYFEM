@@ -7,12 +7,13 @@
 
 	!private
 
-	logical, save :: bdebug = .false.
+	logical, save :: bdebugtime = .false.
 
 	logical, save :: bdate_elab
 	integer, save :: date_elab
 	integer, save :: time_elab
 	integer, save :: datetime_elab(2)
+	double precision, save :: atime00
 
         logical, save :: btmin = .false.
         logical, save :: btmax = .false.
@@ -39,6 +40,18 @@
 
 !************************************************************
 
+	subroutine elabtime_set_inclusive(binclusive)
+
+! sets inclusive flag
+
+	logical binclusive
+
+	binclusive_elab = binclusive
+
+	end subroutine elabtime_set_inclusive
+
+!************************************************************
+
 	subroutine elabtime_date_and_time(date,time)
 
 ! initializes elabtime module
@@ -51,12 +64,15 @@
 	date_elab = date
 	time_elab = time
         datetime_elab = (/date,time/)
+	call dts_to_abs_time(date,time,atime00)
 
 	end subroutine elabtime_date_and_time
 
 !************************************************************
+!************************************************************
+!************************************************************
 
-	subroutine elabtime_minmax(stmin,stmax)
+	subroutine elabtime_set_minmax(stmin,stmax)
 
 ! converts stmin/stmax to absolute time
 
@@ -67,25 +83,13 @@
         if( btmin ) call dts_string2time(stmin,atmin)
         if( btmax ) call dts_string2time(stmax,atmax)
 
-        if( bdebug ) then
+        if( bdebugtime ) then
           write(6,*) 'time limits: '
           write(6,*) stmin(1:len_trim(stmin)),btmin,atmin
           write(6,*) stmax(1:len_trim(stmax)),btmax,atmax
         end if
 
-	end subroutine elabtime_minmax
-
-!************************************************************
-
-	subroutine elabtime_set_inclusive(binclusive)
-
-! sets inclusive flag
-
-	logical binclusive
-
-	binclusive_elab = binclusive
-
-	end subroutine elabtime_set_inclusive
+	end subroutine elabtime_set_minmax
 
 !************************************************************
 !************************************************************
@@ -149,7 +153,7 @@
 
 	elabtime_check_time_in = btimew
 
-	if( bdebug ) then
+	if( bdebugtime ) then
 	  write(6,*) 'exclusive..........',btimew,binclusive_elab
 	  write(6,*) 'exclusive..........',atmin,atime,atmax
 	end if
@@ -199,7 +203,7 @@
 
 	elabtime_over_time_in = .not. btimew
 
-	if( bdebug ) then
+	if( bdebugtime ) then
 	  write(6,*) 'exclusive..........',btimew,binclusive_elab
 	  write(6,*) 'exclusive..........',atmin,atime,atmax
 	end if

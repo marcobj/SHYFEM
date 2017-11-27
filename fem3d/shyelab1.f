@@ -19,6 +19,8 @@
 ! 10.06.2016    ggu     shydiff included
 ! 08.09.2016    ggu     custom dates, map_influence
 ! 11.05.2017    ggu     use catmode to concatenate files
+! 05.10.2017    ggu     implement silent option
+! 07.10.2017    ggu     new names for -split option of hydro file
 !
 !**************************************************************
 
@@ -56,7 +58,7 @@
 
 	logical bhydro,bscalar
 	logical blastrecord,bforce
-	integer nwrite,nread,nelab,nrec,nin,nold,ndiff
+	integer nwrite,nwtime,nread,nelab,nrec,nin,nold,ndiff
 	integer nvers
 	integer nvar,npr
 	integer ierr
@@ -107,16 +109,19 @@
 	! set command line parameters
 	!--------------------------------------------------------------
 
-	call elabutil_init('SHY')
+	call elabutil_init('SHY','shyelab')
 
 	!--------------------------------------------------------------
 	! open input files
 	!--------------------------------------------------------------
 
 	call open_new_file(ifile,id,atstart)	!atstart=-1 if no new file
+	if( bverb ) call shy_write_filename(id)
 	if( atstart /= -1 ) then
 	  call dts_format_abs_time(atstart,dline)
-	  write(6,*) 'initial date for next file: ',dline
+	  if( .not. bsilent ) then
+	    write(6,*) 'initial date for next file: ',dline
+	  end if
 	end if
 
 	if( bdiff ) then
@@ -133,17 +138,20 @@
 	call shy_get_params(id,nkn,nel,npr,nlv,nvar)
 	call shy_get_ftype(id,ftype)
 
-	call shy_info(id)
+	if( .not. bquiet ) call shy_info(id)
 
         call basin_init(nkn,nel)
         call levels_init(nkn,nel,nlv)
         call mod_depth_init(nkn,nel)
+	call basin_set_read_basin(.true.)
 	call shy_copy_basin_from_shy(id)
 	call shy_copy_levels_from_shy(id)
+
+	call ev_set_verbose(.not.bquiet)
         call ev_init(nel)
 	call set_ev
 
-	if( bverb ) write(6,*) 'hlv: ',nlv,hlv
+	!if( bverb ) write(6,*) 'hlv: ',nlv,hlv
 
 	!--------------------------------------------------------------
 	! set dimensions and allocate arrays
@@ -191,14 +199,28 @@
 	call shy_make_area
 	call outfile_make_depth(nkn,nel,nen3v,hm3v,hev,hkv)
 
+	!--------------------------------------------------------------
+	! write info to terminal
+	!--------------------------------------------------------------
+
+	call shy_peek_record(id,dtime,iaux,iaux,iaux,iaux,ierr)
+	if( ierr > 0 ) goto 99
+	if( ierr < 0 ) goto 98
+        call shy_get_string_descriptions(id,nvar,ivars,strings)
+
 	if( bverb ) call depth_stats(nkn,nlvdi,ilhkv)
-	!if( binfo ) return
+
+	if( .not. bquiet ) then
+	  call shy_print_descriptions(nvar,ivars,strings)
+	end if
+
+	if( binfo ) return
 
 	!--------------------------------------------------------------
 	! setup node handling
 	!--------------------------------------------------------------
 
-	call handle_nodes	!single node output
+	call initialize_nodes	!single node output
 
 	!--------------------------------------------------------------
 	! time averaging
@@ -226,7 +248,7 @@
 
 	call shy_get_date(id,date,time)
 	call elabtime_date_and_time(date,time)
-	call elabtime_minmax(stmin,stmax)
+	call elabtime_set_minmax(stmin,stmax)
 	call elabtime_set_inclusive(binclusive)
 	
 	!--------------------------------------------------------------
@@ -239,13 +261,8 @@
 	! open output file
 	!--------------------------------------------------------------
 
-	boutput = boutput .or. btrans .or. bsplit
-	boutput = boutput .or. bsumvar .or. bmap
+	boutput = boutput .or. btrans
 
-	call shy_peek_record(id,dtime,iaux,iaux,iaux,iaux,ierr)
-	if( ierr > 0 ) goto 99
-	if( ierr < 0 ) goto 98
-        call shy_get_string_descriptions(id,nvar,ivars,strings)
 	if( bsumvar ) then
 	  call shyelab_init_output(id,idout,1,(/10/))
 	else if( bmap ) then
@@ -253,14 +270,6 @@
 	else
 	  call shyelab_init_output(id,idout,nvar,ivars)
 	end if
-
-	!--------------------------------------------------------------
-	! write info to terminal
-	!--------------------------------------------------------------
-
-	call shy_print_descriptions(nvar,ivars,strings)
-
-	if( binfo ) return
 
 !--------------------------------------------------------------
 ! loop on data
@@ -291,6 +300,7 @@
          if(ierr.ne.0) then	!EOF - see if we have to read another file
 	   if( ierr > 0 .or. atstart == -1. ) exit
 	   call open_new_file(ifile,id,atstart)
+	   if( .not. bsilent ) call shy_write_filename(id)
 	   cycle
 	 end if
 
@@ -354,19 +364,19 @@
 
 	  cv3(:,:) = cv3all(:,:,iv)
 
-	  nelab = nelab + 1
+	  if( iv == 1 ) nelab = nelab + 1
 
-	  if( .not. bquiet ) then
-	    call shy_write_time(.true.,dtime,atime,ivar)
+	  if( bverb .and. iv == 1 ) then
+	    call shy_write_time(.true.,dtime,atime,0)
 	  end if
 
 	  if( bwrite ) then
-	    call shy_write_min_max(nlvdi,nn,il,lmax,cv3)
+	    call shy_write_min_max(nlvdi,nn,il,lmax,ivar,cv3)
 	  end if
 
 	  if( btrans ) then
 	    call shy_time_aver(bforce,avermode,iv,nread,ifreq,istep,nndim
-     +			,idims,threshold,cv3,boutput)
+     +			,idims,threshold,cv3,boutput,bverb)
 	  end if
 
 	  if( b2d ) then
@@ -385,10 +395,6 @@
 	    call shy_make_basin_aver(idims(:,iv),nndim,cv3,ikflag
      +                          ,cmin,cmax,cmed,cstd,vtot)
 	    call shy_write_aver(dtime,ivar,cmin,cmax,cmed,cstd,vtot)
-	  end if
-
-	  if( bnodes .and. bscalar ) then	!scalar output
-	    call write_nodes(dtime,ivar,cv3)
 	  end if
 
 	 end do		!loop on ivar
@@ -420,13 +426,7 @@
 	 !end if
 
 	 if( bnodes ) then	!nodal output
-	   if( bhydro ) then	!hydro output
-	     call prepare_hydro(.true.,nndim,cv3all,znv,uprv,vprv)
-	     call write_nodes_vel(dtime,znv,uprv,vprv)
-	     call write_nodes_hydro(dtime,znv,uprv,vprv)
-	   else if( bscalar ) then
-	     call write_nodes_scalar(dtime,nvar,nndim,strings,cv3all)
-	   end if
+           call write_nodes(atime,ftype,nndim,nvar,ivars,cv3all)
 	 end if
  
 	 ! bsumvar is also handled in here
@@ -448,10 +448,10 @@
 	   do iv=1,nvar
 	    naccum = naccu(iv,ip)
 	    if( naccum > 0 ) then
-	      call shyelab_increase_nwrite
-	      write(6,*) 'final aver: ',ip,iv,naccum
+	      !call shyelab_increase_nwrite
+	      if( bverb ) write(6,*) 'final aver: ',ip,iv,naccum
 	      call shy_time_aver(bforce,-avermode,iv,ip,0,istep,nndim
-     +			,idims,threshold,cv3,boutput)
+     +			,idims,threshold,cv3,boutput,bverb)
 	      n = idims(1,iv)
 	      m = idims(2,iv)
 	      lmax = idims(3,iv)
@@ -467,26 +467,31 @@
 ! write final message
 !--------------------------------------------------------------
 
+	if( .not. bsilent ) then
+
 	write(6,*)
 	call dts_format_abs_time(atfirst,dline)
 	write(6,*) 'first time record: ',dline
 	call dts_format_abs_time(atlast,dline)
 	write(6,*) 'last time record:  ',dline
 
-	call shyelab_get_nwrite(nwrite)
+	call shyelab_get_nwrite(nwrite,nwtime)
 
 	write(6,*)
-	write(6,*) nrec,  ' records read'
-	write(6,*) nread, ' unique time records read'
-	write(6,*) nelab, ' records elaborated'
 	write(6,*) ifile, ' file(s) read'
-	write(6,*) nwrite,' records written'
+	write(6,*) nrec,  ' data records read'
+	write(6,*) nread, ' time records read'
+	write(6,*) nelab, ' time records elaborated'
+	write(6,*) nwrite,' data records written'
+	write(6,*) nwtime,' time records written'
 	write(6,*)
 
-	call shyelab_final_output(id,idout,nvar)
+	end if
 
-	if( bnodes ) then
-	  write(6,*) 'output of node(s) has been written to out.fem'
+	call shyelab_final_output(id,idout,nvar,ivars)
+
+	if( bnodes .and. .not. bquiet ) then
+	  call write_nodes_final(ftype,nvar,ivars)
 	end if
 
 	if( bdiff ) then
@@ -545,76 +550,6 @@
 
 !***************************************************************
 !***************************************************************
-!***************************************************************
-
-	subroutine convert_to_speed(uprv,vprv,sv,dv)
-
-	use basin
-	use levels
-	
-	implicit none
-
-	real uprv(nlvdi,nkn)
-	real vprv(nlvdi,nkn)
-	real sv(nlvdi,nkn)
-	real dv(nlvdi,nkn)
-
-	integer k,lmax,l
-	real u,v,s,d
-
-        do k=1,nkn
-          lmax = ilhkv(k)
-          do l=1,lmax
-            u = uprv(l,k)
-            v = vprv(l,k)
-            call c2p(u,v,s,d)   !d is meteo convention
-            d = d + 180.
-            if( d > 360. ) d = d - 360.
-            sv(l,k) = s
-            dv(l,k) = d
-          end do
-        end do
-
-	end
-
-!***************************************************************
-
-	subroutine prepare_hydro(bvel,nndim,cv3all,znv,uprv,vprv)
-
-	use basin
-	use levels
-	use mod_depth
-	
-	implicit none
-
-	logical bvel
-	integer nndim
-	real cv3all(nlvdi,nndim,0:4)
-	real znv(nkn)
-	real uprv(nlvdi,nkn)
-	real vprv(nlvdi,nkn)
-
-	real, allocatable :: zenv(:)
-	real, allocatable :: uv(:,:)
-	real, allocatable :: vv(:,:)
-
-	allocate(zenv(3*nel))
-	allocate(uv(nlvdi,nel))
-	allocate(vv(nlvdi,nel))
-
-        znv(1:nkn)     = cv3all(1,1:nkn,1)
-        zenv(1:3*nel)  = cv3all(1,1:3*nel,2)
-        uv(:,1:nel)    = cv3all(:,1:nel,3)
-        vv(:,1:nel)    = cv3all(:,1:nel,4)
-
-	call shy_transp2vel(bvel,nel,nkn,nlv,nlvdi,hev,zenv,nen3v
-     +                          ,ilhv,hlv,uv,vv
-     +                          ,uprv,vprv)
-
-	deallocate(zenv,uv,vv)
-
-	end
-
 !***************************************************************
 
         subroutine shy_make_hydro_aver(dtime,nndim,cv3all,ikflag
@@ -696,11 +631,11 @@
 	integer, save :: idz,idu,idv,ids,idd
 
 	if( icall == 0 ) then
-	  call shy_split_internal(id,'z.shy',.true.,idz)
-	  call shy_split_internal(id,'u.shy',.false.,idu)
-	  call shy_split_internal(id,'v.shy',.false.,idv)
-	  call shy_split_internal(id,'s.shy',.false.,ids)
-	  call shy_split_internal(id,'d.shy',.false.,idd)
+	  call shy_split_internal(id,'zeta.shy',.true.,idz)
+	  call shy_split_internal(id,'velx.shy',.false.,idu)
+	  call shy_split_internal(id,'vely.shy',.false.,idv)
+	  call shy_split_internal(id,'speed.shy',.false.,ids)
+	  call shy_split_internal(id,'dir.shy',.false.,idd)
 	  icall = 1
 	end if
 
@@ -841,7 +776,7 @@
 
         subroutine comp_map(nlvddi,nkn,nvar,pt,ct,cvv,valri)
 
-c compute dominant discharge and put index in valri
+c compute dominant discharge and put index in valri (custom routine)
 
 	use levels
 
@@ -910,5 +845,23 @@ c compute dominant discharge and put index in valri
         end if
 
         end subroutine shy_assert
+
+!***************************************************************
+
+	subroutine shy_write_filename(id)
+
+	use shyfile
+
+	integer id
+
+        character*80 file
+
+	call shy_get_filename(id,file)
+
+        write(6,*) '================================'
+        write(6,*) 'new file: ',trim(file)
+        write(6,*) '================================'
+
+	end subroutine shy_write_filename
 
 !***************************************************************

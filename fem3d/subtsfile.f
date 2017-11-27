@@ -14,6 +14,25 @@ c time column as string:		"2007-10-01::00:00:00"
 c
 c*************************************************************
 
+	function check_ts_file(file)
+
+c checks if file is time series file
+
+	implicit none
+
+	logical check_ts_file
+	character*(*) file	!file name
+
+	integer nvar
+
+	call ts_get_file_info(file,nvar)
+
+	check_ts_file = ( nvar > 0 )
+
+	end
+
+c*************************************************************
+
 	subroutine ts_get_file_info(file,nvar)
 
 c get info on time series file (TS)
@@ -52,6 +71,8 @@ c nvar <= 0 for error or no TS file
 c*************************************************************
 
 	subroutine ts_get_extra_time(file,dtime,datetime)
+
+	use iso8601
 
 	implicit none
 
@@ -170,6 +191,8 @@ c*************************************************************
 
 ! reads one record of time series file
 
+	use iso8601
+
 	implicit none
 
 	integer iunit
@@ -234,6 +257,7 @@ c*************************************************************
 	if( ios == -1 ) then			!time colum may be string
 	  ios = istot(line,stime,is)		!read time column as string
 	  if( ios /= 1 ) return
+	  dtime = 0.
 	  call string2datetime(stime,datetime,ierr)
 	  if( ierr /= 0 ) return
 	end if

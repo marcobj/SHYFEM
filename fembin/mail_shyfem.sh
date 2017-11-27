@@ -32,6 +32,18 @@ Help()
   exit 1
 }
 
+Gversion()
+{
+  gver=$( gdrive -v 2> /dev/null )
+  if [ -z "$gver" ]; then
+    aux=$( gdrive version 2> /dev/null )
+    #echo "auxxxxxxxx: $aux ----"
+    gver=$( echo "$aux" | head -1 )
+  fi
+  #echo "status: $?"
+  echo "gdrive version: $gver"
+}
+
 #------------------------------------------------------------------
 
 mail="YES"
@@ -40,14 +52,18 @@ if [ "$1" = "-no_mail" ]; then
   shift
 fi
 
-file=$1
+file1=$1
+file2=$2
 
 if [ $# -eq 0 ]; then
   Help
 elif [ $1 = '-h' -o $1 = '-help' ]; then
   Help
-elif [ ! -f "$file" ]; then
-  echo "*** no such file: $file ...aborting"
+elif [ ! -f "$file1" ]; then
+  echo "*** no such file: $file1 ...aborting"
+  exit 3
+elif [ -n "$file2" -a ! -f "$file2" ]; then
+  echo "*** no such file: $file2 ...aborting"
   exit 3
 fi
 
@@ -77,6 +93,11 @@ echo ""								>> $tmpfile
 
 echo "Email message:"
 cat $tmpfile
+echo "Files to be uploaded:"
+echo "  $file1"
+[ -n "$file2" ] && echo "  $file2"
+echo ""
+
 if [ $mail = "YES" ]; then
   answer=`YesNo "Do you want to upload and email?"`
 else
@@ -89,14 +110,18 @@ echo "uploading and emailing..."
 #------------------------------------------------------------------
 
 echo "uploading file $file to google drive..."
-ver=$( gdrive -v )
-echo "gdrive version: $ver"
-if [ "$ver" = "gdrive v1.9.0" ]; then
-  gdrive upload --file $file --parent $shyfemdir		#for 1.9.0
-elif [ "$ver" = "gdrive v2.1.0" ]; then
-  gdrive upload  --parent $shyfemdir $file		#for 2.1.0
+Gversion
+if [ "$gver" = "gdrive v1.9.0" ]; then			#for 1.9.0
+  gdrive upload --file $file1 --parent $shyfemdir
+  [ -f $file2 ] && gdrive upload --file $file2 --parent $shyfemdir
+elif [ "$gver" = "gdrive v2.1.0" ]; then		#for 2.1.0
+  gdrive upload  --parent $shyfemdir $file1
+  [ -f $file2 ] && gdrive upload  --parent $shyfemdir $file2
+elif [ "$gver" = "gdrive: 2.1.0" ]; then		#for 2.1.0
+  gdrive upload  --parent $shyfemdir $file1
+  [ -f $file2 ] && gdrive upload  --parent $shyfemdir $file2
 else
-  echo "unknown version of gdrive: $ver"
+  echo "unknown version of gdrive: $gver"
   exit 1
 fi
 status=$?

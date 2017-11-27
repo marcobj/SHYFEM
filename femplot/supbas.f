@@ -73,7 +73,7 @@ c*************************************************************
 
 	implicit none
 
-	logical, save :: bverb = .true.
+	logical, save :: bbverb = .true.
 	real, save :: xmin,ymin,xmax,ymax
 
 	end module mod_bash
@@ -88,7 +88,7 @@ c*************************************************************
 
 	logical bverbose
 
-	bverb = bverbose
+	bbverb = bverbose
 
 	end
 
@@ -239,12 +239,12 @@ c**************************************************************
 
 	call getfnm('metpnt',file)
 	if( file .ne. ' ' ) then
-	  call plot_meteo_points(1,file)
+	  call plot_obs_points(1,file,'meteo points')
 	end if
 
 	call getfnm('obspnt',file)
 	if( file .ne. ' ' ) then
-	  call plot_meteo_points(2,file)
+	  call plot_obs_points(2,file,'observation points')
 	end if
 
 	ifreg = nint(getpar('ifreg'))
@@ -274,6 +274,7 @@ c	4: net in gray (for scalar and velocities - use bsgray)
 	use mod_geom
 	use basin
 	use mod_bash
+	use mod_hydro_plot
 
 	implicit none
 
@@ -320,12 +321,14 @@ c	4: net in gray (for scalar and velocities - use bsgray)
 	  end if
 
 	  do ie=1,nel
+	   if( bplot(ie) ) then
 	    kn = nen3v(3,ie)
 	    call qmove(xgv(kn),ygv(kn))
 	    do ii=1,3
 	      kn = nen3v(ii,ie)
 	      call qplot(xgv(kn),ygv(kn))
 	    end do
+	   end if
 	  end do
 	else
 	  write(6,*) 'mode = ',mode
@@ -728,7 +731,7 @@ c else it is computed from grid
 	end if
 	call putpar('typls',typls)
 
-	if( bverb ) then
+	if( bbverb ) then
 	  write(6,*) 'typical length scale for basin: ',dist
 	  write(6,*) 'typical length scale used     : ',typls
 	end if
@@ -1067,7 +1070,7 @@ c handles spherical coordinates
 
 	call qfact(fact,1.0)
 
-	if( bverb ) then
+	if( bbverb ) then
           if( is_spherical() ) then
 	    write(6,*) 'Using factor for spherical coordinates: ',fact
 	  else
@@ -1159,12 +1162,12 @@ c handles plotting of regular grid
 
 	real getpar
 
-	if( bverb ) write(6,*) 'starting plot_reg_grid...'
+	if( bbverb ) write(6,*) 'starting plot_reg_grid...'
 
 	reggrd = getpar('reggrd')
 	reggry = getpar('reggry')
 
-	call adjust_reg_grid_spacing(bverb,reggrd,imicro)
+	call adjust_reg_grid_spacing(bbverb,reggrd,imicro)
 
 	!write(6,*) 'ggguuu: ',reggrd,reggry
 
@@ -1177,7 +1180,7 @@ c handles plotting of regular grid
 	end if
 
 !    1	continue
-	if( bverb ) write(6,*) 'ending plot_reg_grid...'
+	if( bbverb ) write(6,*) 'ending plot_reg_grid...'
 
 	end
 
@@ -1214,7 +1217,7 @@ c handles labeling of frame
 
 	call basinit
 
-	if( bverb ) write(6,*) 'starting label_bw_frame...'
+	if( bbverb ) write(6,*) 'starting label_bw_frame...'
 
 	size = 0.5	!leave this space around plot for labeling
 	ftext = 2.8	!factor to shift text vertically
@@ -1225,7 +1228,7 @@ c handles labeling of frame
 	imicro = nint(getpar('regdst'))
 
 	if( bdebug ) write(6,*) 'reggrd,imicro (1): ',reggrd,imicro
-	call adjust_reg_grid_spacing(bverb,reggrd,imicro)	!check if automatic
+	call adjust_reg_grid_spacing(bbverb,reggrd,imicro)	!check if automatic
 	if( bdebug ) write(6,*) 'reggrd,imicro (2): ',reggrd,imicro
 
 	if( reggrd .eq. 0. ) return
@@ -1246,7 +1249,7 @@ c here labeling
 	dist = reggrd
 	call frac_pos(dist,nc)
 	if( nc .eq. 0 ) nc = -1
-	if( bverb ) write(6,*) 'label_bw_frame: ',dist,nc,imicro
+	if( bbverb ) write(6,*) 'label_bw_frame: ',dist,nc,imicro
 
 	xdmin = rround(xmin,dist,-1)
 	xdmax = rround(xmax,dist,+1)
@@ -1302,7 +1305,7 @@ c here labeling
 
 	call qsetvp(xvmin,yvmin,xvmax,yvmax)
 
-	if( bverb ) write(6,*) 'ending label_bw_frame...'
+	if( bbverb ) write(6,*) 'ending label_bw_frame...'
 
 	return
    99	continue
@@ -1511,6 +1514,7 @@ c plots regular points
 
 	fplus = 0.3		!relative size of plus sign
 	fplus = 0.1		!relative size of plus sign
+	fplus = 0.05		!relative size of plus sign
 	eps = 1.e-5
 
         nx = nint(regp(1))
@@ -1573,9 +1577,9 @@ c plots regular points
 
 c**************************************************************
 
-	subroutine plot_meteo_points(mode,file)
+	subroutine plot_obs_points(mode,file,text)
 
-c plots special points from meteo file
+c plots special points from observation/meteo file
 c
 c name of coords.dat has to passed into the subroutine
 c if sea_land.dat exists it is used, otherwise we can do without
@@ -1584,6 +1588,7 @@ c if sea_land.dat exists it is used, otherwise we can do without
 
 	integer mode
 	character*(*) file
+	character*(*) text
 
 	integer ndim
 	parameter (ndim=30000)
@@ -1594,6 +1599,7 @@ c if sea_land.dat exists it is used, otherwise we can do without
 	real fact,afact
 	real xmin,xmax,ymin,ymax
 	real dx,dy,dxy
+	real fplus
 	real x(ndim),y(ndim),rf(ndim)
 	save n,x,y,rf,dx,dy,dxy
 
@@ -1630,7 +1636,7 @@ c if sea_land.dat exists it is used, otherwise we can do without
 	    ny = 10
 	  else
 	    write(6,*) 'mode = ',mode
-	    stop 'error stop plot_meteo_points: mode not recognized'
+	    stop 'error stop plot_obs_points: mode not recognized'
 	  end if
 
 	  close(1)
@@ -1638,8 +1644,10 @@ c if sea_land.dat exists it is used, otherwise we can do without
 	  call mima(x,n,xmin,xmax)
 	  call mima(y,n,ymin,ymax)
 
-	  dx = 0.3*(xmax-xmin)/(nx-1)
-	  dy = 0.3*(ymax-ymin)/(ny-1)
+	  fplus = 0.3
+	  fplus = 0.1
+	  dx = fplus*(xmax-xmin)/(nx-1)
+	  dy = fplus*(ymax-ymin)/(ny-1)
 	  dxy = min(dx,dy)
 	  call spherical_fact(fact,afact)
 	  dx = dxy/fact
@@ -1658,8 +1666,8 @@ c if sea_land.dat exists it is used, otherwise we can do without
 	  icall = 1
 	end if
 
-	write(6,*) 'plotting meteo points'
-	call qcomm('plotting meteo points')
+	write(6,*) 'plotting obs points'
+	call qcomm('plotting obs points')
 	call qgray(0.)
 	!dx = 0.02
 	!dy = dx
@@ -1676,20 +1684,24 @@ c if sea_land.dat exists it is used, otherwise we can do without
 	return
    88	continue
 	icall = -1
-	write(6,*) 'message from plot_meteo_points:'
+	write(6,*) 'message from plot_obs_points:'
 	write(6,*) 'no coords.dat file ... cannot plot coordinates'
 	write(6,*) 'file: ',file
-	stop 'error stop plot_meteo_points: file'
+	write(6,*) 'trying to plot '//trim(text)
+	stop 'error stop plot_obs_points: file'
    98	continue
 	write(6,*) 'file: ',trim(file)
 	write(6,*) 'mode,irec: ',mode,i
-	stop 'error stop plot_meteo_points: read error'
+	write(6,*) 'trying to plot '//trim(text)
+	stop 'error stop plot_obs_points: read error'
    99	continue
 	write(6,*) n,ndim
-	stop 'error stop plot_meteo_points: ndim'
+	write(6,*) 'trying to plot '//trim(text)
+	stop 'error stop plot_obs_points: ndim'
    97	continue
 	write(6,*) nx,ny,n,ndim
-	stop 'error stop plot_meteo_points: different length'
+	write(6,*) 'trying to plot '//trim(text)
+	stop 'error stop plot_obs_points: different length'
 	end
 
 c**************************************************************

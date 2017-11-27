@@ -530,7 +530,7 @@
 !***************************************************************
 
 	subroutine shy_time_aver(bforce,avermode,iv,nread,ifreq,istep
-     +				,nndim,idims,threshold,cv3,bout)
+     +				,nndim,idims,threshold,cv3,bout,bverb)
 
 ! avermode:  1:aver  2:sum  3:min  4:max  5:std  6:rms  7:thres  8:averdir
 !
@@ -551,6 +551,7 @@
 	double precision threshold
 	real cv3(nlvdi,nndim)	!input for accumulation, output if transformed
 	logical bout		!.true. if in cv3 are transformed results
+	logical bverb
 
 	integer ip,naccum,mmode
 	integer k,l,id,idmax
@@ -638,7 +639,9 @@
 	  call shy_elab_dir(nlvdi,lmax,nn,iv,ip,cv3)
 	end if
 
-	write(6,*) 'averaging: ',ip,naccum,naccu(iv,ip)
+	if( bverb ) then
+	  write(6,*) 'averaging: ',ip,naccum,naccu(iv,ip)
+	end if
 
 	naccu(iv,ip) = 0
 	std(:,:,iv,ip) = 0.
@@ -712,81 +715,4 @@
 	end
 
 !***************************************************************
-!***************************************************************
-!***************************************************************
-
-        subroutine shy_transp2vel(bvel,nel,nkn,nlv,nlvddi
-     +				,hev,zenv,nen3v
-     +                          ,ilhv,hlv,utlnv,vtlnv
-     +                          ,uprv,vprv)
-
-c transforms transports at elements to velocities at nodes
-
-        implicit none
-
-	logical bvel			!if true compute velocities
-        integer nel
-        integer nkn
-        integer nlv
-        integer nlvddi
-        real hev(nel)
-        real zenv(3,nel)
-        integer nen3v(3,nel)
-        integer ilhv(nel)
-        real hlv(nlvddi)
-        real utlnv(nlvddi,nel)
-        real vtlnv(nlvddi,nel)
-        real uprv(nlvddi,nkn)
-        real vprv(nlvddi,nkn)
-
-        real weight(nlvddi,nkn)         !aux variable for weights
-        real hl(nlvddi)                 !aux variable for real level thickness
-
-        logical bsigma
-        integer ie,ii,k,l,lmax,nsigma,nlvaux
-        real hmed,u,v,area,zeta
-        real hsigma
-
-        real area_elem
-
-        call get_sigma_info(nlvaux,nsigma,hsigma)
-        if( nlvaux .gt. nlvddi ) stop 'error stop transp2vel: nlvddi'
-        bsigma = nsigma .gt. 0
-
-	weight = 0.
-	uprv = 0.
-	vprv = 0.
-	hl = 1.		!in case of transports
-
-        do ie=1,nel
-
-          area = area_elem(ie)
-          lmax = ilhv(ie)
-	  if( bvel ) then
-	    zeta = sum(zenv(:,ie)) / 3.	!average of zeta on element
-	    call get_layer_thickness(lmax,nsigma,hsigma
-     +				,zeta,hev(ie),hlv,hl)
-	  end if
-
-          do l=1,lmax
-            hmed = hl(l)
-            u = utlnv(l,ie) / hmed
-            v = vtlnv(l,ie) / hmed
-            do ii=1,3
-              k = nen3v(ii,ie)
-              uprv(l,k) = uprv(l,k) + area * u
-              vprv(l,k) = vprv(l,k) + area * v
-              weight(l,k) = weight(l,k) + area
-            end do
-          end do
-        end do
-
-	where( weight > 0. )
-	  uprv = uprv / weight
-	  vprv = vprv / weight
-	end where
-
-        end
-
-c******************************************************************
 

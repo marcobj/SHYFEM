@@ -278,8 +278,8 @@ c writes data of the file
 	nv = nvers
 	if( nv .eq. 0 ) nv = nvmax	!default
 
-	text = trim(string)
-	textu = string
+	text = adjustl(string)
+	textu = text
 	b2d = lmax .le. 1
 
 	if( iformat == 1 ) then
@@ -633,7 +633,7 @@ c returns data description for first record
      +				,nvers,np,lmax
      +				,string,ierr)
 	  if( ierr .ne. 0 ) return
-	  strings(i) = string
+	  strings(i) = adjustl(string)
 	end do
 
 	close(iunit)
@@ -666,6 +666,7 @@ c reads and checks params of next header
 
 	integer id,i
 	integer itype(2)
+	character*80 string
 
 	ierr = 0
 	if( iunit < 1 ) goto 99
@@ -689,12 +690,20 @@ c reads and checks params of next header
 	  else
 	    read(iunit,err=3) (datetime(i),i=1,2)
 	  end if
+	  !if( itype(1) == 1 ) then
+	  !  read(string,'(2i10)') datetime
+	  !else if( itype(1) == 2 ) then
+	  !else
+	  !  write(6,*) 'itype(1) = ',itype(1)
+	  !  stop 'error stop fem_file_read_params: error itype'
+	  !end if
 	else
 	  datetime = 0
 	end if
 
 	return
     1	continue
+	backspace(iunit)
 	ierr = -1
 	return
     2	continue
@@ -798,7 +807,7 @@ c reads hlv of header
 	integer iformat		!formatted or unformatted
 	integer iunit		!file unit
 	integer ntype		!type of second header
-	integer lmax		!total number of elements to read
+	integer lmax		!vertical dimension
 	real hlv(lmax)		!vertical structure
 	real regpar(7)		!regular array params
 	integer ierr		!return error code
@@ -953,7 +962,7 @@ c reads data of the file
 
 	call fem_clean_data(nlvddi,np,ilhkv,data)	!delete nans etc..
 
-	string = trim(text)
+	string = adjustl(text)
 
 	return
    11	continue
@@ -1039,7 +1048,7 @@ c skips one record of data of the file
 	  end if
 	end if
 
-	string = text
+	string = adjustl(text)
 
 	return
    11	continue
@@ -1167,11 +1176,11 @@ c************************************************************
 	double precision dtime		!relative time
 	double precision atime		!absolute time (return)
 
-	double precision dtime0
+	double precision atime0
 
 	if( datetime(1) > 0 ) then
-	  call dts_to_abs_time(datetime(1),datetime(2),dtime0)
-	  atime = dtime0 + dtime
+	  call dts_to_abs_time(datetime(1),datetime(2),atime0)
+	  atime = atime0 + dtime
 	else
 	  atime = dtime
 	end if

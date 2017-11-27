@@ -1366,7 +1366,7 @@ c |iwave|	Type of wind wave model and coupling procedure (default 0):
 c		\begin{description}
 c		\item[0] No wind wave model called 
 c		\item[1] The parametric wind wave model is called (see file subwave.f)
-c		\item[$>=$2] The spectral wind wave model WWMIII is called
+c		\item[$>$1] The spectral wind wave model WWMIII is called
 c		\item[2] ... wind from SHYFEM, radiation stress formulation
 c		\item[3] ... wind from SHYFEM, vortex force formulation 
 c		\item[4] ... wind from WWMIII, radiation stress formulation
@@ -1755,7 +1755,6 @@ c
 c |ianopl|	Area code for which no plot has to be produced. Normally 
 c		the whole basin is plotted, but with this parameter some
 c		areas can be excluded. (Default -1)
-c		the bathymetry. (Default 0.8)
 c |bgray|	Gray value used for the finite element grid when plotting
 c		the bathymetry. (Default 0.8)
 c |bbgray|	Gray value used for the boundary of the finite element grid.

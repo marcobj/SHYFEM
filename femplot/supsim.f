@@ -562,7 +562,7 @@ c plots scalar values from regular grid
 	  call set_flag(flag)
           call intp_reg_nodes(nx,ny,x0,y0,dx,dy,flag,preg
      +                          ,pa,ierr)
-	  if( ierr /= 0 ) then
+	  if( ierr /= 0 .and. berrintp ) then
 	    write(6,*) 'intp_reg_nodes ierr = ',ierr
 	    !stop 'error stop ploreg: interpolation'
 	  end if
@@ -583,7 +583,7 @@ c plots scalar values from regular grid
 	call get_minmax_flag(pa,np,pmin,pmax,flag)
 	call count_flag(pa,np,flag,nflag)
 	call colauto(pmin,pmax)
-        write(6,*) 'min/max: ',np,nflag,pmin,pmax,flag
+        if( bminmax ) write(6,*) 'min/max: ',np,nflag,pmin,pmax
 
 	if( bintp ) then
           call qcomm('Plotting interpolated regular grid')
@@ -649,10 +649,10 @@ c plots node values
 	call bash(0)
 
 	call get_minmax_flag(pa,nkn,pmin,pmax,flag)
-	call apply_dry_mask(bkwater,pa,nkn,flag)	!flags to dry nodes
+	call apply_dry_mask(bkwater,pa,nkn,flag)	!flags dry nodes
 	call count_flag(pa,nkn,flag,nflag)
 	call colauto(pmin,pmax)
-        write(6,*) 'min/max: ',nkn,nflag,pmin,pmax,flag
+        if( bminmax ) write(6,*) 'min/max: ',nkn,nflag,pmin,pmax
 
         call qcomm('Plotting isolines')
         call isoline(pa,nkn,0.,2)
@@ -690,8 +690,8 @@ c plots element values
 	call bash(0)
 
 	call get_minmax_flag(pa,nel,pmin,pmax,flag)
-        write(6,*) 'min/max: ',nel,pmin,pmax,flag
-	call apply_dry_mask(bwater,pa,nel,flag)	!flags to dry nodes
+        if( bminmax ) write(6,*) 'min/max: ',nel,pmin,pmax
+	call apply_dry_mask(bwater,pa,nel,flag)		!flags dry nodes
 	call colauto(pmin,pmax)
 
         call qcomm('Plotting element values')
@@ -1058,10 +1058,18 @@ c------------------------------------------------------------------
 	typsca = typls * typlsf
 	if( valref <= 0. ) valref = 1		!if vel field == 0
 
-	write(6,*) 'max/med: ',uvmax,uvmed
+	if( bminmax ) then
+	  if( .not. boverl ) then	!FIXME
+	    call get_minmax_flag(uvmod,nkn,pmin,pmax,flag)
+	  end if
+	  write(6,*) 'max/med: ',uvmax,uvmed
+	  write(6,*) 'min/max: ',pmin,pmax
+	end if
+
 	if( bverb ) then
 	  write(6,*) 'scale (type): ',typls,typlsf,ioverl
-	  write(6,*) 'scale (value): ',valref,valmin,uvmax,uvmed
+	  write(6,1100) ' scale (value): ',valref,valmin,uvmax,uvmed
+ 1100	 format(a,4f14.3)
 	end if
 
 c------------------------------------------------------------------
@@ -1261,6 +1269,7 @@ c**********************************************************
 
 	use mod_depth
 	use basin
+	use mod_hydro_plot
 
 	implicit none
 
@@ -1271,6 +1280,10 @@ c**********************************************************
 	bnumber = .false.
 	belem = .true.		! plot bathymetry on elements
 	belem = .false.
+
+	call reset_dry_mask
+	call adjust_no_plot_area
+	call make_dry_node_mask(bwater,bkwater)
 
 c only boundary line
 
@@ -1296,8 +1309,6 @@ c grid with gray
 	call qend
 
 c bathymetry (gray or color)
-
-	call reset_dry_mask
 
 	if( belem ) then
 	  call ploeval(nkn,hev,'basin')
@@ -2063,7 +2074,7 @@ c*****************************************************************
 
 	subroutine plot_dry_areas
 
-c plots node values
+c plots dry areas with gray shading
 
 	use mod_hydro_plot
 	use basin
@@ -2085,6 +2096,7 @@ c plots node values
 	do ie=1,nel
 	  h = sum(hm3v(:,ie))/3.
 	  if( bwater(ie) .and. h > hgray ) cycle
+	  if( .not. bplot(ie) ) cycle
 	  call set_xy(ie,x,y)
 	  call qafill(3,x,y)
 	end do

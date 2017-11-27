@@ -1,4 +1,57 @@
 !
+! handle strings for parameters
+!
+! revision log :
+!
+! 31.08.2017    ggu     deleted old versions of subroutines
+! 07.10.2017    ggu     short name introduced, new generic routines
+!
+! contents :
+!
+! name		any abbreviation of variable name
+! full		full name
+! short		short name
+! ivar		variable identification
+! isub		sub-variable number
+! irange	variable range
+!
+!	function strings_get_id_by_name(name)
+!	function strings_get_id_by_ivar(ivar)
+!	subroutine strings_get_full(ivar,full,isub)
+!	subroutine strings_get_short(ivar,short,isub)
+!
+!	subroutine strings_get_full_name(name,full)
+!	subroutine strings_get_full_name(ivar,full)
+!	subroutine strings_get_full_name(ivar,full,isub)
+!
+!	subroutine strings_get_short_name(name,short)
+!	subroutine strings_get_short_name(ivar,short)
+!	subroutine strings_get_short_name(ivar,short,isub)
+!
+!	subroutine strings_get_ivar(name,ivar)
+!
+!       subroutine strings_add_new(name,ivar,irange)
+!       subroutine strings_set_short(ivar,short)
+!
+!-------------------------------------------------------
+!
+!       subroutine string2ivar(string,ivar)
+!       subroutine ivar2string(ivar,string,isub)
+!	subroutine ivar2filename(ivar,filename)
+!	subroutine ivar2femstring(ivar,femstring)
+!
+!       function compare_svars(s1,s2)
+!       subroutine string_direction(string,dir)
+!       function has_direction(name)
+!
+!-------------------------------------------------------
+!
+!       subroutine populate_strings
+!
+!-------------------------------------------------------
+!
+! notes :
+!
 ! variable ids for consecutive variables:
 !
 !	1-199	single variables
@@ -23,16 +76,33 @@
 
 	type, private :: entry
 
-	  character*80 :: name
+	  character*80 :: full
+	  character*10 :: short
 	  integer :: ivar
 	  integer :: irange
 
 	end type entry
 
-	logical, save, private :: bread = .true.	!still to populate strings
         integer, save, private :: idlast = 0
         integer, save, private :: ndim = 0
 	type(entry), save, private, allocatable :: pentry(:)
+
+        INTERFACE strings_get_id
+        MODULE PROCEDURE         strings_get_id_by_name
+     +                          ,strings_get_id_by_ivar
+        END INTERFACE
+
+        INTERFACE strings_get_full_name
+        MODULE PROCEDURE         strings_get_full_name_by_name
+     +                          ,strings_get_full_name_by_ivar
+     +                          ,strings_get_full_name_by_ivar_isub
+        END INTERFACE
+
+        INTERFACE strings_get_short_name
+        MODULE PROCEDURE         strings_get_short_name_by_name
+     +                          ,strings_get_short_name_by_ivar
+     +                          ,strings_get_short_name_by_ivar_isub
+        END INTERFACE
 
 !================================================================
 	contains
@@ -80,22 +150,27 @@
           stop 'error stop strings_init_id: ndim'
         end if
 
-        pentry(id)%name = ' '
+        pentry(id)%full = ' '
+        pentry(id)%short = ' '
         pentry(id)%ivar = 0
         pentry(id)%irange = 0
 
         end subroutine strings_init_id
 
 !******************************************************************
+!******************************************************************
+!******************************************************************
 
-	function strings_get_id(name)
+	function strings_get_id_by_name(name)
 
-	integer strings_get_id
+	integer strings_get_id_by_name
 	character*(*) name
 
 	integer id,i
 	character(len=len(name)) :: string
 	logical compare_svars
+
+	call populate_strings
 
 	string = adjustl(name)
 	do i=1,len(string)
@@ -103,37 +178,30 @@
 	end do
 
 	do id=1,idlast
-	  if( compare_svars(pentry(id)%name,string) ) exit
+	  if( compare_svars(pentry(id)%full,string) ) exit
 	end do
 	if( id > idlast ) id = 0
 
-	strings_get_id = id
+	strings_get_id_by_name = id
 
-	end function strings_get_id
+	end function strings_get_id_by_name
 
 !******************************************************************
-!******************************************************************
-!******************************************************************
 
-	subroutine strings_get_name(ivar,name,isub)
+	function strings_get_id_by_ivar(ivar)
 
+! given ivar finds id and sub-range
+
+	integer strings_get_id_by_ivar
 	integer ivar
-	character*(*) name
-	integer isub		!sub-number of multi variables
 
 	integer id,ivmin,ivmax
 	logical bdebug
 
-	if( bread ) then
-	  call populate_strings
-	  bread = .false.
-	end if
+	call populate_strings
 
 	bdebug = ivar == -1
 	bdebug = .false.
-	name = ' '
-	isub = 0
-	ivmin = 0
 
 	do id=1,idlast
 	  ivmin = pentry(id)%ivar
@@ -142,28 +210,147 @@
 	  if( ivmin == ivar ) exit
 	  if( ivmin < ivar .and. ivar < ivmax ) exit
 	end do
-	if( id > idlast ) return
+	if( id > idlast ) id = 0
 
-	name = pentry(id)%name
-	isub = ivar - ivmin
+	strings_get_id_by_ivar = id
 
-	end subroutine strings_get_name
+	end function strings_get_id_by_ivar
 
 !******************************************************************
 
-	subroutine strings_get_full_name(name,fullname)
+	subroutine strings_get_full(ivar,full,isub)
+
+! given ivar finds name and sub-range
+
+	integer ivar
+	character*(*) full
+	integer isub		!sub-number of multi variables
+
+	integer id
+
+	call populate_strings
+
+	full = ' '
+	isub = 0
+
+	id = strings_get_id(ivar)
+	if( id <= 0 ) return
+
+	full = pentry(id)%full
+	isub = ivar - pentry(id)%ivar
+
+	end subroutine strings_get_full
+
+!******************************************************************
+
+	subroutine strings_get_short(ivar,short,isub)
+
+! given ivar finds short and sub-range
+
+	integer ivar
+	character*(*) short
+	integer isub		!sub-number of multi variables
+
+	integer id
+
+	call populate_strings
+
+	short = ' '
+	isub = 0
+
+	id = strings_get_id(ivar)
+	if( id <= 0 ) return
+
+	short = pentry(id)%short
+	isub = ivar - pentry(id)%ivar
+
+	end subroutine strings_get_short
+
+!******************************************************************
+
+	subroutine strings_get_full_name_by_name(name,full)
 
 	character*(*) name
-	character*(*) fullname
+	character*(*) full
 
 	integer ivar,isub
 
-	fullname = ' '
+	full = ' '
 	call strings_get_ivar(name,ivar)
 	if( ivar == -1 ) return
-	call strings_get_name(ivar,fullname,isub)
+	call strings_get_full(ivar,full,isub)
 
-	end subroutine strings_get_full_name
+	end subroutine strings_get_full_name_by_name
+
+!******************************************************************
+
+	subroutine strings_get_full_name_by_ivar(ivar,full)
+
+	integer ivar
+	character*(*) full
+
+	integer isub
+
+	full = ' '
+	call strings_get_full(ivar,full,isub)
+
+	end subroutine strings_get_full_name_by_ivar
+
+!******************************************************************
+
+	subroutine strings_get_full_name_by_ivar_isub(ivar,full,isub)
+
+	integer ivar
+	character*(*) full
+	integer isub
+
+	full = ' '
+	call strings_get_full(ivar,full,isub)
+
+	end subroutine strings_get_full_name_by_ivar_isub
+
+!******************************************************************
+
+	subroutine strings_get_short_name_by_name(name,short)
+
+	character*(*) name
+	character*(*) short
+
+	integer ivar,isub
+
+	short = ' '
+	call strings_get_ivar(name,ivar)
+	if( ivar == -1 ) return
+	call strings_get_short(ivar,short,isub)
+
+	end subroutine strings_get_short_name_by_name
+
+!******************************************************************
+
+	subroutine strings_get_short_name_by_ivar(ivar,short)
+
+	integer ivar
+	character*(*) short
+
+	integer isub
+
+	short = ' '
+	call strings_get_short(ivar,short,isub)
+
+	end subroutine strings_get_short_name_by_ivar
+
+!******************************************************************
+
+	subroutine strings_get_short_name_by_ivar_isub(ivar,short,isub)
+
+	integer ivar
+	character*(*) short
+	integer isub
+
+	short = ' '
+	call strings_get_short(ivar,short,isub)
+
+	end subroutine strings_get_short_name_by_ivar_isub
 
 !******************************************************************
 
@@ -174,10 +361,7 @@
 
 	integer id
 
-	if( bread ) then
-	  call populate_strings
-	  bread = .false.
-	end if
+	call populate_strings
 
 	ivar = -1
 	if( name == ' ' ) return
@@ -212,11 +396,27 @@
 	irange_local = 0
 	if( present(irange) ) irange_local = irange
 	
-	pentry(id)%name = name
+	pentry(id)%full = name
 	pentry(id)%ivar = ivar
 	pentry(id)%irange = irange_local
 
 	end subroutine strings_add_new
+
+!******************************************************************
+
+	subroutine strings_set_short(ivar,short)
+
+	integer ivar
+	character*(*) short
+
+	integer id
+
+	id = strings_get_id(ivar)
+	if( id <= 0 ) return
+
+	pentry(id)%short = short
+
+	end subroutine strings_set_short
 
 !================================================================
 	end module shyfem_strings
@@ -226,16 +426,18 @@
 !****************************************************************
 !****************************************************************
 
-        subroutine string2ivar(string,iv)
+        subroutine string2ivar(string,ivar)
+
+	use shyfem_strings
 
         implicit none
 
         character*(*) string
-	integer iv
+	integer ivar
 
-        call string2ivar_n(string,iv)
+	call strings_get_ivar(string,ivar)	!new call
 
-	if( iv < 0 ) then
+	if( ivar < 0 ) then
           if( string .eq. ' ' ) then
             write(6,*) '*** string2ivar: no string given'
           else
@@ -248,325 +450,79 @@
 
 !****************************************************************
 
-        subroutine string2ivar_n(string,iv)
+        subroutine ivar2string(ivar,string,isub)
 
 	use shyfem_strings
 
         implicit none
 
-        character*(*) string
-	integer iv
-
-	integer ivar
-
-	call string2ivar_intern(string,iv)	!old call - delete
-	call strings_get_ivar(string,ivar)	!new call
-
-	if( iv /= ivar .and. iv > 0 ) then
-	  write(6,*) 'string: ',trim(string)
-	  write(6,*) 'iv,ivar: ',iv,ivar
-	  write(6,*) 'error stop string2ivar_n: internal error (1)'
-	  !stop 'error stop string2ivar_n: internal error (1)'
-	end if
-
-	end
-
-!****************************************************************
-
-        subroutine string2ivar_intern(string,iv)
-
-! old routine - do not use anymore
-!
-! interprets string to associate a variable number iv
-!
-! see below for possible string names
-!
-! the special name ivar# can be used to directtly give the variable number #
-
-        implicit none
-
-        character*(*) string
-        integer iv
-
-	integer is,isb,i
-	integer ie3,ie4,ie5,ie6,ie8,ie11,ie16
-	integer ichafs
-	character*80 s
-
-        iv = -1
-
-	s = string
-	do i=1,len(string)
-	  if( s(i:i) == '_' ) s(i:i) = ' '	!convert '_' to ' '
-	end do
-
-	is = ichafs(s)
-	if( is .le. 0 ) is = 1
-	isb = is - 1
-	ie3 = isb + 3
-	ie4 = isb + 4
-	ie5 = isb + 5
-	ie6 = isb + 6
-	ie8 = isb + 8
-	ie11 = isb + 11
-	ie16 = isb + 16
-
-        if( s(is:ie4) .eq. 'mass' ) then
-          iv = 0
-        else if( s(is:ie5) .eq. 'level' ) then
-          iv = 1
-        else if( s(is:ie11) .eq. 'water level' ) then
-          iv = 1
-        else if( s(is:ie4) .eq. 'zeta' ) then
-          iv = 1
-        else if( s(is:ie3) .eq. 'vel' ) then
-          iv = 2
-        else if( s(is:ie5) .eq. 'trans' ) then
-          iv = 3
-        else if( s(is:ie4) .eq. 'bath' ) then
-          iv = 5
-        else if( s(is:ie5) .eq. 'depth' ) then
-          iv = 5
-        else if( s(is:ie3) .eq. 'cur' ) then
-          iv = 6
-        else if( s(is:ie5) .eq. 'speed' ) then
-          iv = 6
-        else if( s(is:ie3) .eq. 'dir' ) then
-          iv = 7
-        else if( s(is:ie4) .eq. 'conc' ) then
-          iv = 10
-        else if( s(is:ie4) .eq. 'conz' ) then
-          iv = 10
-        else if( s(is:ie3) .eq. 'sal' ) then
-          iv = 11
-        else if( s(is:ie4) .eq. 'temp' ) then
-          iv = 12
-        else if( s(is:ie3) .eq. 'rho' ) then
-          iv = 13
-        else if( s(is:ie4) .eq. 'dens' ) then
-          iv = 13
-        else if( s(is:ie4) .eq. 'oxyg' ) then
-          iv = 15
-        else if( s(is:ie3) .eq. 'rms' ) then
-          iv = 18
-        else if( s(is:ie4) .eq. 'pres' ) then
-          iv = 20
-        else if( s(is:ie4) .eq. 'wind' ) then
-          iv = 21
-        else if( s(is:ie4) .eq. 'sola' ) then
-          iv = 22
-        else if( s(is:ie3) .eq. 'air' ) then
-          iv = 23
-        else if( s(is:ie4) .eq. 'humi' ) then
-          iv = 24
-        else if( s(is:ie4) .eq. 'clou' ) then
-          iv = 25
-        else if( s(is:ie4) .eq. 'rain' ) then
-          iv = 26
-        else if( s(is:ie4) .eq. 'evap' ) then
-          iv = 27
-        else if( s(is:ie5) .eq. 'index' ) then
-          iv = 75
-        else if( s(is:ie4) .eq. 'type' ) then
-          iv = 76
-        else if( s(is:ie3) .eq. 'lgr' ) then
-          iv = 80
-        else if( s(is:ie3) .eq. 'ice' ) then
-          iv = 85
-        else if( s(is:ie16) .eq. 'time over thresh' ) then
-          iv = 97
-        else if( s(is:ie3) .eq. 'age' ) then
-          iv = 98
-        else if( s(is:ie3) .eq. 'wrt' ) then
-          iv = 99
-        else if( s(is:ie5) .eq. 'renew' ) then
-          iv = 99
-        else if( s(is:ie4) .eq. 'resi' ) then
-          iv = 99
-        else if( s(is:ie6) .eq. 'wave h' ) then
-          iv = 231
-        else if( s(is:ie8) .eq. 'wave per' ) then
-          iv = 232
-        else if( s(is:ie6) .eq. 'wave d' ) then
-          iv = 233
-        else if( s(is:ie6) .eq. 'wave o' ) then
-          iv = 234
-        else if( s(is:ie8) .eq. 'wave pea' ) then
-          iv = 235
-        else if( s(is:ie8) .eq. 'bottom stress' ) then
-          iv = 238
-        else if( s(is:ie4) .eq. 'sedi' ) then
-          iv = 800
-        else if( s(is:ie4) .eq. 'ivar' ) then
-	  read(s(ie4+1:),'(i5)') iv
-        else if( s(is:ie3) .eq. 'var' ) then
-	  read(s(ie3+1:),'(i5)') iv
-        else if( s(is:ie3) .eq. 'nos' ) then
-          !generic - no id
-        else if( s(is:ie3) .eq. 'fem' ) then
-          !generic - no id
-        else if( s(is:ie4) .eq. 'elem' ) then
-          !generic - no id
-	end if
-
-	!write(6,*) 'string2ivar: ',string(is:ie4),'   ',iv
-
-        end
-
-!****************************************************************
-
-	subroutine string_direction(string,dir)
-
-c finds direction if vector
-
-	implicit none
-
-	character(*) string,dir
-
-	integer l
-
-	l = len_trim(string)
-
-	if( string(l-1:l) == ' x' ) then
-	  dir = 'x'
-	else if( string(l-1:l) == ' y' ) then
-	  dir = 'y'
-	else
-	  dir = ' '
-	end if
-
-	end
-
-!****************************************************************
-
-        subroutine ivar2string(iv,string,isub)
-
-	use shyfem_strings
-
-        implicit none
-
-        integer iv
+        integer ivar
         character*(*) string
 	integer isub
 
-	character(len=len(string)) :: s1
-
 	isub = 0
-	call ivar2string_intern(iv,s1)			!old call - delete
-	call strings_get_name(iv,string,isub)		!new call
+	call strings_get_full(ivar,string,isub)		!new call
 
-	if( s1 /= string .and. s1 /= ' ') then
-	  write(6,*) 'ivar = ',iv
-	  write(6,*) 's1 = ',trim(s1)
-	  write(6,*) 's2 = ',trim(string)
-	  write(6,*) 'error stop ivar2string: internal error (1)'
-	  !stop 'error stop ivar2string: internal error (1)'
+	end
+
+!****************************************************************
+
+	subroutine ivar2filename(ivar,filename)
+
+! use this to create unique filename
+
+	use shyfem_strings
+
+	implicit none
+
+	integer ivar
+	character*(*) filename
+
+	integer isub,i
+	character*80 string
+
+	call strings_get_short_name(ivar,string,isub)
+
+	filename = string
+	if( isub > 0 ) then
+	  write(string,'(i4)') isub
+	  do i=1,4
+	    if( string(i:i) == ' ' ) string(i:i) = '0'
+	  end do
+	  string(1:1) = '_'
+	  filename = trim(filename) // string(1:4)
 	end if
 
 	end
 
 !****************************************************************
 
-        subroutine ivar2string_intern(iv,string)
+	subroutine ivar2femstring(ivar,femstring)
 
-! old routine - do not use anymore
+! use this for writing into FEM file
 
-        implicit none
-
-        integer iv
-        character*(*) string
-
-        string = ' '
-
-        if( iv .eq. 0 ) then
-          string = 'mass field'
-        else if( iv .eq. 1 ) then
-          string = 'water level'
-        else if( iv .eq. 2 ) then
-          string = 'velocity'
-        else if( iv .eq. 3 ) then
-          string = 'transport'
-        else if( iv .eq. 5 ) then
-          string = 'bathymetry'
-        else if( iv .eq. 10 ) then
-          string = 'generic tracer'
-        else if( iv .eq. 30 ) then
-          string = 'generic tracer'
-        else if( iv .eq. 11 ) then
-          string = 'salinity'
-        else if( iv .eq. 12 ) then
-          string = 'temperature'
-        else if( iv .eq. 13 ) then
-          string = 'density'
-        else if( iv .eq. 20 ) then
-          string = 'atmospheric pressure'
-        else if( iv .eq. 26 ) then
-          string = 'rain'
-        else if( iv .eq. 75 ) then
-          string = 'index'
-        else if( iv .eq. 76 ) then
-          string = 'type'
-        else if( iv .eq. 85 ) then
-          string = 'ice cover'
-        else if( iv .eq. 97 ) then
-          string = 'time over threshold'
-        else if( iv .eq. 98 ) then
-          string = 'age'
-        else if( iv .eq. 99 ) then
-          string = 'renewal time'
-        else if( iv .eq. 231 ) then
-          string = 'wave height (significant)'
-        else if( iv .eq. 232 ) then
-          string = 'wave period (mean)'
-        else if( iv .eq. 233 ) then
-          string = 'wave direction'
-        else if( iv .eq. 234 ) then
-          string = 'wave orbital velocity'
-        else if( iv .eq. 235 ) then
-          string = 'wave peak period'
-        else if( iv .eq. 238 ) then
-          string = 'bottom stress'
-        else if( iv > 30 .and. iv < 50 ) then
-          string = 'concentration (multi)'
-        else if( iv > 700 .and. iv < 720 ) then
-          string = 'weutro (pelagic)'
-        else if( iv > 720 .and. iv < 730 ) then
-          string = 'weutro (sediment)'
-        else if( iv > 730 .and. iv < 740 ) then
-          string = 'weutro (shell fish)'
-        else if( iv >= 800 .and. iv < 900 ) then
-          string = 'sediments'
-        else
-          !string = '*** cannot find description'
-          !write(6,*) '*** cannot find description for variable: '
-          !write(6,*) iv
-	  !stop 'error stop ivar2string: no description'
-        end if
-
-        end
-
-!****************************************************************
-!****************************************************************
-!****************************************************************
-
-	subroutine get_vars_from_string(nvar,strings,ivars)
-
-c gets var numbers from string description
+	use shyfem_strings
 
 	implicit none
 
-	integer nvar
-	character*(*) strings(nvar)
-	integer ivars(nvar)
+	integer ivar
+	character*(*) femstring
 
-	integer i
+	integer isub,i
+	character*80 string
 
-	do i=1,nvar
-          call string2ivar_n(strings(i),ivars(i))
-	end do
+	call strings_get_full_name(ivar,string,isub)
+
+	femstring = string
+	if( isub > 0 ) then
+	  write(string,'(i4)') isub
+	  femstring = femstring // string(1:4)
+	end if
 
 	end
 
+!****************************************************************
+!****************************************************************
 !****************************************************************
 
 	function compare_svars(s1,s2)
@@ -594,6 +550,30 @@ c gets var numbers from string description
 
 !****************************************************************
 
+	subroutine string_direction(string,dir)
+
+c finds direction if vector
+
+	implicit none
+
+	character(*) string,dir
+
+	integer l
+
+	l = len_trim(string)
+
+	if( string(l-1:l) == ' x' ) then
+	  dir = 'x'
+	else if( string(l-1:l) == ' y' ) then
+	  dir = 'y'
+	else
+	  dir = ' '
+	end if
+
+	end
+
+!****************************************************************
+
 	function has_direction(name)
 
 ! check if directional variable
@@ -605,11 +585,11 @@ c gets var numbers from string description
 	logical has_direction
 	character*(*) name
 
-	integer iv
+	integer ivar
 
-	call strings_get_ivar(name,iv)
+	call strings_get_ivar(name,ivar)
 
-	has_direction = ( iv == 2 .or. iv == 3 .or. iv == 21 )
+	has_direction = ( ivar == 2 .or. ivar == 3 .or. ivar == 21 )
 
 	end
 
@@ -627,6 +607,11 @@ c gets var numbers from string description
 
 	implicit none
 
+	logical, save :: bread = .false.
+
+	if( bread ) return
+	bread = .true.
+
 	call strings_add_new('mass field',0)
 	call strings_add_new('water level',1)
 	call strings_add_new('level',1)
@@ -642,10 +627,12 @@ c gets var numbers from string description
 	call strings_add_new('generic tracer',10)
 	call strings_add_new('tracer',10)
 	call strings_add_new('salinity',11)
+	call strings_add_new('salt',11)
 	call strings_add_new('temperature',12)
 	call strings_add_new('density',13)
 	call strings_add_new('rho',13)
 	call strings_add_new('oxygen',15)
+	call strings_add_new('discharge',16)
 	call strings_add_new('rms velocity',18)
 	call strings_add_new('rms speed',18)
 
@@ -661,7 +648,6 @@ c gets var numbers from string description
 	call strings_add_new('evaporation',27)
 
 	call strings_add_new('bottom stress',60)
-
 	call strings_add_new('index',75)
 	call strings_add_new('type',76)
 	call strings_add_new('lgr',80)
@@ -672,6 +658,7 @@ c gets var numbers from string description
 	call strings_add_new('residence time',99)
 	call strings_add_new('wrt',99)
 
+	call strings_add_new('waves (general)',230)
 	call strings_add_new('wave height (significant)',231)
 	call strings_add_new('wave period (mean)',232)
 	call strings_add_new('wave direction',233)
@@ -689,6 +676,57 @@ c gets var numbers from string description
 
 	call strings_add_new('var',-9)		!special treatment
 	call strings_add_new('ivar',-9)
+
+!---------------------------------------------------------------------
+
+	call strings_set_short(0,'mass')
+	call strings_set_short(1,'zeta')
+	call strings_set_short(2,'vel')
+	call strings_set_short(3,'transp')
+	call strings_set_short(5,'bathy')
+	call strings_set_short(6,'speed')
+	call strings_set_short(7,'dir')
+	call strings_set_short(10,'conz')
+	call strings_set_short(11,'salt')
+	call strings_set_short(12,'temp')
+	call strings_set_short(13,'rho')
+	call strings_set_short(15,'oxy')
+	call strings_set_short(16,'disch')
+	call strings_set_short(18,'rms')
+
+	call strings_set_short(20,'airp')
+	call strings_set_short(21,'wind')
+	call strings_set_short(22,'srad')
+	call strings_set_short(23,'airt')
+	call strings_set_short(24,'rhum')
+	call strings_set_short(25,'cc')
+	call strings_set_short(26,'rain')
+	call strings_set_short(27,'evap')
+
+	call strings_set_short(60,'bstress')
+	call strings_set_short(75,'index')
+	call strings_set_short(76,'type')
+	call strings_set_short(80,'lgr')
+	call strings_set_short(85,'ice')
+	call strings_set_short(97,'timeot')
+	call strings_set_short(98,'age')
+	call strings_set_short(99,'wrt')
+
+	call strings_set_short(230,'waves')
+	call strings_set_short(231,'wheight')
+	call strings_set_short(232,'wper')
+	call strings_set_short(233,'wdir')
+	call strings_set_short(234,'worb')
+	call strings_set_short(235,'wpeak')
+
+	call strings_set_short(300,'conz')
+	call strings_set_short(30,'conz')
+
+	call strings_set_short(700,'biop')
+	call strings_set_short(720,'bios')
+	call strings_set_short(730,'biosf')
+
+	call strings_set_short(800,'sedi')
 
 	end
 

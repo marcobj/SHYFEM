@@ -9,6 +9,7 @@ c 08.05.1998	ggu	changed read of node numbers through nrdveci
 c 20.01.2000    ggu     common block /dimdim/ eliminated
 c 01.02.2000    ggu     module framework introduced
 c 20.05.2015    ggu     modules introduced
+c 20.10.2017    ggu     new framework - read also table with strings
 c
 c******************************************************************
 c******************************************************************
@@ -22,6 +23,7 @@ c******************************************************************
 
         integer, save :: knausm = 0
         integer, save, allocatable :: knaus(:)
+        character*80, save, allocatable :: chext(:)
 
 !==================================================================
         contains
@@ -38,13 +40,20 @@ c******************************************************************
 
 	integer n
 
-	n = nls_read_vector()
+	call nls_init_section
+
+	!n = nls_read_vector()
+	n = nls_read_ictable()
 	knausm = n
 
 	if( n > 0 ) then
 	  allocate(knaus(n))
-	  call nls_copy_int_vect(n,knaus)
+	  allocate(chext(n))
+	  !call nls_copy_int_vect(n,knaus)
+	  call nls_copy_ictable(n,knaus,chext)
 	end if
+
+	call nls_finish_section
 
 	end subroutine extra_read_section
 
@@ -59,11 +68,13 @@ c******************************************************************
 	integer mode
 
 	include 'modules.h'
-
 	include 'femtime.h'
 
+	double precision dtime
+
 	if( mode .eq. M_AFTER ) then
-	   call wrexta(it)
+	   dtime = t_act
+	   call wrexta(dtime)
 	else if( mode .eq. M_INIT ) then
 	   call inexta
 	else if( mode .eq. M_READ ) then
@@ -71,8 +82,8 @@ c******************************************************************
 	else if( mode .eq. M_CHECK ) then
 	   call ckexta
 	else if( mode .eq. M_SETUP ) then
-c	   nothing
-	   call wrexta(it)			!ggu 7/5/2001 -> write it=0
+	   dtime = t_act
+	   call wrexta(dtime)			!ggu 7/5/2001 -> write it=0
 	else if( mode .eq. M_PRINT ) then
 	   call prexta
 	else if( mode .eq. M_TEST ) then
@@ -128,7 +139,6 @@ c******************************************************************
 	integer ipint
 	logical bstop
 
-	!stop 'error stop subexta: extra not supported anymore'
 	bstop = .false.
 
         do k=1,knausm
@@ -152,18 +162,19 @@ c******************************************************************
 
 	implicit none
 
-	integer i
+	integer i,k
 	integer ipext
 
-	!stop 'error stop subexta: extra not supported anymore'
         if(knausm.le.0) return
 
         write(6,*)
-        write(6,1009) knausm,(ipext(knaus(i)),i=1,knausm)
+        write(6,*) 'extra section : ',knausm
+	do i=1,knausm
+	  k = ipext(knaus(i))
+          write(6,*) i,k,'  ',trim(chext(i))
+	end do
         write(6,*)
 
-	return
- 1009   format(' extra section : ',i5/(10i6))
 	end
 
 c******************************************************************
@@ -175,126 +186,233 @@ c******************************************************************
 	implicit none
 
 	integer i
+	integer ipext
 
         write(6,*) '/knausc/'
         write(6,*) knausm
-        write(6,*) (knaus(i),i=1,knausm)
+	do i=1,knausm
+          write(6,*) i,ipext(knaus(i)),'  ',trim(chext(i))
+	end do
 
 	end
 
 c******************************************************************
+c******************************************************************
+c******************************************************************
 
-	subroutine wrexta(it)
+	subroutine wrexta(dtime)
 
 c writes and administers ext file
 
+	use mod_hydro
 	use mod_hydro_print
+	use mod_ts
+	use mod_conz, only : cnv
+	use mod_depth
+	use basin
+	use levels
 	use extra
 
 	implicit none
 
-	integer it
+	double precision dtime
 
-	integer nbext
-	real err,href,hzoff
-	integer iround,ideffi
+	include 'simul.h'
+
+	integer nbext,ierr
+	integer ivar,m,j,k,iv
+	real href,hzmin
+	double precision atime,atime0
+	character*80 femver,title
+	integer kext(knausm)
+	real hdep(knausm)
+	real x(knausm)
+	real y(knausm)
+	real vals(nlv,knausm,3)
+	integer, save :: nvar
+	integer, save :: isalt,itemp,iconz
+	integer, save, allocatable :: il(:)
+	character*80 strings(knausm)
+
+	integer ideffi,ipext
 	real getpar
-	double precision dgetpar
-	real writ7h,wrrc7
-	logical has_output,next_output
+	logical has_output_d,next_output_d
 
-	integer ia_out(4)
-	save ia_out
-	integer icall,nvers
-	save icall,nvers
-	data icall,nvers /0,6/
+	double precision, save :: da_out(4) = 0
+	integer, save :: icall = 0
 
-	!stop 'error stop subexta: extra not supported anymore'
 	if( icall .eq. -1 ) return
 
+c--------------------------------------------------------------
+c initialization
+c--------------------------------------------------------------
+
 	if( icall .eq. 0 ) then
-                call init_output('itmext','idtext',ia_out)
-		call assure_initial_output(ia_out)
-                if( .not. has_output(ia_out) ) icall = -1
-		if( knausm .le. 0 ) icall = -1
-		if( icall .eq. -1 ) return
+          call init_output_d('itmext','idtext',da_out)
+	  call assure_initial_output_d(da_out)
+          if( .not. has_output_d(da_out) ) icall = -1
+	  if( knausm .le. 0 ) icall = -1
+	  if( icall .eq. -1 ) return
 
-		nbext=ideffi('datdir','runnam','.ext','unform','new')
-                if(nbext.le.0) goto 77
-		ia_out(4) = nbext
+          itemp = nint(getpar('itemp'))
+          isalt = nint(getpar('isalt'))
+          iconz = nint(getpar('iconz'))
+          nvar = 2				!includes zeta and vel
+          if( itemp > 0 ) nvar = nvar + 1
+          if( isalt > 0 ) nvar = nvar + 1
+          if( iconz == 1 ) nvar = nvar + 1
 
-		href = getpar('href')
-		hzoff = getpar('hzoff')
-                err=writ7h(nbext,nvers,knausm,knaus,href,hzoff)
-                if(err.ne.0.) goto 78
+	  nbext=ideffi('datdir','runnam','.ext','unform','new')
+          if(nbext.le.0) goto 99
+	  da_out(4) = nbext
+
+          call ext_write_header(nbext,0,knausm,nlv,nvar,ierr)
+          if( ierr /= 0 ) goto 98
+
+	  allocate(il(knausm))
+	  title = descrp
+	  href = getpar('href')
+	  hzmin = getpar('hzmin')
+	  do j=1,knausm
+	    k = knaus(j)
+            kext(j) = ipext(k)
+	    hdep(j) = hkv_max(k)
+	    x(j) = xgv(k)
+	    y(j) = ygv(k)
+	    il(j) = ilhkv(k)
+	    strings(j) = chext(j)
+	  end do
+	  call get_shyfem_version(femver)
+	  call get_absolute_ref_time(atime0)
+          call ext_write_header2(nbext,0,knausm,nlv
+     +                          ,atime0
+     +                          ,href,hzmin,title,femver
+     +                          ,kext,hdep,il,x,y,strings,hlv
+     +                          ,ierr)
+          if( ierr /= 0 ) goto 98
         end if
 
 	icall = icall + 1
 
+c--------------------------------------------------------------
 c write file ext
+c--------------------------------------------------------------
 
-        if( .not. next_output(ia_out) ) return
+        if( .not. next_output_d(da_out) ) return
 
-        nbext = ia_out(4)
+        nbext = nint(da_out(4))
+	call get_absolute_act_time(atime)
 
-        err=wrrc7(nbext,nvers,it,knausm,knaus,xv)
-        if(err.ne.0.) goto 79
+c	-------------------------------------------------------
+c	barotropic velocities and water level
+c	-------------------------------------------------------
+
+	iv = 1
+	ivar = 1
+	m = 3
+	do j=1,knausm
+	  k = knaus(j)
+	  vals(1,j,1) = up0v(k)
+	  vals(1,j,2) = vp0v(k)
+	  vals(1,j,3) = znv(k)
+	end do
+        call ext_write_record(nbext,0,atime,knausm,nlv
+     +                                  ,ivar,m,il,vals,ierr)
+        if( ierr /= 0 ) goto 97
+
+c	-------------------------------------------------------
+c	velocities
+c	-------------------------------------------------------
+
+	iv = iv + 1
+	ivar = 2
+	m = 2
+	do j=1,knausm
+	  k = knaus(j)
+	  vals(:,j,1) = uprv(:,k)
+	  vals(:,j,2) = vprv(:,k)
+	end do
+        call ext_write_record(nbext,0,atime,knausm,nlv
+     +                                  ,ivar,m,il,vals,ierr)
+        if( ierr /= 0 ) goto 97
+
+c	-------------------------------------------------------
+c	temperature
+c	-------------------------------------------------------
+
+	m = 1
+
+	if( itemp > 0 ) then
+	  iv = iv + 1
+	  ivar = 12
+	  do j=1,knausm
+	    k = knaus(j)
+	    vals(:,j,1) = tempv(:,k)
+	  end do
+          call ext_write_record(nbext,0,atime,knausm,nlv
+     +                                  ,ivar,m,il,vals,ierr)
+          if( ierr /= 0 ) goto 97
+	end if
+
+c	-------------------------------------------------------
+c	salinity
+c	-------------------------------------------------------
+
+	if( isalt > 0 ) then
+	  iv = iv + 1
+	  ivar = 11
+	  do j=1,knausm
+	    k = knaus(j)
+	    vals(:,j,1) = saltv(:,k)
+	  end do
+          call ext_write_record(nbext,0,atime,knausm,nlv
+     +                                  ,ivar,m,il,vals,ierr)
+          if( ierr /= 0 ) goto 97
+	end if
+
+c	-------------------------------------------------------
+c	concentration
+c	-------------------------------------------------------
+
+	if( iconz == 1 ) then
+	  iv = iv + 1
+	  ivar = 10
+	  do j=1,knausm
+	    k = knaus(j)
+	    vals(:,j,1) = cnv(:,k)
+	  end do
+          call ext_write_record(nbext,0,atime,knausm,nlv
+     +                                  ,ivar,m,il,vals,ierr)
+          if( ierr /= 0 ) goto 97
+	end if
+
+c--------------------------------------------------------------
+c error check
+c--------------------------------------------------------------
+
+	if( iv /= nvar ) goto 91
+
+c--------------------------------------------------------------
+c end of routine
+c--------------------------------------------------------------
 
 	return
-   77   continue
+   91   continue
+	write(6,*) 'iv,nvar: ',iv,nvar
+	write(6,*) 'iv is different from nvar'
+	stop 'error stop wrexta: internal error (1)'
+   99   continue
 	write(6,*) 'Error opening EXT file :'
-	stop 'error stop : wrexta'
-   78   continue
-	write(6,*) 'Error writing first record of EXT file'
-	write(6,*) 'unit,err :',nbext,iround(err)
-	stop 'error stop : wrexta'
-   79   continue
+	stop 'error stop wrexta: opening ext file'
+   98   continue
+	write(6,*) 'Error writing header of EXT file'
+	write(6,*) 'unit,ierr :',nbext,ierr
+	stop 'error stop wrexta: writing ext header'
+   97   continue
 	write(6,*) 'Error writing file EXT'
-	write(6,*) 'unit,err :',nbext,iround(err)
-	stop 'error stop : wrexta'
+	write(6,*) 'unit,ierr :',nbext,ierr
+	stop 'error stop wrexta: writing ext record'
 	end
 
 c*********************************************************
-
-        function writ7h(iunit,nvers,knausm,knaus,href,hzmin)
-
-c writes first record of file 7 from main
-c
-c ...depth has not to be passed but is computed in routine
-c ...pass only dummy vector
-c ...ndim is dummy argument
-
-	implicit none
-
-	real writ7h
-	integer iunit,nvers
-        integer knausm,knaus(knausm)
-	real href,hzmin
-	real v1v(knausm)
-
-	integer nmax
-	parameter(nmax=50)
-
-	include 'simul.h'
-
-	integer i,n,ndim
-	real hmin,hmax
-        real f(nmax)
-
-	integer igtdep
-	real writ7
-
-        do i=1,knausm
-          n=igtdep(knaus(i),f,nmax)
-          call mima(f,n,hmin,hmax)
-          v1v(i)=hmax+href
-        end do
-
-	ndim = knausm	!dummy
-        writ7h=writ7(iunit,ndim,nvers,knausm,knaus,v1v
-     +                          ,href,hzmin,descrp)
-
-        end
-
-c************************************************************
 

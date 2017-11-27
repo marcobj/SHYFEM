@@ -248,6 +248,29 @@ c******************************************************
 	end
 
 c******************************************************
+
+	subroutine printreg(regpar)
+
+	implicit none
+
+	real regpar(7)
+	integer nx,ny
+	real x0,y0,dx,dy,x1,y1
+	real flag
+
+        call getreg(regpar,nx,ny,x0,y0,dx,dy,flag)
+
+        x1 = x0 + (nx-1)*dx
+        y1 = y0 + (ny-1)*dy
+        write(6,'(4x,a,2i12)') 'nx,ny: ',nx,ny
+        write(6,'(4x,a,2f12.4)') 'x0,y0: ',x0,y0
+        write(6,'(4x,a,2f12.4)') 'x1,y1: ',x1,y1
+        write(6,'(4x,a,2f12.4)') 'dx,dy: ',dx,dy
+        write(6,'(4x,a,2f12.4)') 'flag : ',flag
+
+	end
+
+c******************************************************
 c******************************************************
 c******************************************************
 
@@ -1176,6 +1199,7 @@ c		> 0	flag found in interpolation data
 
 	logical bextra,bout,bflag
 	logical bintpout,bintpflag,bextend
+	logical bdebug
 	integer k
 	integer imin,jmin
 	integer iflag,iout
@@ -1183,7 +1207,7 @@ c		> 0	flag found in interpolation data
 	real xn,yn
 	real zz(4)
  
-	real, parameter :: eps = 1.e-4
+	real, parameter :: eps = 3.e-4
 	!real, parameter :: eps = 0.
 	logical outbox
 	outbox(t) = ( t-1. > eps .or. t < -eps )
@@ -1192,6 +1216,7 @@ c		> 0	flag found in interpolation data
 	!bintpout = .true.	!interpolate even if outside
 	!bintpflag = .false.	!interpolate even if flag
 	!bintpflag = .true.	!interpolate even if flag
+	bdebug = .false.	
 
 	call getregextend(bextend)
 	bintpout = bextend
@@ -1250,6 +1275,7 @@ c		> 0	flag found in interpolation data
 	      if( outbox(u) ) bout = .true.
 	      if( bout ) then
 		iout = iout + 1
+		if( bdebug ) write(6,*) 'reg intp: ',t,u
 		cycle
 	      end if
 	    end if

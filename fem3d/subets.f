@@ -713,6 +713,7 @@ c next records
 	return
    91	continue
 	write(6,*) 'ets_peek_header: File is empty'
+	backspace(iunit)
 	ierr=91
 	return
 	end
@@ -1005,6 +1006,7 @@ c local
 
 	return
    88	continue
+	backspace(iunit)
 	ierr=-1
 	return
    98	continue
@@ -1031,8 +1033,8 @@ c writes data record of ETS file
 c arguments
 	integer iunit,it,ivar
 	integer nlvddi
-	integer ilhkv(1)
-	real c(nlvddi,1)
+	integer ilhkv(*)
+	real c(nlvddi,*)
 	integer ierr
 c local
 	integer l,k,lmax

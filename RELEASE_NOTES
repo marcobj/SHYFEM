@@ -1,4 +1,52 @@
 
+17.11.2017 	VERS_7_5_38
+
+	brwon paper bag bug in writing flux section
+
+17.11.2017 	VERS_7_5_37
+
+	more on output routines
+	fluxes now also write sediement variables
+	better time parsing
+	nc2fem upgraded
+
+14.11.2017 	VERS_7_5_36
+
+	output routines unified
+	new functionality tselab
+	shyplot unified
+
+04.11.2017 	VERS_7_5_35
+
+	more on consistent output of elab routines
+	new names for files created with -split and -nodes
+	time series now written with time as string
+	for strings short names introduced
+	new time handling routines
+	new diagnostic routines for weutro
+	some updates on manual
+	sections extra and flux accept now strings for description
+	new routines to write scalars in shy format
+
+04.11.2017 	VERS_7_5_34
+
+	...wrong release... updated with next version
+
+09.10.2017	VERS_7_5_33
+
+	enhancements in output formats
+
+26.09.2017	VERS_7_5_32
+
+	minor enhancements
+	bug fix in weutro_seed.f (segfault)
+	for shyfiles limit number of layers to min(nlv,nlvdi)
+
+02.09.2017	VERS_7_5_31
+
+	new sediment routines (upgraded to modules)
+	some enhancements for fem files (subfemutil, femintp)
+
 11.07.2017	VERS_7_5_30
 
 	new projection (Lambert conformal conic)

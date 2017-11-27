@@ -5,6 +5,7 @@
 !
 ! 10.05.2017    ggu     started
 ! 15.05.2017    ggu     finished
+! 15.11.2017    ggu     better time parsing, understands UTC and Z
 !
 ! notes :
 !
@@ -21,7 +22,32 @@
 ! date must always given fully (until day)
 ! time can be abbreviated (hh, hh:mm, hhmm)
 !
+! usage :
+!
+!	call string2datetime(string,datetime,ierr)
+!	call string2date_and_time(string,date,time,ierr)
+!	call datetime2string(datetime,string)
+!	call date_and_time2string(date,time,string)
+!
 !*********************************************************************
+
+!=====================================================================
+	module iso8601
+!=====================================================================
+
+	logical, private, parameter :: bdebug = .false.
+
+        INTERFACE string2date
+        MODULE PROCEDURE string2datetime,string2date_and_time
+        END INTERFACE
+
+        INTERFACE string2date
+        MODULE PROCEDURE datetime2string,date_and_time2string
+        END INTERFACE
+
+!=====================================================================
+	contains
+!=====================================================================
 
 	subroutine string2dt(string,dt,ierr)
 
@@ -33,7 +59,6 @@
 	integer dt(8)		!year,month,day,hour,min,sec,msec,tz (return)
 	integer ierr		!error if /= 0 (return)
 
-	logical, parameter :: bdebug = .false.
 	logical bextend
 	integer n,nl
 	character(len=max(20,len(string))) ll,time
@@ -88,20 +113,8 @@
 
 	ierr = 5
 	if( bextend ) then
-	  if( n >=6 .and. time(6:6) /= ':' ) goto 9
-	  if( n >=3 .and. time(3:3) /= ':' ) goto 9
-	  if( n > 6 ) then
-            read(time(1:n) ,'(i2,1x,i2,1x,i2)',err=9) dt(4:6)
-	    nl = 8
-	  else if( n > 3 ) then
-            read(time(1:n) ,'(i2,1x,i2)',err=9) dt(4:5)
-	    nl = 5
-	    if( time(nl+1:nl+1) == ':' ) nl = nl + 1
-	  else
-            read(time(1:n) ,'(i2)',err=9) dt(4)
-	    nl = 2
-	    if( time(nl+1:nl+1) == ':' ) nl = nl + 1
-	  end if
+	  call parse_time(time,dt,nl)
+	  if( nl < 0 ) goto 9
 	else
 	  if( n > 4 ) then
             read(time(1:n) ,'(i2,i2,i2)',err=9) dt(4:6)
@@ -120,6 +133,10 @@
 !	-------------------------------------------------------
 
 	if( nl == n ) goto 1
+
+	time = adjustl(time(nl+1:))
+	if( time == 'UTC' ) goto 1	!handle exception
+	if( time == 'Z' ) goto 1	!handle exception
 
     2   continue
  
@@ -143,6 +160,48 @@
           write(6,*) '    or YYYY-MM-DD[T[hh[:mm[:ss]]]]'
         end if
         return
+	end
+
+!*********************************************************************
+
+	subroutine parse_time(time,dt,nl)
+
+	implicit none
+
+	character*(*) time
+	integer dt(8)
+	integer nl
+
+	integer n
+
+	nl = -1
+	n = len_trim(time)
+
+	if( time(1:5) == '0:0:0' ) then		!special case
+	  nl = 5
+	  return
+	end if
+
+	  if( n >=6 .and. time(6:6) /= ':' ) return
+	  if( n >=3 .and. time(3:3) /= ':' ) return
+
+	  if( n > 6 ) then
+            read(time(1:n) ,'(i2,1x,i2,1x,i2)',err=9) dt(4:6)
+	    nl = 8
+	  else if( n > 3 ) then
+            read(time(1:n) ,'(i2,1x,i2)',err=9) dt(4:5)
+	    nl = 5
+	    if( time(nl+1:nl+1) == ':' ) nl = nl + 1
+	  else
+            read(time(1:n) ,'(i2)',err=9) dt(4)
+	    nl = 2
+	    if( time(nl+1:nl+1) == ':' ) nl = nl + 1
+	  end if
+
+	return
+    9   continue
+	nl = -1
+	return
 	end
 
 !*********************************************************************
@@ -216,6 +275,8 @@
         dt(4) = iaux / 100
         dt(5) = iaux - dt(4) * 100
 
+	if( .not. bdebug ) return
+
 	if( date /= 10000*dt(1) + 100*dt(2) + dt(3) ) then
 	  write(6,*) date,dt(1:3)
 	  stop 'error stop datetime2dt: internal error (1)'
@@ -267,6 +328,50 @@
 !*********************************************************************
 !*********************************************************************
 
+	subroutine string2date_and_time(string,date,time,ierr)
+
+	implicit none
+
+	character*(*) string	!date string
+	integer date,time
+	integer ierr
+
+	integer dt(8)		!year,month,day,hour,min,sec,msec,tz (return)
+	integer datetime(2)
+
+	call string2dt(string,dt,ierr)
+	if( ierr /= 0 ) return
+	call dt2datetime(dt,datetime)
+	!(/date,time/) = datetime
+	date = datetime(1)
+	time = datetime(2)
+
+	end
+
+!*********************************************************************
+
+	subroutine date_and_time2string(date,time,string)
+
+	implicit none
+
+	integer date,time
+	character*(*) string	!date string
+
+	integer dt(8)		!year,month,day,hour,min,sec,msec,tz (return)
+
+	call datetime2dt((/date,time/),dt)
+	call dt2string(dt,string)
+
+	end
+
+!=====================================================================
+	end module iso8601
+!=====================================================================
+
+!*********************************************************************
+!*********************************************************************
+!*********************************************************************
+
 	subroutine test_iso8601
 
 	implicit none
@@ -290,15 +395,23 @@
 	call test_iso8601_check('2017-04-23T12:30:4')
 	call test_iso8601_check('2017-04-23T12:3')
 	call test_iso8601_check('2017-04-23T1230')
+
 	call test_iso8601_check('2017-04-23T12:30:45.3')
-	call test_iso8601_check('2017-04-23T12:30:45Z')
 	call test_iso8601_check('2017-04-23T12:30:45+01')
+
+	call test_iso8601_check('2017-04-23 0:0:0')
+	call test_iso8601_check('2017-04-23 00:30:00')
+	call test_iso8601_check('2017-04-23 00:30:00UTC')
+	call test_iso8601_check('2017-04-23 00:30:00 UTC')
+	call test_iso8601_check('2017-04-23T12:30:45Z')
 
 	end
 
 !*********************************************************************
 
 	subroutine test_iso8601_check(string)
+
+	use iso8601
 
 	implicit none
 

@@ -132,11 +132,19 @@ SOLVER=SPARSKIT
 # (include and libraries) reside must also be 
 # indicated. This is normally /usr.
 #
+# You can normally find the directory by one
+# of the following commands:
+#   ldconfig -p | grep libnetcdff
+#   whereis libnetcdff
+#   locate libnetcdff.a
+# Do not include the final /lib part of the directory
+#
 ##############################################
 
 NETCDF=false
 #NETCDF=true
 #NETCDFDIR = /usr/local/netcdf
+#NETCDFDIR = /opt/sw/netcdf
 NETCDFDIR = /usr
 
 ##############################################
@@ -206,7 +214,6 @@ DISTRIBUTION_TYPE = experimental
 ##############################################
 
 DEFDIR  = $(HOME)
-FEMDIR  = ..
 DIRLIB  = $(FEMDIR)/femlib
 MODDIR  = 
 MODDIR  = $(DIRLIB)/mod
@@ -244,6 +251,19 @@ ifeq ($(C_COMPILER),INTEL)
     RULES_MAKE_MESSAGE = "INTEL C works only with INTEL Fortran compiler"
   endif
 endif
+
+##############################################
+# some utilities
+##############################################
+
+# do "make print-VARIABLE" to see value of $VARIABLE
+
+print-% : ; @echo $* = $($*)
+
+# can also use following construct:
+#
+# $(warning this is a warning)
+# $(warning var=$(VAR))
 
 #------------------------------------------------------------
 
@@ -319,6 +339,23 @@ endif
 #
 ##############################################
 
+# determines major version for gfortran
+
+GMV := $(shell $(FEMBIN)/gmv.sh)
+
+#------------- debug GMV and set unconditionally ------------
+#GMV = 4
+#text_gmv:
+#	@echo "GMV=$(GMV) WTABS=$(WTABS)"
+#------------------------------------------------------------
+
+# next solves incompatibility of option -Wtabs between version 4 and higher
+
+WTABS = -Wno-tabs
+ifeq ($(GMV),4)
+  WTABS = -Wtabs
+endif
+
 FGNU_GENERAL = 
 ifdef MODDIR
   FGNU_GENERAL = -J$(MODDIR)
@@ -332,9 +369,9 @@ endif
 FGNU_WARNING = 
 ifeq ($(WARNING),true)
   FGNU_WARNING = -Wall -pedantic
-  FGNU_WARNING = -Wall -Wtabs -Wno-unused -Wno-uninitialized
-  FGNU_WARNING = -Wall -Wtabs -Wno-unused
-  FGNU_WARNING = -Wall -Wtabs -Wno-unused \
+  FGNU_WARNING = -Wall $(WTABS) -Wno-unused -Wno-uninitialized
+  FGNU_WARNING = -Wall $(WTABS) -Wno-unused
+  FGNU_WARNING = -Wall $(WTABS) -Wno-unused \
 			-Wno-conversion -Wno-unused-dummy-argument \
 			-Wno-zerotrip
 endif

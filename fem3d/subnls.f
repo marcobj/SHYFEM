@@ -28,6 +28,7 @@ c 05.02.2015	ggu	program completely rewritten (modules introduced)
 c 08.02.2015	ggu	accept also '!' and '#' for end comment on line
 c 12.05.2015	ggu	new char table
 c 01.02.2016	ggu	bug in nls_insert_variable() -> new char variable
+c 26.10.2017	ggu	new isctable read (multiple numbers + description)
 c
 c notes :
 c
@@ -51,6 +52,7 @@ c******************************************************************
 
 	integer, save, private :: nlsdim = 0
 	double precision, save, private, allocatable :: nls_val(:)
+	integer, save, private, allocatable :: nls_table(:,:)
 	character*80, save, private, allocatable :: nls_string(:)
 
 	integer, save, private :: snum = 0
@@ -128,24 +130,72 @@ c******************************************************************
 	subroutine nls_alloc
 
 	double precision, allocatable :: daux(:)
+	integer, allocatable :: iaux(:,:)
 	character*80, allocatable :: saux(:)
 
 	if( nlsdim == 0 ) then
 	  nlsdim = 10
           allocate(nls_val(nlsdim))
+          allocate(nls_table(2,nlsdim))
           allocate(nls_string(nlsdim))
           return
         else
           nlsdim = nlsdim*2
           allocate(daux(nlsdim))
+          allocate(iaux(2,nlsdim))
           allocate(saux(nlsdim))
           daux(1:nlsdim/2) = nls_val(1:nlsdim/2)
+          iaux(:,1:nlsdim/2) = nls_table(:,1:nlsdim/2)
           saux(1:nlsdim/2) = nls_string(1:nlsdim/2)
           call move_alloc(daux,nls_val)
+          call move_alloc(iaux,nls_table)
           call move_alloc(saux,nls_string)
         end if
 
 	end subroutine nls_alloc
+
+c******************************************************************
+
+	subroutine nls_test_alloc(n)
+
+	integer n
+
+	if( n > nlsdim ) call nls_alloc
+
+	end subroutine nls_test_alloc
+
+c******************************************************************
+
+	subroutine nls_init_section
+
+!	empty for now
+
+	end subroutine nls_init_section
+
+c******************************************************************
+
+	subroutine nls_finish_section
+
+	if( nlsdim > 0 ) then
+	  nlsdim = 0
+          deallocate(nls_val)
+          deallocate(nls_table)
+          deallocate(nls_string)
+	end if
+
+	end subroutine nls_finish_section
+
+c******************************************************************
+
+	subroutine nls_return_line(aline,iline)
+
+	character*(*) aline
+	integer iline
+
+	aline = line
+	iline = nline
+
+	end subroutine nls_return_line
 
 c******************************************************************
 c******************************************************************
@@ -398,7 +448,8 @@ c	if section is not numbered, num = 0
 	integer i,ios,ianz,num
 	integer istart,iend
 
-	integer nrdvar,itypch,iscan
+	integer nrdvar,iscan
+	logical is_digit
 
 	nls_is_section = .false.
 	num = 0
@@ -415,13 +466,13 @@ c start of section found -> find name and number
 	istart = ioff
 	!write(6,*) ioff,line(ioff:ioff)
 	if( .not. nls_read_name(name) ) goto 99
-	call uplow(name,'low')
+	call to_lower(name)
 	iend = len(trim(name))
 
 c name found -> look if there is a number at end of name
 
 	i = iend
-	do while( i .gt. 0 .and. itypch(name(i:i)) .eq. 1 )	!number
+	do while( i .gt. 0 .and. is_digit(name(i:i)) )	!number
 	  i = i - 1
 	end do
 	i = i + 1
@@ -510,7 +561,7 @@ c = 0	end of section
 	character*1 c
 	character*10 section
 
-	integer itypch
+	logical is_letter
 
 	nls_next_item = 0
 	name = ' '
@@ -520,14 +571,13 @@ c = 0	end of section
 	if( .not. nls_skip_whitespace(.true.) ) return
 
 	c = line(ioff:ioff)
-	itype = itypch(c)
 
 	if( nls_is_section(section) ) then
 	  if( section == 'end' ) return
 	  write(6,*) 'new start of section found: ',section
 	  write(6,*) 'while still in old section: ',sname
 	  stop 'error stop nls_next_item: no end of section'
-	else if( itype == 2 .or. c == '_' ) then
+	else if( is_letter(c) .or. c == '_' ) then
 	  call nls_read_assignment(name)
 	else if( old_name == ' ' ) then
 	  write(6,*) 'No parameter name found in line: '
@@ -536,7 +586,6 @@ c = 0	end of section
 	end if
 
 	c = line(ioff:ioff)
-	itype = itypch(c)
 
 	!write(6,*) 'after assignment: ',ioff,c
 
@@ -544,7 +593,7 @@ c = 0	end of section
 	  write(6,*) 'section after assignement found'
 	  write(6,*) 'looking for value of parameter ',name
 	  stop 'error stop nls_next_item: section instead value found'
-	else if( itype == 2 .or. c == '_' ) then
+	else if( is_letter(c) .or. c == '_' ) then
 	  write(6,*) 'parameter name after assignement found'
 	  write(6,*) 'looking for value of parameter ',name
 	  stop 'error stop nls_next_item: no value found'
@@ -578,8 +627,7 @@ c******************************************************************
 	integer i,itype
 	character*1 c
 
-	logical bdummy
-	integer itypch
+	logical bdummy,is_alpha
 
 	name = ' '
 	nls_read_name = .false.
@@ -589,8 +637,7 @@ c******************************************************************
 	do while( i < length )
 	  i = i + 1
 	  c = line(i:i)
-	  itype = itypch(c)
-	  if( itype /= 1 .and. itype /= 2 .and. c /= '_' ) exit
+	  if( .not. is_alpha(c) ) exit
 	end do
 
 	if( i - ioff < 1 ) return
@@ -643,7 +690,9 @@ c reads text (must be delimited by with ' ' or " ")
 
 	if( istos(line,text,ioff) <= 0 ) then
 	  write(6,*) 'Cannot find text for parameter ',name
-	  write(6,*) line(ioff:)
+	  write(6,*) trim(line)
+	  write(6,*) 'maybe line is too long for processing (max 80)'
+	  write(6,*) 'or the final apostrophe is missing'
 	  stop 'error stop nls_read_text: error reading value'
 	end if
 
@@ -752,6 +801,8 @@ c does not handle vectors (yet)
 	double precision value
 	integer iwhat
 
+	call nls_init_section
+
 	do
 	  iwhat = nls_insert_variable(sect,name,value,text)
 	  !write(6,*) iwhat,sect,name
@@ -761,6 +812,8 @@ c does not handle vectors (yet)
 	end do
 
 	!write(6,*) 'end of namelist: ',line
+
+	call nls_finish_section
 
 	return
    99	continue
@@ -1030,6 +1083,174 @@ c copies values read from internal storage to vector rvect
 	call nls_copy_char_vect(n,cvect)
 
 	end subroutine nls_copy_ictable
+
+c******************************************************************
+
+	subroutine nls_read_isctable(n,ns)
+
+c reads general table with more numerical values per section
+c
+c table must have following structure (empty lines are allowed)
+c
+c	iv11 iv12 ... 'string1'
+c	iv21 iv22 iv23 ... 'string2'
+c	etc..
+c
+c an alternative is also possible, where only numbers are given
+c
+c	iv11 iv12 0 iv21 iv22 iv23 0 0 iv31
+c	etc..
+c
+c here the zeros separate one section from the next
+c in this case string gets a default value
+c
+c for both formats, line breaks can be at any point
+c
+
+	integer n,ns
+
+	logical bsect,bzero,bstring,bdebug
+	logical binsertzero
+	integer is,itype
+	integer n1,n2,nn,i
+	double precision value
+	character*80 name,text
+
+c--------------------------------------------------------
+c initialize before looping
+c--------------------------------------------------------
+
+	binsertzero = .true.	!insert zero to divide sections
+
+	is = 0
+	n = 0
+	bzero = .false.
+	bstring = .false.
+	bsect = .false.
+	bdebug = .true.
+
+c--------------------------------------------------------
+c loop on input
+c--------------------------------------------------------
+
+	do
+	  itype = nls_next_item(name,value,text)
+	  if( itype <= 0 ) exit
+	  if( itype == 2 ) then		!value
+	    if( value > 0 ) then
+	      n = n + 1
+	      call nls_test_alloc(n)
+	      if( .not. bsect ) then	!create new section
+		if( binsertzero ) then
+	          nls_val(n) = 0
+	          n = n + 1
+	          call nls_test_alloc(n)
+		end if
+	        is = is + 1
+	        call nls_test_alloc(is)
+	        bsect = .true.
+	        nls_table(1,is) = n
+	        nls_table(2,is) = 0
+	        nls_string(is) = ' '
+	      end if
+	      nls_val(n) = value
+	    else
+	      bzero = .true.
+	      if( bsect ) then		!zero - close section
+	        bsect = .false.
+	        nls_table(2,is) = n
+	      end if
+	    end if
+	  else if( itype == 4 ) then	!string - close section
+	    bstring = .true.
+	    if( .not. bsect ) goto 92
+	    bsect = .false.
+	    nls_table(2,is) = n
+	    nls_string(is) = text
+	  else
+	    goto 91
+	  end if
+	end do
+
+c--------------------------------------------------------
+c clean up stuff
+c--------------------------------------------------------
+
+	if( bzero .and. bstring ) goto 93
+	if( bsect ) nls_table(2,is) = n	!still have to close section
+	if( binsertzero ) then
+          n = n + 1
+          call nls_test_alloc(n)
+          nls_val(n) = 0
+	end if
+	ns = is
+
+c--------------------------------------------------------
+c debug
+c--------------------------------------------------------
+
+	if( .not. bdebug ) return
+
+	write(6,*) 'section table:'
+	do is=1,ns
+	  n1 = nls_table(1,is)
+	  n2 = nls_table(2,is)
+	  nn = n2 - n1 + 1
+	  write(6,*) is,nn,n1,n2,'  ',trim(nls_string(is))
+	end do
+	write(6,*) 'section nodes:'
+	do is=1,ns
+	  n1 = nls_table(1,is)
+	  n2 = nls_table(2,is)
+	  nn = n2 - n1 + 1
+	  write(6,*) is,(nint(nls_val(i)),i=n1,n2)
+	end do
+	write(6,*) 'all nodes: ',n
+	write(6,*) (nint(nls_val(i)),i=1,n)
+
+c--------------------------------------------------------
+c end of routine
+c--------------------------------------------------------
+
+	return
+   94	continue
+	write(6,*) 'strings and zeros used together'
+	write(6,*) 'line: ',trim(line)
+	stop 'error stop nls_read_isctable: zeros and strings'
+   93	continue
+	write(6,*) 'strings and zeros used together'
+	write(6,*) 'cannot use both together'
+	stop 'error stop nls_read_isctable: zeros and strings'
+   92	continue
+	if( bzero .and. bstring ) goto 94	!make err mes clearer
+	write(6,*) 'no section open for string'
+	write(6,*) 'node numbers must preceed string'
+	write(6,*) 'line: ',trim(line)
+	stop 'error stop nls_read_isctable: string out of section'
+   91	continue
+	write(6,*) 'section cannot contain names'
+	write(6,*) 'line: ',trim(line)
+	stop 'error stop nls_read_isctable: names on line'
+	end subroutine nls_read_isctable
+
+c******************************************************************
+
+	subroutine nls_copy_isctable(n,ns,ivect,itable,cvect)
+
+c copies values read from internal storage to vector rvect
+
+	integer n,ns
+	integer ivect(n)
+	integer itable(2,ns)
+	character*(*) cvect(ns)
+
+	call nls_copy_int_vect(n,ivect)
+	call nls_copy_char_vect(ns,cvect)
+	itable(:,ns) = nls_table(:,ns)
+
+	end subroutine nls_copy_isctable
+
+c******************************************************************
 
 !==================================================================
         end module nls

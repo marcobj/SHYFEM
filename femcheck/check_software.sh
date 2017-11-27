@@ -37,7 +37,9 @@ CreateInputFiles()
 
 cat > test.f <<EOI
 	include 'netcdf.inc'
-        write(6,*) 'Hello, world.'
+        integer ncid,retval
+        retval = nf_create('out.nc', nf_clobber, ncid)
+        write(6,*) 'Error code: ', nf_strerror(retval)
         end
 EOI
 
@@ -70,8 +72,8 @@ CheckFortranCompiler()
   #local fortran_available=""
   local missing_save=$missing
 
-  CheckCommand g77 "g77 -v" "" "quiet"
-  [ $status -eq 0 ] && fortran_available="$fortran_available g77"
+  #CheckCommand g77 "g77 -v" "" "quiet"
+  #[ $status -eq 0 ] && fortran_available="$fortran_available g77"
   CheckCommand gfortran "gfortran -v" "" "quiet"
   [ $status -eq 0 ] && fortran_available="$fortran_available gfortran"
   CheckCommand ifort "ifort -v" "" "quiet"
@@ -87,7 +89,7 @@ CheckFortranCompiler()
     echo "*** ${red}No Fortran compiler found${normal}"
     echo "    ... please install a fortran compiler"
     echo "    (on Linux you can easily install gfortran)"
-    missing_save="$missing_save g77 gfortran ifort"
+    missing_save="$missing_save gfortran ifort"
   fi
 
   fortran=`echo $fortran_available | sed -e 's/ .*//'`	#first fortran found
@@ -101,7 +103,11 @@ CheckX11()
 
   if [ $status -ne 0 ]; then
     echo "*** X11 development package must be installed"
-    echo "    please try with: libx11 libx11-common libx11-dev libxt-dev"
+    echo "    names of the packages are not always standard"
+    echo "    please try with the following: "
+    echo "      libx11 libx11-common libx11-dev libxt-dev x11proto-core-dev"
+    echo "    try to install one package at a time and then check"
+    echo "    the status of the installation again: make check_software"
   fi
 }
 
@@ -113,9 +119,18 @@ CheckNetcdf()
   #echo "netcdf: $netcdf $netcdfdir    $fortran"
 
   [ -z "$fortran" ] && return		# no fortran compiler
-  [ "$netcdf" != "true" ] && return	# no netcdf requested
+  #[ "$netcdf" != "true" ] && return	# no netcdf requested
 
-  CheckCommand netcdf "$fortran -L$netcdfdir/lib -I$netcdfdir/include test.f"
+  if [ -f $netcdfdir/lib/libnetcdff.a ]; then
+    netcdflib=$netcdfdir/lib
+  elif [ -f $netcdfdir/lib/x86_64-linux-gnu/libnetcdff.a ]; then
+    netcdflib=$netcdfdir/lib/x86_64-linux-gnu/
+  else
+    netcdflib=$netcdfdir
+  fi
+
+  CheckCommand netcdf \
+	"$fortran -L$netcdflib -I$netcdfdir/include -lnetcdff test.f"
 
   if [ $status -ne 0 ]; then
     echo "*** netcdf seems not to be installed"
@@ -195,7 +210,7 @@ CheckNetcdf
 echo
 echo "... ${bold}checking additional routines (not urgently needed)${normal}"
 
-CheckCommand "latex (texlive-full)" "latex -v"
+CheckCommand "latex (texlive)" "latex -v"
 CheckCommand dvips "dvips -v"
 CheckCommand python "python -V"
 
@@ -226,7 +241,7 @@ else
   echo ""
 fi
 
-CleanUp
+#CleanUp
 
 # xanim
 

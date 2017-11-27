@@ -7,6 +7,7 @@ DIR	= femplot
 
 #------------------------------------------------------------ just for default
 FEMDIR = ..
+FEMBIN = $(FEMDIR)/fembin
 DIRLIB = $(FEMDIR)/femlib
 F77    = g77
 FFLAGS =  -O
@@ -16,8 +17,6 @@ LINKER = $(F77)
 include ../Rules.make
 
 #------------------------------------------------------------
-
-FEMBIN    = $(FEMDIR)/fembin
 
 LIBFEM  = fem
 LIBPOST = post
@@ -48,8 +47,10 @@ LIBIPS  = $(DIRLIB)/lib$(LIBPOST).a
 
 SPECIAL = Makefile VERSION COMMIT
 
-EXE_AUX = plotcolb windrose testdash reg2fem
-EXES    = plotsim line_nodes shyplot
+EXES    = plotsim shyplot
+EXESAUX = plotcolb line_nodes windrose
+EXESALL = $(EXES) $(EXESAUX)
+EXESLINKS = $(EXES)
 
 MAKEDEPEND = $(FEMBIN)/mkdp.pl
 
@@ -59,7 +60,12 @@ default: fem
 
 fem: $(EXES) links
 
-all: $(EXES)
+all: $(EXESALL) links
+
+help:
+	@echo "help         this screen"
+	@echo "fem          compile standard programs"
+	@echo "plotcolb     compile example for available colors"
 
 shyplot:  shyplot.o $(PSOBJS) $(LIBIFS) $(LIBIPS)
 	$(LINKER) $(LFLAGS) $@.o $(PSOBJS) $(LIBFS) $(LIBPS) -o $@
@@ -104,7 +110,7 @@ line_nodes: line_nodes.o $(LPOBJS) $(LIBIFS)
 	$(LINKER) $(LFLAGS) $@.o $(LPOBJS) $(LIBFS) -o $@
 
 links:
-	@$(FEMBIN)/symlink $(FEMBIN) $(EXES)
+	@$(FEMBIN)/symlink $(FEMBIN) $(EXESLINKS)
 
 #------------------------------------------------------------
 
@@ -119,8 +125,7 @@ cleanobj:
 	-rm -f *_genmod.f90
 
 cleanexe:
-	-rm -f $(EXES)
-	-rm -f $(EXE_AUX)
+	-rm -f $(EXESALL)
 	-rm -f *.exp
 	-rm -f *.exe
 
@@ -144,7 +149,7 @@ cleanzip:
 	-rm -f save.zip
 
 cleanlinks:
-	@$(FEMBIN)/symlink -remove $(FEMBIN) $(EXES)
+	@$(FEMBIN)/symlink -remove $(FEMBIN) $(EXESALL)
 
 #------------------------------------------------------------
 
@@ -155,7 +160,7 @@ diff:
 	@echo "differences written to file DIFFS"
 
 depend:
-	$(MAKEDEPEND) -moddir=$(MODDIR) *.f
+	@$(MAKEDEPEND) -moddir=$(MODDIR) *.f
 	
 list:
 	pwd; ls
@@ -222,7 +227,7 @@ shyplot.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 supano.o: ../femlib/mod/basin.mod ../femlib/mod/color.mod \
 		../femlib/mod/mod_bash.mod legend.h simul.h 
 supbas.o: ../femlib/mod/basin.mod ../femlib/mod/mod_geom.mod \
-		supout.h 
+		../femlib/mod/mod_hydro_plot.mod supout.h 
 supcol.o: ../femlib/mod/color.mod
 supdep.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \

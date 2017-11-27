@@ -37,6 +37,7 @@
 	integer year0,date0,time0
 	integer iftype
 	integer ifreq
+	integer regexpand
 	real rfact
 	real regpar_data(9)
 	real regpar(9)
@@ -50,7 +51,7 @@
 	real, allocatable :: batnew(:,:)
 	double precision t
 	logical bverb,bcoords,btime,binfo,bvars,bwrite,bdebug
-	logical binvertdepth,binvertslm,bunform
+	logical binvertdepth,binvertslm,bunform,bquiet
 	logical bregular
 	logical exists_var
 
@@ -78,6 +79,7 @@ c-----------------------------------------------------------------
 	call clo_add_sep('general options')
 
         call clo_add_option('verbose',.false.,'be verbose')
+        call clo_add_option('quiet',.false.,'be as quiet as possible')
         call clo_add_option('info',.false.,'general info on nc file')
         call clo_add_option('debug',.false.,'produce debug information')
         call clo_add_option('varinfo',.false.
@@ -111,6 +113,10 @@ c-----------------------------------------------------------------
 
         call clo_add_option('domain limits',' '
      +			,'give domain limits and resolution')
+        call clo_add_option('regexpand iexp',-1,'expand regular grid')
+
+        call clo_add_com('    iexp>0 expands iexp cells, =0 whole grid')
+
 
         call clo_add_sep('additional information')
         call clo_add_com('  var is name of variable in nc file')
@@ -130,6 +136,7 @@ c-----------------------------------------------------------------
 
 	call clo_get_option('info',binfo)
 	call clo_get_option('verbose',bverb)
+	call clo_get_option('quiet',bquiet)
 	call clo_get_option('debug',bdebug)
 	call clo_get_option('varinfo',bvars)
 	call clo_get_option('time',btime)
@@ -139,6 +146,7 @@ c-----------------------------------------------------------------
 	call clo_get_option('vars',varline)
 	call clo_get_option('descrp',descrpline)
 	call clo_get_option('domain',dstring)
+	call clo_get_option('regexpand',regexpand)
 	call clo_get_option('fact',factline)
 
 	call clo_get_option('invertdepth',binvertdepth)
@@ -324,7 +332,9 @@ c-----------------------------------------------------------------
 c write variables
 c-----------------------------------------------------------------
 
-	call write_variables(ncid,n,bunform,bdebug,vars,descrps,facts
+	call write_variables(ncid,n,bunform,bdebug,bquiet
+     +				,vars,descrps,facts
+     +				,regexpand
      +				,nxdim,nydim,nlvdim
      +				,xlon,ylat
      +				,nz1,hlv
@@ -454,21 +464,25 @@ c*****************************************************************
 
 c*****************************************************************
 
-	subroutine write_variables(ncid,nvar,bunform,bdebug
+	subroutine write_variables(ncid,nvar,bunform,bdebug,bquiet
      +					,vars,descrps,facts
+     +					,regexpand
      +					,nx,ny,nz
      +					,x,y
      +					,nz1,hlv
      +					,nxnew,nynew,regpar,nrec)
 
+	use iso8601
+
 	implicit none
 
 	integer ncid
 	integer nvar
-	logical bunform,bdebug
+	logical bunform,bdebug,bquiet
 	character*(*) vars(nvar)
 	character*(*) descrps(nvar)
 	real facts(nvar)
+	integer regexpand
 	integer nx,ny,nz		!size of data in nc file
 	real x(nx,ny),y(nx,ny)
 	integer nz1
@@ -477,7 +491,7 @@ c*****************************************************************
 	real regpar(9)			!regular grid to which to interpolate
 	integer nrec			!how many records written (return)
 
-	logical bvert
+	logical bvert,bexpand
 	integer nit,it,var_id,i,ns
 	integer iformat,nvers,ntype,ndd
 	integer iunit,lmax,np,ierr,nzz,npnew
@@ -485,11 +499,15 @@ c*****************************************************************
 	integer ids(nvar)
 	integer dims(nvar)
 	real flags(nvar)
+	real off(nvar)
 	real, save :: my_flag = -999.
+	real data(nx,ny,nz)
 	double precision atime,avalue,dtime
 	character*20 line,stime
-	character*80 atext,string
+	character*80 atext,string,aname
 	character(len=len(vars)) var
+
+	logical nc_has_var_attrib
 
 	real, allocatable :: hd(:)
 	integer, allocatable :: ilhkv(:)
@@ -497,6 +515,7 @@ c*****************************************************************
 
 	integer ifileo
 
+	nrec = 0
 	if( nvar == 0 ) return
 
 	iformat = 1
@@ -508,12 +527,16 @@ c*****************************************************************
 	np = nx*ny
 	npnew = nxnew*nynew
 	string = 'unknown'
+	off = 0.
+	bexpand = ( regexpand > -1 )
 	!hlv = 0.
 
 	allocate(hd(npnew),ilhkv(npnew))
 	allocate(femdata(nz,nxnew,nynew))
 	hd = -999.
 	ilhkv = lmax
+	flags = my_flag
+	off = 0.
 
 	do i=1,nvar
 	  var = vars(i)
@@ -524,8 +547,21 @@ c*****************************************************************
 	  end if
 	  ids(i) = var_id
 	  call nc_var_info(ncid,var_id,.true.)
-	  call nc_get_var_attrib(ncid,var_id,'_FillValue',atext,avalue)
-	  flags(i) = avalue
+	  aname = '_FillValue'
+	  if( nc_has_var_attrib(ncid,var_id,aname) ) then
+	    call nc_get_var_attrib(ncid,var_id,aname,atext,avalue)
+	    flags(i) = avalue
+	  end if
+	  aname = 'scale_factor'
+	  if( nc_has_var_attrib(ncid,var_id,aname) ) then
+	    call nc_get_var_attrib(ncid,var_id,aname,atext,avalue)
+	    facts(i) = facts(i) * avalue
+	  end if
+	  aname = 'add_offset'
+	  if( nc_has_var_attrib(ncid,var_id,aname) ) then
+	    call nc_get_var_attrib(ncid,var_id,aname,atext,avalue)
+	    off(i) = avalue
+	  end if
 	  dims(i) = 2
 	  call nc_has_vertical_dimension(ncid,var,bvert)
 	  if( bvert ) dims(i) = 3
@@ -561,7 +597,9 @@ c*****************************************************************
         do it=ns,nit
 	  call create_date_string(ncid,it,datetime)
 	  call datetime2string(datetime,stime)
-          write(6,*) 'writing record: ',it,'   ',stime
+          if( .not. bquiet ) then
+	    write(6,*) 'writing record: ',it,'   ',stime
+	  end if
 
 	  call fem_file_write_params(iformat,iunit,dtime
      +                          ,nvers,np,lmax
@@ -575,10 +613,23 @@ c*****************************************************************
 	    call handle_data(ncid,bdebug,vars(i),it,dims(i),flags(i)
      +				,nx,ny,nzz
      +				,x,y
-     +				,nxnew,nynew,regpar,ilhkv,femdata,np)
+     +				,nxnew,nynew,regpar,ilhkv
+     +				,data,femdata,np)
+
+	    if( bexpand ) then
+	      call reg_expand_3d(nz,nxnew,nynew,lmax,regexpand
+     +					,my_flag,femdata)
+	      call adjust_reg_vertical(nz,nxnew,nynew,my_flag
+     +					,femdata,ilhkv)
+	    end if
 
 	    if( facts(i) /= 1. ) then
 	      where( femdata /= my_flag ) femdata = femdata * facts(i)
+	      where( data /= my_flag ) data = data * facts(i)
+	    end if
+	    if( off(i) /= 0. ) then
+	      where( femdata /= my_flag ) femdata = femdata + off(i)
+	      where( data /= my_flag ) data = data + off(i)
 	    end if
 
 	    lmax = nzz
@@ -589,6 +640,10 @@ c*****************************************************************
      +                          ,ilhkv,hd
      +                          ,lmax,femdata)
 
+	    if( bdebug ) then
+	      call write_grd_var(vars(i),it,nx,ny,nzz,nxnew,nynew
+     +			,regpar,x,y,data,femdata)
+	    end if
 	  end do
 
         end do
@@ -596,6 +651,7 @@ c*****************************************************************
 	close(iunit)
 
 	nrec = nit - ns + 1
+	!write(6,*) 'Total number of records written: ',nrec,nit,ns
 
 	deallocate(femdata)
 	deallocate(hd)
@@ -608,7 +664,8 @@ c*****************************************************************
 	subroutine handle_data(ncid,bdebug,varname,it,ndims,flag
      +				,nx,ny,nz
      +				,x,y
-     +				,nxnew,nynew,regpar,ilhkv,femdata,np)
+     +				,nxnew,nynew,regpar,ilhkv
+     +				,data,femdata,np)
 
 	implicit none
 
@@ -623,6 +680,7 @@ c*****************************************************************
 	integer nxnew,nynew
 	real regpar(9)
 	integer ilhkv(nxnew*nynew)
+	real data(nx,ny,nz)
 	real femdata(nz,nxnew*nynew)
 	integer np
 
@@ -630,7 +688,6 @@ c*****************************************************************
 	integer ndim,nxy,k,iz
 	integer nxx,nyy,nzz,nlvddi
 	integer dims(10)
-	real data(nx,ny,nz)
 	real data2d(nx,ny)
 	real femdata2d(nxnew*nynew)
 	real cdata(nx*ny,nz)
@@ -694,7 +751,30 @@ c*****************************************************************
 	end if
 	call make_ilhkv(np,nlvddi,my_flag,femdata,ilhkv)
 
-	if( .not. debug ) return
+	end
+
+c*****************************************************************
+
+	subroutine write_grd_var(varname,it,nx,ny,nz,nxnew,nynew
+     +			,regpar,x,y,data,femdata)
+
+	implicit none
+
+	character*(*) varname
+	integer it
+	integer nx,ny,nz
+	integer nxnew,nynew
+	real regpar(9)
+	real x(nx,ny),y(nx,ny)
+	real data(nx,ny,nz)
+	real femdata(nz,nxnew*nynew)
+
+	real, allocatable :: data2d(:,:)
+	real, allocatable :: femdata2d(:)
+	character*80 filename,file
+
+	!write(6,*) 'nx,ny: ',nx,ny,nxnew,nynew
+	allocate(data2d(nx,ny),femdata2d(nxnew*nynew))
 
 	data2d(:,:) = data(:,:,1)
 	femdata2d(:) = femdata(1,:)
