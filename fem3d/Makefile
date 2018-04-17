@@ -60,18 +60,17 @@ endif
 # netcdf files
 #------------------------------------------------------------
 
+NETCDFDDD := $(strip $(NETCDFDIR))
 ifeq ($(NETCDF),true)
-  ifneq ("$(wildcard $(NETCDFDIR)/lib/libnetcdff.a)","")
-    DIRLIB_NETCDF = $(NETCDFDIR)/lib/
-  else ifneq ("$(wildcard $(NETCDFDIR)/lib/x86_64-linux-gnu/libnetcdff.a)","")
-    DIRLIB_NETCDF = $(NETCDFDIR)/lib/x86_64-linux-gnu
+  ifneq ("$(wildcard $(NETCDFDDD)/lib/libnetcdff.a)","")
+    DIRLIB_NETCDF = $(NETCDFDDD)/lib/
+  else ifneq ("$(wildcard $(NETCDFDDD)/lib/x86_64-linux-gnu/libnetcdff.a)","")
+    DIRLIB_NETCDF = $(NETCDFDDD)/lib/x86_64-linux-gnu
   else
     $(info "cannot find netcdf library libnetcdff.a ... aborting")
   endif
   #$(info DIRLIB_NETCDF = $(DIRLIB_NETCDF))
 endif
-#DIRLIB_NETCDF = $(NETCDFDIR)/lib/
-#DIRLIB_NETCDF = $(NETCDFDIR)/lib/x86_64-linux-gnu
 
 EXENC = 
 NETCDF_OBJ = 
@@ -82,7 +81,7 @@ NETCDF_2FEM = netcdf.o nc_util.o nc_tutil.o nc_domain.o nc_dim_coords.o \
 	      subbas.o subdts.o subscn.o subfil.o subclo.o \
 	      substrings.o subsss.o \
               subfemfile.o subiso8601.o mod_depth.o subnev.o newlevels.o \
-	      subreg.o elab_expand.o
+	      subreg.o elab_expand.o $(MPI_OBJ)
 NETCDF_EXE = ts2nc nc2fem
 DIRINC_NETCDF = $(NETCDFDIR)/include
 ifeq ($(NETCDF),true)
@@ -95,12 +94,31 @@ ifeq ($(NETCDF),true)
 endif
 
 #------------------------------------------------------------
+# mpi files
+#------------------------------------------------------------
+
+#PHGOBJ = mod_shypart_dummy.o
+#MPI_OBJ = mod_shympi_node.o mod_shympi_dummy.o basin_mpi.o
+MPI_DUMMY_OBJ = mod_shympi_dummy.o
+MPI_NODE_OBJ = mod_shympi_node.o mod_shympi_node_internal.o
+MPI_GENERAL_OBJ = submpi_ghost.o submpi_basin.o submpi_custom.o submpi_buffer.o
+MPI_SHYFEM_OBJ = submpi_assert.o
+
+MPI_OBJ = $(MPI_DUMMY_OBJ) $(MPI_GENERAL_OBJ)
+ifeq ($(PARALLEL_MPI),NODE)
+  MPI_OBJ = $(MPI_NODE_OBJ) $(MPI_GENERAL_OBJ)
+  FFLAGS += $(MPI_COMPILE_FLAGS)
+  LFLAGS += $(MPI_LINK_FLAGS)
+endif
+
+
+#------------------------------------------------------------
 # omp files
 #------------------------------------------------------------
 
-PARALLEL_OBJ = subomp_dummy.o
-ifeq ($(PARALLEL),true)
-  PARALLEL_OBJ = subomp.o
+OMP_OBJ = subomp_dummy.o
+ifeq ($(PARALLEL_OMP),true)
+  OMP_OBJ = subomp.o
 endif
 
 #------------------------------------------------------------
@@ -123,7 +141,7 @@ ECOLOGICAL_OBJ = ecological_dummy.o
 ifeq ($(ECOLOGICAL),EUTRO)
   ECOLOGICAL_OBJ = bio3d.o bio3d_util.o \
 		weutro.o weutro_sedim.o weutro_light.o \
-		weutro_seed.o weutro_shell.o
+		weutro_seed.o weutro_shell.o weutro_ulva.o
 endif
 ifeq ($(ECOLOGICAL),ERSEM)
   ECOLOGICAL_OBJ = subbfm.o
@@ -187,6 +205,8 @@ NEWOBJS = \
 	  newtvd.o newstab.o newsig.o \
 	  newnudge.o newpoi.o newbfm.o \
 	  $(MODULES) \
+	  $(MPI_OBJ) \
+	  $(MPI_SHYFEM_OBJ)
 
 # objects for library
 
@@ -207,7 +227,7 @@ SOBJS   = \
           subapn.o subnsa.o \
           subreg.o subfind.o submask.o \
           subbnd.o \
-          subexta.o subouta.o subdep.o subflxa.o subflx3d.o subflx.o \
+          subexta.o subdep.o subflxa.o subflx3d.o subflx.o \
 	  subdum.o subcus.o \
 	  $(BCTSOBJS) \
 	  $(QFLUX) \
@@ -223,7 +243,8 @@ SOBJS   = \
 	  subshy.o shyutil.o subshyutil.o subshyutil2.o \
 	  shyelab_util.o \
 	  subbit10.o shyutil.o subclo.o substrings.o subpar3.o \
-	  elabutil.o elabtime.o elab_gis.o subiso8601.o
+	  elabutil.o elabtime.o elab_gis.o elab_check.o subiso8601.o \
+	  $(MPI_OBJ)
 
 # general objects for 3D model shyfem
 
@@ -268,7 +289,7 @@ HTOBJS = \
 	subets.o subetsa.o subetsm.o \
 	$(IFF_FILES) \
 	$(ECOLOGICAL_OBJ) \
-	$(PARALLEL_OBJ) \
+	$(OMP_OBJ) \
 	$(GRDOBJS) \
 	subxi.o subshy.o subshyutil.o substrings.o \
 	subbit10.o shyutil.o \
@@ -304,8 +325,10 @@ OUTOBJS = $(PARMOD) subnls.o subsss.o subscn.o \
 	  subclo.o \
 	  mod_depth.o mod_hydro.o mod_geom.o mod_hydro_print.o \
 	  mod_bound_geom.o mod_bnd.o mod_hydro_baro.o newlevels.o \
-	  $(GRDOBJS) subsrt.o subgeo.o substrings.o subiso8601.o
+	  $(GRDOBJS) subsrt.o subgeo.o substrings.o subiso8601.o \
+	  $(MPI_OBJ)
 
+PARTOBJS = subfloodfill.o
 TSOBJS = subtsfile1.o
 TSOBJS = subtsfile.o
 
@@ -314,7 +337,7 @@ RSTOBJS = subrst.o ecological_dummy.o \
 	  subbit10.o
 
 BASOBJS = basutil.o basutil_resol.o basutil_hsigma.o basutil_bathy.o \
-	  basutil_interp.o basutil_smooth.o basutil_box.o \
+	  basutil_interp.o basutil_smooth.o basutil_box.o basutil_custom.o \
 	  subnos.o \
 	  sublnka.o sublnku.o links.o
 BASEXTRA = sublnka.o links.o sublnku.o \
@@ -333,7 +356,7 @@ SHYOBJS = genutil.o \
 		subshy.o subshyutil.o subshyutil2.o \
 		shyutil.o subdates.o
 SHYCOMPAT = shyelab_nodes.o shyelab_average.o elab_regular.o elab_expand.o \
-		shyelab_util.o shyelab_units.o
+		shyelab_util.o shyelab_units.o elab_check.o
 SHYELAB = shyelab1.o shyelab_output.o shyelab_nodes.o \
 		shyelab_area.o shyelab_average.o \
 		shyelab_util.o shyelab_units.o \
@@ -353,7 +376,7 @@ BATHYOBJS = $(BASEXTRA)
 #		subnos.o
 
 LAPLACE = suboi.o submir.o subnos.o links.o sublnku.o \
-	  subnosa.o subssm.o
+	  subnosa.o subssm.o subintp.o
 
 LAGRANGE =	lagrange_main.o \
 		lagrange_back.o lagrange_dif.o \
@@ -407,7 +430,7 @@ EXEINFO  = rstinf tselab \
 		filetype \
 		extelab flxelab \
 		shyelab \
-		femelab femintp
+		femelab femintp femcombine
 EXESPLIT = 
 EXELAP   =  
 EXEBAS   = 
@@ -493,6 +516,9 @@ cubic:   cubic.o $(OUTOBJS) $(BCTSOBJS) subssm.o
 shybas:  shybas.o $(BASOBJS) $(OUTOBJS)
 	$(LINKER) $(LFLAGS) $@.o $(BASOBJS) $(OUTOBJS) -o $@
 
+shypart:  shypart.o $(BASOBJS) $(OUTOBJS) $(PARTOBJS)
+	$(LINKER) $(LFLAGS) $@.o $(BASOBJS) $(OUTOBJS) $(PARTOBJS) -o $@
+
 basinf:  basinf.o $(OUTOBJS)
 	$(LINKER) $(LFLAGS) $@.o $(OUTOBJS) -o $@
 
@@ -535,10 +561,10 @@ bascomp:  bascomp.o subgeo.o $(OUTOBJS)
 filetype:  filetype.o $(NOSOUSOBJS) $(OUTOBJS) 
 	$(LINKER) $(LFLAGS) $@.o $(NOSOUSOBJS) $(OUTOBJS) -o $@
 
-femelab:  femelab.o femelab1.o $(NOSOBJS) $(OUTOBJS) $(SHYCOMPAT)
-	$(LINKER) $(LFLAGS) $@.o femelab1.o $(NOSOBJS) $(OUTOBJS) $(SHYCOMPAT) -o $@
-
 femintp:  femintp.o $(NOSOBJS) $(OUTOBJS) $(SHYCOMPAT)
+	$(LINKER) $(LFLAGS) $@.o $(NOSOBJS) $(OUTOBJS) $(SHYCOMPAT) -o $@
+
+femcombine:  femcombine.o $(NOSOBJS) $(OUTOBJS) $(SHYCOMPAT)
 	$(LINKER) $(LFLAGS) $@.o $(NOSOBJS) $(OUTOBJS) $(SHYCOMPAT) -o $@
 
 bc2fem:  bc2fem.o $(NOSOBJS) $(OUTOBJS) $(SHYCOMPAT) 
@@ -581,6 +607,12 @@ nos2shy: nos2shy.o $(NOSOUS_ALL)
 ous2shy: ous2shy.o $(NOSOUS_ALL)
 	$(LINKER) $(LFLAGS) $@.o $(NOSOUS_ALL) -o $@
 
+#femelab:  femelab.o femelab1.o $(NOSOBJS) $(OUTOBJS) $(SHYCOMPAT)
+#	$(LINKER) $(LFLAGS) $@.o femelab1.o $(NOSOBJS) $(OUTOBJS) $(SHYCOMPAT) -o $@
+
+femelab:  femelab.o $(NOSOUS_ALL)
+	$(LINKER) $(LFLAGS) $@.o $(NOSOUS_ALL) -o $@
+
 extelab: extelab.o $(NOSOUS_ALL)
 	$(LINKER) $(LFLAGS) $@.o $(NOSOUS_ALL) -o $@
 
@@ -590,7 +622,9 @@ flxelab: flxelab.o $(NOSOUS_ALL)
 tselab:  tselab.o $(NOSOUS_ALL)
 	$(LINKER) $(LFLAGS) $@.o $(NOSOUS_ALL) -o $@
 
-SHYELAB_ALL = $(SHYOBJS) $(OUTOBJS) $(SHYELAB)
+SHYELAB_EXTRA = shyelab1.o shyelab_output.o shyelab_area.o \
+		line_util.o $(NETCDF_ELAB)
+SHYELAB_ALL = $(SHYOBJS) $(OUTOBJS) $(SHYCOMPAT) $(SHYELAB_EXTRA)
 
 shyelab: shyelab.o $(SHYELAB_ALL) $(LIBFS)
 	$(LINKER) $(LFLAGS) $@.o $(SHYELAB_ALL) $(LIBGS) -o $@
@@ -781,16 +815,72 @@ last:
 
 ../femlib/mod/AQUABC_II_GLOBAL.mod: aquabc_II_co2sys.o
 ../femlib/mod/CO2SYS_CDIAC.mod: aquabc_II_co2sys.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_dummy.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
+../femlib/mod/PROCEDURE.mod: mod_shympi_node.o
 ../femlib/mod/VECTOR_MATRIX_UTILS.mod: aquabc_II_co2sys.o
 ../femlib/mod/aquabc_II_sed_ini.mod: aquabc_II_ased_ini.o
 ../femlib/mod/basin.mod: subbas.o
 ../femlib/mod/basutil.mod: basutil.o
 ../femlib/mod/box.mod: subboxa.o
 ../femlib/mod/box_arrays.mod: subboxa.o
+../femlib/mod/check_unit.mod: newchk.o
 ../femlib/mod/chezy.mod: subn35.o
 ../femlib/mod/clo.mod: subclo.o
 ../femlib/mod/coordinates.mod: subcoord.o
 ../femlib/mod/custom_dates.mod: subdates.o
+../femlib/mod/default_names.mod: subdef.o
 ../femlib/mod/dts.mod: subdts.o
 ../femlib/mod/elabtime.mod: elabtime.o
 ../femlib/mod/elabutil.mod: elabutil.o
@@ -841,10 +931,12 @@ last:
 ../femlib/mod/mod_nudging.mod: mod_nudging.o
 ../femlib/mod/mod_offline.mod: suboff.o
 ../femlib/mod/mod_parwaves.mod: subwaves.o
+../femlib/mod/mod_random.mod: mod_random.o
 ../femlib/mod/mod_renewal_time.mod: subwrt.o
 ../femlib/mod/mod_restart.mod: subrst.o
 ../femlib/mod/mod_roughness.mod: mod_roughness.o
 ../femlib/mod/mod_sediment.mod: sedi3d.o
+../femlib/mod/mod_sediment_para.mod: sedi3d.o
 ../femlib/mod/mod_sedtrans05.mod: sedtrans05.o
 ../femlib/mod/mod_shypre.mod: shypre.o
 ../femlib/mod/mod_sinking.mod: mod_sinking.o
@@ -858,19 +950,23 @@ last:
 ../femlib/mod/nc_domain.mod: nc_domain.o
 ../femlib/mod/nc_interpol.mod: nc_domain.o
 ../femlib/mod/nc_time.mod: nc_tutil.o
-../femlib/mod/netcdf.mod: netcdf.o
+../femlib/mod/ncnames.mod: nc_dim_coords.o
+../femlib/mod/netcdf_params.mod: netcdf.o
 ../femlib/mod/nls.mod: subnls.o
 ../femlib/mod/para.mod: subpar3.o
 ../femlib/mod/para_aqua.mod: aquabc_II_apara.o
 ../femlib/mod/poisson.mod: newpoi.o
 ../femlib/mod/projection.mod: subproj.o
 ../femlib/mod/regular.mod: subreg.o
-../femlib/mod/scan.mod: subscn.o
+../femlib/mod/scan_string.mod: subscn.o
 ../femlib/mod/shyelab_out.mod: shyelab_output.o
 ../femlib/mod/shyelab_unit.mod: shyelab_units.o
 ../femlib/mod/shyfem_strings.mod: substrings.o
 ../femlib/mod/shyfem_version.mod: subver.o
 ../femlib/mod/shyfile.mod: subshy.o
+../femlib/mod/shympi.mod: mod_shympi_dummy.o
+../femlib/mod/shympi.mod: mod_shympi_node.o
+../femlib/mod/shympi_aux.mod: mod_shympi_node_internal.o
 ../femlib/mod/shyutil.mod: shyutil.o
 ../femlib/mod/sigma.mod: sigmautil.o
 ../femlib/mod/simple_sediments.mod: subssed.o
@@ -907,6 +1003,10 @@ basutil_box.o: ../femlib/mod/basin.mod ../femlib/mod/basutil.mod \
 		../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_depth.mod \
 		../femlib/mod/mod_geom.mod 
+basutil_custom.o: ../femlib/mod/basin.mod \
+		../femlib/mod/basutil.mod ../femlib/mod/evgeom.mod \
+		../femlib/mod/grd.mod ../femlib/mod/mod_depth.mod \
+		../femlib/mod/mod_geom.mod 
 basutil_hsigma.o: ../femlib/mod/basin.mod \
 		../femlib/mod/mod_depth.mod 
 basutil_interp.o: ../femlib/mod/basin.mod \
@@ -917,28 +1017,34 @@ basutil_smooth.o: ../femlib/mod/basin.mod \
 		../femlib/mod/basutil.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/grd.mod ../femlib/mod/mod_depth.mod \
 		../femlib/mod/mod_geom.mod 
-bdist.o: ../femlib/mod/basin.mod ../femlib/mod/mod_geom.mod
+bdist.o: ../femlib/mod/basin.mod ../femlib/mod/mod_geom.mod \
+		../femlib/mod/shympi.mod 
 bio3d.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_diff_visc_fric.mod mkonst.h 
 bio3d_util.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		donata.h param.h 
-elab_gis.o: ../femlib/mod/basin.mod
+elab_check.o: ../femlib/mod/iso8601.mod
+elab_gis.o: ../femlib/mod/basin.mod \
+		../femlib/mod/shyfem_strings.mod 
 elab_nc.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
+		../femlib/mod/mod_depth.mod \
 		../femlib/mod/shyelab_out.mod 
 elab_nc_dummy.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/shyelab_out.mod 
 elab_regular.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod
-elabutil.o: ../femlib/mod/clo.mod
+elabutil.o: ../femlib/mod/clo.mod ../femlib/mod/shyfem_strings.mod
 extelab1.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/elabtime.mod \
 		../femlib/mod/elabutil.mod \
 		../femlib/mod/evgeom.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
 		../femlib/mod/shyfem_strings.mod 
+femcombine.o: ../femlib/mod/clo.mod ../femlib/mod/fem_util.mod
 femelab1.o: ../femlib/mod/clo.mod ../femlib/mod/elabtime.mod \
-		../femlib/mod/elabutil.mod 
+		../femlib/mod/elabutil.mod \
+		../femlib/mod/shyfem_strings.mod 
 femintp.o: ../femlib/mod/clo.mod ../femlib/mod/fem_util.mod
-filetype.o: ../femlib/mod/clo.mod
+filetype.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod
 flxelab1.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/elabtime.mod \
 		../femlib/mod/elabutil.mod \
@@ -996,27 +1102,30 @@ lagrange_vertical.o: ../femlib/mod/basin.mod \
 		../femlib/mod/mod_lagrange.mod 
 lgrelab.o: ../femlib/mod/basin.mod ../femlib/mod/mod_depth.mod \
 		param.h 
-lgrinf.o: param.h
 line_util.o: ../femlib/mod/basin.mod param.h
 loading.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		param.h 
-map_influence.o: ../femlib/mod/basin.mod \
-		../femlib/mod/mod_depth.mod param.h 
 mercury.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_diff_visc_fric.mod femtime.h 
+mod_shympi_dummy.o: ../femlib/mod/basin.mod \
+		../femlib/mod/levels.mod 
+mod_shympi_node.o: ../femlib/mod/basin.mod \
+		../femlib/mod/levels.mod 
+mod_shympi_node_internal.o: ../femlib/mod/shympi.mod
 mod_subset.o: ../femlib/mod/basin.mod
 nc2fem.o: ../femlib/mod/clo.mod ../femlib/mod/iso8601.mod \
+		../femlib/mod/ncnames.mod \
 		../femlib/mod/shyfem_strings.mod 
 nc_domain.o: ../femlib/mod/basin.mod
 nc_tutil.o: ../femlib/mod/iso8601.mod
-netcdf.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
-		../femlib/mod/mod_depth.mod netcdf.inc 
+netcdf.o: netcdf.inc
 netcdf_util.o: ../femlib/mod/basin.mod
 new36.o: ../femlib/mod/basin.mod \
 		../femlib/mod/mod_bound_dynamic.mod \
 		../femlib/mod/mod_diff_visc_fric.mod \
-		../femlib/mod/mod_hydro_print.mod close.h \
-		femtime.h mkonst.h 
+		../femlib/mod/mod_hydro_print.mod \
+		../femlib/mod/shympi.mod close.h femtime.h \
+		mkonst.h 
 new3di.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_area.mod \
@@ -1036,18 +1145,16 @@ new3di.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_nudging.mod \
 		../femlib/mod/mod_roughness.mod \
 		../femlib/mod/mod_waves.mod \
-		../femlib/mod/tidef.mod femtime.h mkonst.h param.h \
-		pkonst.h 
+		../femlib/mod/shympi.mod ../femlib/mod/tidef.mod \
+		mkonst.h pkonst.h 
 newbcl.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_diff_visc_fric.mod \
 		../femlib/mod/mod_hydro.mod \
 		../femlib/mod/mod_hydro_print.mod \
 		../femlib/mod/mod_layer_thickness.mod \
-		../femlib/mod/mod_ts.mod femtime.h mkonst.h \
-		pkonst.h 
+		../femlib/mod/mod_ts.mod mkonst.h pkonst.h 
 newbfm.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
-		../femlib/mod/mod_diff_visc_fric.mod femtime.h \
-		mkonst.h 
+		../femlib/mod/mod_diff_visc_fric.mod mkonst.h 
 newchao.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_hydro.mod \
 		../femlib/mod/mod_hydro_baro.mod femtime.h param.h 
@@ -1067,8 +1174,8 @@ newchk.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_layer_thickness.mod \
 		../femlib/mod/mod_meteo.mod \
 		../femlib/mod/mod_nohyd.mod \
-		../femlib/mod/mod_ts.mod femtime.h mkonst.h \
-		param.h 
+		../femlib/mod/mod_ts.mod ../femlib/mod/shympi.mod \
+		femtime.h mkonst.h param.h 
 newcon.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_area.mod \
@@ -1081,7 +1188,8 @@ newcon.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_hydro_print.mod \
 		../femlib/mod/mod_hydro_vel.mod \
 		../femlib/mod/mod_layer_thickness.mod \
-		../femlib/mod/mod_ts.mod femtime.h mkonst.h 
+		../femlib/mod/mod_ts.mod ../femlib/mod/shympi.mod \
+		mkonst.h 
 newcon_omp.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_area.mod \
@@ -1094,13 +1202,13 @@ newcon_omp.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_hydro_vel.mod \
 		../femlib/mod/mod_layer_thickness.mod \
 		../femlib/mod/mod_subset.mod \
-		../femlib/mod/mod_ts.mod 
+		../femlib/mod/mod_ts.mod ../femlib/mod/shympi.mod 
 newconz.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_conz.mod \
 		../femlib/mod/mod_diff_visc_fric.mod \
 		../femlib/mod/mod_layer_thickness.mod \
 		../femlib/mod/mod_ts.mod ../femlib/mod/para.mod \
-		femtime.h mkonst.h 
+		../femlib/mod/shympi.mod mkonst.h 
 newcra.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_bnd_aux.mod \
 		../femlib/mod/mod_bound_dynamic.mod \
@@ -1125,8 +1233,7 @@ newfix.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_hydro.mod \
 		../femlib/mod/mod_hydro_vel.mod \
 		../femlib/mod/mod_internal.mod \
-		../femlib/mod/mod_layer_thickness.mod femtime.h \
-		param.h 
+		../femlib/mod/mod_layer_thickness.mod param.h 
 newini.o: ../femlib/mod/basin.mod ../femlib/mod/coordinates.mod \
 		../femlib/mod/intp_fem_file.mod \
 		../femlib/mod/levels.mod \
@@ -1135,15 +1242,16 @@ newini.o: ../femlib/mod/basin.mod ../femlib/mod/coordinates.mod \
 		../femlib/mod/mod_hydro_print.mod \
 		../femlib/mod/mod_hydro_vel.mod \
 		../femlib/mod/mod_internal.mod \
-		../femlib/mod/mod_roughness.mod femtime.h mkonst.h \
-		pkonst.h 
+		../femlib/mod/mod_roughness.mod \
+		../femlib/mod/shympi.mod mkonst.h pkonst.h 
 newnudge.o: ../femlib/mod/basin.mod \
 		../femlib/mod/intp_fem_file.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_hydro.mod \
 		../femlib/mod/mod_internal.mod \
 		../femlib/mod/mod_layer_thickness.mod \
-		../femlib/mod/mod_nudging.mod femtime.h 
+		../femlib/mod/mod_nudging.mod \
+		../femlib/mod/shympi.mod 
 newpoi.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
@@ -1153,7 +1261,9 @@ newpoi.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		pkonst.h 
 newrog.o: ../femlib/mod/basin.mod param.h
 newstab.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
-		../femlib/mod/mod_diff_visc_fric.mod femtime.h 
+		../femlib/mod/mod_diff_visc_fric.mod \
+		../femlib/mod/mod_hydro.mod \
+		../femlib/mod/shympi.mod femtime.h pkonst.h 
 newtra.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
@@ -1162,7 +1272,8 @@ newtra.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_hydro_baro.mod \
 		../femlib/mod/mod_hydro_print.mod \
 		../femlib/mod/mod_hydro_vel.mod \
-		../femlib/mod/mod_layer_thickness.mod 
+		../femlib/mod/mod_layer_thickness.mod \
+		../femlib/mod/shympi.mod 
 newtvd.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_hydro_print.mod \
@@ -1178,7 +1289,7 @@ nos2shy.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 offinf.o: ../femlib/mod/clo.mod
 optintp.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/evgeom.mod \
-		../femlib/mod/mod_depth.mod param.h 
+		../femlib/mod/mod_depth.mod 
 ous2shy.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/elabtime.mod \
 		../femlib/mod/evgeom.mod ../femlib/mod/iso8601.mod \
@@ -1215,7 +1326,8 @@ sedi3d.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 shybas.o: ../femlib/mod/basin.mod ../femlib/mod/basutil.mod \
 		../femlib/mod/clo.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_depth.mod \
-		../femlib/mod/mod_geom.mod 
+		../femlib/mod/mod_geom.mod \
+		../femlib/mod/shympi.mod 
 shydiff.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/elabtime.mod \
 		../femlib/mod/elabutil.mod \
@@ -1231,7 +1343,7 @@ shyelab1.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/elabutil.mod \
 		../femlib/mod/evgeom.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
-		../femlib/mod/shyfile.mod \
+		../femlib/mod/shyfile.mod ../femlib/mod/shympi.mod \
 		../femlib/mod/shyutil.mod 
 shyelab_area.o: ../femlib/mod/elabutil.mod
 shyelab_nodes.o: ../femlib/mod/basin.mod \
@@ -1278,6 +1390,7 @@ shyfem.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/mod_nohyd.mod \
 		../femlib/mod/mod_nudging.mod \
 		../femlib/mod/mod_roughness.mod \
+		../femlib/mod/mod_sediment.mod \
 		../femlib/mod/mod_sinking.mod \
 		../femlib/mod/mod_subset.mod \
 		../femlib/mod/mod_ts.mod \
@@ -1285,20 +1398,26 @@ shyfem.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/mod_tvd.mod \
 		../femlib/mod/mod_waves.mod \
 		../femlib/mod/projection.mod \
-		../femlib/mod/tidef.mod femtime.h mkonst.h \
-		pkonst.h 
-shypre.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod
+		../femlib/mod/shympi.mod ../femlib/mod/tidef.mod \
+		femtime.h mkonst.h pkonst.h 
+shypart.o: ../femlib/mod/basin.mod ../femlib/mod/basutil.mod \
+		../femlib/mod/clo.mod ../femlib/mod/evgeom.mod \
+		../femlib/mod/mod_geom.mod \
+		../femlib/mod/shympi.mod 
+shypre.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
+		../femlib/mod/grd.mod 
 shyproj.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
-		../femlib/mod/projection.mod 
+		../femlib/mod/grd.mod ../femlib/mod/projection.mod 
 shyutil.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod 
 simsys_lp.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
-		../femlib/mod/mod_system.mod param.h 
+		../femlib/mod/mod_system.mod 
 simsys_pard.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_system.mod 
 simsys_spk.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
-		../femlib/mod/mod_system.mod 
+		../femlib/mod/mod_system.mod \
+		../femlib/mod/shympi.mod 
 subapn.o: ../femlib/mod/basin.mod
 subbfm.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
@@ -1310,12 +1429,14 @@ subbfm.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		pkonst.h 
 subbnd.o: ../femlib/mod/mod_bnd.mod \
 		../femlib/mod/mod_bound_geom.mod \
-		../femlib/mod/nls.mod ../femlib/mod/para.mod 
+		../femlib/mod/nls.mod ../femlib/mod/para.mod \
+		../femlib/mod/shympi.mod 
 subbndo.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_bndo.mod \
 		../femlib/mod/mod_bound_geom.mod \
 		../femlib/mod/mod_geom.mod \
-		../femlib/mod/mod_hydro.mod 
+		../femlib/mod/mod_hydro.mod \
+		../femlib/mod/shympi.mod 
 subbnds.o: ../femlib/mod/intp_fem_file.mod
 subboxa.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
@@ -1327,15 +1448,13 @@ subboxa.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_hydro_vel.mod \
 		../femlib/mod/mod_layer_thickness.mod \
 		../femlib/mod/mod_meteo.mod \
-		../femlib/mod/mod_ts.mod 
+		../femlib/mod/mod_ts.mod simul.h 
 subcon1.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
-		../femlib/mod/mod_bound_dynamic.mod \
-		../femlib/mod/mod_depth.mod femtime.h mkonst.h \
-		simul.h 
+		../femlib/mod/mod_depth.mod femtime.h simul.h 
 subcoo.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_geom.mod \
 		../femlib/mod/mod_system.mod param.h 
-subcoord.o: ../femlib/mod/basin.mod
+subcoord.o: ../femlib/mod/basin.mod ../femlib/mod/shympi.mod
 subcst.o: ../femlib/mod/basin.mod ../femlib/mod/mod_bnd.mod \
 		../femlib/mod/mod_bound_geom.mod mkonst.h \
 		modules.h param.h pkonst.h 
@@ -1354,8 +1473,10 @@ subcus.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_internal.mod \
 		../femlib/mod/mod_layer_thickness.mod \
 		../femlib/mod/mod_meteo.mod \
-		../femlib/mod/mod_ts.mod femtime.h param.h 
-subdep.o: ../femlib/mod/basin.mod ../femlib/mod/mod_depth.mod
+		../femlib/mod/mod_ts.mod ../femlib/mod/shympi.mod \
+		femtime.h param.h 
+subdep.o: ../femlib/mod/basin.mod ../femlib/mod/mod_depth.mod \
+		../femlib/mod/shympi.mod 
 subdif.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
@@ -1363,19 +1484,20 @@ subdif.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_diff_visc_fric.mod \
 		../femlib/mod/mod_geom.mod \
 		../femlib/mod/mod_hydro.mod \
-		../femlib/mod/mod_hydro_print.mod femtime.h \
-		param.h 
+		../femlib/mod/mod_hydro_print.mod \
+		../femlib/mod/shympi.mod 
 subdry.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_geom_dynamic.mod \
 		../femlib/mod/mod_hydro.mod \
-		../femlib/mod/mod_hydro_baro.mod femtime.h \
-		mkonst.h 
+		../femlib/mod/mod_hydro_baro.mod \
+		../femlib/mod/shympi.mod femtime.h mkonst.h 
 subele.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_area.mod \
 		../femlib/mod/mod_depth.mod \
 		../femlib/mod/mod_hydro.mod \
-		../femlib/mod/mod_layer_thickness.mod param.h 
+		../femlib/mod/mod_layer_thickness.mod \
+		../femlib/mod/shympi.mod param.h 
 subets.o: etsinf.h
 subetsa.o: ../femlib/mod/basin.mod ../femlib/mod/coordinates.mod \
 		../femlib/mod/ets.mod ../femlib/mod/levels.mod \
@@ -1390,11 +1512,13 @@ subexta.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
 		../femlib/mod/mod_hydro.mod \
 		../femlib/mod/mod_hydro_print.mod \
-		../femlib/mod/mod_ts.mod ../femlib/mod/nls.mod \
-		femtime.h modules.h simul.h 
+		../femlib/mod/mod_sediment.mod \
+		../femlib/mod/mod_ts.mod \
+		../femlib/mod/mod_waves.mod ../femlib/mod/nls.mod \
+		../femlib/mod/shympi.mod modules.h simul.h 
 subfind.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_geom.mod 
-subfloodfill.o: ../femlib/mod/basin.mod
+subfloodfill.o: ../femlib/mod/basin.mod ../femlib/mod/mod_geom.mod
 subflx3d.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_bound_dynamic.mod \
@@ -1408,13 +1532,14 @@ subflxa.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_conz.mod \
 		../femlib/mod/mod_sediment.mod \
 		../femlib/mod/mod_ts.mod ../femlib/mod/nls.mod \
-		femtime.h modules.h simul.h 
+		modules.h simul.h 
 subflxu.o: ../femlib/mod/levels.mod ../femlib/mod/mod_geom.mod
 subfvl.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_area.mod \
 		../femlib/mod/mod_layer_thickness.mod 
 subgotm.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
+		../femlib/mod/mod_area.mod \
 		../femlib/mod/mod_diff_visc_fric.mod \
 		../femlib/mod/mod_gotm_aux.mod \
 		../femlib/mod/mod_hydro.mod \
@@ -1424,8 +1549,8 @@ subgotm.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_meteo.mod \
 		../femlib/mod/mod_roughness.mod \
 		../femlib/mod/mod_ts.mod \
-		../femlib/mod/mod_turbulence.mod femtime.h \
-		pkonst.h 
+		../femlib/mod/mod_turbulence.mod \
+		../femlib/mod/shympi.mod femtime.h pkonst.h 
 subgotm_mud.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
@@ -1446,10 +1571,12 @@ sublin.o: ../femlib/mod/basin.mod ../femlib/mod/mod_geom.mod
 sublnka.o: ../femlib/mod/basin.mod ../femlib/mod/mod_geom.mod
 sublnkd.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_geom.mod \
-		../femlib/mod/mod_geom_dynamic.mod 
+		../femlib/mod/mod_geom_dynamic.mod \
+		../femlib/mod/shympi.mod 
 sublnks.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_geom.mod \
-		../femlib/mod/mod_geom_dynamic.mod femtime.h 
+		../femlib/mod/mod_geom_dynamic.mod \
+		../femlib/mod/shympi.mod femtime.h 
 sublnku.o: ../femlib/mod/basin.mod ../femlib/mod/mod_geom.mod
 sublpl.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod param.h
 submask.o: ../femlib/mod/basin.mod
@@ -1458,12 +1585,27 @@ submet.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/meteo_forcing_module.mod \
 		../femlib/mod/mod_bound_dynamic.mod \
 		../femlib/mod/mod_meteo.mod \
-		../femlib/mod/mod_ts.mod femtime.h param.h 
+		../femlib/mod/mod_ts.mod 
 submeteo2.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/intp_fem_file.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
-		../femlib/mod/mod_meteo.mod femtime.h 
+		../femlib/mod/mod_meteo.mod \
+		../femlib/mod/shyfem_strings.mod 
+submpi_assert.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
+		../femlib/mod/levels.mod \
+		../femlib/mod/mod_conz.mod \
+		../femlib/mod/mod_depth.mod \
+		../femlib/mod/mod_geom.mod \
+		../femlib/mod/mod_geom_dynamic.mod \
+		../femlib/mod/mod_hydro.mod \
+		../femlib/mod/mod_hydro_baro.mod \
+		../femlib/mod/mod_hydro_print.mod \
+		../femlib/mod/mod_hydro_vel.mod \
+		../femlib/mod/mod_ts.mod ../femlib/mod/shympi.mod 
+submpi_basin.o: ../femlib/mod/basin.mod ../femlib/mod/shympi.mod
+submpi_custom.o: ../femlib/mod/basin.mod ../femlib/mod/shympi.mod
+submpi_ghost.o: ../femlib/mod/basin.mod ../femlib/mod/shympi.mod
 submud.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_bound_dynamic.mod \
 		../femlib/mod/mod_bound_geom.mod \
@@ -1484,8 +1626,8 @@ subn11.o: ../femlib/mod/basin.mod ../femlib/mod/intp_fem_file.mod \
 		../femlib/mod/mod_bound_geom.mod \
 		../femlib/mod/mod_geom_dynamic.mod \
 		../femlib/mod/mod_hydro.mod \
-		../femlib/mod/mod_hydro_print.mod femtime.h \
-		mkonst.h pkonst.h 
+		../femlib/mod/mod_hydro_print.mod \
+		../femlib/mod/shympi.mod mkonst.h pkonst.h 
 subn35.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_diff_visc_fric.mod \
@@ -1495,31 +1637,29 @@ subn35.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_layer_thickness.mod \
 		../femlib/mod/mod_roughness.mod \
 		../femlib/mod/mod_ts.mod ../femlib/mod/nls.mod \
-		pkonst.h 
-subnev.o: ../femlib/mod/basin.mod
+		../femlib/mod/shympi.mod pkonst.h 
+subnev.o: ../femlib/mod/basin.mod ../femlib/mod/shympi.mod
 subnls.o: ../femlib/mod/para.mod
 subnos.o: nosinf.h
 subnosa.o: ../femlib/mod/basin.mod ../femlib/mod/mod_depth.mod \
 		param.h 
 subnsa.o: param.h simul.h
 subnsh.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
-		../femlib/mod/nls.mod femtime.h modules.h semi.h \
-		simul.h 
+		../femlib/mod/nls.mod ../femlib/mod/shympi.mod \
+		femtime.h modules.h semi.h simul.h 
 subnsu.o: ../femlib/mod/basin.mod
 suboff.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_hydro.mod \
 		../femlib/mod/mod_hydro_print.mod \
 		../femlib/mod/mod_hydro_vel.mod \
-		../femlib/mod/mod_ts.mod femtime.h param.h 
+		../femlib/mod/mod_ts.mod ../femlib/mod/shympi.mod \
+		femtime.h param.h 
 subous.o: ousinf.h
 subousa.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
 		../femlib/mod/mod_hydro.mod \
-		../femlib/mod/shyfile.mod femtime.h simul.h 
-subouta.o: ../femlib/mod/basin.mod ../femlib/mod/mod_hydro.mod \
-		../femlib/mod/mod_hydro_baro.mod \
-		../femlib/mod/mod_hydro_print.mod femtime.h \
-		param.h simul.h 
+		../femlib/mod/shyfile.mod ../femlib/mod/shympi.mod \
+		simul.h 
 suboutput.o: femtime.h
 suboutputd.o: femtime.h
 subpard.o: ../femlib/mod/basin.mod ../femlib/mod/mod_system.mod
@@ -1548,19 +1688,21 @@ subrst.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_hydro_vel.mod \
 		../femlib/mod/mod_ts.mod femtime.h 
 subshyutil.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
-		../femlib/mod/shyfile.mod simul.h 
+		../femlib/mod/shyfile.mod ../femlib/mod/shympi.mod \
+		simul.h 
 subshyutil2.o: ../femlib/mod/clo.mod ../femlib/mod/elabtime.mod \
 		../femlib/mod/elabutil.mod \
 		../femlib/mod/shyfile.mod \
 		../femlib/mod/shyutil.mod 
 subspk.o: ../femlib/mod/basin.mod ../femlib/mod/mod_system.mod
 subssed.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
-		../femlib/mod/mod_conz.mod femtime.h 
+		../femlib/mod/mod_conz.mod 
 subsys.o: ../femlib/mod/para.mod
 subtidef.o: ../femlib/mod/basin.mod ../femlib/mod/coordinates.mod \
+		../femlib/mod/iso8601.mod \
 		../femlib/mod/mod_depth.mod \
 		../femlib/mod/mod_hydro.mod 
-subtime.o: femtime.h
+subtime.o: ../femlib/mod/shympi.mod femtime.h
 subtrace.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_geom_dynamic.mod \
 		../femlib/mod/mod_hydro.mod \
@@ -1576,7 +1718,8 @@ subuti.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_hydro.mod \
 		../femlib/mod/mod_hydro_baro.mod \
 		../femlib/mod/mod_layer_thickness.mod \
-		../femlib/mod/mod_ts.mod pkonst.h 
+		../femlib/mod/mod_ts.mod ../femlib/mod/shympi.mod \
+		pkonst.h 
 subvola.o: ../femlib/mod/basin.mod ../femlib/mod/mod_geom.mod \
 		femtime.h modules.h param.h volcomp.h 
 subwat.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
@@ -1594,22 +1737,23 @@ subwaves.o: ../femlib/mod/basin.mod ../femlib/mod/coordinates.mod \
 		../femlib/mod/mod_layer_thickness.mod \
 		../femlib/mod/mod_meteo.mod \
 		../femlib/mod/mod_roughness.mod \
-		../femlib/mod/mod_waves.mod femtime.h param.h \
-		pkonst.h 
+		../femlib/mod/mod_waves.mod param.h pkonst.h 
 subwrt.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_conz.mod \
-		../femlib/mod/mod_depth.mod femtime.h simul.h 
+		../femlib/mod/mod_depth.mod \
+		../femlib/mod/shympi.mod simul.h 
 ts2nc.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
 		../femlib/mod/mod_hydro.mod param.h simul.h 
 tselab1.o: ../femlib/mod/clo.mod ../femlib/mod/elabtime.mod \
-		../femlib/mod/elabutil.mod 
+		../femlib/mod/elabutil.mod \
+		../femlib/mod/shyfem_strings.mod 
 weutro.o: donata.h weutro.h
 weutro_sedim.o: donata.h weutro.h
 weutro_seed.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod
 weutro_shell.o: donata.h
-weutro_wdia.o: weutro.h
-zinit.o: ../femlib/mod/basin.mod param.h simul.h
+weutro_ulva.o: donata.h
+weutro_wdia.o: ../femlib/mod/eutro.mod weutro.h
 

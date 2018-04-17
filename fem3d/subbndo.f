@@ -16,11 +16,11 @@ c
 c function is_zeta_bound(k)
 c	checks if node k is a zeta boundary
 c
-c subroutine bndo_setbc(it,what,nlvddi,cv,rbc,uprv,vprv)
+c subroutine bndo_setbc(what,nlvddi,cv,rbc,uprv,vprv)
 c	sets open boundary condition for level boundaries
-c subroutine bndo_impbc(it,what,nlvddi,cv,rbc)
+c subroutine bndo_impbc(what,nlvddi,cv,rbc)
 c       imposes boundary conditions on open boundary
-c subroutine bndo_adjbc(it,nlvddi,cv,uprv,vprv)
+c subroutine bndo_adjbc(nlvddi,cv,uprv,vprv)
 c       adjusts boundary conditions on open boundary (values on bnd already set)
 c
 c subroutine bndo_radiat(it,rzv)
@@ -122,6 +122,7 @@ c----------------------------------------------------------
 
 	  do i=1,nodes
 	    k = kbnds(ibc,i)
+	    if( k <= 0 ) cycle
 	    if( bexternal ) then
 	      nbndo = nbndo + 1
 	      if( nbndo .gt. kbcdim ) goto 99
@@ -155,16 +156,16 @@ c	  internal consistency check
 c	  -------------------------------
 
 	  if( iopbnd(k) .ne. i ) then
-	    stop 'internal error bndo (0)'
+	    stop 'error stop bndo_init: internal error (0)'
 	  end if
 	  if( inext .gt. 0 ) then
 	   if( kbcnod(inext) .ne. knext ) then
-	    stop 'internal error bndo (1)'
+	    stop 'error stop bndo_init: internal error (1)'
 	   end if
 	  end if
 	  if( ilast .gt. 0 ) then
 	   if( kbcnod(ilast) .ne. klast ) then
-	    stop 'internal error bndo (2)'
+	    stop 'error stop bndo_init: internal error (2)'
 	   end if
 	  end if
 
@@ -330,15 +331,19 @@ c***********************************************************************
 
 c writes bndo info to file
 
+	use shympi
+
 	implicit none
 
 	character*(*) file
 
 	if( file .eq. ' ' ) return
 
-	open(1,file=file,status='unknown',form='formatted')
-	call bndo_info(1)
-	close(1)
+        if(shympi_is_master()) then
+	  open(1,file=file,status='unknown',form='formatted')
+	  call bndo_info(1)
+	  close(1)
+	end if
 
 	end
 
@@ -372,7 +377,9 @@ c writes info on open boundary nodes to terminal
 	  ibc = ibcnod(i)
 	  nb = nopnod(i)
 
-	  if( iopbnd(k) .ne. i ) stop 'internal error bndo: (11)'
+	  if( iopbnd(k) .ne. i ) then
+	    stop 'error stop bndo_info: internal error (11)'
+	  end if
 
 	  write(iu,*) '-------------------------------- bndo_info'
 	  write(iu,*) i,k,ipext(k),ibc,itybnd(ibc),ilhkv(k)
@@ -416,7 +423,7 @@ c checks if node k is a zeta boundary
 
 c***********************************************************************
 
-        subroutine bndo_setbc(it,what,nlvddi,cv,rbc,uprv,vprv)
+        subroutine bndo_setbc(what,nlvddi,cv,rbc,uprv,vprv)
 
 c sets open boundary condition for level boundaries
 c
@@ -426,7 +433,6 @@ c simply calls bndo_impbc() and bndo_adjbc()
 
         implicit none
 
-        integer it
         character*(*) what      !conz/temp/salt or else
         integer nlvddi
         real cv(nlvddi,nkn)
@@ -438,13 +444,13 @@ c----------------------------------------------------------
 c simply imposes whatever is in rbc
 c----------------------------------------------------------
 
-        call bndo_impbc(it,what,nlvddi,cv,rbc)
+        call bndo_impbc(what,nlvddi,cv,rbc)
 
 c----------------------------------------------------------
 c adjusts for ambient value, no gradient or outgoing flow
 c----------------------------------------------------------
 
-	call bndo_adjbc(it,what,nlvddi,cv,uprv,vprv)
+	call bndo_adjbc(what,nlvddi,cv,uprv,vprv)
 
 c----------------------------------------------------------
 c end of routine
@@ -454,7 +460,7 @@ c----------------------------------------------------------
 
 c***********************************************************************
 
-        subroutine bndo_impbc(it,what,nlvddi,cv,rbc)
+        subroutine bndo_impbc(what,nlvddi,cv,rbc)
 
 c imposes boundary conditions on open boundary
 
@@ -465,7 +471,6 @@ c imposes boundary conditions on open boundary
 
         implicit none
 
-        integer it
         character*(*) what      !conz/temp/salt or else
         integer nlvddi
         real cv(nlvddi,nkn)
@@ -497,7 +502,9 @@ c imposes boundary conditions on open boundary
 	    ibcold = ibc
 	  end if
 
-          if( iopbnd(k) .ne. i ) stop 'internal error bndo: (11)'
+          if( iopbnd(k) .ne. i ) then
+	    stop 'error stop bndo_impbc: internal error (11)'
+	  end if
 
 	  if( ibtyp .eq. 1 ) then
             nlev = ilhkv(k)
@@ -513,7 +520,7 @@ c imposes boundary conditions on open boundary
 
 c***********************************************************************
 
-	subroutine bndo_adjbc(it,what,nlvddi,cv,uprv,vprv)
+	subroutine bndo_adjbc(what,nlvddi,cv,uprv,vprv)
 
 c adjusts boundary conditions on open boundary (values on bnd already set)
 c
@@ -526,7 +533,6 @@ c adjusts for ambient value, no gradient or outgoing flow
 
 	implicit none
 
-	integer it
         character*(*) what	!conz/temp/salt or else
 	integer nlvddi
 	real cv(nlvddi,nkn)
@@ -547,6 +553,7 @@ c adjusts for ambient value, no gradient or outgoing flow
 	real dx,dy
 	real scal,bc,weight,tweight
 	real value
+	character*20 aline
 
 	integer ipext
 
@@ -565,7 +572,8 @@ c adjusts for ambient value, no gradient or outgoing flow
 	    ndebug = ifemopa('bndo_adjbc (91)','.bndo','form','unknown')
             call bndo_info(ndebug)
 	  end if
-	  write(ndebug,*) 'bndo_adjbc ........... ',what,it
+	  call get_act_timeline(aline)
+	  write(ndebug,*) 'bndo_adjbc ........... ',what,aline
 	end if
 
 	do i=1,nbndo
@@ -574,7 +582,9 @@ c adjusts for ambient value, no gradient or outgoing flow
 	  nb = nopnod(i)
 	  ibc = ibcnod(i)
 
-	  if( iopbnd(k) .ne. i ) stop 'internal error bndo: (11)'
+	  if( iopbnd(k) .ne. i ) then
+	    stop 'error stop bndo_adjbc: internal error (11)'
+	  end if
 
 	  if( ibc .ne. ibcold ) then
 	    call get_bnd_ipar(ibc,'ibtyp',ibtyp)
@@ -688,7 +698,9 @@ c imposes radiation condition for levels
 	  end if
           !write(78,*) i,k,nb,ibc,ibtyp
 
-	  if( iopbnd(k) .ne. i ) stop 'internal error bndo: (11)'
+	  if( iopbnd(k) .ne. i ) then
+	    stop 'error stop bndo_radiat: internal error (11)'
+	  end if
 
           if( ibtyp .eq. 31 ) then       !radiation condition only
 

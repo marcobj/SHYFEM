@@ -167,11 +167,15 @@ c**************************************************************
 	else
 	  itype = pentry(id)%itype
 	  if( itype == type_deprecated ) then
-	    write(6,*) 'Parameter is deprecated: ',trim(name)
-	    write(6,*) 'A new parameter might have substituted it.'
 	    string = pentry(id)%string
-	    write(6,*) 'Please have a look at this parameter: '
+	    if( string == ' ' ) then
+	      write(6,*) 'Parameter is not supported anymore: ',trim(name)
+	    else
+	      write(6,*) 'Parameter is deprecated: ',trim(name)
+	      write(6,*) 'A new parameter might have substituted it.'
+	      write(6,*) 'Please have a look at this parameter: '
      +				,trim(string)
+	    end if
 	  stop 'error stop para_get_id_with_error: parameter deprecated'
 	  end if
 	end if
@@ -392,6 +396,22 @@ c**************************************************************
 
 !******************************************************************
 
+	subroutine para_info_name(name)
+
+	character*(*) name
+
+	integer id
+
+	id = para_get_id(name,' ')
+	if( id <= 0 ) then
+	  write(6,*) 'para_info_name: no such parameter: ',trim(name)
+	end if
+	call para_info_id(id)
+
+	end subroutine para_info_name
+
+!******************************************************************
+
 	subroutine para_info_id(id)
 
 	integer id
@@ -410,9 +430,9 @@ c**************************************************************
 	string = pentry(id)%string
 
 	if( isize == 0 ) then
-	  write(6,1000) id,itype,trim(section),trim(name)
+	  write(6,1000) id,itype,isize,trim(section),trim(name)
      +			,value,trim(string)
- 1000     format(2i4,2(1x,a),g14.6,1x,a)
+ 1000     format(2i4,i5,2(1x,a),g14.6,1x,a)
 	else
 	  write(6,1100) id,itype,trim(section),trim(name),isize
  1100     format(2i4,2(1x,a),1x,i5)
@@ -641,6 +661,20 @@ c**************************************************************
 	pentry(id)%array(isize) = value
 
 	end subroutine para_put_array_value
+
+!******************************************************************
+
+	logical function para_has_array(name)
+
+	character*(*) name
+
+	integer id
+
+	id = para_get_id_with_error(name,' ','para_has_array')
+
+	para_has_array = ( pentry(id)%isize > 0 )
+
+	end function para_has_array
 
 !******************************************************************
 

@@ -1,4 +1,77 @@
 
+03.04.2018
+
+c ./fem3d/subtime.f:
+c 23.02.2018    ggu     most parts converted from int to double
+c 29.03.2018    ggu     bug fix for syncronization step
+c
+c ./fem3d/subflx.f:
+c 03.03.2018	ggu	determine nvar for versions < 6
+c
+c ./fem3d/subflxa.f:
+c 27.03.2018    ggu     new code for generic flux handling (fluxes_generic())
+c
+c ./fem3d/optintp.f:
+c 26.03.2018	ggu	completely restructured for model driven obs
+c
+c ./fem3d/subtsuvfile.f:
+c 25.02.2018    ggu	file cleaned - time is now double
+c
+c ./fem3d/suboi.f:
+c 26.03.2018	ggu	some parameters are now arrays (sigma,rr)
+
+
+22.01.2018
+
+c ./femplot/supsim.f:
+c 13.02.2018    ggu     new routine for plotting boxes (plobox)
+c
+c ./fem3d/sedtrans05.f:
+! 22.02.2018    ccf     bug fix for TAUCD (wrong formula, look for TAUCD=)
+c
+c ./fem3d/sedi3d.f:
+! 22.02.2018    ccf     adjusted for new sinking velocity
+c
+c ./fem3d/femcombine.f:
+! 30.01.2018    ggu     written with new fem_util module
+c
+c ./fem3d/newcon.f:
+c 03.02.2018    ggu     sindex did not use rstol for stability
+c
+c ./fem3d/subboxa.f:
+c 15.02.2018    ggu     code checked and error debug (is running)
+c
+c ./fem3d/subflxu.f:
+c 04.02.2018    ggu     new routines with accumulator in double
+c
+c ./fem3d/subfemutil.f:
+c 30.01.2018    ggu     new routine for combining records
+c
+ * ./grid/gridhs.c:
+ * 16-Feb-2018: in checking area consider LatLon                        *
+
+
+24.01.2018
+
+c ./fem3d/shypart.f:
+C 16.12.2017    ggu     started from scratch
+
+
+05.12.2017
+
+c ./fem3d/subexta.f:
+c 22.11.2017    ccf     write also waves and sediment concentration
+c
+c ./fem3d/subreg.f:
+c 04.12.2017	ggu	check t,u values and correct if out of bounds
+c
+c ./fem3d/lagrange_inout.f:
+c 27.11.2017    ggu	inserted code to start from lgr files
+c
+c ./femutil/dstruc/hash.f:
+c 22.11.2017	ggu	new framework finished
+
+
 17.11.2017
 
 c ./fem3d/shypre.f:

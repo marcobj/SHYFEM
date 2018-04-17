@@ -1,7 +1,5 @@
 c
-c $Id: ht.f,v 1.76 2010-03-11 15:36:38 georg Exp $
-c
-c finite element model ht (version 3D)
+c finite element model shyfem (version 3D)
 c
 c original version from march 1991
 c
@@ -137,24 +135,32 @@ c----------------------------------------------------------------
 	use mod_subset
 	use mod_bfm
 !$	use omp_lib	!ERIC
+	use shympi
 
 c----------------------------------------------------------------
+
+	implicit none
 
 c include files
 
 	include 'mkonst.h'
 	include 'pkonst.h'
-	include 'femtime.h'
+	!include 'femtime.h'
 
 c local variables
 
-	logical bdebout,bdebug
+	logical bdebout,bdebug,bmpirun
+	logical bfirst
+	integer k,ic,n
 	integer iwhat
 	integer date,time
 	integer nthreads
-	integer*8 count1,count2, count_rate, count_max
-	real time1,time2
+	integer*8 count1,count2,count3,count_rate,count_max
+	real time1,time2,time3
+	real dt
 	double precision timer
+	double precision mpi_t_start,mpi_t_end,parallel_start
+	double precision dtime,dtanf,dtend
 	character*80 strfile
 
 	real getpar
@@ -162,6 +168,7 @@ c local variables
 	call cpu_time(time1)
 	call system_clock(count1, count_rate, count_max)
 !$      timer = omp_get_wtime() 
+
 
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 c%%%%%%%%%%%%%%%%%%%%%%%%%%% code %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -171,7 +178,7 @@ c-----------------------------------------------------------
 c copyright and command line options
 c-----------------------------------------------------------
 
-        call shyfem_init(strfile,bdebug,bdebout)
+        call shyfem_init(strfile,bdebug,bdebout,bmpirun)
 
 c-----------------------------------------------------------
 c read STR file
@@ -180,15 +187,22 @@ c-----------------------------------------------------------
 	call cstinit
 	call cstfile(strfile)			!read STR and basin
 
-	call bas_get_para(nkn,nel,ngr,mbw)	!to be deleted later
+	call setup_omp_parallel
+	call shympi_init(bmpirun)
+
+	call cpu_time(time3)
+	call system_clock(count3, count_rate, count_max)
+        mpi_t_start = shympi_wtime()
+	call shympi_setup			!sets up partitioning of basin
+        parallel_start = shympi_wtime()
+
+	call test_shympi_arrays
 
 	call allocate_2d_arrays
 
 c-----------------------------------------------------------
 c check parameters read and set time and Coriolis
 c-----------------------------------------------------------
-
-	call setup_parallel
 
 	call cstcheck
 
@@ -204,7 +218,9 @@ c-----------------------------------------------------------
 	call print_spherical
 	call handle_projection
 	call set_geom
+	call shympi_barrier
 	call domain_clusterization
+	call shympi_barrier
 
 c-----------------------------------------------------------
 c inititialize time independent vertical arrays
@@ -218,7 +234,7 @@ c allocates arrays
 c-----------------------------------------------------------
 
 	call allocate_3d_arrays
-	call set_depth		!makes hev,hkv
+	call set_depth		!makes hev,hkv and exchanges
 
 	call check_point('checking ht 1')
 
@@ -228,7 +244,7 @@ c-----------------------------------------------------------
 c initialize barene data structures
 c-----------------------------------------------------------
 
-	call setweg(-1,n)
+	if( .not. bmpi ) call setweg(-1,n)	!shympi - FIXME
 	call setnod
 	call update_geom	!update ieltv - needs inodv
 
@@ -239,7 +255,6 @@ c-----------------------------------------------------------
 	call check_point('checking ht 2')
 
 	call get_date_time(date,time)
-	!call iff_init_global(nkn,nlv,ilhkv,hkv_max,hlv,date,time)
 	call iff_init_global(nkn,nel,nlv,ilhkv,ilhv
      +				,hkv_max,hev,hlv,date,time)
 
@@ -253,13 +268,17 @@ c-----------------------------------------------------------
 	call setznv		! -> change znv since zenv has changed
 
         call inirst             !restart
-	call setup_time		!in case itanf has changed
+	call setup_time		!in case start time has changed
 
 	!call init_vertical	!do again after restart
 
+	call get_act_dtime(dtime)
+	call get_first_dtime(dtanf)
+	call get_last_dtime(dtend)
+
 	call setnod
 
-	call setarea(nlvdi,areakv)
+	call set_area
 
 	call make_new_depth
 	call copy_depth
@@ -316,10 +335,8 @@ c-----------------------------------------------------------
 
 	call check_fem
 	call check_values
-c	call listdim
 	call prilog
 
-c        call bclevvar_ini       	!chao debora
 	call bclfix_ini
 
 	call system_initialize		!matrix inversion routines
@@ -335,52 +352,57 @@ c        call bclevvar_ini       	!chao debora
 
 	!call custom(it)		!call for initialization
 
-	write(6,*) 'starting time loop'
+	!write(6,*) 'starting time loop'
+        call shympi_comment('starting time loop...')
+
 	call print_time
 
 	call check_parameter_values('before main')
 
-	if( bdebout ) call debug_output(it)
+	if( bdebout ) call debug_output(dtime)
 
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 c%%%%%%%%%%%%%%%%%%%%%%%%% time loop %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-	do while( it .lt. itend )
+	bfirst = .true.
+        !if( bmpi ) call shympi_stop('scheduled stop')
+
+	do while( dtime .lt. dtend )
+
+           !call shympi_comment('new time iteration -----------------')
+
+           if(bmpi_debug) call shympi_check_all
 
 	   call check_crc
 	   call set_dry
 
-	   call reset_stability
-
-           call set_timestep		!sets idt and it
+           call set_timestep		!sets dt and t_act
            call get_timestep(dt)
-	   !call compute_stability_stats(1,aux)
+	   call get_act_dtime(dtime)
 
 	   call do_befor
 
 	   call offline(2)		!read from offline file
-
 	   call sp111(2)		!boundary conditions
-
-           call read_wwm
+           call read_wwm		!wwm wave model
 	   
-	   call hydro			!hydro
+           if(bmpi_debug) call shympi_check_all
 
-	   call wrfvla			!write finite volume
+	   call hydro			!hydro
 
 	   call run_scalar
 
            call turb_closure
 
-           call parwaves(it)            !parametric wave model
+           call parwaves                !parametric wave model
            call sedi                    !sediment transport
-	   call submud(it,dt)           !fluid mud (ARON)
+	   call submud                  !fluid mud (ARON)
 	   call simple_sedi		!simplified sediment module
 
 	   call renewal_time
-	   call ecological_module(it,dt)	!ecological model
-           call atoxi3d(it,dt)			!toxi
+	   call ecological_module	!ecological model
+           call atoxi3d			!toxi
            call mercury_module
 
            call lagrange
@@ -389,11 +411,7 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 	   call do_after
 
-           if( niter .eq. 1 ) then
-	     call useunit(200)
-	     call iff_print_info(0)
-	     write(6,*) '--------------------------------'
-	   end if
+           if( bfirst ) call print_file_usage
 
 	   call tracer_write
 	   call bfm_write
@@ -406,7 +424,8 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
            call write_wwm
 
-	   if( bdebout ) call debug_output(it)
+	   if( bdebout ) call debug_output(dtime)
+	   bfirst = .false.
 
 	end do
 
@@ -419,11 +438,13 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 	call print_end_time
 
+	print *,"NUMBER OF MPI THREADS USED  = ",n_threads
+
 !$OMP PARALLEL
 !$OMP MASTER
 	nthreads = 1
 !$	nthreads = omp_get_num_threads()
-        print *,"NUMBER OF THREADS USED  = ",nthreads
+        print *,"NUMBER OF OMP THREADS USED  = ",nthreads
 !$OMP END MASTER
 !$OMP END PARALLEL
 
@@ -434,16 +455,24 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	count2 = count2-count1
 	timer = count2
 	timer = timer / count_rate
-	print *,"TIME TO SOLUTION (WALL) = ",timer
+	print *,"TIME TO SOLUTION (WALL) = ",timer,my_id
 
 	call cpu_time(time2)
-	print *,"TIME TO SOLUTION (CPU)  = ",time2-time1
+	print *,"TIME TO SOLUTION (CPU)  = ",time2-time1,my_id
+	print *,"TIME TO SOLUTION PARALLEL REGION (CPU) = "
+     +				,time2-time3,my_id
+
+        mpi_t_end = shympi_wtime()
+        write(6,*)'MPI_TIME =',mpi_t_end-mpi_t_start,my_id
+        write(6,*)'Parallel_TIME =',mpi_t_end-parallel_start,my_id
 
         !call ht_finished
 
 	!call pripar(15)
 	!call prifnm(15)
 
+	!call shympi_finalize
+	call shympi_exit(99)
 	call exit(99)
 
         end
@@ -464,14 +493,14 @@ c*****************************************************************
 
 c*****************************************************************
 
-        subroutine shyfem_init(strfile,bdebug,bdebout)
+        subroutine shyfem_init(strfile,bdebug,bdebout,bmpirun)
 
         use clo
 
         implicit none
 
         character*(*) strfile
-        logical bdebug,bdebout
+        logical bdebug,bdebout,bmpirun
 
         character*80 version
 
@@ -485,11 +514,14 @@ c*****************************************************************
         call clo_add_option('debug',.false.,'enable debugging')
         call clo_add_option('debout',.false.
      +			,'writes debugging information to file')
+        call clo_add_option('mpi',.false.
+     +			,'runs in MPI mode (experimental)')
 
         call clo_parse_options
 
         call clo_get_option('debug',bdebug)
         call clo_get_option('debout',bdebout)
+        call clo_get_option('mpi',bmpirun)
 
         call clo_check_files(1)
         call clo_get_file(1,strfile)
@@ -551,6 +583,7 @@ c*****************************************************************
 
 	use mod_conz
 	use mod_waves
+	use mod_sediment
 	use mod_turbulence
 	use mod_sinking
 	!use mod_fluidmud
@@ -598,6 +631,7 @@ c*****************************************************************
 	call mod_sinking_init(nkn,nlvddi)
 	call mod_turbulence_init(nkn,nlvddi)
 	call mod_waves_init(nkn,nel,nlvddi)
+	call mod_sedim_init(nkn,nlvddi)
 
 	write(6,*) '3D arrays allocated: ',nkn,nel,ngr,nlvddi
 
@@ -661,10 +695,24 @@ c*****************************************************************
 	end subroutine
 
 c*****************************************************************
+
+	subroutine print_file_usage
+
+	use intp_fem_file
+
+	implicit none
+
+	call useunit(200)
+	call iff_print_info(0)
+	write(6,*) '--------------------------------'
+
+	end
+
+c*****************************************************************
 c*****************************************************************
 c*****************************************************************
 
-	subroutine debug_output(it)
+	subroutine debug_output(dtime)
 
 	use mod_meteo
 	use mod_waves
@@ -682,9 +730,9 @@ c*****************************************************************
 
 	implicit none
 
-	integer it
+	double precision dtime
 
-	write(66) it
+	write(66) dtime
 
 	call debug_output_record(3*nel,3,hm3v,'hm3v')
 	call debug_output_record(nkn,1,xgv,'xgv')
@@ -826,6 +874,59 @@ c*****************************************************************
 	write(6,*) 'zov: ',size(zov),minval(zov),maxval(zov)
 	write(6,*) '========= end of check_point ========='
 
+	end
+
+c*****************************************************************
+
+	subroutine test_shympi_arrays
+
+! tests mpi exchange of arrays - can be deleted in some while
+
+	use basin
+	use shympi
+
+	implicit none
+
+	integer, allocatable :: local(:)
+	integer, allocatable :: global(:)
+	integer, allocatable :: i3(:,:)
+
+	integer k,ie,ii
+
+	return
+
+	call shympi_barrier
+	call shympi_syncronize
+
+	allocate(local(nkn))
+	allocate(global(nkn_global))
+
+	local = 3 + my_id
+
+        call shympi_exchange_array(local,global)
+
+	!if( my_id == 0 ) then
+	write(6,*) 'global: ',my_id,nkn,nkn_global
+	write(6,*) global
+	!end if
+	write(6,*) 'local is: ',local(1)
+
+        allocate(i3(3,nel_global))
+        call shympi_exchange_array(nen3v,i3)
+	!write(6,*) 'global nen3v: ',my_id,nel,nel_global,i3,' -----'
+
+	write(6,*) 'checking nen3v: ',my_id,nkn_global
+	do ie=1,nel
+	  do ii=1,3
+	    k = i3(ii,ie)
+	    if( k < 1 .or. k > nkn_global ) then
+	      write(6,*) 'nen3v error: ',my_id,k,ie,ii
+	    end if
+	  end do
+	end do
+
+	call shympi_stop('finish')
+ 
 	end
 
 c*****************************************************************

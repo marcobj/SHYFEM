@@ -82,116 +82,26 @@ c local
 	end
 
 c*************************************************************
+c*************************************************************
+c*************************************************************
 
-	subroutine conbnd(nlvddi,c,rbc)
+	subroutine scalar_output_init(da_out,nl,nvar,type,ierr)
 
-c implements boundary condition (simplicistic version)
-
-	use levels
-	use basin, only : nkn,nel,ngr,mbw
+! opens scalar file for write - da_out already set, return ierr
+!
+! ierr: 0=ok  -1=no output  1=error
 
 	implicit none
 
-c arguments
-	integer nlvddi		!vertical dimension of c
-	real c(nlvddi,nkn)	!concentration (cconz,salt,temp,...)
-	real rbc(nkn)		!boundary condition
-c common
-	include 'mkonst.h'
-c local
-	integer k,l,lmax
-	real rb
-
-	do k=1,nkn
-	  if( rbc(k) .ne. flag ) then
-	    rb = rbc(k)
-	    lmax=ilhkv(k)
-	    !write(6,*) 'conbnd: ',k,lmax,rb
-	    do l=1,lmax
-		c(l,k) = rb
-	    end do
-	  end if
-	end do
-
-	end
-
-c*************************************************************
-
-	subroutine con3bnd(nlvddi,c,nlvbnd,rbc)
-
-c implements boundary condition (simplicistic 3D version)
-
-	use mod_bound_dynamic
-	use levels
-	use basin, only : nkn,nel,ngr,mbw
-
-	implicit none
-
-c arguments
-	integer nlvddi		!vertical dimension of c
-	real c(nlvddi,nkn)	!concentration (cconz,salt,temp,...)
-	integer nlvbnd		!vertical dimension of boundary conditions
-	real rbc(nlvbnd,nkn)	!boundary condition
-c common
-	include 'mkonst.h'
-c local
-	integer k,l,lmax
-	real rb
-        integer ipext
-
-	if( nlvbnd .ne. 1 .and. nlvbnd .ne. nlvddi ) then
-	  write(6,*) 'nlvddi,nlvbnd: ',nlvddi,nlvbnd
-	  stop 'error stop con3bnd: impossible nlvbnd'
-	end if
-	if( nlvbnd .ne. nlvddi ) then
-	  write(6,*) 'nlvddi,nlvbnd: ',nlvddi,nlvbnd
-	  stop 'error stop con3bnd: only 3D boundary conditions'
-	end if
-
-	do k=1,nkn
-	 if( rzv(k) .ne. flag ) then    !only level BC  !LEVELBC !DEBHELP
-	  if( rbc(1,k) .ne. flag ) then
-	    lmax=ilhkv(k)
-            !write(94,*) 'con3bnd: ',k,ipext(k),lmax,nlvbnd,rbc(1,k)
-	    if( nlvbnd .eq. 1 ) then
-	      rb = rbc(1,k)
-	      do l=1,lmax
-		c(l,k) = rb
-	      end do
-	    else
-	      do l=1,lmax
-		c(l,k) = rbc(l,k)
-	      end do
-	    end if
-	  end if
-	 end if
-	end do
-
-	end
-
-c*************************************************************
-c*************************************************************
-c*************************************************************
-
-	subroutine scalar_output_open(itm,idt,nl,nvar,type,da_out,ierr)
-
-! opens scalar file for write
-
-	implicit none
-
-	integer itm			!time of first write		       
-	integer idt			!time intervall of writes	      
+	double precision da_out(4)	!info on output frequency (already set)
 	integer nl			!vertical dimension of scalar        
 	integer nvar			!total number of variables to write 
 	character*(*) type		!type of file (extension)
-	double precision da_out(4)	!info on output frequency (return)
 	integer ierr			!error code (return)
 
 	logical b2d
 	integer id
 	logical has_output_d
-
-        call init_output_i(itm,idt,da_out)
 
 	ierr = -1			!no output
 
@@ -202,6 +112,33 @@ c*************************************************************
 	  ierr = 0			!success
 	  if( id <= 0 ) ierr = 1	!error
         end if
+
+	end
+
+c*************************************************************
+
+	subroutine scalar_output_open(dtanf,ddt,nl,nvar,type,da_out,ierr)
+
+! opens scalar file for write - returns da_out and ierr
+!
+! ierr: 0=ok  -1=no output  1=error
+
+	implicit none
+
+	double precision dtanf		!time of first write		       
+	double precision ddt		!time intervall of writes	      
+	integer nl			!vertical dimension of scalar        
+	integer nvar			!total number of variables to write 
+	character*(*) type		!type of file (extension)
+	double precision da_out(4)	!info on output frequency (return)
+	integer ierr			!error code (return)
+
+	logical b2d
+	integer id
+	logical has_output_d
+
+	call set_output_frequency_d(dtanf,ddt,da_out)
+	call scalar_output_init(da_out,nl,nvar,type,ierr)
 
 	end
 
@@ -246,27 +183,24 @@ c shell for writing file unconditionally to disk
 	integer nlvddi		!vertical dimension of c
 	real val(nlvddi,*)	!concentration to write
 
-	include 'femtime.h'
-
-        integer itm,iddt
         integer id,ierr
-	double precision dtime
+	double precision dtime,dtime0,ddt
 
-        itm = itanf
-	iddt = 1		!this fakes write at this time step
-	dtime = t_act
+	ddt = 1.		!this fakes write at this time step
+	call get_first_dtime(dtime0)
+	call get_act_dtime(dtime)
 
 	id = nint(da_out(4))
         if( id .eq. 0 ) then
-	  call scalar_output_open(itm,iddt,nlvddi,nvar,type,da_out,ierr)
+	  call scalar_output_open(dtime0,ddt,nlvddi,nvar,type,da_out,ierr)
 	  if( ierr > 0 ) then
 	    write(6,*) 'error opening file: ',trim(type)
 	    stop 'error stop : error opening file'
 	  end if
-	  id = nint(da_out(4))
+          id = nint(da_out(4))
         end if
 
-	call scalar_output_write(dtime,da_out,ivar,nlvddi,val)
+        call shy_write_scalar_record(id,dtime,ivar,nlvddi,val)
 
 	end
 
@@ -294,12 +228,12 @@ c on return iu = -1 means that no file has been opened and is not written
 	character*(*) type	!extension of file		       (in)
 
 	include 'simul.h'
-	include 'femtime.h'
 
 	integer nvers
 	integer date,time
 	integer ierr
 	integer itcon
+	double precision dtime
 	!character*80 dir,nam,file
 	character*80 title,femver
 
@@ -350,7 +284,8 @@ c-----------------------------------------------------
 c write informational message to terminal
 c-----------------------------------------------------
 
-        write(6,*) 'confop: ',type,' file opened ',it
+	call get_act_dtime(dtime)
+        write(6,*) 'confop: ',type,' file opened ',dtime
 
 c-----------------------------------------------------
 c end of routine

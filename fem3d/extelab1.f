@@ -36,9 +36,6 @@ c elaborates nos file
 
 	implicit none
 
-	integer, parameter :: niu = 6
-	integer, parameter :: mm = 6
-
 	integer, allocatable :: knaus(:)
 	integer, allocatable :: il(:)
 	real, allocatable :: hdep(:)
@@ -46,6 +43,7 @@ c elaborates nos file
 	real, allocatable :: y(:)
 	real, allocatable :: hl(:)
 	character*80, allocatable :: strings(:)
+	integer, allocatable :: ivars(:)
 	real, allocatable :: xv(:,:)
 	real, allocatable :: vals(:,:,:)
 	real, allocatable :: val(:,:)
@@ -68,7 +66,7 @@ c elaborates nos file
 	integer ip,nb,naccum
 	integer knausm
 	integer date,time
-	character*80 title,name,file,femver,format
+	character*80 title,name,file,femver,format,range
 	character*20 dline
 	character*80 basnam,simnam
 	real rnull
@@ -79,15 +77,16 @@ c elaborates nos file
 	double precision atime,atfirst,atlast,atold,atnew,atwrite,atime0
 	character*10 :: short
 	character*40 :: full
+	integer, parameter :: niu = 6
 	character*5 :: what(niu) = (/'velx ','vely ','zeta '
      +				,'speed','dir  ','all  '/)
-	character*23 :: descrp(niu) = (/
-     +		 'velocity in x-direction'
-     +		,'velocity in y-direction'
-     +		,'water level            '
-     +		,'current speed          '
-     +		,'current direction      '
-     +		,'all variables          '
+	character*26 :: descrp(niu) = (/
+     +		 'velocity in x-direction   '
+     +		,'velocity in y-direction   '
+     +		,'water level               '
+     +		,'current speed             '
+     +		,'current direction         '
+     +		,'all hydrodynamic variables'
      +			/)
 
 	integer iapini,ifileo
@@ -143,7 +142,9 @@ c--------------------------------------------------------------
 	allocate(vv(knausm))
 	allocate(speed(knausm))
 	allocate(dir(knausm))
+	allocate(ivars(nvar))
 	femver = ' '
+	ivars = 0
 
 	call ext_read_header2(nin,nvers,knausm,lmax
      +                          ,atime0
@@ -196,6 +197,7 @@ c--------------------------------------------------------------
      +				,ierr)
 	    if( ierr /= 0 ) goto 91
 	    if( ivar == 0 ) ivar = 1
+	    ivars(iv) = ivar
 	    call strings_get_short_name(ivar,short)
 	    call strings_get_full_name(ivar,full)
 	    write(6,'(i3,i5,a,a,a)') iv,ivar,'  ',short,full
@@ -331,6 +333,8 @@ c--------------------------------------------------------------
 	    if( ivar == 1 ) then	!this is always the first record
 	      iv = 1
 	      call split_var0d(atime,knausm,nvar,what,zeta,uu,vv)
+	    else if( ivar == 230 ) then
+              call split_var_wave(atime,knausm,lmax,nvar,ivar,iv,vals)
 	    else
 	      iv = iv + 1
 	      if( lmax > 1 ) then
@@ -402,21 +406,20 @@ c--------------------------------------------------------------
 	  write(6,*) 'output written to following files: '
 	  write(6,*) '  what.dim.node'
 	  write(6,*) 'what is one of the following:'
-	  do i=1,niu
-	      write(6,*) '  ',what(i)//'  '//descrp(i)
-	  end do
+	  call write_special_vars(niu,what,descrp)	!write hydro variables
+	  call write_vars(nvar-2,ivars(3:))		!write rest of variables
 	  write(6,*) 'dim is 2d or 3d'
 	  write(6,*) '  2d for depth averaged variables'
 	  write(6,*) '  3d for output at each layer'
-	  write(format,'(i5)') knausm
-	  format = adjustl(format)
-	  write(6,1123) ' node is consecutive node numbering: 1-'//format
+	  call compute_range(knausm,range)
+	  write(6,1123) ' node is consecutive node numbering: '
+     +					,trim(range)
 	 else if( boutput ) then
 	  write(6,*) 'output written to file out.ext'
 	 end if
 	end if
 
- 1123	format(a,i4)
+ 1123	format(a,a)
 
 	!if( .not. bquiet ) then
 	! call ap_get_names(basnam,simnam)
@@ -583,7 +586,6 @@ c***************************************************************
 	  call ivar2filename(ivar,filename)
 	  do j=1,knausm
 	    call make_iunit_name(filename,'','2d',j,iu)
-	    !write(6,*) 'opening file: ',j,iv,ivar,iu,trim(filename)
 	    iusplit(j,iv) = iu
 	  end do
 	end if
@@ -602,6 +604,54 @@ c***************************************************************
 	  write(6,*) 'no multi-variable only for 2d'
 	  stop 'error stop split_var2d: no multi-variable'
 	end if
+
+	end
+
+c***************************************************************
+
+        subroutine split_var_wave(atime,knausm,lmax,nvar,ivar,iv,vals)
+
+! to be integrated into split_var2d
+
+	use shyfem_strings
+
+        implicit none
+
+        double precision atime
+        integer knausm,lmax,nvar,ivar,iv
+        integer il(knausm)
+        real vals(lmax,knausm,3)
+
+	integer j,ii,iu,it
+	integer l,lm
+        character*80 name,format
+        character*20 filename
+        character*20 dline
+	character*10 short
+	integer, save :: icall = 0
+	integer, save, allocatable :: iusplit(:)
+
+	if( icall == 0 ) then
+	  allocate(iusplit(knausm))
+	  iusplit = 0
+	end if
+
+	if( iusplit(1) == 0 ) then
+	  call ivar2filename(ivar,filename)
+	  do j=1,knausm
+	    call make_iunit_name(filename,'','2d',j,iu)
+	    iusplit(j) = iu
+	  end do
+	end if
+
+	icall = icall + 1
+
+	call dts_format_abs_time(atime,dline)
+
+	do j=1,knausm
+	  iu = iusplit(j)
+	  write(iu,*) dline,vals(1,j,1),vals(1,j,2),vals(1,j,3)
+	end do
 
 	end
 

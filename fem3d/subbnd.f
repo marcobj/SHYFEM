@@ -83,6 +83,7 @@ c 25.06.2014    ggu	new routine exists_bnd_name()
 c 29.10.2014    ccf	include vel3dn boundary file
 c 03.11.2014    ggu	nbdim deleted
 c 23.06.2015    ggu	setbc() deleted, nrz,nrq eliminated
+c 14.01.2016    ggu	check of boundaries considers mpi subdomains
 c 15.02.2016    ggu	check if boundary is given twice
 c 22.02.2016    ggu	new files bfmbcn integrated
 c 01.04.2016    ggu	restructured - arrays transfered to mod_bnd.f
@@ -488,6 +489,8 @@ cc undocumented
 	call addpar('kref',0.)		!not working...
 c here add dummy variables
 	call addpar('zval',0.)
+	call addpar('kmanf',0.)
+	call addpar('kmend',0.)
 
 !------------------------------------------------------
 ! start reading loop
@@ -572,14 +575,17 @@ c checks boundary information read from STR
 
 	use mod_bnd
 	use mod_bound_geom
+	use shympi
 
 	implicit none
 
 	logical bstop
+	integer istop
 	integer i,k,ibc
 	integer iqual,ibtyp,kranf,krend,ktilt,knode,kref
 	integer levmax,levmin
 	integer intpol
+	integer kmanf,kmend,krtot,kmtot
 	real period
 	real ztilt
 	integer ipint
@@ -627,14 +633,6 @@ c checks boundary information read from STR
 	   bstop=.true.
 	 end if
 
-         call get_bnd_ipar(ibc,'kranf',kranf)
-         call get_bnd_ipar(ibc,'krend',krend)
-	 if( kranf .gt. krend ) then	!$$kranf
-	   write(6,'(a,i2,a)') 'section BOUND ',i,' :'
-	   write(6,*) '   No nodes given for boundary'
-	   bstop=.true.
-	 end if
-
 	 if( ibtyp .gt. 0 ) then
 	   call get_boundary_file(ibc,'zeta',file)
            call get_bnd_par(ibc,'period',period)
@@ -675,19 +673,65 @@ c checks boundary information read from STR
 		bstop=.true.
 	 end if
 
+         call get_bnd_ipar(ibc,'kranf',kranf)
+         call get_bnd_ipar(ibc,'krend',krend)
+	 if( kranf .gt. krend ) then	!$$kranf
+	   write(6,'(a,i2,a)') 'section BOUND ',i,' :'
+	   write(6,*) '   No nodes given for boundary'
+	   bstop=.true.
+	 end if
+
+	 kmanf = 0
+	 kmend = 0
+	 krtot = krend-kranf+1
+
+	 istop = 0
 	 do k=kranf,krend
-	    if( k == 0 ) cycle
-	    knode=ipint(irv(k))		!$$EXTINW
-	    if(knode.le.0) then
-              write(6,'(a,i2,a)') 'Section BOUND ',i,' :'
-              write(6,*) '   boundary node not found ',irv(k)
-              bstop=.true.
-	    end if
-	    irv(k)=knode
+	   if( k == 0 ) cycle
+	   knode=ipint(irv(k))		!$$EXTINW
+	   if(knode.le.0) then
+             if( .not. bmpi ) then
+               write(6,'(a,i2,a)') 'Section BOUND ',i,' :'
+               write(6,*) '   boundary node not found ',irv(k)
+	     end if
+           else if( .not. shympi_is_inner_node(knode) ) then
+             !knode = 0		!we keep ghost node
+	   end if
+	   if( knode /= 0 ) then
+	     if( kmanf == 0 ) kmanf = k
+	     kmend = k
+	   else
+	     istop = istop + 1
+	   end if
+	   irv(k)=knode
 	 end do
+
+	 kmtot = kmend-kmanf+1
+         call set_bnd_ipar(ibc,'kmanf',kmanf)
+         call set_bnd_ipar(ibc,'kmend',kmend)
+!         write(6,'(a,10i5)') 'boundary: ',my_id,ibc,istop
+!     +			,kranf,krend,kmanf,kmend
+
+         if( istop > 0 ) then
+           write(6,'(a,10i5)') 'boundary: ',my_id,ibc,istop
+     +			,kranf,krend,kmanf,kmend
+           if( shympi_is_parallel() ) then
+             if( istop == krtot ) then
+               write(6,*) 'boundary completely in one domain... ok'
+               call set_bnd_ipar(ibc,'ibtyp',0)
+             else if( istop == krtot-kmtot ) then
+               write(6,*) 'boundary in more than one domain... ok'
+             else
+	       stop 'error stop ckbnds: internal error'
+             end if
+           else
+	     stop 'error stop ckbnds: no MPI and missing nodes'
+           end if
+         end if
 
 	end do
 
+	!call shympi_exit(0)
 	if( bstop ) stop 'error stop: ckbnds'
 
 	end
@@ -924,6 +968,25 @@ c returns index of first and last boundary node of boundary ibc
 
 c********************************************************************
 
+	subroutine kmanfend(ibc,kmanf,kmend)
+
+c returns index of first and last boundary node of boundary ibc
+c mpi version
+
+	implicit none
+
+	integer ibc
+        integer kmanf,kmend
+
+        call chkibc(ibc,'kmanfend:')
+
+        call get_bnd_ipar(ibc,'kmanf',kmanf)
+        call get_bnd_ipar(ibc,'kmend',kmend)
+
+	end
+
+c********************************************************************
+
 	function kbndind(ibc,i)
 
 c returns global index of i th node of boundary ibc
@@ -1102,12 +1165,12 @@ c********************************************************************
 
 c********************************************************************
 
-	subroutine get_oscil(ibc,rit,zvalue)
+	subroutine get_oscil(ibc,dtime,zvalue)
 
 	implicit none
 
 	integer ibc
-	real rit
+	double precision dtime
 	real zvalue
 
         real pi
@@ -1117,7 +1180,7 @@ c********************************************************************
 
 	call ksinget(ibc,ampli,period,phase,zref)
 
-        zvalue = zref+ampli*sin(2.*pi*(rit+phase)/period)
+        zvalue = zref+ampli*sin(2.*pi*(dtime+phase)/period)
 
 	end
 

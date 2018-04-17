@@ -462,6 +462,11 @@ c
         if(itot.gt.0) then    !node is drying, set next z to above values
 	  isum=-2
           i6=i6+1
+	  if( az == 0. ) then
+	    write(6,*) 'drying with az=0 not possible'
+	    write(6,*) 'for explicit runs you may use az=1 and am=0'
+	    stop 'error stop setuvd: az=0'
+	  end if
 c						!$$azpar
           d1 = (z(1)-zn(1))*adt
      +          - azt*( b(1)*uo + c(1)*vo )
@@ -574,6 +579,7 @@ c sets array znv from zenv
 	use mod_hydro
 	use evgeom
 	use basin
+	use shympi
 
         implicit none
 
@@ -626,11 +632,19 @@ c-------------------------------------------------------------
 c compute znv for dry areas
 c-------------------------------------------------------------
 
+        !call shympi_comment('shympi_elem: exchange v1v, v2v')
+        call shympi_exchange_and_sum_2d_nodes(v1v)
+        call shympi_exchange_and_sum_2d_nodes(v2v)
+
 	do k=1,nkn
 	  if( znv(k) .eq. flag ) then		!out of system
 	    znv(k) = v1v(k) / v2v(k)
 	  end if
 	end do
+
+	!call shympi_comment('exchanging znv in setznv ')
+	call shympi_exchange_2d_node(znv)
+	!call shympi_barrier
 
 c-------------------------------------------------------------
 c write debug status

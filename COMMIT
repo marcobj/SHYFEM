@@ -1,5 +1,1271 @@
 ============================================================
 
+Sun Apr 15 18:56:06 CEST 2018
+
+wrt prepared for mpi
+
+ fem3d/Makefile                   |  10 +-
+ fem3d/mod_shympi_dummy.f         |  85 +++++++++++++---
+ fem3d/mod_shympi_node.f          | 103 +++++++++++++++++++-
+ fem3d/mod_shympi_node_internal.f |  27 ++++++
+ fem3d/subwrt.f                   | 205 ++++++++++++++++++++-------------------
+ 5 files changed, 314 insertions(+), 116 deletions(-)
+
+============================================================
+
+Fri Apr 13 18:33:39 CEST 2018
+
+time splitting with gravity wave and mpi
+
+ fem3d/basutil.f                  |   7 +-
+ fem3d/basutil_custom.f           | 145 ++++++++----------
+ fem3d/mod_shympi_dummy.f         |  43 ++++--
+ fem3d/mod_shympi_node.f          |  52 +++++--
+ fem3d/mod_shympi_node_internal.f |  57 +++++++-
+ fem3d/newcon.f                   |   6 +-
+ fem3d/newstab.f                  | 308 +++++++++++++++++----------------------
+ fem3d/shybas.f                   |   8 +-
+ fem3d/shyfem.f                   |   3 -
+ fem3d/subdry.f                   |   1 +
+ fem3d/subtime.f                  |  26 ++++
+ 11 files changed, 357 insertions(+), 299 deletions(-)
+
+============================================================
+
+Thu Apr 12 18:52:18 CEST 2018
+
+small stuff (femrun)
+
+ fem3d/Makefile         |   2 +-
+ fem3d/basutil_custom.f | 160 +++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/shybas.f         |   2 +
+ fembin/fembat          |  26 +++++---
+ fembin/femrun          |  11 +++-
+ 5 files changed, 192 insertions(+), 9 deletions(-)
+ new file:
+   fem3d/basutil_custom.f
+
+============================================================
+
+Thu Apr 12 16:33:01 CEST 2018
+
+boundary conditions for mpi implemented
+
+ fem3d/mod_bnd.f    |  4 ++--
+ fem3d/new3di.f     | 14 ++------------
+ fem3d/newchk.f     |  4 ++--
+ fem3d/subbnd.f     | 44 +++++++++++++++++++++++++++++++++++++++-----
+ fem3d/subbndo.f    | 23 ++++++++++++++++-------
+ fem3d/subbnds.f    | 38 +-------------------------------------
+ fem3d/subfemintp.f | 12 +++++++-----
+ fem3d/sublnkd.f    |  4 +++-
+ fem3d/subn11.f     | 29 +++++++++++++++++------------
+ fem3d/subshyutil.f |  3 +++
+ femplot/supcol.f   |  4 ++--
+ 11 files changed, 94 insertions(+), 85 deletions(-)
+
+============================================================
+
+Thu Apr 12 10:26:21 CEST 2018
+
+more bug fixes - hydro now working
+
+ Rules.make                       |   4 +-
+ fem3d/Makefile                   |  22 ++++++--
+ fem3d/mod_shympi_dummy.f         | 114 +++++++++++++++++++++++++++++++-------
+ fem3d/mod_shympi_node.f          | 116 ++++++++++++++++++++++++++++++++++-----
+ fem3d/mod_shympi_node_internal.f |  76 ++++++++++++++++++++-----
+ fem3d/subbnd.f                   |  25 ++++++---
+ fem3d/subexta.f                  |  75 +++++++++----------------
+ femcheck/Rules.dist              |   4 +-
+ femplot/Makefile                 |  11 +++-
+ femplot/supmpi.f                 |   7 ++-
+ 10 files changed, 338 insertions(+), 116 deletions(-)
+
+============================================================
+
+Wed Apr 11 16:39:44 CEST 2018
+
+hydro.shy file now working with mpi
+
+ Makefile                         |  12 ++--
+ fem3d/mod_shympi_dummy.f         |  79 +++++++++++-----------
+ fem3d/mod_shympi_node.f          |  97 +++++++++++++++++----------
+ fem3d/mod_shympi_node_internal.f |  53 +++++----------
+ fem3d/subexta.f                  |   7 +-
+ fem3d/submpi_assert.f            |   7 +-
+ fem3d/submpi_basin.f             |  10 +--
+ fem3d/subnev.f                   |   2 +-
+ fem3d/subousa.f                  |   8 +--
+ fem3d/subshy.f                   |   3 +-
+ fem3d/subshyutil.f               | 137 +++++++++++++++++++++++++++++++--------
+ 11 files changed, 258 insertions(+), 157 deletions(-)
+
+============================================================
+
+Wed Apr 11 10:51:39 CEST 2018
+
+mpi version also compiles without mpi
+
+ fem3d/mod_shympi_dummy.f | 350 +++++++++++++++++++++++++++++++++++------------
+ fem3d/mod_shympi_node.f  |   6 +-
+ fem3d/subshyutil.f       |  48 +++++--
+ 3 files changed, 300 insertions(+), 104 deletions(-)
+
+============================================================
+
+Tue Apr 10 18:20:51 CEST 2018
+
+mpi with writing shy files ok
+
+ fem3d/mod_shympi_node.f          | 152 +++++++++++++++++++++++++------
+ fem3d/mod_shympi_node_internal.f | 190 ++++++++++++++++++++++++++++++++++++---
+ fem3d/newbcl.f                   |   4 +-
+ fem3d/newcon.f                   |   4 +-
+ fem3d/shyfem.f                   |  29 +++++-
+ fem3d/subbnds.f                  |   1 +
+ fem3d/subcus.f                   |   5 +-
+ fem3d/subnev.f                   |   7 +-
+ fem3d/subnsa.f                   |   2 +-
+ fem3d/subscn.f                   |  17 ++--
+ fem3d/subshy.f                   |  58 ++++++++----
+ fem3d/subshyutil.f               | 106 ++++++++++++++++++----
+ fembin/gitgui.sh                 |  59 ++++++++++++
+ femplot/Makefile                 |   2 +-
+ femplot/shyplot.f                |   4 +-
+ femplot/supbas.f                 |   4 +-
+ femplot/supmpi.f                 |  22 +++--
+ 17 files changed, 563 insertions(+), 103 deletions(-)
+ new file:
+   fembin/gitgui.sh
+
+============================================================
+
+Fri Apr  6 18:24:39 CEST 2018
+
+started shyfem output for mpi
+
+ fem3d/mod_shympi_node.f          | 177 +++++++++++++++++++++++++++++++++++-
+ fem3d/mod_shympi_node_internal.f | 189 +++++++++++++++++++++++++++++++++++++++
+ fem3d/shyfem.f                   |  35 +++++++-
+ fem3d/shypre.f                   |  46 ++++++----
+ fem3d/subcst.f                   |   7 ++
+ fem3d/subdep.f                   |   9 +-
+ fem3d/subdry.f                   |   4 +
+ fem3d/subexta.f                  | 163 +++++++++++++++++++++------------
+ fem3d/submpi_basin.f             |  35 ++++++--
+ fem3d/submpi_custom.f            |   4 +-
+ fem3d/subshy.f                   |   2 +
+ fem3d/subshyutil.f               |  47 ++++++++--
+ 12 files changed, 623 insertions(+), 95 deletions(-)
+
+============================================================
+
+Wed Apr  4 18:45:13 CEST 2018
+
+started working on mpi again - running
+
+ fem3d/basutil.f                  |   4 +
+ fem3d/links.f                    |  12 ++
+ fem3d/mod_shympi_dummy.f         |  11 ++
+ fem3d/mod_shympi_node.f          |  51 +++++---
+ fem3d/mod_shympi_node_internal.f |   3 +-
+ fem3d/newini.f                   |  25 ++--
+ fem3d/shybas.f                   | 246 ++++++++++++++++++++++++++++++++++-----
+ fem3d/shyfem.f                   |   6 +-
+ fem3d/subbnd.f                   |  20 ++--
+ fem3d/subcst.f                   |   2 +-
+ fem3d/subcus.f                   | 102 +++++++++++-----
+ fem3d/subexta.f                  |  83 +++++++++----
+ fem3d/submpi_basin.f             |  18 ++-
+ fem3d/subn11.f                   |  38 +++---
+ fem3d/subnsh.f                   |   8 +-
+ fem3d/subsys.f                   |   2 +-
+ fem3d/subtime.f                  |  30 ++---
+ fem3d/subuti.f                   |   1 -
+ fembin/mail_shyfem.sh            |   9 ++
+ femplot/shyplot.f                |   4 +-
+ 20 files changed, 506 insertions(+), 169 deletions(-)
+
+============================================================
+
+Tue Apr  3 13:49:41 CEST 2018
+
+New version 7_5_44
+
+
+============================================================
+
+Tue Apr  3 13:48:53 CEST 2018
+
+new release notes
+
+ RELEASE_NOTES | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+============================================================
+
+Tue Apr  3 13:47:38 CEST 2018
+
+new version with small bug fix
+
+
+============================================================
+
+Tue Apr  3 13:04:06 CEST 2018
+
+commit from nemnuas server integrated
+
+ COMMIT             | 13 ++++++++++++-
+ VERSION            |  2 ++
+ fem3d/newcon.f     | 33 +++++++++------------------------
+ fem3d/subfemfile.f |  2 ++
+ fem3d/subfemintp.f |  5 +++--
+ fem3d/subtime.f    |  2 ++
+ 6 files changed, 30 insertions(+), 27 deletions(-)
+
+============================================================
+
+Tue Apr  3 12:59:49 CEST 2018
+
+New version 7_5_43
+
+============================================================
+
+Tue Apr  3 12:58:54 CEST 2018
+
+final for new time management
+
+ LOG                     |  22 ++++++++++++++++++++++
+ RELEASE_NOTES           |   7 +++++++
+ Rules.make              |  14 +++-----------
+ fem3d/Makefile          |  49 ++++++++++++++++++++++--------------------------
+ fem3d/atoxi3d.f         |   4 ++--
+ fem3d/flxelab1.f        |  30 ++++++++++++++++-------------
+ fem3d/new3di.f          |  26 ++++++++-----------------
+ fem3d/submud.f          |   4 ++--
+ fem3d/subver.f          |   7 ++++---
+ femadj/Makefile         |   1 +
+ femcheck/Rules.dist     |  14 +++-----------
+ femdoc/final/shyfem.pdf | Bin 293472 -> 293477 bytes
+ 12 files changed, 91 insertions(+), 87 deletions(-)
+
+============================================================
+
+Tue Apr  3 12:40:31 EEST 2018
+
+final time management
+
+ fem3d/newcon.f     |   33 +++++++++------------------------
+ fem3d/subfemfile.f |    2 ++
+ fem3d/subfemintp.f |    5 +++--
+ fem3d/subtime.f    |    2 ++
+ 4 files changed, 16 insertions(+), 26 deletions(-)
+
+============================================================
+
+Tue Apr  3 10:00:11 CEST 2018
+
+forgotten file
+
+ fembin/gitcommit | 1 +
+ 1 file changed, 1 insertion(+)
+
+============================================================
+
+Tue Apr  3 09:56:40 CEST 2018
+
+more on time management
+
+ fem3d/aquabc_II_fem_interface.f |   4 +-
+ fem3d/atoxi3d.f                 |  14 ++---
+ fem3d/bio3d.f                   |   7 +--
+ fem3d/bio3d_util.f              |  49 +++++++++--------
+ fem3d/ecological_dummy.f        |   9 +---
+ fem3d/mercury.f                 |  34 ++----------
+ fem3d/mod_conz.f                |   1 -
+ fem3d/newbcl.f                  |   2 -
+ fem3d/newbfm.f                  |   1 -
+ fem3d/shyfem.f                  |  59 ++++++++++++--------
+ fem3d/subbfm.f                  |  11 ++--
+ fem3d/subboxa.f                 |  20 +++----
+ fem3d/subcon1.f                 | 116 +++++++++-------------------------------
+ fem3d/subcus.f                  | 102 ++++++++++++-----------------------
+ fem3d/subdif.f                  |   4 --
+ fem3d/subdts.f                  |  74 ++++++++++++++++++++++++-
+ fem3d/submet.f                  |  27 ++--------
+ fem3d/submeteo2.f               |   4 --
+ fem3d/submud.f                  |  14 +++--
+ fem3d/submud_dummy.f            |   5 +-
+ fem3d/subn11.f                  |  44 +++++++--------
+ fem3d/subousa.f                 |   3 --
+ fem3d/suboutputd.f              |   2 +-
+ fem3d/subqfxt.f                 |  22 ++++----
+ fem3d/subres.f                  |   7 ---
+ fem3d/subssed.f                 |   8 ++-
+ fem3d/subwaves.f                |   6 +--
+ 27 files changed, 281 insertions(+), 368 deletions(-)
+
+============================================================
+
+Thu Mar 29 18:31:03 CEST 2018
+
+generic flux handling
+
+ fem3d/bio3d.f    |  35 +++++-----
+ fem3d/flxelab1.f |  17 +++--
+ fem3d/subexta.f  |  13 +---
+ fem3d/subflxa.f  | 204 ++++++++++++++++++++++++++++++-------------------------
+ fem3d/subflxa.h  |  15 ----
+ fem3d/subflxu.f  |   2 +-
+ fem3d/subnsh.f   |   4 +-
+ grid/gridhs.c    |  12 +++-
+ 8 files changed, 161 insertions(+), 141 deletions(-)
+ deleted:
+    fem3d/subflxa.h
+
+============================================================
+
+Thu Mar 29 19:25:52 EEST 2018
+
+bug fix for syncronization of time step
+
+ fem3d/new3di.f     |    2 +
+ fem3d/newchk.f     |   10 +--
+ fem3d/newcon.f     |   19 +++---
+ fem3d/newconz.f    |    3 +-
+ fem3d/subbndo.f    |   23 +++---
+ fem3d/subfemintp.f |    2 +-
+ fem3d/submeteo2.f  |    4 +-
+ fem3d/subn11.f     |    3 +
+ fem3d/subsys.f     |   13 +---
+ fem3d/subtime.f    |  191 ++++++++++++++++++++++++++++++++++++++++++++++------
+ fem3d/tselab1.f    |    9 ++-
+ fembin/gp          |    1 +
+ fembin/gtrans.sh   |   61 +++++++++++++++++
+ fembin/xrange.pl   |    2 +-
+ femplot/supout.f   |    2 +-
+ 15 files changed, 281 insertions(+), 64 deletions(-)
+ new file:
+   fembin/gtrans.sh
+
+============================================================
+
+Mon Mar 26 15:45:00 CEST 2018
+
+new work on optimal interpolation
+
+ fem3d/Makefile     |   2 +-
+ fem3d/elab_check.f |   2 +
+ fem3d/femelab1.f   |  38 +++--
+ fem3d/optintp.f    | 450 +++++++++++++++++++++++++++++++++++++++++++++--------
+ fem3d/suboi.f      |  56 +++----
+ 5 files changed, 432 insertions(+), 116 deletions(-)
+
+============================================================
+
+Thu Mar  8 13:37:15 CET 2018
+
+tselab changed
+
+ fem3d/tselab1.f   |  12 +-
+ fembin/average    | 388 -----------------------------------------------------
+ fembin/average.pl | 392 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 399 insertions(+), 393 deletions(-)
+ renamed:
+    fembin/average -> fembin/average.pl
+
+============================================================
+
+Mon Mar  5 16:34:26 CET 2018
+
+bug fixes for last commit
+
+ fem3d/newbcl.f     |  4 ++--
+ fem3d/subnsh.f     |  2 +-
+ fem3d/subvola.f    |  4 ++--
+ fem3d/subwrt.f     |  2 +-
+ fembin/extimate.sh | 13 +++++++++----
+ fembin/gp          | 10 +++++++++-
+ 6 files changed, 24 insertions(+), 11 deletions(-)
+
+============================================================
+
+Mon Mar  5 11:04:59 CET 2018
+
+still converting integer times
+
+ fem3d/Makefile                               |   2 +-
+ fem3d/flxelab1.f                             |  25 +++
+ fem3d/new3di.f                               |   1 -
+ fem3d/newbfm.f                               |  40 +---
+ fem3d/newfix.f                               |  19 +-
+ fem3d/shyelab1.f                             |   5 +-
+ fem3d/shyfem.f                               |   2 +-
+ fem3d/subboxa.f                              |  47 +++--
+ fem3d/subcon1.f                              |  26 ++-
+ fem3d/subcus.f                               |  12 +-
+ fem3d/subdts.f                               |  26 ++-
+ fem3d/subflx.f                               | 100 +++++++++-
+ fem3d/subnsh.f                               |  32 ++--
+ fem3d/subousa.f                              |  57 +-----
+ fem3d/subouta.f                              |  95 ----------
+ fem3d/suboutputd.f                           |  25 +--
+ fem3d/subres.f                               | 169 +++++++----------
+ fem3d/substrings.f                           |   5 +-
+ fem3d/subtidef.f                             |  38 +++-
+ fem3d/subtime.f                              |  19 ++
+ fem3d/subvola.f                              |   7 +-
+ fem3d/subwrt.f                               | 263 ++++++++++++---------------
+ fembin/gitdiff                               |  12 +-
+ fembin/gitinfo                               |   2 +-
+ femersem/src/BFM/General/ModuleConstants.f90 |   2 +-
+ 25 files changed, 479 insertions(+), 552 deletions(-)
+ deleted:
+    fem3d/subouta.f
+
+============================================================
+
+Fri Mar  2 10:29:17 CET 2018
+
+new ulva routines integrated
+
+ fem3d/Makefile      |   2 +-
+ fem3d/bio3d.f       | 112 ++++++++++++++++-----
+ fem3d/weutro_seed.f |  91 ++++++++++++++++-
+ fem3d/weutro_ulva.f | 276 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/weutro_wdia.f |  23 +++++
+ fembin/average      |  18 +++-
+ 6 files changed, 490 insertions(+), 32 deletions(-)
+ new file:
+   fem3d/weutro_ulva.f
+
+============================================================
+
+Fri Mar  2 00:15:23 CET 2018
+
+more on time conversion
+
+ Makefile            |   16 +-
+ fem3d/Makefile      |   15 +-
+ fem3d/elab_check.f  |   24 +-
+ fem3d/elabutil.f    |   13 +-
+ fem3d/femelab1.f    |   38 +-
+ fem3d/newbcl.f      |  112 ++---
+ fem3d/newconz.f     |   42 +-
+ fem3d/newexpl.f     |    5 +-
+ fem3d/newini.f      |    8 +-
+ fem3d/newnudge.f    |   30 +-
+ fem3d/subboxa.f     |   22 +-
+ fem3d/subcmv.f      |   12 +-
+ fem3d/subfemintp.f  |    3 +-
+ fem3d/subgrd.f      |   16 +-
+ fem3d/submeteo2.f   |    7 +-
+ fem3d/subn11.f      |   15 +-
+ fem3d/subnls.f      |    6 +-
+ fem3d/subscn.f      |  109 +++--
+ fem3d/subssed.f     |    2 +-
+ fem3d/subsss.f      |   22 +-
+ fem3d/substats.f    |   42 ++
+ fem3d/substrings.f  |    2 +
+ fem3d/subtime.f     |   16 +
+ fem3d/subtsfile.f   |   57 ++-
+ fem3d/subtsuvfile.f |   39 +-
+ fem3d/subwaves.f    |   18 +-
+ fem3d/ts2nc.f       |    1 -
+ fem3d/tselab1.f     |   94 ++++-
+ femadj/Makefile     |    3 +-
+ femadj/subfil.f     |  330 +++++++++++----
+ femadj/subscn.f     | 1127 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ femadj/subsss.f     |  888 ++++++++--------------------------------
+ fembin/average      |  119 +++++-
+ fembin/gp           |   24 +-
+ femlib/perl/date.pm |   10 +
+ 35 files changed, 2194 insertions(+), 1093 deletions(-)
+ new file:
+   fem3d/substats.f
+   femadj/subscn.f
+
+============================================================
+
+Fri Feb 23 18:46:15 CET 2018
+
+time converted for climate runs
+
+ Rules.make                      |   2 +-
+ fem3d/aquabc_II_fem_interface.f |  12 ++--
+ fem3d/atoxi3d.f                 |   5 +-
+ fem3d/bio3d.f                   |   3 +-
+ fem3d/elabtime.f                |  17 ++++-
+ fem3d/femtime.h                 |   9 ++-
+ fem3d/lagrange_cont.f           |   2 -
+ fem3d/mercury.f                 |   6 +-
+ fem3d/newbcl.f                  |   4 +-
+ fem3d/newchk.f                  |   2 +-
+ fem3d/newcon.f                  |   2 +-
+ fem3d/newconz.f                 |   8 ---
+ fem3d/newexpl.f                 |  10 +--
+ fem3d/sedi3d.f                  |  46 ++++++-------
+ fem3d/shyfem.f                  |   2 +-
+ fem3d/subbfm.f                  |   4 +-
+ fem3d/subbnd.f                  |   6 +-
+ fem3d/subdts.f                  |  18 ++---
+ fem3d/subfemintp.f              |  14 +++-
+ fem3d/subflx3d.f                |  31 +++++----
+ fem3d/sublnks.f                 |   2 +-
+ fem3d/submeteo2.f               |   6 --
+ fem3d/subn11.f                  |  21 +++---
+ fem3d/subnls.f                  |   1 +
+ fem3d/subnsh.f                  |   5 +-
+ fem3d/suboutputd.f              |  29 +++++---
+ fem3d/subqfxm5.f                |   9 +--
+ fem3d/subsys.f                  |   2 +-
+ fem3d/subtime.f                 | 144 +++++++++++++++++++++++-----------------
+ fem3d/subwaves.f                |   5 +-
+ femcheck/Rules.dist             |   2 +-
+ 31 files changed, 236 insertions(+), 193 deletions(-)
+
+============================================================
+
+Thu Feb 22 17:53:45 CET 2018
+
+New version 7_5_42
+
+
+============================================================
+
+Thu Feb 22 17:53:13 CET 2018
+
+small error before commit
+
+ fem3d/subver.f | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+============================================================
+
+Thu Feb 22 17:51:44 CET 2018
+
+new sediment sinking formulation
+
+ LOG                     |  30 ++++++++++++++++++++++++++++++
+ RELEASE_NOTES           |   8 ++++++++
+ fem3d/Makefile          |   5 +++--
+ fem3d/bio3d.f           |   1 -
+ fem3d/sedi3d.f          |  32 ++++++++++++++++++--------------
+ fem3d/sedtrans05.f      |  29 +++++++++++++++++------------
+ fem3d/subboxa.f         |   1 +
+ fem3d/subver.f          |   7 ++++---
+ femdoc/final/shyfem.pdf | Bin 293474 -> 293472 bytes
+ 9 files changed, 81 insertions(+), 32 deletions(-)
+
+============================================================
+
+Thu Feb 22 18:05:02 EET 2018
+
+time handling for simulations > 60y
+
+ fem3d/subtime.f    |   49 ++++++++++----------
+ fembin/extimate.sh |  126 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 150 insertions(+), 25 deletions(-)
+ new file:
+   fembin/extimate.sh
+
+============================================================
+
+Wed Feb 21 14:16:04 CET 2018
+
+more on post processing
+
+ fem3d/elab_check.f    |  6 +---
+ fem3d/elabutil.f      | 98 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/extelab1.f      | 37 +++++++++----------
+ fem3d/flxelab1.f      | 16 +++------
+ fem3d/shyelab_nodes.f | 54 +++++++++++++---------------
+ fem3d/substrings.f    |  1 +
+ 6 files changed, 148 insertions(+), 64 deletions(-)
+
+============================================================
+
+Mon Feb 19 09:43:50 CET 2018
+
+changes in reading and handling grd files
+
+ fem3d/basutil.f      |   4 ++
+ fem3d/elab_gis.f     |  23 ++++++++--
+ fem3d/shybas.f       |  22 ++++++++-
+ fem3d/subcon1.f      |   5 ++-
+ fem3d/subgrd.f       | 124 +++++++++++++++++++++++++++++++++++++++++++++++++--
+ fem3d/submeteo2.f    |  68 ++++++++++++++++------------
+ fembin/gp            |  28 +++++++++---
+ fembin/grd_modify.pl |   9 ++++
+ femlib/perl/grd.pm   |  16 +++++--
+ femplot/supbas.f     |  59 ++++++++++++++++--------
+ grid/grid_fp.h       |   2 +
+ grid/gridge.c        |  29 ++++++++++++
+ grid/gridhs.c        |  12 ++++-
+ 13 files changed, 331 insertions(+), 70 deletions(-)
+
+============================================================
+
+Fri Feb 16 08:23:25 EET 2018
+
+minor changes in concentrations
+
+ fem3d/mod_conz.f |  17 +++-
+ fem3d/newconz.f  | 263 ++++++++++++++++++++++++++++++++++++++-----------------
+ fem3d/subsys.f   |   5 ++
+ 3 files changed, 202 insertions(+), 83 deletions(-)
+
+============================================================
+
+Thu Feb 15 20:28:56 CET 2018
+
+bug fix in legvar
+
+ fem3d/bio3d.f    | 49 +++----------------------------------------------
+ femplot/supano.f |  5 +++--
+ femplot/supbas.f |  4 ++--
+ 3 files changed, 8 insertions(+), 50 deletions(-)
+
+============================================================
+
+Tue Feb 13 13:55:22 CET 2018
+
+routines to plot boxes
+
+ femplot/legend.h |   4 +-
+ femplot/supano.f |  17 ++++++
+ femplot/supsim.f | 173 ++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 189 insertions(+), 5 deletions(-)
+
+============================================================
+
+Tue Feb 13 12:38:28 EET 2018
+
+boxes and femelab
+
+ Makefile           |   10 +++++++-
+ fem3d/Makefile     |    4 ++-
+ fem3d/elab_check.f |   49 ++++++++++++++++++++++++++++---------
+ fem3d/femelab1.f   |    9 ++++--
+ fem3d/subboxa.f    |   57 +++++++++++++++++++++++++++++++++++++++++--
+ fem3d/submeteo2.f  |   12 +++++++-
+ fem3d/substrings.f |    6 ++++-
+ fembin/gp          |   22 ++++++++++++----
+ fembin/mesh2grd.pl |   68 ----------------------------------------------------
+ fembin/mike2grd.pl |   68 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 10 files changed, 208 insertions(+), 97 deletions(-)
+ renamed:
+    fembin/mesh2grd.pl -> fembin/mike2grd.pl
+
+============================================================
+
+Sun Feb 11 00:03:30 EET 2018
+
+more on femelab
+
+ fem3d/Makefile     |   22 +++--
+ fem3d/elab_check.f |  271 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/femelab1.f   |   93 ++----------------
+ fem3d/flxelab1.f   |    2 +-
+ fem3d/subboxa.f    |    6 +-
+ fem3d/substrings.f |    2 +
+ 6 files changed, 304 insertions(+), 92 deletions(-)
+ new file:
+   fem3d/elab_check.f
+
+============================================================
+
+Thu Feb  8 14:15:32 CET 2018
+
+more on boxes
+
+ fem3d/basutil_box.f |  22 +++--
+ fem3d/elabutil.f    |  14 +++
+ fem3d/femelab1.f    |  85 +++++++++++++++++
+ fem3d/flxelab1.f    |   2 +
+ fem3d/subboxa.f     | 263 +++++++++++++++++++++++++++++++++++++++-------------
+ fem3d/subflxu.f     |  64 ++++++++++++-
+ fembin/gp           |  12 ++-
+ 7 files changed, 388 insertions(+), 74 deletions(-)
+
+============================================================
+
+Mon Feb  5 14:38:37 EET 2018
+
+femelab changed
+
+ fem3d/femelab1.f | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+============================================================
+
+Sat Feb  3 19:34:54 CET 2018
+
+started working on boxes again
+
+ fem3d/grdutil.f | 22 ++++++++++++++++++++++
+ fem3d/newcon.f  | 13 +++++++++----
+ fem3d/sedi3d.f  |  2 ++
+ fem3d/shyproj.f | 18 +++++++++++++++++-
+ fem3d/subboxa.f | 26 +++++++++++++-------------
+ fem3d/subboxa.h | 53 -----------------------------------------------------
+ 6 files changed, 63 insertions(+), 71 deletions(-)
+ deleted:
+    fem3d/subboxa.h
+
+============================================================
+
+Sat Feb  3 20:30:53 EET 2018
+
+more on nemunas
+
+ fem3d/femcombine.f |    2 +-
+ fem3d/subfemutil.f |   21 +++++++++++++++++++++
+ fem3d/subnsh.f     |    7 +++++--
+ fem3d/subuti.f     |    2 +-
+ 4 files changed, 28 insertions(+), 4 deletions(-)
+
+============================================================
+
+Fri Feb  2 10:44:38 EET 2018
+
+small changes for nemunas
+
+ Makefile         | 12 ++++++++++++
+ fem3d/elabutil.f | 10 ++++++++--
+ fem3d/femelab1.f | 60 +++++++++++++++++++++++++++++++++++++++++++++++++++-----
+ fem3d/femintp.f  | 20 +++++++++----------
+ fem3d/subclo.f   |  3 ++-
+ 5 files changed, 86 insertions(+), 19 deletions(-)
+
+============================================================
+
+Wed Jan 31 19:59:58 EET 2018
+
+new femintp and femcombine
+
+ fem3d/Makefile   |   11 ++---
+ fem3d/elabutil.f |    8 ++++
+ fem3d/femelab1.f |   48 ++++++++++++++++++++--
+ fem3d/femintp.f  |  114 +++++++++++++++++++++++++++++------------------------
+ 4 files changed, 118 insertions(+), 63 deletions(-)
+
+============================================================
+
+Wed Jan 31 14:59:33 CET 2018
+
+femcombine written
+
+ .gitignore         |   2 +
+ fem3d/Makefile     |   5 +-
+ fem3d/femcombine.f | 469 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/femelab1.f   |   3 +-
+ fem3d/shyelab1.f   |   2 +-
+ fem3d/subfemutil.f |  42 ++++-
+ fembin/gitinfo     |   7 +
+ 7 files changed, 525 insertions(+), 5 deletions(-)
+ new file:
+   fem3d/femcombine.f
+
+============================================================
+
+Wed Jan 31 15:53:22 EET 2018
+
+femintp finished, compiler errors on nemunas
+
+ Rules.make                  |    7 ++++---
+ fem3d/bin/nemunas_adjust.pl |   39 +++++++++++++++++++++++++++++++++++++++
+ fem3d/bin/nemunas_adjust.sh |   32 ++++++++++++++++++++++++++++++++
+ fem3d/femintp.f             |   25 ++++++++++++++++++-------
+ fem3d/nc2fem.f              |    2 +-
+ fem3d/nc_dim_coords.f       |   10 +++++-----
+ fem3d/nc_tutil.f            |    6 +++---
+ fem3d/nc_util.f             |    5 +++++
+ fem3d/netcdf.f              |   10 ++++++++--
+ fem3d/nos2shy.f             |    5 ++---
+ fem3d/ous2shy.f             |    7 ++-----
+ fem3d/subbas.f              |    6 ++----
+ fem3d/subiso8601.f          |   34 +++++++++++++++++++---------------
+ fem3d/subtsfile.f           |    4 ++--
+ femcheck/Rules.dist         |    7 ++++---
+ 15 files changed, 146 insertions(+), 53 deletions(-)
+ new file:
+   fem3d/bin/nemunas_adjust.pl
+   fem3d/bin/nemunas_adjust.sh
+
+============================================================
+
+Fri Jan 26 16:33:42 CET 2018
+
+nel_unique now working
+
+ fem3d/mod_shympi_node.f |  5 ++++-
+ fem3d/submpi_basin.f    |  3 ++-
+ fem3d/submpi_ghost.f    | 50 ++++++++++++++++++++++++++++++++++++-------------
+ fem3d/subnsh.f          | 10 +++++++++-
+ fem3d/subuti.f          |  9 +++++++--
+ 5 files changed, 59 insertions(+), 18 deletions(-)
+
+============================================================
+
+Thu Jan 25 18:04:21 CET 2018
+
+still working on ghost elements
+
+ fem3d/submpi_basin.f | 10 ++++++----
+ fem3d/submpi_ghost.f | 40 ++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 42 insertions(+), 8 deletions(-)
+
+============================================================
+
+Wed Jan 24 15:10:51 CET 2018
+
+New version 7_5_41
+
+
+============================================================
+
+Wed Jan 24 15:10:04 CET 2018
+
+last changes for new version
+
+ LOG                      |   6 ++++
+ RELEASE_NOTES            |   6 ++++
+ fem3d/Makefile           |  11 ++++--
+ fem3d/basutil_interp.f   |   8 ++---
+ fem3d/mod_shympi_dummy.f |  14 ++++----
+ fem3d/mod_shympi_node.f  |  14 ++++----
+ fem3d/submeteo2.f        |   1 +
+ fem3d/submpi_basin.f     |  85 +++++++++++++++++++++++++++++++++++------------
+ fem3d/subver.f           |  11 +++---
+ femdoc/final/shyfem.pdf  | Bin 293438 -> 293474 bytes
+ femplot/shyplot.f        |   4 ++-
+ 11 files changed, 110 insertions(+), 50 deletions(-)
+
+============================================================
+
+Tue Jan 23 11:13:31 CET 2018
+
+many changes during Malta
+
+ fem3d/bc2fem.f                   |  19 +-
+ fem3d/elab_regular.f             |   3 +
+ fem3d/elabutil.f                 |   7 +-
+ fem3d/mod_shympi_dummy.f         |  56 ++++-
+ fem3d/mod_shympi_node.f          |  56 ++++-
+ fem3d/mod_shympi_node_internal.f |  30 ++-
+ fem3d/nc_dim_coords.f            |   6 +
+ fem3d/newini.f                   |   6 +-
+ fem3d/shydiff.f                  |  10 +-
+ fem3d/shyelab1.f                 |   2 +-
+ fem3d/shyelab_output.f           |  11 +-
+ fem3d/subcus.f                   |   2 +-
+ fem3d/subexta.f                  |   2 +-
+ fem3d/submeteo2.f                | 115 ++++++-----
+ fem3d/submpi_basin.f             |  75 ++++---
+ fem3d/submpi_buffer.f            |   8 +-
+ fem3d/submpi_ghost.f             |  54 +++--
+ fem3d/subnev.f                   |   8 +-
+ fem3d/subqfxf.f                  |   2 +-
+ fem3d/subqfxm1.f                 |   2 +
+ fem3d/subqfxm2.f                 |   2 +
+ fem3d/subqfxm3.f                 |   4 +
+ fem3d/subqfxm4.f                 |   2 +
+ fem3d/subqfxm5.f                 |   2 +
+ fem3d/subqfxm6.f                 |  11 +-
+ fem3d/subqfxt.f                  |   1 +
+ fem3d/subqfxu1.f                 | 427 +++++++++++++++++++++++++--------------
+ fem3d/subshy.f                   |   4 +-
+ fem3d/substrings.f               |   3 +
+ fem3d/subsys.f                   |   5 +-
+ 30 files changed, 624 insertions(+), 311 deletions(-)
+
+============================================================
+
+Fri Jan 12 18:22:39 CET 2018
+
+more on mpi
+
+ fem3d/Makefile                   |   2 +-
+ fem3d/mod_shympi_dummy.f         |  70 +++-----
+ fem3d/mod_shympi_node.f          | 195 +++--------------------
+ fem3d/mod_shympi_node_internal.f |  26 +--
+ fem3d/sublnkd.f                  |  10 +-
+ fem3d/submpi_basin.f             | 336 +++++++++++++++++++++++++++++++--------
+ fem3d/submpi_buffer.f            | 163 +++++++++++++++++++
+ fem3d/submpi_custom.f            |  31 ++--
+ fem3d/submpi_ghost.f             |  36 +++--
+ fembin/gitinfo                   |  10 ++
+ 10 files changed, 556 insertions(+), 323 deletions(-)
+ new file:
+   fem3d/submpi_buffer.f
+
+============================================================
+
+Mon Dec 18 18:41:57 CET 2017
+
+work on simple shypart
+
+ fem3d/Makefile        |   4 +
+ fem3d/shypart.f       | 411 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/subfloodfill.f  | 264 +++++++++++++++++++++++++++++++-
+ femutil/dstruc/sort.f |  76 ++++++++++
+ 4 files changed, 751 insertions(+), 4 deletions(-)
+ new file:
+   fem3d/shypart.f
+
+============================================================
+
+Sat Dec 16 00:35:11 CET 2017
+
+new data structures
+
+ femutil/auxiliary/test_modulus.f |   8 +
+ femutil/dstruc/Makefile          |  33 +++-
+ femutil/dstruc/compact.pl        |  36 ++++
+ femutil/dstruc/hash.f            |  22 +--
+ femutil/dstruc/heap.f            | 307 +++++++++++++++++++++++++++++++++
+ femutil/dstruc/queue.f           |  18 +-
+ femutil/dstruc/sort.f            | 360 +++++++++++++++++++++++++++++++++++++++
+ femutil/dstruc/spline.f          | 130 +++++++++++---
+ femutil/dstruc/test.f            |   8 -
+ femutil/dstruc/tree.f            | 117 +++++++++----
+ femutil/mpi/simple_xy_wr.f90     |  94 ++++++++++
+ 11 files changed, 1047 insertions(+), 86 deletions(-)
+ new file:
+   femutil/dstruc/compact.pl
+   femutil/dstruc/heap.f
+   femutil/dstruc/sort.f
+   femutil/mpi/simple_xy_wr.f90
+ renamed:
+    femutil/dstruc/test.f -> femutil/auxiliary/test_modulus.f
+
+============================================================
+
+Fri Dec 15 18:24:32 CET 2017
+
+standard Rules.make file
+
+ Rules.make | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+============================================================
+
+Fri Dec 15 18:15:09 CET 2017
+
+some bugs sorted out, started partitioning
+
+ Rules.make                       |   6 +-
+ fem3d/Makefile                   |  13 +-
+ fem3d/filetype.f                 |   3 +-
+ fem3d/mod_shympi_dummy.f         |  16 +-
+ fem3d/mod_shympi_node.f          |   6 +
+ fem3d/mod_shympi_node_internal.f |  84 +++++++-
+ fem3d/nc_util.f                  |  41 ++++
+ fem3d/new3di.f                   |   3 +-
+ fem3d/shybas.f                   |  14 +-
+ fem3d/shyelab1.f                 |   3 +
+ fem3d/shypre.f                   | 235 ++++++++++++++++++-----
+ fem3d/subbas.f                   | 403 ++++++++++++++++++++++-----------------
+ fem3d/subgrd.f                   |  43 +++++
+ fem3d/subnev.f                   |  17 +-
+ fembin/mkdp.pl                   |  14 +-
+ fembin/mkdp_save.pl              | 212 --------------------
+ femcheck/Rules.dist              |   6 +-
+ femcheck/test_compile.sh         |   2 +-
+ femdoc/final/shyfem.pdf          | Bin 293430 -> 293438 bytes
+ femplot/Makefile                 |   2 +-
+ femplot/col.f                    |  38 ++++
+ femplot/shyplot.f                |   3 +
+ femplot/supcol.f                 |   8 +-
+ femplot/supsim.f                 |  86 ++++++++-
+ grid/gridfi.c                    |   6 +-
+ grid/gustd.c                     |   8 +-
+ 26 files changed, 794 insertions(+), 478 deletions(-)
+ deleted:
+    fembin/mkdp_save.pl
+
+============================================================
+
+Fri Dec  8 11:04:38 CET 2017
+
+small changes in netcdf
+
+ Rules.make              |   2 +-
+ fem3d/Makefile          |   2 +-
+ fem3d/netcdf.f          | 210 ++++++-----------
+ femutil/dstruc/Makefile |   5 +-
+ femutil/dstruc/tree.f   | 610 +++++++++++++++++++++++++++++++++---------------
+ 5 files changed, 505 insertions(+), 324 deletions(-)
+
+============================================================
+
+Thu Dec  7 16:13:27 CET 2017
+
+New version 7_5_40
+
+
+============================================================
+
+Thu Dec  7 16:12:39 CET 2017
+
+mpi version into develop trunk
+
+ RELEASE_NOTES            |   8 +++++++
+ fem3d/Makefile           |  42 ++++++++++++++++++++++++++++++++++++
+ fem3d/mod_shympi_dummy.f |  47 +++++++++++++++++++++++++++++++++-------
+ fem3d/mod_shympi_node.f  |  45 +++++++++++++++++++++++++++++++++-----
+ fem3d/shyfem.f           |   5 +++++
+ fem3d/subcus.f           |  46 ++++++++++++++++++++++++++++-----------
+ fem3d/subdef.f           |   5 +++--
+ fem3d/submpi_basin.f     |   4 +++-
+ fem3d/subnsa.f           |   3 ++-
+ fem3d/subnsh.f           |   2 +-
+ fem3d/subpar3.f          |  34 +++++++++++++++++++++++++++--
+ fem3d/subver.f           |   7 +++---
+ femdoc/final/shyfem.pdf  | Bin 293430 -> 293430 bytes
+ femplot/Makefile         |   2 +-
+ femplot/col.f            |   5 +++--
+ femplot/supcol.f         |  55 +++++++++++++++++++++++++++++++++++++++++++++++
+ femutil/mpi/Makefile     |  34 +++++++++++++++++++++++++++++
+ femutil/mpi/mpi_test.f   |  19 ++++++++++++++++
+ 18 files changed, 324 insertions(+), 39 deletions(-)
+ new file:
+   femutil/mpi/Makefile
+   femutil/mpi/mpi_test.f
+
+============================================================
+
+Wed Dec  6 13:37:21 CET 2017
+
+small changes (color)
+
+ fem3d/Makefile          |   6 ++++++
+ fem3d/mod_shympi_node.f |  11 +++++++++--
+ fem3d/subpar3.f         |  10 +++++++---
+ fem3d/subsys.f          |  44 +++++++++++++++++++++++++++-----------------
+ femdoc/final/shyfem.pdf | Bin 294117 -> 293430 bytes
+ 5 files changed, 49 insertions(+), 22 deletions(-)
+
+============================================================
+
+Wed Dec  6 11:28:00 CET 2017
+
+nearly finished integrating mpi routines (node)
+
+ fem3d/Makefile                   |   10 +-
+ fem3d/mod_random.f               |  139 ++++
+ fem3d/mod_shympi_dummy.f         |   37 +
+ fem3d/mod_shympi_node.f          | 1429 ++++++++++++++++++++++++++++++++++++++
+ fem3d/mod_shympi_node_internal.f |  443 ++++++++++++
+ fem3d/shybas.f                   |    2 +-
+ fem3d/shyfem.f                   |   58 +-
+ fem3d/submpi_assert.f            |  264 +++++++
+ fem3d/submpi_basin.f             |  422 +++++++++++
+ fem3d/submpi_custom.f            |  116 ++++
+ fem3d/submpi_ghost.f             |  404 +++++++++++
+ 11 files changed, 3302 insertions(+), 22 deletions(-)
+ new file:
+   fem3d/mod_random.f
+   fem3d/mod_shympi_node.f
+   fem3d/mod_shympi_node_internal.f
+   fem3d/submpi_assert.f
+   fem3d/submpi_basin.f
+   fem3d/submpi_custom.f
+   fem3d/submpi_ghost.f
+
+============================================================
+
+Tue Dec  5 17:48:17 CET 2017
+
+New version 7_5_39
+
+
+============================================================
+
+Tue Dec  5 17:47:15 CET 2017
+
+better treatment with nc2fem, other small changes
+
+ LOG                     |  15 +++++++
+ RELEASE_NOTES           |   7 +++
+ Rules.make              |   2 +-
+ fem3d/Makefile          |   2 +
+ fem3d/elabtime.f        |  90 +++++++++----------------------------
+ fem3d/femelab1.f        | 117 +++++++++++++++++++++++++++++-------------------
+ fem3d/nc2fem.f          |  11 ++++-
+ fem3d/nc_dim_coords.f   |  20 ++++++---
+ fem3d/nc_util.f         |  83 +++++++++++++++++++++++++++++-----
+ fem3d/sedi3d.f          | 110 +++++++++++++++++++++++++++++++++++----------
+ fem3d/shyfem.f          |   2 +
+ fem3d/subfemfile.f      |  21 +++++++--
+ fem3d/subnsh.f          |   9 ++--
+ fem3d/substrings.f      |   3 ++
+ fem3d/subuti.f          |  13 ++++--
+ fem3d/subver.f          |   7 +--
+ fem3d/subwaves.f        |   8 ++--
+ femcheck/check_var.sh   |  20 ++++-----
+ femdoc/final/shyfem.pdf | Bin 294113 -> 294117 bytes
+ 19 files changed, 355 insertions(+), 185 deletions(-)
+
+============================================================
+
+Mon Dec  4 15:05:17 CET 2017
+
+bug fix in regular interpolation
+
+ fem3d/femelab1.f   |  1 +
+ fem3d/subfemintp.f | 59 +++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ fem3d/submeteo2.f  | 10 ++++-----
+ fem3d/subreg.f     | 41 +++++++++++++++++++++++++++++++------
+ 4 files changed, 99 insertions(+), 12 deletions(-)
+
+============================================================
+
+Mon Dec  4 00:20:34 CET 2017
+
+waves, strings, meteo, etc..
+
+ fem3d/femelab1.f      |   3 +-
+ fem3d/mod_waves.f     |   2 +
+ fem3d/submeteo2.f     |  71 ++++++----
+ fem3d/substrings.f    | 102 +++++++++++++-
+ fem3d/subwaves.f      | 231 ++++++++++++++++---------------
+ femutil/dstruc/tree.f | 371 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 642 insertions(+), 138 deletions(-)
+ new file:
+   femutil/dstruc/tree.f
+
+============================================================
+
+Sat Dec  2 21:47:20 CET 2017
+
+more on nc2fem
+
+ fem3d/Makefile          |  1 -
+ fem3d/nc2fem.f          |  1 +
+ fem3d/nc_dim_coords.f   | 93 ++++++++++++++++++++++++++++++++++++++-----------
+ fem3d/netcdf.f          | 73 ++++++++++++++++++++++++++++++--------
+ femutil/dstruc/spline.f | 23 +++++++-----
+ 5 files changed, 145 insertions(+), 46 deletions(-)
+
+============================================================
+
+Fri Dec  1 18:39:35 CET 2017
+
+works on nc2fem ... not finished
+
+ Rules.make            |   2 +-
+ fem3d/Makefile        |   9 +-
+ fem3d/nc2fem.f        | 249 +++++++++++------
+ fem3d/nc_dim_coords.f | 762 +++++++++++++++++++++++++++++++++++++++++++++++++-
+ fem3d/nc_tutil.f      |   2 +-
+ fem3d/nc_util.f       | 103 +------
+ fem3d/netcdf.f        |  65 ++---
+ fem3d/newchk.f        |  52 ++--
+ fem3d/subdef.f        |  33 +--
+ fem3d/substrings.f    |  26 ++
+ 10 files changed, 1037 insertions(+), 266 deletions(-)
+
+============================================================
+
+Thu Nov 30 19:03:47 CET 2017
+
+strings and sediments update
+
+ fem3d/extelab1.f   |  51 ++++++++++++++++-
+ fem3d/netcdf.f     |   4 +-
+ fem3d/sedi3d.f     |  91 ++++++++++++++++++++-----------
+ fem3d/subexta.f    |  73 ++++++++++++++++++++-----
+ fem3d/substrings.f | 157 ++++++++++++++++++++++++++++++++++++++++++++++++-----
+ 5 files changed, 313 insertions(+), 63 deletions(-)
+
+============================================================
+
+Thu Nov 30 16:27:49 CET 2017
+
+routines for dummy mpi code integrated
+
+ Makefile                 |   15 +-
+ Rules.make               |   56 +-
+ fem3d/Makefile           |  149 ++++--
+ fem3d/bdist.f            |   11 +-
+ fem3d/links.f            |   13 +-
+ fem3d/mod_bnd_aux.f      |   20 +-
+ fem3d/mod_conz.f         |   10 +
+ fem3d/mod_geom_dynamic.f |   19 +-
+ fem3d/mod_shympi_dummy.f | 1340 ++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/mod_system.f       |    1 +
+ fem3d/new36.f            |    5 +
+ fem3d/new3di.f           |   77 ++-
+ fem3d/newchk.f           |    8 +-
+ fem3d/newcon.f           |   41 +-
+ fem3d/newcon_omp.f       |    9 +
+ fem3d/newconz.f          |   14 +-
+ fem3d/newfix.f           |   14 +-
+ fem3d/newini.f           |  181 ++++---
+ fem3d/newnudge.f         |   10 +
+ fem3d/newstab.f          |    3 +
+ fem3d/newtra.f           |   28 +-
+ fem3d/sedi3d.f           |    2 +-
+ fem3d/shyelab_units.f    |    2 +-
+ fem3d/shyfem.f           |   16 +-
+ fem3d/simsys_lp.f        |   27 +-
+ fem3d/simsys_pard.f      |   12 +
+ fem3d/simsys_spk.f       |   73 ++-
+ fem3d/subbnd.f           |   20 +-
+ fem3d/subbndo.f          |   10 +-
+ fem3d/subcoord.f         |   20 +-
+ fem3d/subcst.f           |    2 +-
+ fem3d/subcus.f           |  142 ++++-
+ fem3d/subdep.f           |   99 +++-
+ fem3d/subdif.f           |   21 +-
+ fem3d/subdry.f           |    9 +
+ fem3d/subele.f           |   88 +--
+ fem3d/subexta.f          |   19 +
+ fem3d/subgotm.f          |   47 +-
+ fem3d/sublnkd.f          |   78 ++-
+ fem3d/sublnks.f          |   37 +-
+ fem3d/subn11.f           |   14 +-
+ fem3d/subn35.f           |   14 +
+ fem3d/subnev.f           |   19 +
+ fem3d/subnsh.f           |   13 +-
+ fem3d/suboff.f           |    7 +-
+ fem3d/subousa.f          |    7 +-
+ fem3d/subtime.f          |   20 +-
+ fem3d/subwrt.f           |    5 +
+ femcheck/Rules.dist      |   56 +-
+ femcheck/configure.pl    |    2 +-
+ femcheck/configure.sh    |    8 +-
+ femcheck/test_compile.sh |    4 +-
+ femdoc/final/shyfem.pdf  |  Bin 294113 -> 294113 bytes
+ femplot/Makefile         |    2 +-
+ femplot/supmpi.f         |   40 ++
+ 55 files changed, 2584 insertions(+), 375 deletions(-)
+ new file:
+   fem3d/mod_shympi_dummy.f
+   femplot/supmpi.f
+
+============================================================
+
+Tue Nov 28 12:55:57 CET 2017
+
+restart from lagrangian simulation
+
+ RELEASE_NOTES           |   2 +-
+ Rules.make              |   2 +-
+ fem3d/Makefile          |   8 +--
+ fem3d/lagrange_inout.f  | 174 ++++++++++++++++++++++++++++++++++++++++++++----
+ fem3d/lagrange_main.f   |   3 +-
+ fem3d/lgrinf.f          |  17 +++--
+ fem3d/mod_lagrange.f    |   6 +-
+ fem3d/subsys.f          |   3 +
+ femdoc/final/shyfem.pdf | Bin 294112 -> 294113 bytes
+ 9 files changed, 182 insertions(+), 33 deletions(-)
+
+============================================================
+
 Mon Nov 27 11:35:25 CET 2017
 
 some files newly organized, GPL COPYING file

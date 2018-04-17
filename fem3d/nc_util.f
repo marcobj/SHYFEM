@@ -319,11 +319,16 @@ c*****************************************************************
 	integer nz1			!number of values for hlv
 	real hlv(nlvdim)		!depth at cell bottom
 
+	logical bldebug,bcenter
 	integer z_id
 	integer dim_ids(2),dims(2)
 	integer ndims
 	integer iz
-	real htop,h
+	real htop,h,hindex
+	real, parameter :: eps = 1.e-3
+
+	bldebug = .true.
+	bldebug = .false.
 
 	if( zcoord .eq. ' ' ) then
 	  if( bverb ) write(6,*) 'no zcoord name available'
@@ -342,6 +347,11 @@ c*****************************************************************
 
 	ndims = 0
 	call nc_get_var_ndims(ncid,z_id,ndims,dim_ids)
+	if( ndims == 0 ) then
+	  if( bverb ) write(6,*) 'no zcoord variable available'
+	  zcoord = ' '
+	  return
+	end if
 	if( ndims < 1 .or. ndims > 2 ) goto 98
 	call nc_get_var_ndims(ncid,z_id,ndims,dim_ids)
 	call nc_get_dim_len(ncid,dim_ids(1),nz)
@@ -351,19 +361,37 @@ c*****************************************************************
 
 	ndims = 1
 	call nc_get_var_data(ncid,zcoord,1,nlvdim,ndims,dims,zdep)
-	!call nc_get_var_real(ncid,z_id,zdep)
-
-	htop = 0.
-	do iz=1,nz
-	  h = zdep(iz)
-	  htop = htop + 2.*(h-htop)
-	  hlv(iz) = htop
-	end do
-
+	hlv = zdep
 	nz1 = nz
-	if( hlv(nz1) < -1. ) nz1 = nz1 - 1
+
+	call check_monotone(nz,zdep,'checking z-coordinates')
+
+	if( nz1 == 1 ) return	!just one layer - hlv not of concern
+	if( abs(hlv(1)) < eps ) call depth_shift_up(nz1,hlv)
+
+	hindex = (hlv(2)-hlv(1))/hlv(1)
+	if( hindex < 1.5 ) then
+	  bcenter = .false.
+	else if( hindex < 2.5 ) then
+	  bcenter = .true.
+	else
+	  write(6,*) 'cannot determine if center or bottom'
+	  write(6,*) hlv(1:max(4,nz1))
+	  stop 'error stop setup_zcoord: strange z coords'
+	end if
+
+	if( bcenter ) call depth_center_to_bottom(nz,hlv)
+
+	if( hlv(nz1) < -1. ) nz1 = nz1 - 1	!just in case
 
 	if( bverb ) write(6,*) 'zcoord     : ',z_id,ndims,nz,trim(zcoord)
+
+	if( .not. bldebug ) return
+
+	write(6,*) 'nz1 = ',nz1
+	do iz=1,nz1
+	  write(6,*) iz,zdep(iz),hlv(iz)
+	end do
 
 	return
    98	continue
@@ -372,6 +400,48 @@ c*****************************************************************
    99	continue
 	write(6,*) 'nz,nlvdim: ',nz,nlvdim
 	stop 'error stop setup_zcoord: dimension'
+	end
+
+c*****************************************************************
+
+	subroutine depth_shift_up(nz,hlv)
+
+	implicit none
+
+	integer nz
+	real hlv(nz)
+
+	integer iz
+
+	do iz=2,nz
+	  hlv(iz-1) = hlv(iz)
+	end do
+	hlv(nz) = 0.
+	nz = nz - 1
+
+	end
+
+c*****************************************************************
+
+	subroutine depth_center_to_bottom(nz,hlv)
+
+	implicit none
+
+	integer nz
+	real hlv(nz)
+
+	integer iz
+	real htop,hbot,h,hd
+
+	htop = 0.
+	do iz=1,nz
+	  h = hlv(iz)
+	  hd = 2. * (h-htop)		!thickness of layer iz
+	  hbot = htop + hd
+	  hlv(iz) = hbot
+	  htop = hbot
+	end do
+
 	end
 
 c*****************************************************************
@@ -530,7 +600,7 @@ c*****************************************************************
 	call nc_has_time_dimension(ncid,bathy,btime)
 	if( btime ) ndimb = ndimb - 1
 
-	call get_flag_for var(ncid,b_id,flag)
+	call get_flag_for_var(ncid,b_id,flag)
 	!call nc_check_var_type(ncid,b_id,'real')
 
 	call nc_get_dim_len(ncid,dimb_id(1),nbx)
@@ -683,6 +753,41 @@ c*****************************************************************
 	end
 
 c*****************************************************************
+
+	subroutine check_monotone(n,val,text)
+
+	implicit none
+
+	integer n
+	real val(n)
+	character*(*) text
+
+	logical bgrow
+	integer i,imin,imax
+	real dv
+
+	if( n <= 1 ) return
+
+	bgrow = val(2) > val(1)
+
+	do i=2,n
+	  dv = val(i) - val(i-1)
+	  if( dv == 0. ) goto 99
+	  if( bgrow .neqv. dv > 0. ) goto 99
+	end do
+
+	return
+   99	continue
+	write(6,*) trim(text)
+	write(6,*) 'values not monotone: ',n
+	write(6,*) 'problem around i = ',i
+	imin = max(1,i-2)
+	imax = min(n,i+2)
+	write(6,*) val(imin:imax)
+	stop 'error stop check_monotone: error in values'
+	end
+
+c*****************************************************************
 c*****************************************************************
 c*****************************************************************
 
@@ -759,6 +864,8 @@ c*****************************************************************
 	  if( nx .gt. nxdim .or. ny .gt. nydim ) goto 99
 
 	  call nc_get_var_real(ncid,x_id,aux)
+	  call check_monotone(nx,aux,'checking x-coordinates')
+
 	  do iy=1,ny
 	    do ix=1,nx
 	      xlon(ix,iy) = aux(ix)
@@ -766,6 +873,8 @@ c*****************************************************************
 	  end do
 
 	  call nc_get_var_real(ncid,y_id,aux)
+	  call check_monotone(ny,aux,'checking y-coordinates')
+
 	  do iy=1,ny
 	    do ix=1,nx
 	      ylat(ix,iy) = aux(iy)
@@ -952,106 +1061,7 @@ c*****************************************************************
 c*****************************************************************
 c*****************************************************************
 
-	subroutine find_nc_file_type(ncid,iftype)
-
-c tries to find the file type to be read
-
-	implicit none
-
-	integer ncid
-	integer iftype
-
-	character*80 atext
-
-	iftype = 0
-
-	call nc_get_global_attr(ncid,'TITLE',atext)
-	if( atext .eq. ' OUTPUT FROM WRF V3.4 MODEL' ) then
-	  iftype = 1
-	  write(6,*) 'file type: ',iftype,atext(1:40)
-	  return
-	end if
-
-	call nc_get_global_attr(ncid,'source',atext)
-	!write(6,*) 'source (1): ',atext(1:30)
-	!write(6,*) 'source (2): ','MFS SYS4a4'
-	if( atext(1:10) .eq. 'MFS SYS4a4' ) then
-	  iftype = 2
-	  write(6,*) 'file type: ',iftype,atext(1:40)
-	  return
-	end if
-
-	call nc_get_global_attr(ncid,'type',atext)
-	if( atext .eq. 'ROMS/TOMS history file' ) then
-	  iftype = 3
-	  write(6,*) 'file type: ',iftype,atext(1:40)
-	  return
-	end if
-
-	call nc_get_global_attr(ncid,'CDO',atext)
-	!write(6,*) 'source (1): ',atext(1:36)
-	!write(6,*) 'source (2): ','Climate Data Operators version 1.5.5'
-	if( atext(1:36) .eq. 'Climate Data Operators version 1.5.5' ) then
-	  iftype = 2
-	  write(6,*) 'file type: ',iftype,atext(1:40)
-	  return
-	end if
-
-	call nc_get_global_attr(ncid,'institution',atext)
-	if( atext(1:32) .eq. 'European Centre for Medium-Range' ) then
-	  iftype = 4
-	  write(6,*) 'file type: ',iftype,atext(1:40)
-	  return
-	end if
-
-	if( iftype .eq. 0 ) write(6,*) 'Cannot determine file type'
-
-	end
-
-c*****************************************************************
-
-	subroutine set_names(iftype,time,namex,namey,zcoord,bathy,slmask)
-
-	implicit none
-
-	integer iftype
-	character*(*) time,namex,namey,zcoord,bathy,slmask
-
-	character*20 time_d
-
-	time = 'time'
-	namex = 'lon'
-	namey = 'lat'
-	zcoord = ' '
-	bathy = ' '
-	slmask = ' '
-
-	if( iftype .eq. 1 ) then
-	  namex = 'XLONG'
-	  namey = 'XLAT'
-	  slmask = 'LANDMASK'
-	else if( iftype .eq. 2 ) then
-	  zcoord = 'depth'
-	else if( iftype .eq. 3 ) then
-	  time = 'ocean_time'
-	  namex = 'lon_rho'
-	  namey = 'lat_rho'
-	  zcoord = 'Cs_r'
-	  bathy = 'h'
-	else if( iftype .eq. 4 ) then
-	  !nothing
-	end if
-
-	time_d = time
-	call nc_set_time_name(time_d,time)
-
-	end
-
-c*****************************************************************
-c*****************************************************************
-c*****************************************************************
-
-	subroutine get_flag_for var(ncid,var_id,value)
+	subroutine get_flag_for_var(ncid,var_id,value)
 
 	integer ncid,var_id
 	real value

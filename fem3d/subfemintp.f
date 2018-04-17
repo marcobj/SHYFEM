@@ -520,6 +520,7 @@
 	integer datetime(2)
 	integer ntype,itype(2)
 	integer id0,ibc
+	character*80 varline
 	logical breg
 	logical bok
 	logical bts,bfem,bnofile,bfile,berror,bnosuchfile,boperr
@@ -663,7 +664,7 @@
 	  !call fem_file_read_open(file,nexp,iformat,iunit)
 	  call fem_file_read_open(file,np,iformat,iunit)
 	else if( bts ) then
-	  call ts_open_file(file,nvar,datetime,iunit)
+	  call ts_open_file(file,nvar,datetime,varline,iunit)
 	  pinfo(id)%datetime = datetime
 	else
 	  stop 'error stop iff_init: internal error (3)'
@@ -1335,8 +1336,8 @@ c interpolates in space all variables in data set id
 
         nintp = pinfo(id)%nintp
         nvar = pinfo(id)%nvar
-        np = pinfo(id)%np
-        nexp = pinfo(id)%nexp
+        np = pinfo(id)%np		!number of data in file
+        nexp = pinfo(id)%nexp		!expected data for BC
         lexp = pinfo(id)%lexp
         ireg = pinfo(id)%ireg
 	bts = pinfo(id)%iformat == iform_ts
@@ -1359,12 +1360,14 @@ c interpolates in space all variables in data set id
 	  do ip=1,nexp
 	    call iff_handle_vertical(id,iintp,1,ip)
 	  end do
-	else if( np /= nexp ) then
-	  goto 98
-	else
+	else if( np == nexp ) then
 	  do ip=1,np
 	    call iff_handle_vertical(id,iintp,ip,ip)
 	  end do
+	else if( np /= nexp ) then
+	  goto 98
+	else
+	  stop 'error stop iff_space_interpolate: internal error (1)'
 	end if
 
 	if( bdebug ) then
@@ -1545,6 +1548,11 @@ c interpolates in space all variables in data set id
 	call intp_reg_intp_fr(nx,ny,flag,pinfo(id)%hd_file
      +            ,nexp,fr,hfem,ierr)	!interpolate depth from reg to fem
 
+	if( ierr /= 0 ) then
+	  write(6,*) 'intp_reg_intp_fr for depth: ',ierr
+	  !stop 'error stop iff_handle_regular_grid_3d: flag values'
+	end if
+
 	do ivar=1,nvar
 	  call iff_extend_vertically(lmax,np,flag,pinfo(id)%ilhkv_file
      +			,pinfo(id)%data_file(:,:,ivar) )
@@ -1577,6 +1585,7 @@ c interpolates in space all variables in data set id
    99	continue
 	write(6,*) 'error interpolating from regular grid: '
 	write(6,*) '(probably not enough data)'
+	write(6,*) 'ivar,l: ',ivar,l
 	write(6,*) 'ierr =  ',ierr
 	write(6,*) 'bneedall =  ',bneedall
 	stop 'error stop iff_handle_regular_grid_3d: reg interpolate'
@@ -1913,6 +1922,8 @@ c global lmax and lexp are > 1
 	integer nintp,lexp,nexp
 	integer ilast,ifirst
 	double precision it,itlast,itfirst
+	double precision atime
+	character*20 aline
 	logical bok
 	double precision t,tc
 
@@ -1946,9 +1957,9 @@ c global lmax and lexp are > 1
 
 	if( nintp > 0 ) then
           ilast = pinfo(id)%ilast
-	  itlast = nint(pinfo(id)%time(ilast))
+	  itlast = pinfo(id)%time(ilast)
 	  ifirst = mod(ilast,nintp) + 1
-	  itfirst = nint(pinfo(id)%time(ifirst))
+	  itfirst = pinfo(id)%time(ifirst)
           if( itlast < itact ) goto 98
           if( itfirst > itact ) goto 98
 	end if
@@ -1988,11 +1999,18 @@ c global lmax and lexp are > 1
 	stop 'error stop iff_time_interpolate'
    98	continue
 	write(6,*) 'file does not contain needed time value'
-	write(6,*) 'looking for time: ',itact
-	write(6,*) 'first time available: ',itfirst
-	write(6,*) 'last time available: ',itlast
+	atime = itact + atime0_fem
+	call dts_format_abs_time(atime,aline)
+	write(6,*) 'looking for time: ',itact,aline
+	atime = itfirst + atime0_fem
+	call dts_format_abs_time(atime,aline)
+	write(6,*) 'first time available: ',itfirst,aline
+	atime = itlast + atime0_fem
+	call dts_format_abs_time(atime,aline)
+	write(6,*) 'last time available: ',itlast,aline
 	call iff_print_file_info(id)
-	stop 'error stop iff_time_interpolatei: time out of range'
+	write(6,*) 'extra debug: ',ilast,pinfo(id)%time
+	stop 'error stop iff_time_interpolate: time out of range'
 	end subroutine iff_time_interpolate
 
 !****************************************************************
@@ -2160,10 +2178,61 @@ c does the final interpolation in time
 	  write(6,*) 'of the grid. It must cover the whole basin.'
 	  call iff_print_file_info(id)
 	  write(6,*) 'we need all values for interpolation'
-	   stop 'error stop iff_interpolate: iflag'
+	  call iff_flag_info(id,ndim,ldim,nexp,lexp,flag,value)
+	  stop 'error stop iff_interpolate: iflag'
 	end if
 
 	end subroutine iff_interpolate
+
+!****************************************************************
+
+	subroutine iff_flag_info(id,ndim,ldim,nexp,lexp,flag,value)
+
+	implicit none
+
+	integer id
+	integer ndim,ldim,nexp,lexp
+	real flag
+	real value(ldim,ndim)
+
+	integer i,l,lfem,ipl,kexp
+	integer iflag,lflag
+	logical b2d
+	integer ipext
+
+	write(6,*) ndim,nexp,nkn_fem,lexp
+	
+	b2d = lexp <= 1
+	iflag = 0
+
+	do i=1,nexp
+          if( b2d ) then
+            lfem = 1
+          else
+            ipl = i
+            if( nexp /= nkn_fem .and. nexp /= nel_fem ) then
+              ipl = pinfo(id)%nodes(i)
+            end if
+            lfem = ilhkv_fem(ipl)
+          end if
+	  lflag = 0
+	  do l=1,lfem
+	    if( value(l,i) == flag ) lflag = lflag + 1
+	  end do
+	  if( lflag > 0 ) then
+	    iflag = iflag + 1
+	    kexp = 0
+	    if( nexp == nkn_fem ) kexp = ipext(i)
+	    write(6,*) 'flag: ',kexp,i,lflag,flag
+	  end if
+	  if( iflag > 20 ) exit
+	end do
+
+	if( i <= nexp ) then
+	  write(6,*) 'possibly more flags found... not all shown'
+	end if
+
+	end subroutine iff_flag_info
 
 !****************************************************************
 

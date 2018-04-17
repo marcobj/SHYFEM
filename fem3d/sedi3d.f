@@ -1,4 +1,3 @@
-! ***********************************
 ! ------ SUBROUTINE SEDI3D ---------
 ! ***********************************
 !
@@ -11,7 +10,7 @@
 !
 !  16/11/2004 Christian Ferrarin ISMAR-CNR
 ! 
-!  Revision Log :
+!  revision log :
 ! 
 !  Mar, 2005     ccf     (sedi3d_f1.f) coming from sedi3d_e3_multi7.f
 !                        	new cohesive routine
@@ -83,6 +82,7 @@
 ! 10.02.2017    ggu     read in init data from fem files (init_file_fem)
 ! 29.08.2017	ccf	read parameters as array
 ! 17.11.2017    ggu     readsed split in readsed and initsed
+! 22.02.2018    ccf     adjusted for new sinking velocity
 ! 
 !****************************************************************************
 
@@ -90,12 +90,75 @@
 
       implicit none
 
-      integer, save		:: isedi   = 0		!sedi call parameter
+      integer, private, save    :: nkn_sedim = 0
+      integer, private, save    :: nlv_sedim = 0
+
+      integer, save	        :: isedi   = 0		!sedi call parameter
       integer, parameter        :: nlbdim  = 10         !max number of bed layer
 
-      character*4, save :: what = 'sedt'
+      character*4, save         :: what = 'sedt'
 
-      real, save, dimension(8)  :: sedpa                !sediment parameter vector
+      double precision, save    :: da_sed(4) = 0
+      double precision, save    :: da_ssc(4) = 0
+
+      real, allocatable, save	:: tcn(:,:) 	!total sediment concentration [kg/m3]
+      real, allocatable, save	:: tmsus(:)	!total suspended sediment load [kg/s] (> 0 -eros, < 0 depo)
+      real, allocatable, save	:: bdens(:,:)	!dry bulk density of bottom sediments [kg/m**3]
+      real, allocatable, save	:: bleve(:,:)	!depth below sediment surface of sediments [m]
+
+!==================================================================
+      contains
+!==================================================================
+
+      subroutine mod_sedim_init(nkn,nlv)
+
+      integer  :: nkn
+      integer  :: nlv
+
+      if( nlv == nlv_sedim .and. nkn == nkn_sedim ) return
+
+      if( nlv > 0 .or. nkn > 0 ) then
+        if( nlv == 0 .or. nkn == 0 ) then
+          write(6,*) 'nlv,nkn: ',nlv,nkn
+          stop 'error stop mod_sedim_init: incompatible parameters'
+        end if
+      end if
+
+      if( nkn_sedim > 0 ) then
+        deallocate(tcn)
+        deallocate(tmsus)
+        deallocate(bdens)
+        deallocate(bleve)
+      end if
+
+      nlv_sedim = nlv
+      nkn_sedim = nkn
+
+      if( nkn == 0 ) return
+
+      allocate(tcn(nlv,nkn))
+      allocate(tmsus(nkn))
+      allocate(bdens(nlbdim,nkn))
+      allocate(bleve(nlbdim,nkn))
+
+      tcn = 0.
+      tmsus = 0.
+      bdens = 0.
+      bleve = 0.
+
+      end subroutine mod_sedim_init
+
+! ==================================================================
+
+      end module mod_sediment
+
+! ==================================================================
+
+      module mod_sediment_para
+
+      implicit none
+
+      double precision, save, dimension(8)  :: sedpa    !sediment parameter vector
       real, allocatable, save   :: gsc(:)		!grainsize class read from str
       real, allocatable, save   :: tue(:)		!initial erosion threshold
       real, allocatable, save   :: prin(:,:)		!initial percetage [0,1]
@@ -113,15 +176,9 @@
 
       real, save		:: difmol	!Molecolar diffusion coefficient [m**2/s]
 
-! Variables for AQUABC model
-      real, allocatable, save	:: tcn(:,:) 	!total sediment concentration [kg/m3]
-      real, allocatable, save	:: tmsus(:)	!total suspended sediment load [kg/s] (> 0 -eros, < 0 depo)
-      real, allocatable, save	:: bdens(:,:)	!dry bulk density of bottom sediments [kg/m**3]
-      real, allocatable, save	:: bleve(:,:)	!depth below sediment surface of sediments [m]
-
 ! ==================================================================
 
-      end module mod_sediment
+      end module mod_sediment_para
 
 ! ==================================================================
 
@@ -132,6 +189,7 @@
       use levels
       use basin, only : nkn
       use mod_sediment
+      use mod_sediment_para
       use mod_sedtrans05
 
       implicit none
@@ -139,8 +197,7 @@
 ! -------------------------------------------------------------
 ! fem variables
 ! -------------------------------------------------------------
-      integer		:: it		!actual time in seconds
-      integer		:: itanf	!initial time of simulation
+      !integer		:: it		!actual time in seconds
       real		:: dt		!time step in seconds
       real, save	:: salref	!reference salinity 
       real, save	:: temref	!reference temperature [C]
@@ -152,7 +209,7 @@
       integer, save	:: icall = 0
       integer, save	:: nscls	!number of grainsize classes
       integer, save	:: nbed		!initial number of bed layers
-      integer, save	:: adjtime	!time for initialization [s]
+      double precision, save	:: adjtime	!time for initialization [s]
 
       integer, allocatable, save :: idsedi(:)   !information on boundaries
       real, allocatable, save :: gskm(:) 	!AVERAGE SEDIMENT GRAIN DIAMETER ON NODES (M)
@@ -189,17 +246,15 @@
       integer		:: nbnds
       integer		:: nintp
       integer		:: nvar
-      integer		:: itmsed 	!output time parameter
+      double precision	:: dtmsed 	!output time parameter
       real 		:: thick	!initial thickness [m]
       real		:: conref	!initial concentration [kg/m3]
       double precision  :: dtime	!time of simulation [s]
       double precision	:: timedr	!time step [s]
-      integer, dimension(4), save	:: ia_out1
-      integer, dimension(4), save	:: ia_out2
-
+	
 ! function
       real		:: getpar
-      logical		:: has_output
+      logical		:: has_output_d
 
 ! ----------------------------------------------------------
 ! Documentation
@@ -225,10 +280,10 @@
 
         if( icall .eq. 0 ) then
 
-          call get_act_time(it)
-	  call convert_date('itmsed',itmsed)
+          call get_act_dtime(dtime)
+	  call convert_date_d('itmsed',dtmsed)
 
-          if( it .lt. itmsed ) return
+          if( dtime .lt. dtmsed ) return
           icall = 1
 
 !         --------------------------------------------------
@@ -236,7 +291,7 @@
 !         --------------------------------------------------
           conref = sedpa(2)		!initial concentration
           nscls  = nint(sedpa(4))	!number of grain size classes
-	  call convert_date('adjtime',adjtime)
+	  call convert_date_d('adjtime',adjtime)
           sedpa(7) = adjtime		!time for re-initialization
           difmol = getpar('difmol')	!molecular vertical diffusivity [m**2/s]
 	  hzoff  = getpar('hzon') + 0.10d0
@@ -277,10 +332,6 @@
           allocate(bedn(nlbdim,3,nkn))
           allocate(percc(nkn))
           allocate(percs(nkn))
-          allocate(tcn(nlvdi,nkn))
-	  allocate(tmsus(nkn))
-	  allocate(bdens(nlbdim,nkn))
-	  allocate(bleve(nlbdim,nkn))
 	  allocate(krocks(nkn))
 
 	  nbc = nbnds()
@@ -328,8 +379,7 @@
 !         --------------------------------------------------
 !         Set boundary conditions for all state variables
 !         --------------------------------------------------
-          call get_first_time(itanf)
-          dtime = itanf
+          call get_first_dtime(dtime)
           nintp = 2
           nvar = nscls
           call bnds_init_new(what,dtime,nintp,nvar,nkn,nlvdi
@@ -338,15 +388,8 @@
 !         --------------------------------------------------
 !	  Initialize output
 !         --------------------------------------------------
-          call init_output('itmsed','idtsed',ia_out1)
-          call init_output('itmsed','idtsed',ia_out2)
 
-          if( has_output(ia_out1) ) then
-             call open_scalar_file(ia_out1,1,5,'sed')
-          end if
-          if( has_output(ia_out2) ) then
-             call open_scalar_file(ia_out2,nlvdi,1,'sco')
-          end if
+	  call init_sed_output
 
           write(6,*) 'Sediment model initialized...'
 
@@ -359,15 +402,14 @@
 !       -------------------------------------------------------------
 !       Get actual simulation time and time step
 !       -------------------------------------------------------------
-        call get_act_time(it)
+        call get_act_dtime(dtime)
 	call get_timestep(dt)
-	dtime  = it
         timedr = dt
 
 !       -------------------------------------------------------------
 !       Reset bottom height variation if it = adjtime
 !       -------------------------------------------------------------
-	call resetsedi(it,adjtime,nscls,bh,scn)
+	call resetsedi(dtime,adjtime,nscls,bh,scn)
 
 !       -------------------------------------------------------------
 !       Compute bed slope gradient
@@ -429,8 +471,7 @@
 !       -------------------------------------------------------------------
 !       Write of results (files SED and SCO)
 !       -------------------------------------------------------------------
-	call wr_sed_output(ia_out1,ia_out2,bh,gskm,tao,percc,
-     +			   percs,totbed)
+	call wr_sed_output(dtime,bh,gskm,tao,percc,percs,totbed)
 
 !       -------------------------------------------------------------------
 !       Compute variables for AQUABC model
@@ -643,11 +684,13 @@
 
 	use para
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
 
-        real 	 	  :: getpar
+        real		  :: getpar
+        double precision  :: dgetpar
         integer 	  :: i
         integer		  :: nrs	!number of grainsize classes
         integer 	  :: npi	!
@@ -732,14 +775,14 @@
 !       --------------------------------------------------
 !       Stores parameters in variable sedpa()
 !       --------------------------------------------------
-        sedpa(1) = getpar('isedi')
-        sedpa(2) = getpar('sedref')
-        sedpa(3) = getpar('sedhpar')
+        sedpa(1) = dgetpar('isedi')
+        sedpa(2) = dgetpar('sedref')
+        sedpa(3) = dgetpar('sedhpar')
         sedpa(4) = nrs
         sedpa(5) = npi
         sedpa(6) = nrst
-        sedpa(7) = getpar('adjtime')
-        sedpa(8) = getpar('irocks')
+        sedpa(7) = dgetpar('adjtime')
+        sedpa(8) = dgetpar('irocks')
         return
 
   30    continue
@@ -772,7 +815,7 @@
 
         subroutine readsedconst
 
-        use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
@@ -1006,6 +1049,7 @@
 
         use basin, only : nkn,nel,iarv,nen3v
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
@@ -1190,7 +1234,7 @@ c initialization of conz from file
 	subroutine init_file_sed(name,nkn,nvar,var)
 
         use intp_fem_file
-	use mod_sediment
+        use mod_sediment_para
 
         implicit none
 
@@ -1242,7 +1286,7 @@ c initialization of conz from file
 
         function rhossand(pcoes,consc)
 
-	use mod_sediment
+        use mod_sediment_para
 
         implicit none
 
@@ -1324,12 +1368,13 @@ c initialization of conz from file
 
         m = sqrt( u**2 + v**2 )		!get m
 
-        alfa=atan(v/u)*rad
-
         if( u .eq. 0.0 ) then
           alfa = 0.
           if( v .lt. 0.0 ) alfa = 180.
+	else
+          alfa=atan(v/u)*rad
         end if
+
         if(u.gt.0.and.v.gt.0.or.u.gt.0.and.v.lt.0) alfa=90.-alfa
         if(u.lt.0.and.v.gt.0.or.u.lt.0.and.v.lt.0) alfa=270.-alfa
 
@@ -1499,6 +1544,7 @@ c initialization of conz from file
 	use levels
 	use basin, only : nkn
         use mod_sediment
+        use mod_sediment_para
 
         implicit none
 
@@ -1671,6 +1717,7 @@ c initialization of conz from file
         use levels
         use basin, only : nkn,nel
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
@@ -1864,6 +1911,7 @@ c initialization of conz from file
         end do
 
         do is = 1,nbcc
+          ws(is) = max(1d-5,ws(is))
  	  WSI(is) = ws(is)
 	end do
 
@@ -1987,6 +2035,7 @@ c initialization of conz from file
      $PER,RHOW,RHOS,RHEIGHT,RLENGTH,BEDCHA,TIMEDR,bmix)
 
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
 	implicit none
@@ -2175,6 +2224,7 @@ c initialization of conz from file
      $VISK,pers,RHOS,sloads,sflux)
 
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
@@ -2355,6 +2405,7 @@ c initialization of conz from file
      $nscls,pers,gs,dxx,ws,scns,sedx,sedy,sloads,sflux)
 
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
@@ -2524,7 +2575,6 @@ c initialization of conz from file
 	use mod_bound_geom
 	use evgeom
         use basin, only : nkn,nel,nen3v
-        use mod_sediment
 
         implicit none
 
@@ -2628,7 +2678,6 @@ c initialization of conz from file
 	subroutine slope_lim_bh(nscls,bflx,bh)
 
 	use basin, only : nkn
-        use mod_sediment
 
 	implicit none
 
@@ -2810,6 +2859,7 @@ c initialization of conz from file
 
 	use basin, only : nkn
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
@@ -2957,6 +3007,7 @@ c initialization of conz from file
         subroutine bedact(nscls,bmix,BEDCHA,PERCS)
 
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
@@ -3130,6 +3181,7 @@ c initialization of conz from file
         subroutine unilayer(nscls,BEDCHA,PERCS)
 
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
@@ -3256,6 +3308,7 @@ c initialization of conz from file
         subroutine checkbed(k,iss,nscls,gs,BEDCHA,PERCS,flux)
 
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
         
         implicit none
@@ -3366,6 +3419,7 @@ c initialization of conz from file
      $			  gss)
 
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
@@ -3428,6 +3482,7 @@ c initialization of conz from file
         subroutine newlayer(nscls,BEDCHA,PERCS)
 
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
@@ -3533,6 +3588,7 @@ c initialization of conz from file
      $bpre)
 
         use mod_sediment
+        use mod_sediment_para
 
         implicit none
 
@@ -3607,6 +3663,7 @@ c initialization of conz from file
         subroutine dellayer(nlbd,nscls,BEDCHA,PERCS)
 
         use mod_sediment
+        use mod_sediment_para
 
         implicit none
 
@@ -3668,6 +3725,7 @@ c initialization of conz from file
 	use levels
 	use basin, only : nkn
         use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
@@ -3794,7 +3852,7 @@ c initialization of conz from file
         call makehkv(hkv)         !computes hkv as average
 
 	call setweg(3,iw)
-        call setarea(nlvdi,areakv)
+        call set_area
         call setdepth(nlvdi,hdknv,hdenv,zenv,areakv)
 
 !       ------------------------------------------------------------------
@@ -3871,20 +3929,20 @@ c initialization of conz from file
 ! Reset bottom height variation and ssc after initialization time adjtime,
 !  while all other variables (sediment density, bathymetry, tauce) are not.
 
-        subroutine resetsedi(it,adjtime,nscls,bh,scn)
+        subroutine resetsedi(dtime,adjtime,nscls,bh,scn)
 
 	use basin, only : nkn
         use levels, only : nlvdi
 
         implicit none
 
-	integer, intent(in)		:: it		!time in seconds
-	integer, intent(in)		:: adjtime	!time for initialization [s]
+	double precision, intent(in)	:: dtime	!time in seconds
+	double precision, intent(in)	:: adjtime	!time for initialization [s]
 	integer, intent(in)		:: nscls	!number of grainsize classes
 	double precision, intent(inout) :: bh(nkn)      !bottom height variation [m]
         double precision, intent(inout) :: scn(nlvdi,nkn,nscls) !suspended sediment conc (kg/m3)
 
-	if (it == adjtime) then 
+	if (dtime == adjtime) then 
 	  write(6,*)'Morphological initialization time:'
 	  write(6,*)'reset bathymetric change but keep modified'
 	  write(6,*)'sediment characteristics and bathymetry'
@@ -4024,7 +4082,7 @@ c initialization of conz from file
 
         use levels
         use basin, only : nkn
-        use mod_sediment
+        use mod_sediment_para
 	use mod_sedtrans05
 
         implicit none
@@ -4061,14 +4119,14 @@ c initialization of conz from file
              VISK = visc/rhow                        !get viscosity
 	     call WSINKFLOC(NBCC,CONC,RHOW,VISK,WWS)
 	     do i = 1,nbcc
-               wsink(l,k,i) = real(WWS(i))
+               wsink(l,k,i) = WWS(i)
              end do
 	   end do
 	  end if
 
 	  do l = 1,lmax
 	    do is = nbcc+1,nscls
-              wsink(l,k,is) = real(ws(is))
+              wsink(l,k,is) = ws(is)
 	    end do
 	  end do
 
@@ -4088,6 +4146,7 @@ c initialization of conz from file
         use levels, only : nlvdi,nlv,ilhkv
         use basin, only : nkn
 	use mod_sediment
+        use mod_sediment_para
 
         implicit none
 
@@ -4106,6 +4165,7 @@ c initialization of conz from file
         real, allocatable 		:: scal(:,:)   !suspended sediment conc for adv/diff
         real, allocatable 		:: epss(:,:)   !vertical mixing coefficient adv/diff
         real, allocatable 		:: wsinks(:,:) !settling velocity for suspended sediment adv/diff
+        real, allocatable 		:: lload(:)
         real, allocatable 		:: load(:,:)
         real				:: dt
         double precision 		:: dtime
@@ -4130,15 +4190,17 @@ c initialization of conz from file
 !!!$OMP TASK DEFAULT(FIRSTPRIVATE) SHARED(sload,scn,eps,wsink,idsedi)
 
 !$OMP TASK FIRSTPRIVATE(is,fact,sedkpar,difhv,difmol,what
-!$OMP& ,dt,nlvdi,nkn,ilhkv,scal,wsinks,epss,load)
+!$OMP& ,dt,nlvdi,nkn,ilhkv,scal,wsinks,epss,lload,load)
 !$OMP& SHARED(sload,scn,eps,wsink,idsedi) DEFAULT(NONE)
 
+  	  allocate(lload(nkn))
   	  allocate(load(nlvdi,nkn))
 	  allocate(scal(nlvdi,nkn))
 	  allocate(epss(0:nlvdi,nkn))
 	  allocate(wsinks(0:nlvdi,nkn))
 
-          call load3d(sload(1,is),nkn,nlvdi,ilhkv,load)
+	  lload(:) = sload(:,is)
+          call load3d(lload,nkn,nlvdi,ilhkv,load)
           scal(:,:)   = scn(:,:,is)
           epss(:,:)   = eps(:,:,is)
           wsinks(:,:) = wsink(:,:,is)
@@ -4148,6 +4210,7 @@ c initialization of conz from file
      +                      ,difhv,epss,difmol)
           scn(:,:,is) = scal(:,:)
 
+  	  deallocate(lload)
   	  deallocate(load)
 	  deallocate(scal)
 	  deallocate(epss)
@@ -4176,7 +4239,7 @@ c initialization of conz from file
 
 	implicit none
 
-	double precision, intent(in)	:: sload(nkn)	!suspended sediment load at bottom
+	real, intent(in)		:: sload(nkn)	!suspended sediment load at bottom
 	integer, intent(in)		:: nkn		!number of node
 	integer, intent(in)		:: nlvdi	!number of vertical levels
         integer, intent(in)		:: ilhkv(nkn)	!number of element and node level
@@ -4226,8 +4289,37 @@ c initialization of conz from file
 
 !******************************************************************
 
-        subroutine wr_sed_output(ia_out1,ia_out2,bh,gskm,tao,
-     +			percc,percs,totbed)
+        subroutine init_sed_output
+
+	use mod_sediment
+
+	implicit none
+
+	integer nvar,id
+	logical, parameter :: b2d = .true.
+	logical, parameter :: b3d = .false.
+
+	logical has_output_d
+
+        nvar = 1
+        call init_output_d('itmsed','idtsed',da_ssc)
+        if( has_output_d(da_ssc) ) then
+          call shyfem_init_scalar_file('ssc',nvar,b3d,id)
+          da_ssc(4) = id
+        end if
+
+        nvar = 5
+        call init_output_d('itmsed','idtsed',da_sed)
+        if( has_output_d(da_sed) ) then
+          call shyfem_init_scalar_file('sed',nvar,b2d,id)
+          da_sed(4) = id
+        end if
+
+	end
+
+!******************************************************************
+
+        subroutine wr_sed_output(dtime,bh,gskm,tao,percc,percs,totbed)
 
         use levels, only : nlvdi,nlv
         use basin, only : nkn
@@ -4236,28 +4328,30 @@ c initialization of conz from file
 
         implicit none
 
-        integer,intent(in),dimension(4)	:: ia_out1
-        integer,intent(in),dimension(4)	:: ia_out2
-        double precision, intent(in)	:: bh(nkn)	!bottom height variation [m]
-        real, intent(in)		:: gskm(nkn)	!average grainsize per node [m]
-        real, intent(in)		:: tao(nkn)	!wave-current shear stress
+        double precision, intent(in)	:: dtime	!simulation time
+        double precision, intent(in)	:: bh(nkn)	!bottom height var
+        real, intent(in)		:: gskm(nkn)	!average grainsize
+        real, intent(in)		:: tao(nkn)	!wave-cur shear stress
 	real, intent(in)		:: percc(nkn)	!fraction of mud
 	real, intent(in)		:: percs(nkn)	!fraction od sand
-	real, intent(in)		:: totbed(nkn)	!total bedload transport (kg/ms)
+	real, intent(in)		:: totbed(nkn)	!total bedload transport
 
-        logical				:: next_output
+        logical				:: next_output_d
+        integer	 			:: id
 
-        if( next_output(ia_out1) ) then
-          call write_scalar_file(ia_out1,80,1,real(bh))
-          call write_scalar_file(ia_out1,81,1,gskm)
-          call write_scalar_file(ia_out1,82,1,tao)
-          !call write_scalar_file(ia_out1,83,1,hkv)
-          call write_scalar_file(ia_out1,83,1,percc)
-          call write_scalar_file(ia_out1,84,1,totbed)
+        if( next_output_d(da_ssc) ) then
+          id = nint(da_ssc(4))
+          call shy_write_scalar_record(id,dtime,800,nlv,tcn)
         end if
 
-        if( next_output(ia_out2) ) then
-          call write_scalar_file(ia_out2,85,nlv,tcn)
+        if( next_output_d(da_sed) ) then
+          id = nint(da_sed(4))
+          call shy_write_scalar_record(id,dtime,891,1,real(bh))
+          call shy_write_scalar_record(id,dtime,892,1,gskm)
+          call shy_write_scalar_record(id,dtime,893,1,tao)
+          call shy_write_scalar_record(id,dtime,894,1,percc)
+          !call shy_write_scalar_record(id,dtime,804,1,hvk)
+          call shy_write_scalar_record(id,dtime,895,1,totbed)
         end if
 
 	end subroutine wr_sed_output
@@ -4325,7 +4419,6 @@ c initialization of conz from file
 	subroutine sed_on_rocks(nscls,krocks,sedx,sedy,sload,sflx)
 
         use basin, only : nkn
-	use mod_sediment
 
 	implicit none
 

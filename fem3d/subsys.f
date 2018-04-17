@@ -375,7 +375,7 @@ c This gives the possibility to have time steps smaller than 1 s.
 c
 c |itsplt|	Type of variable time step computation. If this value
 c		is 0, the time step will be kept constant at its initial
-c		value. A value of 1 devides the initial time step into
+c		value. A value of 1 divides the initial time step into
 c		(possibly) equal parts, but makes sure that at the end
 c		of the micro time steps one complete macro time
 c		step has been executed. The mode |itsplt| = 2
@@ -585,9 +585,10 @@ c		\end{description}
 	call addpar('iheat',1.)		!type of heat flux routine
 
 c |ihtype|	Different ways of how to specify water vapor content
-c		are possible. Normally reletive humidity has to be
+c		are possible. Normally relative humidity has to be
 c		given (|ihtype|=1). However, also wet bulb temperature
-c		(|ihtype|=2) or dew point temperature (|ihtype|=3) can
+c		(|ihtype|=2), dew point temperature (|ihtype|=3), or
+c		specific humidity (|ihtype|=4) can
 c		be given. (Default 1).
 
 	call addpar('ihtype',1.)	!type of water vapor
@@ -839,6 +840,10 @@ c |iconz|	Flag if the computation on the tracer is done.
 c		A value different from 0 computes the transport
 c		and diffusion of the substance. If greater than 1
 c		|iconz| concentrations are simulated. (Default 0)
+cc |iconza|	The concentration are normally written as instantaneous
+cc		values. If |iconza| is different from 0, instead of
+cc		the instantaneous values the minimum, average and maximm
+cc		values are written. (Default 0)
 c |conref|	Reference (initial) concentration of the tracer in
 c		any unit. (Default 0)
 c |taupar|	Decay rate for concentration if different from 0. In
@@ -856,6 +861,7 @@ c		case the value of |taupar| is ignored.
 c		(Default 0)
 
 	call addpar('iconz',0.)		!compute concentration ?
+cc	call addpar('iconza',0.)	!average values ? - not working
 	call addpar('conref',0.)	!reference concentration
 	call addpar('idecay',0.)	!type of decay
 
@@ -893,20 +899,13 @@ cc------------------------------------------------------------------------
 
 cc------------------------------------------------------------------------
 
-cc biological reactor
+	call addpar('ihydro',1.)	!compute hydrodynamics (for debug)
+
+cc------------------------------------------------------------------------
 
 	call addpar('ibio',0.)		!run biological reactor
-
-cc mercury reactor
-
         call addpar('imerc',0.)		!run mercury reactor
-
-cc simple sediments
-
         call addpar('issedi',0.)	!run simple sediments
-
-cc toxicological routines from ARPAV
-
 	call addpar('itoxi',0.)		!run toxicological routines
 
 cc------------------------------------------------------------------------
@@ -1073,6 +1072,9 @@ cc still to be commented
         call addpar('ioil',0.)
         call addpar('ilarv',0.)
         call addpar('ised',0.)
+
+        call addfnm('lgrini',' ')
+        call addpar('itlgin',-1.)	!must still be handled better
 
 c DOCS	END
 
@@ -1283,7 +1285,7 @@ cc undocumented parameters
 cc internally used parameters
 
 	call addpar('flag',0.)
-	call addpar('const',0.)
+	call addpar('zconst',0.)
 	call addpar('volmin',1.)	!minimum volume to remain in el.
 
 cc debug
@@ -1801,6 +1803,8 @@ c************************************************************************
 
 c $color section
 
+	use para
+
 	implicit none
 
 c DOCS	START	S_color
@@ -1853,8 +1857,10 @@ c		values between |isoval(1)| and |isoval(2)|. The last
 c		color in |color| refers to values greater than the last
 c		value in |isoval|.
 
-	call addpar('isoval',0.)	!dummy for array read
-	call addpar('color',0.)		!dummy for array read
+	!call addpar('isoval',0.)
+	!call addpar('color',0.)
+	call para_add_array_value('isoval',0.)
+	call para_add_array_value('color',0.)
 
 c |x0col, y0col|	Lower left corner of the area where the
 c			color bar is plotted.
@@ -2372,6 +2378,8 @@ c*******************************************************************
 
 c initializes default names
 
+	use para
+
 	implicit none
 
 	logical haspar
@@ -2381,21 +2389,25 @@ c para section
 	call sctfnm('name')		!sets default section
 
 c DOCS	START	S_name
-c
-c DOCS	COMPULS		Directory specification
-c
-c This parameters define directories for various input
-c and output files.
-c
-c |basdir|	Directory where basin file BAS resides. (Default .)
-c |datdir|	Directory where output files are written. (Default .)
-c |tmpdir|	Directory for temporary files. (Default .)
-c |defdir|	Default directory for other files. (Default .)
+cc
+cc DOCS	COMPULS		Directory specification
+cc
+cc This parameters define directories for various input
+cc and output files.
+cc
+cc |basdir|	Directory where basin file BAS resides. (Default .)
+cc |datdir|	Directory where output files are written. (Default .)
+cc |tmpdir|	Directory for temporary files. (Default .)
+cc |defdir|	Default directory for other files. (Default .)
 
-	call addfnm('basdir',' ')
-	call addfnm('datdir',' ')
-	call addfnm('tmpdir',' ')
-	call addfnm('defdir',' ')
+cc	call addfnm('basdir',' ')
+cc	call addfnm('datdir',' ')
+cc	call addfnm('tmpdir',' ')
+cc	call addfnm('defdir',' ')
+	call para_deprecate('basdir','')
+	call para_deprecate('datdir','')
+	call para_deprecate('tmpdir','')
+	call para_deprecate('defdir','')
 
 c DOCS	END
 

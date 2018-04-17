@@ -333,6 +333,12 @@ c 04.11.2017	ggu	version 7.5.35	... and some stupid forgotten things
 c 14.11.2017	ggu	version 7.5.36
 c 17.11.2017	ggu	version 7.5.37
 c 17.11.2017	ggu	version 7.5.38	brown paper bag bug...
+c 05.12.2017	ggu	version 7.5.39
+c 07.12.2017	ggu	version 7.5.40
+c 24.01.2018	ggu	version 7.5.41
+c 22.02.2018	ggu	version 7.5.42	post Lithuania release
+c 03.04.2018	ggu	version 7.5.43	post Easter 2018 release
+c 03.04.2018	ggu	version 7.5.44	small bug fix
 c
 c*****************************************************************
 
@@ -342,16 +348,16 @@ c*****************************************************************
 
 c DOCS	START	P_version
 c
-c \newcommand{\VERSION}{7.5.38}
-c \newcommand{\version}{7\_5\_38}
-c \newcommand{\COMMIT}{2017-11-27}
+c \newcommand{\VERSION}{7.5.44}
+c \newcommand{\version}{7\_5\_44}
+c \newcommand{\COMMIT}{2018-04-15}
 c
 c DOCS	END
 
         implicit none
 
-        character*10, parameter :: version = '7.5.38'
-        character*10, parameter :: commit  = '2017-11-27'
+        character*10, parameter :: version = '7.5.44'
+        character*10, parameter :: commit  = '2018-04-15'
         character*17, parameter :: text    = 'SHYFEM VERSION = '
 
         character*40, parameter :: string = text//version//'  '//commit

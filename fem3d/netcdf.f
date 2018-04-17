@@ -41,17 +41,26 @@ c******************************************************************
 c******************************************************************
 
 !==================================================================
-	module netcdf
+	module netcdf_params
 !==================================================================
 
-        integer, save :: dimids_2d(5)	!dimensions for 2D case
-        integer, save :: dimids_3d(5)	!dimensions for 3D case
+	!use netcdf
 
-        integer, save :: rec_varid	!id for time
-        integer, save :: coord_varid(9)	!ids for coordinates
+	implicit none
+
+        integer, save :: dimids_2d(5)		!dimensions for 2D case
+        integer, save :: dimids_3d(5)		!dimensions for 3D case
+
+        integer, save :: rec_varid		!id for time
+        integer, save :: coord_varid(9)		!ids for coordinates
+
+	character*80, save :: time_dim = ' '	!dimension name of time
+	character*80, save :: time_var = ' '	!variable name of time
+
+	include 'netcdf.inc'
 
 !==================================================================
-	end module netcdf
+	end module netcdf_params
 !==================================================================
 
 c******************************************************************
@@ -60,15 +69,24 @@ c open routines
 c******************************************************************
 c******************************************************************
 
+	subroutine nc_init
+
+	use netcdf_params
+
+	time_dim = ' '
+	time_var = ' '
+
+	end
+
+c******************************************************************
+
 	subroutine nc_open_reg(ncid,nx,ny,nlv,flag,date0,time0,iztype)
 
 ! opens nc file for writing regular grid
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
         integer ncid            !identifier (return)
 	integer nx,ny,nlv	!size of arrays
@@ -280,11 +298,9 @@ c******************************************************************
 
 ! opens nc file for writing fem grid
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid		!identifier (return)
 	integer nkn,nel,nlv	!size of arrays
@@ -523,11 +539,9 @@ c******************************************************************
 
 c opens nc file for time series write
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer node		!total number of nodes for ts
@@ -692,17 +706,15 @@ c*****************************************************************
 
 ! opens nc file for reading fem file
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid		!identifier (return)
 	character*(*) file
 	integer retval
 
-	write(6,*) 'opening nc file for read: ',file
+	!write(6,*) 'opening nc file for read: ',trim(file)
 
         retval = nf_open(file, NF_NOWRITE, ncid)
 	call nc_handle_err(retval)
@@ -716,11 +728,9 @@ c*****************************************************************
 
 	subroutine nc_dims_info(ncid)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 
@@ -745,11 +755,9 @@ c*****************************************************************
 
         subroutine nc_get_dim_totnum(ncid,ndims)
 
-	use netcdf
+	use netcdf_params
 
         implicit none
-
-	include 'netcdf.inc'
 
         integer ncid
 	integer ndims
@@ -765,11 +773,9 @@ c*****************************************************************
 
         subroutine nc_get_dim_name(ncid,dim_id,name)
 
-	use netcdf
+	use netcdf_params
 
         implicit none
-
-	include 'netcdf.inc'
 
         integer ncid
         integer dim_id
@@ -786,11 +792,9 @@ c*****************************************************************
 
 	subroutine nc_get_dim_id(ncid,name,dim_id)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	character*(*) name
@@ -807,11 +811,9 @@ c*****************************************************************
 
         subroutine nc_has_dim_name(ncid,name,dim_id)
 
-	use netcdf
+	use netcdf_params
 
         implicit none
-
-	include 'netcdf.inc'
 
         integer ncid
         character*(*) name
@@ -829,11 +831,9 @@ c*****************************************************************
 
 	subroutine nc_get_dim_len(ncid,dim_id,dim_len)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer dim_id
@@ -854,19 +854,17 @@ c*****************************************************************
 
 	subroutine nc_get_time_rec(ncid,irec,t)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer irec			!number of record
 	double precision t		!time found (return)
 
 	integer nvars,var_id,time_id,i
-	character*30 name
-	character*30 time,time_d,time_v
+	character*80 name
+	character*80 time,time_d,time_v
 	integer istart,icount
 	integer xtype
 	integer retval
@@ -916,24 +914,21 @@ c*****************************************************************
 
 	subroutine nc_get_time_recs(ncid,trecs)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer trecs
 
 	integer dim_id,len
-	character*30 name
-	character*30 time,time_d,time_v
+	character*80 name
+	character*80 time,time_d,time_v
 	integer retval
 
 	trecs = 0
 
 	call nc_get_time_name(time_d,time_v)
-	!write(6,*) time_d,time_v
 	if( time_d == ' ' .or. time_v == ' ' ) return
 
 	call nc_get_dim_id(ncid,time_d,dim_id)
@@ -954,11 +949,9 @@ c*****************************************************************
 
 	subroutine nc_var_info(ncid,var_id,bverb)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer var_id
@@ -1003,11 +996,9 @@ c*****************************************************************
 
 	subroutine nc_vars_info(ncid,bverb)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	logical bverb
@@ -1032,11 +1023,9 @@ c*****************************************************************
 
 c returns var_id = 0 if not found (no error)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	character*(*) name
@@ -1057,11 +1046,9 @@ c*****************************************************************
 
 	subroutine nc_get_var_name(ncid,var_id,name)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer var_id
@@ -1078,11 +1065,9 @@ c*****************************************************************
 
 	subroutine nc_get_var_totnum(ncid,nvars)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer nvars
@@ -1102,15 +1087,13 @@ c if ndims == 0 -> just compute total number of dimensions
 c
 c if ndims > 0 and smaller than total number of dimensions -> negative return value
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
 
-	include 'netcdf.inc'
-
 	integer ncid
 	integer var_id
-	integer ndims		!on entry dimension, on return number of dimensions
+	integer ndims	!on entry dimension, on return number of dimensions
 	integer dimids(ndims)
 
 	integer retval
@@ -1136,11 +1119,9 @@ c*****************************************************************
 
 	subroutine nc_check_var_type(ncid,var_id,type)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer var_id
@@ -1174,11 +1155,9 @@ c*****************************************************************
 
 	subroutine nc_get_global_attr(ncid,aname,atext)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	character*(*) aname
@@ -1192,33 +1171,72 @@ c*****************************************************************
 
 	subroutine nc_get_var_attr(ncid,var_id,aname,atext)
 
-	use netcdf
+! in this routine is a gfortran bug !!!FIXME
+
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer var_id
 	character*(*) aname
 	character*(*) atext
 
+	logical debug
 	integer retval
-	integer xtype,ll
-	character(len=:), allocatable :: aux
-	!character(len=*), allocatable :: aux
-	!character, allocatable :: aux
+	integer xtype,ll,cl,sl
+	integer, parameter :: cmax = 1000
+	character*(cmax) aux
+	!character(len=:), allocatable :: aux
+
+	debug = .true.		!GGU
+	debug = .false.		!GGU
 
 	atext = ' '
 	retval = nf_inq_att(ncid,var_id,aname,xtype,ll)
 	if( retval .ne. nf_noerr ) return	!no such attribute name
 	if( xtype .ne. NF_CHAR ) return		!attribute is not a string
 
-	allocate(character(len=ll) :: aux)
-	!allocate(aux(1:ll))
+	if( ll > cmax ) then
+	  write(6,*) 'll = ',ll,'  cmax = ',cmax
+	  write(6,*) 'variable is too short to receive string'
+	  stop 'error stop nc_get_var_attr: ll > cmax'
+	end if
+
+	cl = ll + 1
+	!allocate(character(len=cl) :: aux)
+	aux = ' '
+	sl = len(aux)
+
+	if( debug ) write(6,*) 'cl,sl: ',cl,sl,len(aux)
+
+	if( sl < cl ) then
+	  write(6,*) 'sl,cl: ',sl,cl
+	  write(6,*) 'compiler cannot allocate variable string length'
+	  write(6,*) 'please use constant string variable'
+	  stop 'error stop nc_get_var_attr: len(aux)<cl'
+	end if
+
+	if( debug ) then
+	write(6,*) 'cl: ',sl,len(aux),cl
+	write(6,*) 'nnn: ',ll,var_id,trim(aname),len(aux)
+	end if
+
 	retval = nf_get_att_text(ncid,var_id,aname,aux)
+
+	sl = len(aux)
+	if( ichar(aux(ll:ll)) == 0 ) aux(ll:ll) = ' '
+	if( ichar(aux(sl:sl)) == 0 ) aux(sl:sl) = ' '
+	if( debug ) then
+	  write(6,*) 'auxaux1: ',trim(aux)
+	  write(6,*) 'auxaux2: ',len_trim(aux),ll,sl
+	  write(6,*) 'auxaux3: ',ichar(aux(ll:ll))
+	  write(6,*) 'nnn: end of call'
+	end if
 	call nc_handle_err(retval)
 	atext = aux
+
+	!deallocate(aux)
 
 	end
 
@@ -1226,11 +1244,9 @@ c*****************************************************************
 
 	function nc_has_var_attrib(ncid,var_id,aname)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	logical nc_has_var_attrib
 	integer ncid
@@ -1253,11 +1269,9 @@ c*****************************************************************
 
 	subroutine nc_get_var_attrib(ncid,var_id,aname,atext,avalue)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer var_id
@@ -1268,7 +1282,8 @@ c*****************************************************************
 	integer retval
 	integer xtype,len
 	double precision, allocatable :: daux(:)
-	character(len=:), allocatable :: saux
+	character(len=:), allocatable :: saux		!NEMUNAS_FIX_NEW
+	!character*1000 :: saux				!NEMUNAS_FIX_OLD
 
 	atext = ' '
 	avalue = 0.
@@ -1277,7 +1292,8 @@ c*****************************************************************
 	if( retval .ne. nf_noerr ) return	!no such attribute name
 
 	if( xtype .eq. NF_CHAR ) then
-	  allocate(character(len=len) :: saux)
+	  allocate(character(len=len) :: saux)		!NEMUNAS_FIX_NEW
+	  !if( len > 1000 ) goto 99			!NEMUNAS_FIX_OLD
 	  retval = nf_get_att_text(ncid,var_id,aname,saux)
 	  if( len == 1 .and. ichar(saux(1:1)) == 0 ) saux=' '	!FIX
 	  atext = saux
@@ -1296,17 +1312,19 @@ c*****************************************************************
 
 	call nc_handle_err(retval)
 
+	return
+   99	continue
+	write(6,*) 'len = ',len,'  max possible is 1000'
+	stop 'error stop nc_get_var_attrib: len > 1000'
 	end
 
 c*****************************************************************
 
 	subroutine nc_get_var_int(ncid,var_id,data)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer var_id
@@ -1323,11 +1341,9 @@ c*****************************************************************
 
 	subroutine nc_get_var_real(ncid,var_id,data)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer var_id
@@ -1347,11 +1363,9 @@ c*****************************************************************
 
 c reads time record trec of variable name
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	character*(*) name	!name of variable to read
@@ -1371,7 +1385,7 @@ c reads time record trec of variable name
 	integer, allocatable :: dimids(:)
 	character*80, allocatable :: dimn(:)
 	character*80 dimname
-	character*30 time,time_d,time_v
+	character*80 time,time_d,time_v
 
 	call nc_get_time_name(time_d,time_v)
 	time = time_d
@@ -1456,11 +1470,9 @@ c*****************************************************************
 
 	subroutine nc_define_2d_reg(ncid,what,var_id)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	character*(*) what
@@ -1478,11 +1490,9 @@ c*****************************************************************
 
 	subroutine nc_define_3d_reg(ncid,what,var_id)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	character*(*) what
@@ -1500,11 +1510,9 @@ c*****************************************************************
 
 	subroutine nc_define_2d(ncid,what,var_id)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	character*(*) what
@@ -1522,11 +1530,9 @@ c*****************************************************************
 
 	subroutine nc_define_3d(ncid,what,var_id)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	character*(*) what
@@ -1548,11 +1554,9 @@ c*****************************************************************
 
 	subroutine nc_define_attr(ncid,what,def,var_id)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	character*(*) what,def
@@ -1574,11 +1578,9 @@ c*****************************************************************
 
 	subroutine nc_define_attr_real(ncid,what,value,var_id)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	character*(*) what
@@ -1599,11 +1601,9 @@ c*****************************************************************
 
 	subroutine nc_define_range(ncid,rmin,rmax,flag,var_id)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	real rmin,rmax,flag
@@ -1641,9 +1641,9 @@ c*****************************************************************
 
 	subroutine nc_end_define(ncid)
 
-	implicit none
+	use netcdf_params
 
-	include 'netcdf.inc'
+	implicit none
 
 	integer ncid
 
@@ -1661,6 +1661,8 @@ c*****************************************************************
 	subroutine nc_has_vertical_dimension(ncid,name,bvert)
 
 c checks if variable is 3d
+
+	use netcdf_params
 
 	implicit none
 
@@ -1698,7 +1700,7 @@ c checks if variable name has time dimension
 
 	integer var_id,ndims,time_id
 	integer, allocatable :: dim_id(:)
-	character*30 tname,time_d,time_v
+	character*80 tname,time_d,time_v
 
 	call nc_get_var_id(ncid,name,var_id)
 	ndims = 0
@@ -1718,16 +1720,14 @@ c*****************************************************************
 
 	subroutine nc_set_time_name(time_d,time_v)
 
+	use netcdf_params
+
 	implicit none
 
 	character*(*) time_d,time_v
 
-	character*30 time_d_c,time_v_c
-        common /time_netcdf/ time_d_c,time_v_c
-	save /time_netcdf/
-
-	if( time_d .ne. ' ' )  time_d_c  = time_d	!dimension name of time
-	if( time_v .ne. ' ' )  time_v_c  = time_v	!variable name of time
+	if( time_d .ne. ' ' )  time_dim  = time_d	!dimension name of time
+	if( time_v .ne. ' ' )  time_var  = time_v	!variable name of time
 
 	end
 
@@ -1735,30 +1735,16 @@ c*****************************************************************
 
 	subroutine nc_get_time_name(time_d,time_v)
 
+	use netcdf_params
+
 	implicit none
 
 	character*(*) time_d,time_v
 
-	character*30 time_d_c,time_v_c
-        common /time_netcdf/ time_d_c,time_v_c
-	save /time_netcdf/
-
-	time_d = time_d_c
-	time_v = time_v_c
+	time_d = time_dim
+	time_v = time_var
 
 	end
-
-c*****************************************************************
-
-        blockdata nc_time_name_blockdata
-
-	character*30 time_d_c,time_v_c
-        common /time_netcdf/ time_d_c,time_v_c
-	save /time_netcdf/
-
-        data time_d_c,time_v_c /' ',' '/
-
-        end
 
 c*****************************************************************
 c*****************************************************************
@@ -1769,11 +1755,9 @@ c*****************************************************************
 	subroutine nc_write_coords_reg(ncid,nx,ny,nlv
      +					,xlon,ylat,depth,hlv)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer nx,ny
@@ -1822,11 +1806,9 @@ c*****************************************************************
 	!use mod_depth
 	!use levels
 	!use basin
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer nkn,nel,nlv
@@ -1878,11 +1860,9 @@ c*****************************************************************
 
 	subroutine nc_write_coords_ts(ncid,lon,lat)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
         real lon(1), lat(1)
@@ -1917,11 +1897,9 @@ c*****************************************************************
 
 	subroutine nc_write_time(ncid,irec,it)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer irec
@@ -1940,11 +1918,9 @@ c*****************************************************************
 
 	subroutine nc_write_dtime(ncid,irec,dtime)
 
-	use netcdf
+	use netcdf_params
 
 	implicit none
-
-	include 'netcdf.inc'
 
 	integer ncid
 	integer irec
@@ -1965,9 +1941,9 @@ c*****************************************************************
 
 	subroutine nc_write_data_2d_reg(ncid,var_id,irec,nx,ny,var2d)
 
-	implicit none
+	use netcdf_params
 
-	include 'netcdf.inc'
+	implicit none
 
 	integer ncid
 	integer var_id
@@ -1995,9 +1971,9 @@ c*****************************************************************
 
 	subroutine nc_write_data_3d_reg(ncid,var_id,irec,nlv,nx,ny,var3d)
 
-	implicit none
+	use netcdf_params
 
-	include 'netcdf.inc'
+	implicit none
 
 	integer ncid
 	integer var_id
@@ -2030,9 +2006,9 @@ c*****************************************************************
 
 c re-writes a 3d array to be CF compliant
 
-	implicit none
+	use netcdf_params
 
-	include 'netcdf.inc'
+	implicit none
 
 	integer nlv
 	integer nx,ny
@@ -2055,9 +2031,9 @@ c*****************************************************************
 
 	subroutine nc_write_data_2d(ncid,var_id,irec,nkn,var2d)
 
-	implicit none
+	use netcdf_params
 
-	include 'netcdf.inc'
+	implicit none
 
 	integer ncid
 	integer var_id
@@ -2083,9 +2059,9 @@ c*****************************************************************
 
 	subroutine nc_write_data_3d(ncid,var_id,irec,nlv,nkn,var3d)
 
-	implicit none
+	use netcdf_params
 
-	include 'netcdf.inc'
+	implicit none
 
 	integer ncid
 	integer var_id
@@ -2166,9 +2142,9 @@ c*****************************************************************
 
 	subroutine nc_close(ncid)
 
-	implicit none
+	use netcdf_params
 
-	include 'netcdf.inc'
+	implicit none
 
 	integer ncid
 
@@ -2185,9 +2161,9 @@ c*****************************************************************
 
 c writes global conventions
 
-	implicit none
+	use netcdf_params
 
-	include 'netcdf.inc'
+	implicit none
 
 	integer ncid
 	character*(*) title
@@ -2244,9 +2220,9 @@ c*****************************************************************
 
 	subroutine nc_handle_err(errcode)
 
-	implicit none
+	use netcdf_params
 
-	include 'netcdf.inc'
+	implicit none
 
 	integer errcode
 
@@ -2261,9 +2237,9 @@ c*****************************************************************
 
 	function nc_has_err(errcode)
 
-	implicit none
+	use netcdf_params
 
-	include 'netcdf.inc'
+	implicit none
 
 	logical nc_has_err
 	integer errcode

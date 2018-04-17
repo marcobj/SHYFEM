@@ -81,7 +81,7 @@ c**********************************************************
 	real, save :: dirn_grd = 0.
 
         integer, save :: nin_grd,iline_grd,ianz_grd
-        real, save :: f_grd(80)
+        real, save :: f_grd(81)
         character*132, save :: line_grd
 
 	integer, save :: nk_grd = 0
@@ -577,6 +577,7 @@ c works only with triangles as elements
 	integer ipntlv(0:nliddi)!pointer into inodlv
 	integer inodlv(nlnddi)	!node numbers of lines
 
+	logical berrwrite
 	integer iwhat,ner
 	real value
 
@@ -586,6 +587,8 @@ c--------------------------------------------------------------------
 c initialize variables
 c--------------------------------------------------------------------
 
+	
+	berrwrite = berr	!write read errors to terminal
 	berr = .false.
 	ner = 6
 
@@ -614,6 +617,7 @@ c--------------------------------------------------------------------
 	  call grd_ival(1,value)
 	  iwhat = nint(value)
 
+	  berr = berrwrite
           if( iwhat.eq.0 ) then  !comment or error
 		call rdcom(nco,berr)
           else if(iwhat.eq.1) then              !node
@@ -1000,10 +1004,11 @@ c handles unknown type
 
 	ner = 6
 
-	call grd_line_info(iline,line)
-
-        write(ner,*) 'Type ',iwhat,' at line ',iline,' not recognized'
-        write(ner,*) line
+	if( berr ) then
+	  call grd_line_info(iline,line)
+          write(ner,*) 'Type ',iwhat,' at line ',iline,' not recognized'
+          write(ner,*) line
+	end if
 
         berr=.true.
 
@@ -1066,7 +1071,7 @@ c
 	character*(*) gline
 
 	integer i,j,n
-	integer ifstch,iscan
+	integer ifstch,iscanf
 	logical btitle
 
 	save btitle
@@ -1080,7 +1085,7 @@ c
 		title_grd=gline(i+11:)
 		btitle=.true.
 	  else if( gline(i:i+10) .eq. '(FEM-SCALE)' ) then
-		j=iscan(gline(i+11:),1,f_grd)
+		j=iscanf(gline(i+11:),f_grd,4)
 		if(j.eq.3) then
 		  xscale_grd=f_grd(1)
 		  yscale_grd=f_grd(2)
@@ -1091,7 +1096,7 @@ c
 		  write(6,*) gline(i+11:)
 		end if
 	  else if( gline(i:i+10) .eq. '(FEM-LATID)' ) then
-		j=iscan(gline(i+11:),1,f_grd)
+		j=iscanf(gline(i+11:),f_grd,2)
 		if(j.eq.1) then
 		  dcor_grd=f_grd(1)
 		else
@@ -1099,7 +1104,7 @@ c
 		  write(6,*) gline
 		end if
 	  else if( gline(i:i+10) .eq. '(FEM-NORTH)' ) then
-		j=iscan(gline(i+11:),1,f_grd)
+		j=iscanf(gline(i+11:),f_grd,2)
 		if(j.eq.1) then
 		  dirn_grd=f_grd(1)
 		else
@@ -1245,7 +1250,7 @@ c reads next line from file
 	logical grd_next_line
 
 	integer ner,ios
-	integer iscan
+	integer iscanf
 
 	ner = 6
 	grd_next_line = .false.
@@ -1263,14 +1268,14 @@ c reads next line from file
         end if
 
 	iline_grd = iline_grd + 1
-        ianz_grd=iscan(line_grd,1,f_grd)
+        ianz_grd=iscanf(line_grd,f_grd,81)
 	if( ianz_grd .gt. 80 ) goto 99
 
 	grd_next_line = .true.
 
 	return
    99	continue
-	write(ner,*) 'dimension of array f too low ',80,ianz_grd
+	write(ner,*) 'dimension of array f too small ',80,ianz_grd
 	stop 'error stop grd_next_line: ianz_grd'
 	end
 
@@ -1707,6 +1712,7 @@ c*****************************************************************
 	integer ibase,i,node
 
 	ibase = ipntlv(il-1)
+	nvert = ipntlv(il) - ipntlv(il-1)
 	nodes(1:nvert) = inodlv(ibase+1:ibase+nvert)
 
 	do i=1,nvert
@@ -1754,5 +1760,158 @@ c*****************************************************************
 	end
 
 c*****************************************************************
+c*****************************************************************
+c*****************************************************************
+
+	subroutine grd_get_node_arrays(n,ipv,iav,hv,x,y)
+
+	use grd
+
+	implicit none
+
+	integer n
+	integer ipv(n),iav(n)
+	real hv(n),x(n),y(n)
+
+	if( n /= nk_grd ) stop 'error stop grd_get_node_arrays: n'
+
+	ipv = ippnv
+	iav = ianv
+	hv = hhnv
+	x = xv
+	y = yv
+
+	end 
+
+c*****************************************************************
+
+	subroutine grd_get_elem_arrays(n,ipv,iav,hv)
+
+	use grd
+
+	implicit none
+
+	integer n
+	integer ipv(n),iav(n)
+	real hv(n)
+
+	if( n /= ne_grd ) stop 'error stop grd_get_node_arrays: n'
+
+	ipv = ippev
+	iav = iaev
+	hv = hhev
+
+	end 
+
+c*****************************************************************
+c*****************************************************************
+c*****************************************************************
+c bnd routines
+c*****************************************************************
+c*****************************************************************
+c*****************************************************************
+
+	subroutine read_grd_lines(grdfile,n,x,y,ifl)
+
+c reads grd file for lines to be treated (plot or particle release)
+
+	implicit none
+
+	character*(*) grdfile
+	integer n		!0 for counting points, >0 for reading them
+	real x(n),y(n)
+	integer ifl(n)
+
+	integer nl,il,inum,itype,nvert,ndim,ip
+	real depth
+
+	logical is_grd_file
+
+	ndim = n
+	n = 0
+
+	if( .not. is_grd_file(grdfile) ) then
+	  write(6,*) 'file is not a grd file: ',trim(grdfile)
+	  write(6,*) 'cannot read old format of bnd files'
+	  write(6,*) 'use bnd2grd to convert from bnd to grd file'
+	  !stop 'error stop read_bnd_lines: no bnd file read'
+	  return
+	end if
+
+	call grd_read(grdfile)
+
+	call grd_get_total_lines(nl)
+
+	if( ndim == 0 ) then
+	  do il=1,nl
+	    call grd_get_line_params(il,inum,itype,nvert,depth)
+	    n = n + nvert
+	    !write(6,*) 'counting line: ',nl,il,nvert
+	  end do
+	  !write(6,*) 'total number of points in line: ',n
+	else
+	  ip = 1
+	  do il=1,nl
+	    call grd_get_line_array(il,nvert,ifl(ip),x(ip),y(ip))
+	    !write(6,*) 'reading line: ',nl,il,nvert,ip
+	    ifl(ip:ip+nvert-1) = 0
+	    ifl(ip) = 1
+	    ip = ip + nvert
+	    if( ip-1 > ndim ) goto 99
+	  end do
+	  n = ip - 1
+	  !write(6,*) 'number of points in line read: ',n
+	end if
+
+	return
+   99	continue
+	write(6,*) 'ndim = ',ndim
+	stop 'error stop read_grd_lines: ndim'
+	end
+
+c*****************************************************************
+
+	subroutine read_bnd_lines(bndfile,n,x,y,ifl)
+
+c reads old bnd file format
+
+	implicit none
+
+	character*(*) bndfile
+	integer n		!0 for counting points, >0 for reading them
+	real x(n),y(n)
+	integer ifl(n)
+
+	integer ndim,ios,iflag
+	real xx,yy
+
+	ndim = n
+	n = 0
+
+	open(1,iostat=ios,file=bndfile,status='old',form='formatted')
+	if( ios /= 0 ) return
+
+	do
+	  read(1,*,iostat=ios) xx,yy,iflag
+	  if( ios /= 0 ) exit
+	  n = n + 1
+	  if( ndim > 0 ) then
+	    if( n > ndim ) goto 99
+	    x(n) = xx
+	    y(n) = yy
+	    ifl(n) = iflag
+	  end if
+	end do
+
+	close(1)
+
+	if( ios > 0 ) n = 0
+
+	return
+   99	continue
+	write(6,*) 'ndim = ',ndim
+	stop 'error stop read_bnd_lines: ndim'
+	end
+
 c*****************************************************************
 

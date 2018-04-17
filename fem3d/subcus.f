@@ -64,26 +64,28 @@ c 21.10.2016	ccf	set ttauv and stauv for med-mar-bla
 c
 c******************************************************************
 
-	subroutine custom( it )
+	subroutine custom( dtime )
 
 c custom routines
 
 	implicit none
 
-	integer it
+	double precision dtime
 
+	integer it
 	real getpar
 
-	integer icall
-	save icall
-	data icall / 0 /
+	integer, save :: icall = 0
 
 	if( icall .lt. 0 ) return
 
 	if( icall .eq. 0 ) then
 	  icall = nint(getpar('icust'))
 	  if( icall .le. 0 ) icall = -1
+	  if( icall .lt. 0 ) return
 	end if
+
+	it = nint(dtime)
 
 	if( icall .eq.  6 ) call impli(it)
 	if( icall .eq.  7 ) call anpa(it)
@@ -115,6 +117,10 @@ c custom routines
         if( icall .eq. 95 ) call ggu_ginevra
 	if( icall .eq. 101 ) call black_sea_nudge
         if( icall .eq. 102 ) call marmara_sea_nudge
+	if( icall .eq. 110 ) call mpi_test_basin(1)
+	if( icall .eq. 111 ) call mpi_test_basin(2)
+	if( icall .eq. 112 ) call mpi_test_basin(3)
+	if( icall .eq. 113 ) call mpi_test_basin(4)
 	if( icall .eq. 201 ) call conz_decay_curonian
         if( icall .eq. 883 ) call debora(it)
         if( icall .eq. 884 ) call tsinitdebora(it)
@@ -1702,55 +1708,49 @@ c*****************************************************************
 
         subroutine sedimt
 
-	use mod_conz
+	use mod_conz, only : cnv
 	use levels
 	use basin
 
         implicit none
-
-        include 'param.h'
-
-	include 'femtime.h'
-
 
 	real, save, allocatable :: conzs(:)
 	real, save, allocatable :: conza(:)
 	real, save, allocatable :: conzh(:)
 
         integer ie,ii,k,lmax,l,ia
-	integer iunit
-        logical bnoret
+	integer iunit,ierr
         real vol,conz,perc,wsink,dt,sed,h,r,cnew,rhos
 	real v1v(nkn)
         double precision mass,masss
+        double precision dtime
+
         real volnode,depnode
-	real getpar
+	double precision dgetpar
+        logical next_output_d,is_in_output_d
 
-	integer iu,id,itmcon,idtcon,itstart
-	save iu,id,itmcon,idtcon,itstart
+	double precision, save :: da_out(4)
+        integer, save :: icall = 0
 
-        integer icall
-        save icall
-        data icall / 0 /
+	if( icall < 0 ) return
 
 c------------------------------------------------------------
 c parameters
 c------------------------------------------------------------
 
-        bnoret = .false.
 	wsink = 0.
 	wsink = 1.e-4
 	wsink = 1.e-5
 	wsink = 5.e-5
 	rhos = 2500.
-	call get_timestep(dt)
-	call getinfo(iunit)
 
 c------------------------------------------------------------
 c initialization
 c------------------------------------------------------------
 
         if( icall .eq. 0 ) then
+
+          icall = 1
 
           write(6,*) 'initialization of routine sedimt: ',wsink
 
@@ -1762,14 +1762,11 @@ c------------------------------------------------------------
 	  conzh = 0.
 	  cnv = 0.
 
-	  itstart = nint(getpar('tcust'))
-
-          iu = 55
-          itmcon = nint(getpar('itmcon'))
-          idtcon = nint(getpar('idtcon'))
-          call confop(iu,itmcon,idtcon,1,3,'set')
-
-          icall = 1
+	  call init_output_d('itmcon','idtcon',da_out)
+	  call scalar_output_init(da_out,1,3,'set',ierr)
+	  if( ierr > 0 ) goto 99
+	  if( ierr < 0 ) icall = -1
+	  if( icall < 0 ) return
 
         end if
 
@@ -1777,11 +1774,15 @@ c------------------------------------------------------------
 c is it time ?
 c------------------------------------------------------------
 
-        if( it .lt. itstart ) return
+        if( .not. is_in_output_d(da_out) ) return
 
 c------------------------------------------------------------
 c sinking
 c------------------------------------------------------------
+
+	call get_act_dtime(dtime)
+	call get_timestep(dt)
+	call getinfo(iunit)
 
 	if( wsink .gt. 0. ) then
 	  l = 1
@@ -1804,22 +1805,8 @@ c------------------------------------------------------------
 	end if
 
 c------------------------------------------------------------
-c total mass
+c compute total mass
 c------------------------------------------------------------
-
-        do k=1,nkn
-          v1v(k) = 0.
-        end do
-
-        do ie=1,nel
-          ia = iarv(ie)
-          if( ia .ne. 0 ) then
-              do ii=1,3
-                k = nen3v(ii,ie)
-                v1v(k) = 1.
-              end do
-          end if
-        end do
 
         mass = 0.
         masss = 0.
@@ -1837,43 +1824,26 @@ c------------------------------------------------------------
 c write total mass
 c------------------------------------------------------------
 
-        write(6,*) 'sedimt: ',it,mass,masss,mass+masss
-        write(iunit,*) 'sedimt: ',it,mass,masss,mass+masss
-
-        id = 22       !for sediment -> [kg]
-	call confil(iu,itmcon,idtcon,id,1,conzs)
-        id = 23       !for sediment -> [kg/m**2]
-	call confil(iu,itmcon,idtcon,id,1,conza)
-        id = 24       !for sediment -> [m]
-	call confil(iu,itmcon,idtcon,id,1,conzh)
+        write(6,*) 'sedimt: ',dtime,mass,masss,mass+masss
+        write(iunit,*) 'sedimt: ',dtime,mass,masss,mass+masss
 
 c------------------------------------------------------------
-c no return flow
+c write file
 c------------------------------------------------------------
 
-        if( bnoret ) then
+        if( .not. next_output_d(da_out) ) return
 
-        do k=1,nkn
-          if( v1v(k) .eq. 0. ) then
-            lmax = ilhkv(k)
-            do l=1,lmax
-                cnv(l,k) = 0.
-            end do
-          end if
-        end do
-
-        end if
+	call scalar_output_write(dtime,da_out,22,1,conzs)	![kg]
+	call scalar_output_write(dtime,da_out,23,1,conzs)	![kg/m**2]
+	call scalar_output_write(dtime,da_out,24,1,conzs)	![m]
 
 c------------------------------------------------------------
-c remember initialization
+c end of routine
 c------------------------------------------------------------
 
-        icall = 1
-
-c------------------------------------------------------------
-c end of initialization
-c------------------------------------------------------------
-
+	return
+   99	continue
+	stop 'error stop sedimt: error opening file'
         end
 
 c*****************************************************************
@@ -1991,8 +1961,7 @@ c*****************************************************************
 
 	call vtot
 	call uvint
-	call uvtop0
-	call uvtopr
+	call make_prvel
 
 	end
 
@@ -4232,3 +4201,211 @@ c lock exchange experiment to test non-hydrostatic dynamics
 	end
 
 c*******************************************************************
+
+	subroutine mpi_test_basin(mode)
+
+c mode == 1	initialize for wind
+c mode == 2	initialize for zeta (oscillation)
+c mode == 3	initialize only output
+c mode == 4	initialize only output for mmba
+
+	use mod_meteo
+	use basin
+	use levels
+	use mod_hydro
+	use mod_hydro_print
+	use shympi
+        use mod_conz
+
+	implicit none
+
+	integer mode
+
+	logical :: bwind
+	logical :: bzeta
+	logical :: bconz
+	logical :: bconzinit
+	logical :: breinit
+	integer k,ie,ii,i,kk
+        integer lsup,lbot
+	real z,dz,y,dy,pi,dc,x,dx
+	double precision dtime
+	real, save :: cd = 2.5e-3
+	real, save :: wind = 10.
+	real, save :: wfact = 1.025/1000.
+	real :: stress
+	integer, save :: icall = 0
+
+	integer, parameter :: ndim = 5
+	integer, save :: nodes(ndim) = (/5,59,113,167,221/)
+	integer, parameter :: nmdim = 9
+	integer, save :: nmodes(nmdim) = (/132539,131111,132453
+     +		,202,201,204,203,129327,130459/)
+
+	integer ipint
+
+!--------------------------------------------------------------
+! preliminary
+!--------------------------------------------------------------
+
+	if( mode < 1 .or. mode > 4 ) then
+	 stop 'error stop mpi_test_basin: mode'
+	end if
+	bwind = mode == 1
+	bzeta = mode == 2
+
+	if( mode <= 3 ) then
+	if( nkn_global /= 225 .or. nel_global /= 384 ) then
+	  write(6,*) 'nkn,nel: ',nkn,nel
+	  stop 'error stop mpi_test_basin: basin'
+	end if
+	end if
+
+	call get_act_dtime(dtime)
+
+        bconz = mod_conz_is_initialized()
+        breinit = ( dtime == 43200. )
+	breinit = .false.
+	bconzinit = .false.
+
+	dz = 0.1
+	dy = 3000.
+	dx = 1000.
+	dc = 10.
+	pi = 4.*atan(1.)
+
+!--------------------------------------------------------------
+! initialization
+!--------------------------------------------------------------
+
+	if( icall .eq. 0 ) then
+
+	  write(6,*) 'initializing basin for MPI: ',bwind,bzeta,bconz
+
+	  if( bwind ) then
+	    stress = wfact * cd * wind * wind
+	    wxv = 0.
+	    wyv = wind
+	    metws = wind
+	    ppv = 0.
+	    tauxnv = 0.
+	    tauynv = stress
+	  else if( bzeta ) then
+	    do k=1,nkn
+	      y = ygv(k) - dy
+	      z = dz * (y/dy)
+	      z = dz * sin( (pi/2.) * (y/dy) )
+	      znv(k) = z
+	    end do
+	    call setzev
+	    call make_new_depth
+          end if
+
+          if( bconzinit ) then
+            write(6,*) 'initializing concentration from subcus...'
+	    do k=1,nkn
+              x = xgv(k)
+	      y = ygv(k) - dy
+	      z = dc * (1.+y/dy) + dc * (1.+x/dx)
+              z = 10.
+              if( y/dy > 0 ) z = 20.
+	      cnv(:,k) = z
+	    end do
+	  end if
+
+          write(6,*) 'initializing node output from subcus...'
+	  if( mode <= 3 ) then
+	    call register_nodes(ndim,nodes)
+	  else
+	    call register_nodes(nmdim,nmodes)
+	  end if
+
+	end if
+
+	icall = icall + 1
+
+!--------------------------------------------------------------
+! re-initialization
+!--------------------------------------------------------------
+
+        if( bconz .and. breinit ) then
+          write(6,*) 're-initializing concentration from subcus...'
+	  do k=1,nkn
+            x = xgv(k)
+	    y = ygv(k) - dy
+	    z = dc * (1.+y/dy) + dc * (1.+x/dx)
+            z = 10.
+            if( y/dy > 0 ) z = 20.
+	    cnv(:,k) = z
+	  end do
+	end if
+
+!--------------------------------------------------------------
+! output results
+!--------------------------------------------------------------
+
+        !write(6,*) 'nodes: ',ndim,nodes
+        !flush(6)
+
+        lsup = min(2,nlv)
+        lbot = max(nlv-1,1)
+
+	if( mode <= 3 ) then
+	do i=1,ndim
+	  k = nodes(i)
+	  if( k .le. 0 ) cycle
+	  write(500+i,*) dtime,znv(k)
+	  write(600+i,*) dtime,vprv(lsup,k)
+	  write(700+i,*) dtime,vprv(lbot,k)
+          if( bconz ) then
+	  write(800+i,*) dtime,cnv(lsup,k)
+	  write(900+i,*) dtime,cnv(lbot,k)
+          end if
+	end do
+	else
+	do i=1,nmdim
+	  k = nmodes(i)
+	  if( k .le. 0 ) cycle
+	  write(500+i,*) dtime,znv(k)
+	end do
+	end if
+	
+!--------------------------------------------------------------
+! end of routine
+!--------------------------------------------------------------
+
+	end
+
+c*******************************************************************
+
+	subroutine register_nodes(n,nodes)
+
+	use shympi
+
+	implicit none
+
+	integer n
+	integer nodes(n)
+
+	integer i,k,kk
+	integer ipint
+
+	  do i=1,n
+	    k = nodes(i)
+	    kk = ipint(k)
+	    if( kk .le. 0 ) then
+	      write(6,*) '**** ignoring not existing node ',k,kk,my_id
+	      !stop 'error stop mpi_test_basin: no such node'
+	    else if( .not. shympi_is_inner_node(kk) ) then
+	      write(6,*) '**** ignoring ghost node ',k,kk,my_id
+	      kk = 0
+	    else
+	      write(6,*) '**** register node ',k,kk,my_id
+	    end if
+	    nodes(i) = kk
+	  end do
+
+	end
+
+c*******************************************************************
+

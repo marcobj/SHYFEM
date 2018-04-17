@@ -39,7 +39,6 @@ c mbw		bandwidth of system matrix
 c flag		flag value (to recognize boundary conditions)
 c grav,dcor	gravitational accel./medium latitude of basin
 c rowass,roluft	density of water/air
-c itanf,itend	start/end time for simulation
 c idt,nits	time step/total iterations to go
 c niter,it	actual number of iterations/actual time
 c nlvdi,nlv	dimension for levels, number of used levels
@@ -195,26 +194,26 @@ c written on 27.07.88 by ggu   (from sp159f)
 	use mod_hydro_vel
 	use mod_hydro
 	use levels, only : nlvdi,nlv
-	use basin, only : nkn,nel,ngr,mbw
+	!use basin, only : nkn,nel,ngr,mbw
+	use basin
+	use shympi
 
 	implicit none
-
-	include 'femtime.h'
 
 	logical boff,bdebout
 	logical bzcorr
 	integer i,l,k,ie,ier,ii
 	integer nrand
-	integer iw,iwa
+	integer iw,iwa,iloop
 	integer nmat
 	integer kspecial
 	integer iwhat
-	real res
+	real azpar,ampar
 	real dzeta(nkn)
 	double precision dtime
 
 	integer iround
-	real getpar,resi
+	real getpar
 	logical bnohyd
 
         real epseps
@@ -223,11 +222,30 @@ c written on 27.07.88 by ggu   (from sp159f)
 	kspecial = 0
 	bdebout = .false.
 
+	if( nint(getpar('ihydro')) <= 0 ) return	!only for debug
+
 c-----------------------------------------------------------------
 c set parameter for hydro or non hydro 
 c-----------------------------------------------------------------
 
 	call nonhydro_get_flag(bnohyd)
+	call get_act_dtime(dtime)
+
+	azpar = getpar('azpar')
+	ampar = getpar('ampar')
+	if( azpar == 0. .and. ampar == 1. ) then
+	  call system_set_explicit
+	else if( azpar == 1. .and. ampar == 0. ) then
+	  call system_set_explicit
+	else if( shympi_is_parallel() ) then
+	  if( shympi_is_master() ) then
+	    write(6,*) 'system is not solved explicitly'
+	    write(6,*) 'cannot solve semi-implicitly with MPI'
+	    write(6,*) 'azpar,ampar: ',azpar,ampar
+	    write(6,*) 'please use azpar=1 and ampar=0'
+	  end if
+	  call shympi_stop('no semi-implicit solution')
+	end if
 
 c-----------------------------------------------------------------
 c offline
@@ -250,20 +268,24 @@ c-----------------------------------------------------------------
 
 	call copy_uvz		!copies uvz to old time level
 	call nonhydro_copy	!copies non hydrostatic pressure terms
-	call copy_depth
+	call copy_depth		!copies layer structure
 
-	call set_diffusivity	!horizontal viscosity and diffusivity
+	call set_diffusivity	!horizontal viscosity/diffusivity (needs uvprv)
 
 c-----------------------------------------------------------------
 c solve for hydrodynamic variables
 c-----------------------------------------------------------------
 
+	iloop = 0
+
 	do 				!loop over changing domain
+
+	  iloop = iloop + 1
 
 	  call hydro_transports		!compute intermediate transports
 
 	  call setnod			!set info on dry nodes
-	  call set_link_info
+	  call set_link_info		!information on areas, islands, etc..
 	  call adjust_mass_flux		!cope with dry nodes
 
 	  call system_init		!initializes matrix
@@ -271,7 +293,13 @@ c-----------------------------------------------------------------
 	  call system_solve_z(nkn,znv)	!solves system matrix for z
 	  call system_adjust_z(nkn,znv)	!copies solution to new z
 
+	  !call shympi_comment('exchanging znv')
+	  call shympi_exchange_2d_node(znv)
+	  !call shympi_barrier
+
 	  call setweg(1,iw)		!controll intertidal flats
+	  !write(6,*) 'hydro: iw = ',iw,iloop,my_id
+	  iw = shympi_sum(iw)
 	  if( iw == 0 ) exit
 
 	end do
@@ -290,8 +318,6 @@ c-----------------------------------------------------------------
 	call check_volume		!checks for negative volume 
         call arper
 
-	res=resi(zov,znv,nkn)
-
 c-----------------------------------------------------------------
 c vertical velocities and non-hydrostatic step
 c-----------------------------------------------------------------
@@ -303,10 +329,7 @@ c-----------------------------------------------------------------
 
 	call hydro_vertical(dzeta)		!compute vertical velocities
 
-	if (bnohyd) then
-	  dtime = t_act
-	  call nh_handle_output(dtime)
-	end if
+	if (bnohyd) call nh_handle_output(dtime)
 
 c-----------------------------------------------------------------
 c correction for zeta
@@ -326,7 +349,7 @@ c some checks
 c-----------------------------------------------------------------
 
 	call vol_mass(1)		!computes and writes total volume
-	if( bdebout ) call debug_output(it)
+	if( bdebout ) call debug_output(dtime)
 	call mass_conserve		!check mass balance
 
 c-----------------------------------------------------------------
@@ -341,10 +364,6 @@ c end of routine
 c-----------------------------------------------------------------
 
 	return
-!   99	continue
-!	write(6,*) 'Error in inverting matrix for water level'
-!	write(6,*) 'it, ier : ',it,ier
-!	stop 'error stop : hydro'
 	end
 
 c******************************************************************
@@ -382,7 +401,6 @@ c 12.01.2001    ggu     solve for znv and not level difference (ZNEW)
 
 	include 'mkonst.h'
 	include 'pkonst.h'
-	include 'femtime.h'
 
         integer afix            !chao deb
 	logical bcolin
@@ -615,7 +633,6 @@ c******************************************************************
 	implicit none
 
 	include 'pkonst.h'
-	include 'femtime.h'
 
 	integer ie
 	integer ies,iend
@@ -761,8 +778,6 @@ c parameters
 c common
 	include 'mkonst.h'
 	include 'pkonst.h'
-	include 'femtime.h'
-
 c local
 
 	logical bbaroc,barea0                  !$$BAROC_AREA0
@@ -800,6 +815,7 @@ c local
 	!real vis
 	real rraux,cdf,dtafix
 	real ss
+	logical, parameter :: debug_mpi = .false.
 
 	double precision b(3),c(3)
 	double precision bpres,cpres
@@ -1125,8 +1141,8 @@ c-------------------------------------------------------------
         call dgelb(rvec,rmat,ngl,3,mbb,mbb,epseps,ier)		!ASYM_OPSPLT
 
 	if(ier.ne.0) then
-	  call vel_matrix_error(it,ier,ie,ilevel,rvec,rmat,hact,alev)
-	  stop 'error stop : sp256v'
+	  call vel_matrix_error(ier,ie,ilevel,rvec,rmat,hact,alev)
+	  stop 'error stop sp256v: inverting vertical matrix'
 	end if
 
 c-------------------------------------------------------------
@@ -1158,8 +1174,7 @@ c-------------------------------------------------------------
 c special information
 c-------------------------------------------------------------
 
-	if( ie .eq. 1 .and. barea0 .and. 
-     +			baroc .and. niter .le. 5 ) then  !$$BAROC_AREA0
+	if( ie .eq. 1 .and. barea0 .and. baroc ) then  !$$BAROC_AREA0
 	  write(6,*) 'sp256v: BAROC_AREA0 active '
 	end if
 
@@ -1171,11 +1186,11 @@ c-------------------------------------------------------------
 
 c******************************************************************
 
-	subroutine vel_matrix_error(it,ier,ie,lmax,rvec,rmat,hact,alev)
+	subroutine vel_matrix_error(ier,ie,lmax,rvec,rmat,hact,alev)
 
 	implicit none
 
-	integer it,ier,ie,lmax
+	integer ier,ie,lmax
 	double precision rmat(10*lmax)
 	double precision rvec(6*lmax)
 	real hact(0:lmax+1)
@@ -1191,7 +1206,7 @@ c******************************************************************
 	if(ngl.eq.2) mbb=1
 
 	write(6,*) 'Error in inverting matrix (vertical system)'
-	write(6,*) 'it, ier : ',it,ier
+	write(6,*) 'ier : ',ier
 	write(6,*) 'ie,lmax,ngl,mbb: ',ie,lmax,ngl,mbb
 	write(6,*) 'rvec: ',(rvec(l),l=1,ngl)
 	write(6,*) 'matrix: '
@@ -1237,7 +1252,6 @@ c
 
 	include 'mkonst.h'
 	include 'pkonst.h'
-	include 'femtime.h'
 
 	logical bcolin,bdebug
 	integer ie,ii,l,kk
@@ -1286,7 +1300,6 @@ c	------------------------------------------------------
 	do ii=1,3
 	  kk=nen3v(ii,ie)
 	  dz = znv(kk) - zeov(ii,ie)
-	  !zm = zm + zeov(ii,ie)		!ZEONV
 	  bz = bz + dz * ev(ii+3,ie)
 	  cz = cz + dz * ev(ii+6,ie)
 	end do
@@ -1371,6 +1384,7 @@ c 20.08.1998	ggu	some documentation
 	use evgeom
 	use levels
 	use basin
+	use shympi
 
 	implicit none
 
@@ -1397,6 +1411,12 @@ c statement functions
 	!logical isein
         !isein(ie) = iwegv(ie).eq.0
 
+c 2d -> nothing to be done
+
+	dzeta = 0.
+	wlnv = 0.
+	if( nlvdi == 1 ) return
+
 c initialize
 
 	call getazam(azpar,ampar)
@@ -1408,7 +1428,6 @@ c initialize
 	allocate(vf(nlvdi,nkn),va(nlvdi,nkn))
 	vf = 0.
 	va = 0.
-	wlnv = 0.
 
 c compute difference of velocities for each layer
 c
@@ -1434,6 +1453,12 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 	  end do
 	 !end if
 	end do
+
+	if( shympi_partition_on_elements() ) then
+          !call shympi_comment('shympi_elem: exchange vf,va')
+          call shympi_exchange_and_sum_3d_nodes(vf)
+          call shympi_exchange_and_sum_3d_nodes(va)
+	end if
 
 c from vel difference get absolute velocity (w_bottom = 0)
 c	-> wlnv(nlv,k) is already in place !
@@ -1491,16 +1516,20 @@ c
 c FIXME	-> only for ibtyp = 1,2 !!!!
 
 	do k=1,nkn
-            !if( is_external_boundary(k) ) then	!bug fix 10.03.2010
-            if( is_zeta_bound(k) ) then
-	      do l=0,nlv
-		wlnv(l,k) = 0.
-	      end do
-	      dzeta(k) = 0.
-            end if
+          !if( is_external_boundary(k) ) then	!bug fix 10.03.2010
+          if( is_zeta_bound(k) ) then
+	    wlnv(:,k) = 0.
+	    dzeta(k) = 0.
+          end if
 	end do
 
 	deallocate(vf,va)
+
+	if( shympi_partition_on_nodes() ) then
+	  !call shympi_comment('exchanging wlnv')
+          call shympi_exchange_3d0_node(wlnv)
+	  !call shympi_barrier
+	end if
 
 	end
 
@@ -1515,13 +1544,7 @@ c*******************************************************************
 
 	real dzeta(nkn)		!zeta correction
 
-	include 'param.h'
-
-	integer k
-
-	do k=1,nkn
-	  znv(k) = znv(k) + dzeta(k)
-	end do
+	znv = znv + dzeta
 
 	end
 

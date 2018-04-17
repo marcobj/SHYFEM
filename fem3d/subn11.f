@@ -10,8 +10,8 @@ c
 c subroutine z_tilt			tilting of boundary surface (fixed)
 c subroutine c_tilt			tilting of boundary surface (Coriolis)
 c
-c subroutine initilt(ibc)       	finds tilting node in node list
-c subroutine iniflux(ibc)		initializes flux boundary
+c subroutine init_tilt(ibc)       	finds tilting node in node list
+c subroutine init_flux(ibc)		initializes flux boundary
 c
 c subroutine set_mass_flux		sets up (water) mass flux array mfluxv
 c subroutine adjust_mass_flux		adjusts mass flux for dry nodes
@@ -29,7 +29,7 @@ c
 c subroutine print_scal_bc(r3v)		prints non-flag entries of scalar BC
 c subroutine get_bflux(k,flux)		returns boundary flux of node k
 c 
-c subroutine level_flux(it,levflx,kn,rw)compute discharge from water level
+c subroutine level_flux(dtime,levflx,kn,rw) compute discharge from water level
 c subroutine z_smooth(z)		smooths z values
 c subroutine flow_out_piece_new(z,rout)
 c
@@ -116,6 +116,7 @@ c 30.10.2014    ggu     in c_tilt() compute distance also for lat/lon
 c 31.10.2014    ccf     new call to init_z0 instead than init_z0b
 c 07.11.2014    ggu     bug fix for distance computation in z_tilt, c_tilt
 c 10.02.2015    ggu     new call to iff_read_and_interpolate()
+c 04.04.2018    ggu     initialization for zeta revised for mpi
 c
 c***************************************************************
 
@@ -132,12 +133,12 @@ c		2 : read in b.c.
 	use levels, only : nlvdi,nlv
 	use basin, only : nkn,nel,ngr,mbw
 	use intp_fem_file
+	use shympi
 
 	implicit none
 
 	integer mode
 
-	include 'femtime.h'
 	include 'mkonst.h'
 
 	real rwv2(nkn)
@@ -157,8 +158,8 @@ c		2 : read in b.c.
 	integer levflx
 	integer nbc
 	integer id,intpol,nvar,ierr
-	double precision dtime0,dtime
-	real rw,const,aux
+	double precision dtime0,dtime,ddtime
+	real rw,zconst,aux
 	real dt
 	real conz,temp,salt
 	real conzdf,tempdf,saltdf
@@ -168,13 +169,11 @@ c	real dz
 	real conz3,temp3,salt3
 	real tramp,alpha
 	character*80 zfile
+	logical, save ::  bdebug = .false.
 
 	integer iround
         integer nkbnds,kbnds,itybnd,nbnds
 	integer ipext,kbndind
-
-	!tramp = 0.	!is now handled in str
-	!tramp = 86400. !DEB
 
 	call get_timestep(dt)
 
@@ -217,8 +216,8 @@ c	-----------------------------------------------------
           if( bimpose .and. nk .le. 1 ) goto 95 !$$ibtyp3
 
 	  if( bimpose ) then    		!$$FLUX3 - not for ibtyp=3
-	    call initilt(ibc)           	!find nodes for tilting
-	    call iniflux(ibc)   		!set up rlv,rhv,rrv,ierv
+	    call init_tilt(ibc)           	!find nodes for tilting
+	    call init_flux(ibc)   		!set up rlv,rhv,rrv,ierv
 	  end if
 	end do
 
@@ -230,7 +229,8 @@ c	-----------------------------------------------------
 c       initialization of fem_intp
 c	-----------------------------------------------------
 
-	dtime0 = itanf
+	call get_first_dtime(dtime0)
+
 	nvar = 1
 	vconst = 0.
 	ids = 0
@@ -272,39 +272,41 @@ c	-----------------------------------------------------
 c       determine constant for z initialization
 c	-----------------------------------------------------
 
-	const=getpar('const')	!constant initial z value
-	dtime = itanf
+	zconst=getpar('zconst')	!constant initial z value
+	dtime = dtime0
 	ivar = 1
 	lmax = 1
 
 	do ibc=1,nbc
 	  ibtyp=itybnd(ibc)
-	  nk = nkbnds(ibc)
 	  id = ids(ibc)
 	  if( id .le. 0 ) cycle
-
-	  if(const.eq.flag.and.ibtyp.eq.1) then
-	        call iff_read_and_interpolate(id,dtime)
-	        call iff_time_interpolate(id,dtime,ivar,nk,lmax,rwv2)
-	  	call adjust_bound(id,ibc,it,nk,rwv2)
-		const = rwv2(1)
-	  end if
-
-	  if(ibtyp.eq.70) then	!nwe-shelf	!$$roger - special b.c.
-c	    call roger(rzv,dt,0)
-c	    call roger(rzv,irv,nrb,dt,0)
-	  end if
+	  if( ibtyp == 1 ) exit
 	end do
 
-	if(const.eq.flag) const=0.
-	call putpar('const',const)
+	ibc = shympi_min(ibc)	!choose boundary with minimum index
+	if( ibc > nbc ) ibc = 0
+
+	if( ibc > 0 ) then
+	  ibtyp=itybnd(ibc)
+	  nk = nkbnds(ibc)
+	  id = ids(ibc)
+	  call iff_read_and_interpolate(id,dtime)
+	  call iff_time_interpolate(id,dtime,ivar,nk,lmax,rwv2)
+	  call adjust_bound(id,ibc,dtime,nk,rwv2)
+	  zconst = rwv2(1)
+	else
+	  zconst = 0.
+	end if
+
+	call putpar('zconst',zconst)
 
 c	-----------------------------------------------------
 c       initialize variables or restart
 c	...the variables that have to be set are zenv, utlnv, vtlnv
 c	-----------------------------------------------------
 
-	call init_z(const)	!initializes zenv
+	call init_z(zconst)	!initializes znv and zenv
 	call make_new_depth	!initializes layer thickness
 	call init_uvt		!initializes utlnv, vtlnv
 	call init_z0		!initializes surface and bottom roughness
@@ -333,6 +335,8 @@ c---------------------------------------------------------------
 
     2	continue
 
+	call get_act_dtime(dtime)
+
 c	-----------------------------------------------------
 c	initialize node vectors with boundary conditions
 c	-----------------------------------------------------
@@ -350,10 +354,9 @@ c	-----------------------------------------------------
 c	loop over boundaries
 c	-----------------------------------------------------
 
-        call bndo_radiat(it,rzv)
+        !call bndo_radiat(it,rzv)
 	nbc = nbnds()
 
-	dtime = it
 	ivar = 1
 	lmax = 1
 
@@ -374,22 +377,26 @@ c	-----------------------------------------------------
 
 	  call iff_read_and_interpolate(id,dtime)
 	  call iff_time_interpolate(id,dtime,ivar,nk,lmax,rwv2)
-	  call adjust_bound(id,ibc,it,nk,rwv2)
+	  call adjust_bound(id,ibc,dtime,nk,rwv2)
 
-	  alpha = 1.
-	  if( tramp .gt. 0. .and. it-itanf .le. tramp ) then
-	     alpha = (it-itanf) / tramp
-	  end if
+          alpha = 1.
+          if( tramp .gt. 0. ) then
+            call get_passed_dtime(ddtime)
+            alpha = ddtime/tramp
+            if( alpha .gt. 1. ) alpha = 1.
+          end if
 
 	  do i=1,nk
 
              kn = kbnds(ibc,i)
 	     rw = rwv2(i)
+	     !write(6,*) ibc,i,kn,ipext(kn),rw
+	     if( kn <= 0 ) cycle
 
 	     if(ibtyp.eq.1) then		!z boundary
                rzv(kn)=rw
 	     else if(ibtyp.eq.2) then		!q boundary
-	       call level_flux(it,levflx,kn,rw)	!zeta to flux
+	       call level_flux(dtime,levflx,kn,rw)	!zeta to flux
 	       kindex = kbndind(ibc,i)
                rqpsv(kn)=alpha*rw*rrv(kindex)	!BUGFIX 21-08-2002, RQVDT
              else if(ibtyp.eq.3) then		!$$ibtyp3 - volume inlet
@@ -406,7 +413,7 @@ c	-----------------------------------------------------
                else
                  iunrad = 79
                end if
-               if( i .eq. 1 ) write(iunrad,*) it,nk,ktilt,rw
+               if( i .eq. 1 ) write(iunrad,*) dtime,nk,ktilt,rw
                write(iunrad,*) rzv(kn)
              else if(ibtyp.eq.32) then		!for malta 
 c	       nothing
@@ -487,8 +494,6 @@ c	nodes are linearly interpolated between start-ktilt and ktilt-end
 
 	implicit none
 
-	include 'femtime.h'
-
 	integer ibc,ibtyp,ktilt
 	integer nbc
 	integer k,kranf,krend,kn1,kn2
@@ -501,6 +506,7 @@ c	nodes are linearly interpolated between start-ktilt and ktilt-end
 
 	do ibc=1,nbc
           ibtyp = itybnd(ibc)
+	  if( ibtyp <= 0 ) cycle
           call kanfend(ibc,kranf,krend)
 	  call get_bnd_par(ibc,'ztilt',ztilt)
 	  call get_bnd_ipar(ibc,'ktilt',ktilt)
@@ -563,7 +569,6 @@ c if ktilt is not given nothing is tilted
 
 	implicit none
 
-	include 'femtime.h'
 	include 'pkonst.h'
 	include 'mkonst.h'
 
@@ -583,11 +588,12 @@ c if ktilt is not given nothing is tilted
 
 	do ibc=1,nbc
          ibtyp = itybnd(ibc)
+	 if( ibtyp <= 0 ) cycle
          call kanfend(ibc,kranf,krend)
 	 call get_bnd_ipar(ibc,'ktilt',ktilt)
 	 call get_bnd_par(ibc,'ztilt',ztilt)
 
-	 if( ztilt .ne. 0 ) then
+	 if( ztilt .ne. 0 ) then	!is handled in z_tilt
 		!nothing
 	 else if(ktilt.gt.0.and.ibtyp.eq.1) then
 	   do k=ktilt+1,krend,1
@@ -632,7 +638,7 @@ c if ktilt is not given nothing is tilted
 
 c**************************************************************
 
-	subroutine initilt(ibc)
+	subroutine init_tilt(ibc)
 
 c finds tilting node in boundary node list
 
@@ -644,8 +650,12 @@ c finds tilting node in boundary node list
 	integer kranf,krend
 	integer ktilt,i
         integer kb
+	integer ibtyp
 
-	integer ipext,iround,kbnd
+	integer ipext,iround,kbnd,itybnd
+
+        ibtyp = itybnd(ibc)
+	if( ibtyp <= 0 ) return
 
 	call get_bnd_ipar(ibc,'ktilt',ktilt)
 	if(ktilt.le.0) return
@@ -664,14 +674,14 @@ c finds tilting node in boundary node list
 	if( berr ) then
 	  write(6,*) 'Node number for tilting not in boundary node list'
 	  write(6,*) 'ktilt :',ipext(ktilt)
-	  stop 'error stop : initilt'
+	  stop 'error stop init_tilt: no node'
 	end if
 
 	end
 
 c******************************************************************
 
-	subroutine iniflux(ibc)
+	subroutine init_flux(ibc)
 
 c initializes flux boundary
 
@@ -684,10 +694,14 @@ c initializes flux boundary
 
 	integer kranf,krend
 	integer ie,i,k1,k2,kk1,kk2,ii1,ii2
+	integer ibtyp
 	real fm,dx,dy,rl,h1,h2,fl
-	integer ipext
+	integer ipext,itybnd
 
-        call kanfend(ibc,kranf,krend)
+        ibtyp = itybnd(ibc)
+	if( ibtyp <= 0 ) return
+
+        call kmanfend(ibc,kranf,krend)
 
 	if( krend-kranf .le. 0 ) return
 
@@ -697,7 +711,7 @@ c initializes flux boundary
 	kk2 = 0
 
 	fm=0
-	do i=kranf,krend
+	do i=kranf,krend	!these are already set to 0 at initialization
 	   rrv(i)=0.
 	   rhv(i)=0.
 	end do
@@ -723,7 +737,7 @@ c initializes flux boundary
 	    write(6,*) 'node 1,node 2 :',ipext(k1),ipext(k2)
 	    write(6,*) '(Are you sure that boundary nodes are given'
 	    write(6,*) '   in anti-clockwise sense ?)'
-	    stop 'error stop : iniflux'
+	    stop 'error stop init_flux: no node'
 	  end if
 
 	  dx=xgv(k1)-xgv(k2)
@@ -760,7 +774,7 @@ c*******************************************************************
 c*******************************************************************
 c*******************************************************************
 
-	subroutine adjust_bound(id,ibc,it,nk,rw)
+	subroutine adjust_bound(id,ibc,dtime,nk,rw)
 
 	use intp_fem_file
 
@@ -768,7 +782,7 @@ c*******************************************************************
 
 	integer id
 	integer ibc
-	integer it
+	double precision dtime
 	integer nk
 	real rw(nk)
 
@@ -782,8 +796,7 @@ c*******************************************************************
 	    rw(i) = rw(i) * zfact
 	  end do
 	else
-	  rit = it
-	  call get_oscil(ibc,rit,rw0)
+	  call get_oscil(ibc,dtime,rw0)
 	  do i=1,nk
 	    rw(i) = rw0 * zfact
 	  end do
@@ -848,6 +861,7 @@ c------------------------------------------------------------------
 
 	  do i=1,nk
             k = kbnds(ibc,i)
+	    if( k <= 0 ) cycle
 	    lmax = ilhkv(k)
 	    if( levmax .gt. 0 ) lmax = min(lmax,levmax)
 	    if( levmax .lt. 0 ) lmax = min(lmax,lmax+1+levmax)
@@ -1041,15 +1055,14 @@ c**********************************************************************
 	real sflux(nlvdi,nkn)	!scalar flux
 	real sconz(nlvdi,nkn)	!concentration for each finite volume
 
-	include 'femtime.h'
-
 	integer k,l,lmax
 	integer ifemop
 	real qtot,stot
+	double precision dtime
 
-	integer iunit
-	save iunit
-	data iunit /0/
+	integer, save :: iunit = 0
+
+	call get_act_dtime(dtime)
 
 	if( iunit .eq. 0 ) then
 	  iunit = ifemop('.ggg','formatted','unknown')
@@ -1064,7 +1077,7 @@ c**********************************************************************
 	    stot = stot + mfluxv(l,k) * sconz(l,k)
 	  end do
 	  if( qtot .ne. 0 ) then
-	    write(iunit,*) it,k,qtot,stot
+	    write(iunit,*) dtime,k,qtot,stot
 	  end if
 	end do
 
@@ -1087,13 +1100,14 @@ c checks scalar flux
 	real sconz(nlvdi,nkn)	!concentration for each finite volume
 
 	include 'mkonst.h'
-	include 'femtime.h'
-
 
 	integer k,l,lmax,ks
 	real cconz,qflux,mflux
+	double precision dtime
 
-	write(46,*) 'check_scal_flux ',what,it
+	call get_act_dtime(dtime)
+
+	write(46,*) 'check_scal_flux ',what,dtime
 
         do k=1,nkn
           lmax = ilhkv(k)
@@ -1103,7 +1117,7 @@ c checks scalar flux
             if( qflux .lt. 0. ) cconz = scal(l,k)
             mflux = qflux * cconz
 	    if( qflux .ne. 0 ) then
-	      write(46,1000) k,l,mflux,qflux,cconz,scal(l,k)
+	      write(146,1000) k,l,mflux,qflux,cconz,scal(l,k)
 	    end if
           end do
         end do
@@ -1181,6 +1195,8 @@ c*******************************************************************
 	real values(nkn)
 
 	integer l,lmax
+
+	if( kn <= 0 ) return
 
 	if( nbdim .eq. 0 ) then
 	  lmax = 1
@@ -1287,7 +1303,7 @@ c returns boundary flux of node k
 
 c**********************************************************************
 
-	subroutine level_flux(it,levflx,kn,rw)
+	subroutine level_flux(dtime,levflx,kn,rw)
 
 c compute discharge from water level
 
@@ -1295,7 +1311,7 @@ c compute discharge from water level
 
 	implicit none
 
-	integer it		!type of function
+	double precision dtime	!time
 	integer levflx		!type of function
 	integer kn		!node number
 	real rw			!discharge computed
@@ -1338,7 +1354,7 @@ c-------------- best fit based on mass balance -----------  4
 c---------------------------------------------------
 
 	  rw = -rw
-	  write(134,*) it,z,rw
+	  write(134,*) dtime,z,rw
 	else
 	  write(6,*) 'levflx = ',levflx
 	  stop 'error stop level_flux: levflx'

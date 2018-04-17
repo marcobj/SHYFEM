@@ -51,14 +51,17 @@ c writes info on fem file
 	real x0,y0,dx,dy,x1,y1
 	real regpar(7)
 	real xp,yp
+	real ffact
 	logical bfirst,bskip
 	logical bhuman,blayer
-	logical bdtok,bextract,bintime,bexpand
+	logical bdtok,bextract,bexpand
 	logical bread,breg
 	integer, allocatable :: ivars(:)
 	character*80, allocatable :: strings(:)
+	character*80, allocatable :: strings_out(:)
 	character*20 dline,fline
 	!character*80 stmin,stmax
+	real,allocatable :: facts(:)
 	real,allocatable :: data(:,:,:)
 	real,allocatable :: data_profile(:)
 	real,allocatable :: dext(:)
@@ -120,7 +123,11 @@ c--------------------------------------------------------------
 	if( bchform ) iformout = 1 - iformat
 	if( iformout < 0 ) iformout = iformat
 
-        if( bout ) then
+        boutput = bout
+	boutput = boutput .or. bchform
+	boutput = boutput .or. newstring /= ' '
+
+        if( boutput ) then
           iout = iunit + 1
           if( iformout .eq. 1 ) then
 	    open(iout,file='out.fem',status='unknown',form='formatted')
@@ -133,6 +140,8 @@ c--------------------------------------------------------------
         time = 0
         call elabtime_date_and_time(date,time)  !we work with absolute time
 	call elabtime_set_minmax(stmin,stmax)
+
+	call elabtime_set_inclusive(binclusive)
 
 c--------------------------------------------------------------
 c read first record
@@ -192,6 +201,8 @@ c--------------------------------------------------------------
 	np0 = np
 	allocate(ivars(nvar))
 	allocate(strings(nvar))
+	allocate(strings_out(nvar))
+	allocate(facts(nvar))
 	allocate(dext(nvar))
 	allocate(d3dext(nlvdi,nvar))
 	allocate(data(nlvdi,np,nvar))
@@ -224,6 +235,10 @@ c--------------------------------------------------------------
 	  strings(iv) = string
 	end do
 
+	strings_out = strings
+	call change_strings(nvar,strings_out,newstring)
+	call set_facts(nvar,facts,factstring)
+
 	if( binfo ) return
 
 c--------------------------------------------------------------
@@ -240,6 +255,11 @@ c--------------------------------------------------------------
 c loop on all records
 c--------------------------------------------------------------
 
+	bread = bwrite .or. bextract .or. boutput
+	bread = bread .or. bsplit .or. bgrd .or. bcheck
+	bskip = .not. bread
+
+	atime = atold
 	nrec = 0
 	idt = 0
 	ich = 0
@@ -261,50 +281,14 @@ c--------------------------------------------------------------
 	  atlast = atime
 	  atnew = atime
 
-          if( elabtime_over_time(atime,atnew,atold) ) exit
-          !if( .not. elabtime_check_time(atime,atnew,atold) ) then
-          if( .not. elabtime_in_time(atime,atnew,atold) ) then
-	    call fem_file_skip_2header(iformat,iunit,ntype,lmax,ierr)
-	    if( ierr .ne. 0 ) goto 98
-            call fem_file_skip_data(iformat,iunit,nvers,np,lmax
-     +                          ,string,ierr)
-	    if( ierr .ne. 0 ) goto 97
-	    cycle
-	  end if
-
-	  if( bverb ) then
-            write(6,'(a,i8,f20.2,3x,a20)') 'time : ',nrec,atime,dline
-	  end if
-
 	  call fem_file_read_2header(iformat,iunit,ntype,lmax
      +			,hlv,regpar,ierr)
 	  if( ierr .ne. 0 ) goto 98
 
-	  flag = regpar(7)
 	  call fem_file_make_type(ntype,2,itype)
 	  breg = ( itype(2) .gt. 0 )
-
-	  bdtok = atime > atold
-          boutput = bout .and. bdtok
-	  bread = bwrite .or. bextract .or. boutput
-	  bread = bread .or. bsplit .or. bgrd
-	  bskip = .not. bread
-	  bintime = .true.
-	  if( btmin ) bintime = bintime .and. atime >= atmin
-	  if( btmax ) bintime = bintime .and. atime <= atmax
-	  boutput = boutput .and. bintime
-	  if( .not. bintime ) bskip = .true.
-
-          if( boutput ) then
-	    if( bhuman ) then
-	      call dts_convert_from_atime(datetime,dtime,atime)
-	    end if
-	    np_out = np
-	    if( bcondense ) np_out = 1
-            call fem_file_write_header(iformout,iout,dtime
-     +                          ,0,np_out,lmax,nvar,ntype,lmax
-     +                          ,hlv,datetime,regpar)
-          end if
+	  flag = -999.
+	  if( breg ) flag = regpar(7)
 
 	  do iv=1,nvar
 	    if( bskip ) then
@@ -320,6 +304,44 @@ c--------------------------------------------------------------
 	    end if
 	    if( ierr .ne. 0 ) goto 97
 	    if( string .ne. strings(iv) ) goto 95
+	    ffact = facts(iv)
+	    if( ffact /= 1. ) then
+	      where( data(:,:,iv) /= flag )
+	        data(:,:,iv) = data(:,:,iv) * ffact
+	      end where
+	    end if
+	  end do
+
+	  call fem_get_new_atime(iformat,iunit,atnew,ierr)	!peeking
+	  if( ierr < 0 ) atnew = atime
+	  if( ierr > 0 ) goto 94
+
+          if( elabtime_over_time(atime,atnew,atold) ) exit
+          if( .not. elabtime_in_time(atime,atnew,atold) ) cycle
+
+	  if( bverb ) then
+            write(6,'(a,i8,f20.2,3x,a20)') 'time : ',nrec,atime,dline
+	  end if
+
+	  bdtok = atime == atfirst .or. atime > atold
+	  call check_dt(atime,atold,bcheckdt,nrec,idt,ich,isk)
+	  if( .not. bdtok ) cycle
+	  atlast = atime
+
+          if( boutput ) then
+	    if( bhuman ) then
+	      call dts_convert_from_atime(datetime,dtime,atime)
+	    end if
+	    np_out = np
+	    if( bcondense ) np_out = 1
+            call fem_file_write_header(iformout,iout,dtime
+     +                          ,0,np_out,lmax,nvar,ntype,lmax
+     +                          ,hlv,datetime,regpar)
+          end if
+
+	  do iv=1,nvar
+
+	    string = strings_out(iv)
 	    !write(6,*) iv,'  ',trim(string)
             if( boutput ) then
 	      !call custom_elab(nlvdi,np,string,iv,data(1,1,iv))
@@ -343,7 +365,7 @@ c--------------------------------------------------------------
      +                          ,nlvdi,data(1,1,iv))
 	      end if
             end if
-	    if( bwrite .and. .not. bskip ) then
+	    if( bwrite ) then
 	      write(6,*) nrec,iv,ivars(iv),trim(strings(iv))
 	      do l=1,lmax
                 call minmax_data(l,lmax,np,flag,ilhkv,data(1,1,iv)
@@ -364,9 +386,13 @@ c--------------------------------------------------------------
 	    end if
 	  end do
 
-	  if( bextract .and. bdtok .and. bintime ) then
-	    call dts_format_abs_time(atime,dline)
-	    call write_extract(atime,nvar,lmax,dext,d3dext)
+	  if( bextract ) then
+	    call write_extract(atime,nvar,lmax,strings,dext,d3dext)
+	  end if
+
+	  if( bcheck ) then
+	    call fem_check(atime,np,lmax,nvar,data,flag
+     +				,strings,scheck,bquiet)
 	  end if
 
 	  if( bgrd ) then
@@ -380,12 +406,13 @@ c--------------------------------------------------------------
 	    end do
 	  end if
 
-	  call check_dt(atime,atold,bcheckdt,nrec,idt,ich,isk)
-	  atold = atime
-	  if( .not. bdtok ) cycle
-
-	  atlast = atime
 	end do
+
+	if( bcheck ) then	!write final data
+	  atime = -1.
+	  call fem_check(atime,np,lmax,nvar,data,flag
+     +				,strings,scheck,bquiet)
+	end if
 
 c--------------------------------------------------------------
 c finish loop - info on time records
@@ -420,7 +447,13 @@ c--------------------------------------------------------------
 	close(iunit)
 	if( iout > 0 ) close(iout)
 
-	if( bout .and. .not. bquiet ) then
+	if( bcheck ) then	!write final message
+	  atime = -2.
+	  call fem_check(atime,np,lmax,nvar,data,flag
+     +				,strings,scheck,bsilent)
+	end if
+
+	if( boutput .and. .not. bquiet ) then
 	  write(6,*) 'output written to file out.fem'
 	end if
 
@@ -437,6 +470,10 @@ c--------------------------------------------------------------
    91	continue
 	write(6,*) 'iectract,np: ',iextract,np
 	stop 'error stop femelab: no such node'
+   94	continue
+	write(6,*) 'record: ',nrec+1
+	write(6,*) 'cannot peek into header of file'
+	stop 'error stop femelab'
    95	continue
 	write(6,*) 'strings not in same sequence: ',iv
         write(6,*) string
@@ -553,12 +590,13 @@ c*****************************************************************
 
 c*****************************************************************
 
-	subroutine write_extract(atime,nvar,lmax,dext,d3dext)
+	subroutine write_extract(atime,nvar,lmax,strings,dext,d3dext)
 
 	implicit none
 
 	double precision atime
 	integer nvar,lmax
+	character*(*) strings(nvar)
 	real dext(nvar)
 	real d3dext(lmax,nvar)
 
@@ -567,8 +605,9 @@ c*****************************************************************
 
 	integer it
 	double precision dtime
-	character*80 eformat
 	character*20 dline
+	character*80, save :: eformat
+	character*80 varline
 
 	integer ifileo
 
@@ -576,11 +615,14 @@ c*****************************************************************
 	  iu2d = ifileo(88,'out.txt','form','new')
 	  write(eformat,'(a,i3,a)') '(a20,',nvar,'g14.6)'
 	  !write(6,*) 'using format: ',trim(eformat)
+	  call make_varline(nvar,strings,varline)
+	  if( varline /= ' ' ) write(iu2d,'(a80)') varline
 	end if
 	if( iu3d == 0 ) then
 	  !iu3d = ifileo(89,'out.fem','form','new')
 	end if
 
+	dext(:) = d3dext(1,:)
 	call dts_format_abs_time(atime,dline)
 	write(iu2d,eformat) dline,dext
 
@@ -595,6 +637,36 @@ c*****************************************************************
 !     +                          ,string
 !     +                          ,ilhkv,hd
 !     +                          ,nlvddi,temp1)
+
+	end
+
+c*****************************************************************
+
+	subroutine make_varline(nvar,strings,varline)
+
+	use shyfem_strings
+
+	implicit none
+
+	integer nvar
+	character*(*) strings(nvar)
+	character*(*) varline
+
+	integer iv,iend
+	character*80 name
+	character*14 short
+
+	varline = ' '
+	iend = 0
+
+	do iv=1,nvar
+	  name = strings(iv)
+	  call strings_get_short_name(name,short)
+	  varline = varline(1:iend) // short
+	  iend = iend + 14
+	end do
+
+	varline = '#vars: date_and_time   ' // varline
 
 	end
 
@@ -621,11 +693,12 @@ c*****************************************************************
 	integer ivar,nvar
 	character*80 file,extra
 	character*1 dir
+	character*10 unit
 	integer, save :: iusold
 
 	if( ius == 0 ) then
 	  call string2ivar(string,ivar)
-	  call string_direction(string,dir)
+	  call string_direction_and_unit(string,dir,unit)
 	  if( dir == 'y' ) then		!is second part of vector
 	    ius = iusold
 	  else
@@ -808,14 +881,15 @@ c*****************************************************************
 	iextract = 0
 
 	if( inode == 0 .and. icoord == 0 ) return
+
 	if( inode /= 0 .and. icoord /= 0 ) then
 	  write(6,*) 'only one of -node and -coord can be given'
 	  stop 'error stop handle_extract: cannot extract'
 	end if
 	if( inode > 0 .and. inode > 2 ) then
-	  write(6,*) 'parse error for -node: need two numbers'
+	  write(6,*) 'parse error for -node: need one or two numbers'
 	  write(6,*) '-node:  ',trim(snode)
-	  stop 'error stop handle_extract: need 2 values'
+	  stop 'error stop handle_extract: need 1 or 2 values'
 	end if
 	if( icoord > 0 .and. icoord /= 2 ) then
 	  write(6,*) 'parse error for -coord: need two numbers'
@@ -839,12 +913,14 @@ c*****************************************************************
 	  stop 'error stop handle_extract: need regular file'
 	end if
 
-	nx = nint(regpar(1))
-	ny = nint(regpar(2))
-	x0 = regpar(3)
-	y0 = regpar(4)
-	dx = regpar(5)
-	dy = regpar(6)
+	if( breg ) then
+	  nx = nint(regpar(1))
+	  ny = nint(regpar(2))
+	  x0 = regpar(3)
+	  y0 = regpar(4)
+	  dx = regpar(5)
+	  dy = regpar(6)
+	end if
 
 	if( inode == 2 ) then
 	  ix = nint(f(1))
@@ -881,14 +957,17 @@ c*****************************************************************
 	  iextract = (iyy-1)*nx + ixx
 	end if
 
-	ie = iextract
-	iy =  1 + (ie-1)/nx
-	ix = ie - (iy-1)*nx
-	xp = x0 + (ix - 1) * dx
-	yp = y0 + (iy - 1) * dy
-	write(6,*) 'regular grid:          ',nx,ny
-	write(6,*) 'extracting point:      ',ix,iy
-	write(6,*) 'extracting coords:     ',xp,yp
+	if( breg ) then
+	  ie = iextract
+	  iy =  1 + (ie-1)/nx
+	  ix = ie - (iy-1)*nx
+	  xp = x0 + (ix - 1) * dx
+	  yp = y0 + (iy - 1) * dy
+	  write(6,*) 'regular grid:          ',nx,ny
+	  write(6,*) 'extracting point:      ',ix,iy
+	  write(6,*) 'extracting coords:     ',xp,yp
+	end if
+
 	write(6,*) 'extracting point (1d): ',iextract
 
 	end
@@ -955,6 +1034,102 @@ c*****************************************************************
 
 	do i=1,len(trim(name))
 	  if( name(i:i) == ' ' ) name(i:i) = '_'
+	end do
+
+	end
+
+c*****************************************************************
+
+	subroutine fem_get_new_atime(iformat,iunit,atime,ierr)
+
+	implicit none
+
+	integer iformat,iunit
+	double precision atime
+	integer ierr
+
+	double precision dtime
+	integer nvers,np,lmax,nvar,ntype
+	integer datetime(2)
+
+	atime = -1
+
+	call fem_file_peek_params(iformat,iunit,dtime
+     +                          ,nvers,np,lmax,nvar,ntype,datetime,ierr)
+
+	if( ierr /= 0 ) return
+
+	call dts_convert_to_atime(datetime,dtime,atime)
+
+	end
+
+c*****************************************************************
+
+	subroutine set_facts(nvar,facts,factstring)
+
+	implicit none
+
+	integer nvar
+	real facts(nvar)
+	character*(*) factstring
+
+        integer ianz
+        integer iscanf
+
+	facts = 1.
+
+	if( factstring == ' ' ) return
+
+        ianz = iscanf(factstring,facts,4)
+
+        if( ianz /= nvar ) then
+          write(6,*) 'looking for ',nvar,' factors'
+          write(6,*) 'factors given: ',ianz
+          write(6,*) 'string given: ',trim(factstring)
+          stop 'error stop set_facts: nvar'
+        end if
+
+
+	end
+
+c*****************************************************************
+
+	subroutine change_strings(nvar,strings_out,newstring)
+
+	implicit none
+
+	integer nvar
+	character*(*) strings_out(nvar)
+	character*(*) newstring
+
+	integer ia,ic,ics,i
+	character*80 string
+
+	if( newstring == ' ' ) return
+
+	write(6,*) 'using string: ',trim(newstring)
+	ia = 1
+	ics = 0
+	do
+	  ic = scan(newstring(ia:),',')
+	  if( ic == 0 ) then
+	    string = newstring(ia:)
+	  else
+	    ic = ic + ia - 1
+	    string = newstring(ia:ic-1)
+	  end if
+	  ics = ics + 1
+	  !write(6,*) ia,ic,ics,trim(string)
+	  if( string /= ' ' ) strings_out(ics) = string
+	  if( ic == 0 .or. ics == nvar ) exit
+	  ia = ic + 1
+	end do
+
+	return
+
+	write(6,*) 'new strings description: '
+	do i=1,nvar
+	  write(6,*) i,'  ',trim(strings_out(i))
 	end do
 
 	end

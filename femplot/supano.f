@@ -872,6 +872,21 @@ c initializes legend
 
 	nleg = 0
 	nlegdi = legdim
+	iplotleg = 1		!plot legend
+
+	end
+
+c************************************************************
+
+	subroutine set_plotleg(ipl)
+
+	implicit none
+
+	integer ipl
+
+	include 'legend.h'
+
+	iplotleg = ipl
 
 	end
 
@@ -1096,6 +1111,8 @@ c plots legend
 
 	call legini
 	if( nlegdi .ne. legdim ) call legerr
+
+	if( iplotleg == 0 ) return	!do not plot legend
 
         bdebug = .true.
         bdebug = .false.
@@ -1427,6 +1444,7 @@ c plots date legend
           tzshow = getpar('tzshow')
 
 	  call make_absolute1(xdate,ydate)
+	  !write(6,*) '%%%%%%%%%%%%% ',xdate,ydate,idate,date
 
           icall = 1
         end if

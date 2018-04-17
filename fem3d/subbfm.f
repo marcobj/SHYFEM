@@ -70,7 +70,7 @@ c
 c**************************************************************
 c**************************************************************
 
-        subroutine ecological_module(it,dt)
+        subroutine ecological_module
 
 c general interface to ecological module
 
@@ -78,6 +78,11 @@ c general interface to ecological module
 
         integer it
         real dt
+	double precision dtime
+
+	call get_timestep(dt)
+	call get_act_dtime(dtime)
+	it = dtime
 
         call bfm_module(it,dt)
 
@@ -96,9 +101,7 @@ c administers bfm ecological model
 
 	real getpar,areaele
 
-	integer ibfm
-	save ibfm
-	data ibfm / 0 /
+	integer, save :: ibfm = 0
         
 	integer ibtanf,ibtend
 	save ibtanf,ibtend
@@ -345,7 +348,6 @@ c computes ecological scalars with BFM  model
 	real czdef,taubot
 	save czdef
 
-	integer itanf
 	double precision dtime0
 	integer idbfm1(nbcdim)
 	integer idbfm2(nbcdim)
@@ -448,8 +450,7 @@ c------------------------------------------------------
    	  !call bnds_init0('bfm2',bfm2bc,nintp,nbfmv2,nb3dim,bfm2,b2bound)
    	  !call bnds_init0('bfm3',bfm3bc,nintp,nbfmv3,nb3dim,bfm3,b3bound)
 
-	  call get_first_time(itanf)
-          dtime0 = itanf
+	  call get_first_dtime(dtime0)
           nintp = 2
           call bnds_init_new('bfm1',dtime0,nintp,nbfmv1,nkn,nlv
      +                          ,b1bound,idbfm1)

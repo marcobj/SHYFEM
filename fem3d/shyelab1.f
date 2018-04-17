@@ -37,6 +37,7 @@
         use mod_depth
         use evgeom
         use levels
+        use shympi
 
 	implicit none
 
@@ -110,6 +111,8 @@
 	!--------------------------------------------------------------
 
 	call elabutil_init('SHY','shyelab')
+
+	call shympi_init(.false.)
 
 	!--------------------------------------------------------------
 	! open input files
@@ -316,7 +319,7 @@
 	   call read_records(iddiff,ddtime,nvar,nndim,nlvdi,idims
      +				,cv3,cv3diff,ierr)
 	   if( ierr /= 0 ) goto 62
-	   if( dtime /= ddtime ) goto 61
+	   !if( dtime /= ddtime ) goto 61
 	   cv3all = cv3all - cv3diff
 	   call check_diff(nlv,nndim,nvar,cv3all,deps,ierr)
 	   ndiff = ndiff + ierr
@@ -448,7 +451,7 @@
 	   do iv=1,nvar
 	    naccum = naccu(iv,ip)
 	    if( naccum > 0 ) then
-	      !call shyelab_increase_nwrite
+	      !call shyelab_increase_nwrite	!done in *_output
 	      if( bverb ) write(6,*) 'final aver: ',ip,iv,naccum
 	      call shy_time_aver(bforce,-avermode,iv,ip,0,istep,nndim
      +			,idims,threshold,cv3,boutput,bverb)
@@ -729,8 +732,9 @@
 	!write(6,*) 'shy_split_id: ',ivar,id_out
 
 	if( id_out == 0 ) then
-	  write(name,'(i4,a)') ivar,'.shy'
-	  id_out = shy_init(adjustl(name))
+	  call ivar2filename(ivar,name)
+	  name = trim(name) // '.shy'
+	  id_out = shy_init(name)
 	  if( id_out <= 0 ) goto 99
           call shy_clone(id_in,id_out)
 	  call shy_convert_1var(id_out)

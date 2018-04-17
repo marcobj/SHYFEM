@@ -103,72 +103,55 @@ c------------------------------------------------------------
 	use levels
 	use basin
 	use mod_renewal_time
+	use shympi
 
         implicit none
 
-        include 'femtime.h'
 	include 'simul.h'
 
-	integer ndim
-	parameter (ndim=100)
-
+        logical, save :: bnoret,bstir,blog,badj
 	logical breset,bcompute,binit,belab
-        logical bnoret,bstir
-	logical blog,badj
 	logical bdebug
+	logical bmaster
 	logical bresarea,blimit
 
-	integer iaout,itmin,itmax,idtwrt
+	integer, save :: iaout
 	integer iret,istir,iadj,ilog
 	integer iconz
-	real c0
-	real ctop,ccut
-	real percmin
+	double precision, save :: dtmin,dtmax,ddtwrt
+	double precision, save :: dtnext,dtime0
+	double precision :: dtime
+	real, save :: c0,percmin
+	real, save :: ctop,ccut
 
         real conz,perc,rcorrect
         double precision mass,volume
 	
 	character*80 title
-	character*20 line
+	character*20 aline
 	integer nvers	
 
 	integer ifemop
 
-	integer k,nin,nvar,ie,id,ishyff
-	integer ius,iuf,iua
-	save ius,iuf,iua
-	integer nrepl
-	save nrepl
-	integer it0
-	save it0
-	double precision tacu
-	save tacu
-        double precision mass0,vol0,conz0
-        save mass0,vol0,conz0
-	integer, save :: ia_out(4)
+	integer k,nin,nvar,ie,id
+	integer, save :: ius,iuf,iua
+	integer, save :: nrepl
+	double precision, save :: tacu
+        double precision, save :: mass0,vol0,conz0
 	double precision, save :: da_out(4)
 
-	integer iadim
-	save iadim
+	integer, save :: iadim
 
         double precision dgetpar
 
-	double precision massa(0:ndim)
-	double precision massa0(0:ndim)
-	double precision vola(0:ndim)
-	double precision vola0(0:ndim)
-	double precision conza(0:ndim)
-	double precision conza0(0:ndim)
-	save massa,massa0,vola,vola0,conza,conza0
+	double precision, allocatable, save :: massa(:)
+	double precision, allocatable, save :: massa0(:)
+	double precision, allocatable, save :: vola(:)
+	double precision, allocatable, save :: vola0(:)
+	double precision, allocatable, save :: conza(:)
+	double precision, allocatable, save :: conza0(:)
 
-        integer icall
-        save icall
-        data icall / 0 /
-
-	save iaout,idtwrt,itmin,itmax
-	save c0,percmin
-	save bnoret,bstir,blog,badj
-	save ctop,ccut
+        integer, save :: icall = 0
 
 	bdebug = .true.
 	bdebug = .false.
@@ -178,41 +161,46 @@ c------------------------------------------------------------
 
 	if( icall .lt. 0 ) return
 
+	bmaster = shympi_is_master()
+
 c------------------------------------------------------------
 c initialization
 c------------------------------------------------------------
 
         if( icall .eq. 0 ) then
-          write(6,*) 'Initialization of WRT routine renewal time'
+	  if( bmaster ) then
+            write(6,*) 'Initialization of WRT routine renewal time'
+	  end if
 
-	  call convert_time('idtwrt',idtwrt)
+	  call convert_time_d('idtwrt',ddtwrt)
+	  call convert_date_d('itmin',dtmin)
+	  call convert_date_d('itmax',dtmax)
+	  if( dtmin .eq. -1 ) call get_first_dtime(dtmin)
+	  if( dtmax .eq. -1 ) call get_last_dtime(dtmax)
 
-	  call convert_date('itmin',itmin)
-	  call convert_date('itmax',itmax)
-	  if( itmin .eq. -1 ) itmin = itanf
-	  if( itmax .eq. -1 ) itmax = itend
-
-	  if( idtwrt < 0 ) then
+	  if( ddtwrt < 0 ) then
 	    icall = -1
-            write(6,*) 'No renewal time computation'
+            if( bmaster ) write(6,*) 'No renewal time computation'
 	    return
 	  end if
 
-	  iadim = 0
-	  do ie=1,nel
-	    iadim = max(iadim,iarv(ie))
-	  end do
-	  if( .not. bresarea ) iadim = 0
-	  if( iadim > ndim ) then
-	    write(6,*) 'iadim,ndim: ',iadim,ndim
-	    stop 'error stop renewal_time: iadim>ndim'
+	  if( shympi_is_parallel() ) then
+	    stop 'error stop renewal_time: not ready for mpi'
 	  end if
+
+	  iadim = maxval(iarv)
+	  if( .not. bresarea ) iadim = 0
+	  allocate(massa(0:iadim),massa0(0:iadim))
+	  allocate(vola(0:iadim),vola0(0:iadim))
+	  allocate(conza(0:iadim),conza0(0:iadim))
 
 	  iconz = nint(dgetpar('iconz'))
 	  if( iconz .ne. 1 ) then
+	   if( bmaster ) then
 	    write(6,*) 'for renewal time computations the generic'
 	    write(6,*) 'concentration must be computed (iconz=1)'
 	    stop 'error stop renewal_time: iconz'
+	   end if
 	  end if
 
 	  iaout = nint(dgetpar('iaout'))
@@ -228,7 +216,9 @@ c------------------------------------------------------------
 	  blog = ilog.eq.1
 	  ctop = dgetpar('ctop')
 	  ccut = dgetpar('ccut')
-	  it0 = it
+
+	  dtime0 = dtmin
+	  dtnext = min(dtmin+ddtwrt,dtmax)
 
 	  call mod_renewal_time_init(nkn,nlvdi)
 
@@ -238,17 +228,10 @@ c------------------------------------------------------------
 	  iuf = ifemop('.frq','formatted','new')
 	  iua = ifemop('.jaa','formatted','new')
 
-	  ishyff = nint(dgetpar('ishyff'))
-	  ia_out = 0
 	  da_out = 0
 	  nvar = 1
-	  if( ishyff /= 1 ) then
-	    call open_scalar_file(ia_out,nlv,nvar,'wrt')
-	  end if
-	  if( ishyff /= 0 ) then
-            call shyfem_init_scalar_file('wrt',nvar,.false.,id)
-            da_out(4) = id
-          end if
+          call shyfem_init_scalar_file('wrt',nvar,.false.,id)
+          da_out(4) = id
 
 	  nrepl = -1				!must still initialize
         end if
@@ -259,8 +242,11 @@ c------------------------------------------------------------
 c is it time to run the routine?
 c------------------------------------------------------------
 
-        if( it .lt. itmin ) return
-        if( it .gt. itmax ) return
+	call get_act_dtime(dtime)
+        if( dtime .lt. dtmin ) return
+        if( dtime .gt. dtmax ) return
+
+	call get_act_timeline(aline)
 
 c------------------------------------------------------------
 c decide on what to do
@@ -278,11 +264,10 @@ c belab		elaborates (accumulates) concentrations
 	end if
 
 	breset = binit
-	if( idtwrt .gt. 0 ) then
-	  if( it-it0 .ge. idtwrt ) breset = .true.
+	if( ddtwrt .gt. 0 ) then
+	  if( dtime .ge. dtnext ) breset = .true.
 	end if
-	if( it .eq. itmax ) breset = .true.	!last time step
-	call custom_reset(it,breset)
+	call custom_reset(dtime,breset)
 
 	belab = .not. binit
 	bcompute = .not. binit
@@ -290,14 +275,8 @@ c belab		elaborates (accumulates) concentrations
 	if( bdebug ) then
 	  write(6,*) 'WRT debug:'
 	  write(6,*) nrepl,binit,breset,belab,bcompute,bnoret
-	  write(6,*) it,ius
+	  write(6,*) dtime,ius
 	end if
-
-c------------------------------------------------------------
-c flag nodes that are inside lagoon (v1v(k)=1)
-c------------------------------------------------------------
-
-	!call wrt_flag_inside(v1v,iaout)	!done during initialization
 
 c------------------------------------------------------------
 c elaborate results
@@ -308,17 +287,17 @@ c------------------------------------------------------------
 	  if( blimit ) call wrt_limit_conz(c0,cnv)
 	  call wrt_massvolconz(cnv,rinside,vol,mass,volume)
 	  call wrt_mass_area(iadim,cnv,massa,vola,conza)
-	  !call wrt_write_area(iua,it,iadim,massa,massa0)
-	  call wrt_write_area(iua,it,iadim,conza,conza0)
+	  call wrt_write_area(iua,aline,iadim,conza,conza0)
 	  conz = mass / volume
 
 	  if( bstir ) call wrt_bstir(conz,cnv,rinside)	!stirred tank
           if( bnoret ) call wrt_bnoret(cnv,rinside)	!no return flow
 
-	  tacu = tacu + (it-it0)
-	  call acu_acum(blog,it,c0,cnv,vol,rinside,cvacu,volacu)
+	  tacu = tacu + (dtime-dtime0)
+	  call acu_acum(blog,dtime,c0,cnv,vol,rinside,cvacu,volacu)
 
-	  call wrt_restime_summary(ius,it,it0,mass,mass0,rcorrect)
+	  call wrt_restime_summary(ius,dtime,dtime0
+     +					,mass,mass0,rcorrect)
 	end if
 
 	if( bdebug ) then
@@ -331,9 +310,10 @@ c------------------------------------------------------------
 
         if( breset ) then		!reset concentrations to c0
 
-	  call dtsgf(it,line)
-       	  write(6,*) 'resetting concentrations for renewal time '
-     +				,it,' ',line
+	  if( bmaster ) then
+       	    write(6,*) 'resetting concentrations for renewal time '
+     +				,aline
+	  end if
 
 c------------------------------------------------------------
 c reset variables to compute renewal time (and write to file)
@@ -341,45 +321,33 @@ c------------------------------------------------------------
 
 	  if( bcompute ) then	!compute new renewal time
 	    rcorrect = 0.	!do not used global correction
-	    call acu_comp(ia_out,da_out
-     +				,blog,badj,it,c0,ccut,rcorrect
+	    call acu_comp(da_out
+     +				,blog,badj,dtime,c0,ccut,rcorrect
      +				,tacu,cvacu
      +				,cnv,cvres3)
-	    call acu_freq(iuf,it,ctop,rinside,cvres3,volacu)
+	    call acu_freq(iuf,aline,ctop,rinside,cvres3,volacu)
 	    nrepl = nrepl + 1
 
-	    write(6,*) '-------------------------------------------'
-	    write(6,*) 'computing res time: ',it,conz,nrepl
-	    write(6,*) '-------------------------------------------'
+	    if( bmaster ) then
+	      write(6,*) '-------------------------------------------'
+	      write(6,*) 'computing res time: ',aline,conz,nrepl
+	      write(6,*) '-------------------------------------------'
+	    end if
 	  end if
 
-	  it0 = it
+	  dtime0 = dtime
+	  dtnext = min(dtime+ddtwrt,dtmax)
 	  tacu = 0.
 	  call acu_reset(cvacu)
 	  call acu_reset(volacu)
 	  call wrt_breset(c0,cnv,rinside)
-	  if( bdebug ) then
-	    write(6,*) 'WRT debug:'
-	    nin = 0
-	    do k=1,nkn
-	      if( rinside(k) .ne. 0. ) nin = nin + 1
-	    end do
-	    write(6,*) 'resetting: ',it,c0,nin
-	  end if
 
-	  call wrt_massvolconz(cnv,rinside,vol,mass,volume)
-	  mass0 = mass
-	  vol0 = volume
-	  conz0 = mass0/vol0
+	  call wrt_massvolconz(cnv,rinside,vol,mass0,vol0)
+	  call wrt_mass_area(iadim,cnv,massa0,vola0,conza0)
+	  call wrt_write_area(iua,aline,iadim,conza0,conza0)
 
-	  call wrt_mass_area(iadim,cnv,massa,vola,conza)
-	  massa0 = massa
-	  vola0 = vola
-	  conza0 = conza
-	  !call wrt_write_area(iua,it,iadim,massa,massa0)
-	  call wrt_write_area(iua,it,iadim,conza,conza0)
-
-	  call wrt_restime_summary(-ius,it,it0,mass,mass0,rcorrect)	!reset
+	  call wrt_restime_summary(-ius,dtime,dtime0
+     +					,mass0,mass0,rcorrect)
 	end if
 
 c------------------------------------------------------------
@@ -493,68 +461,76 @@ c simulates stirred tank
 
 c******************************************************
 
-	subroutine wrt_write_area(iua,it,ndim,massa,massa0)
+	subroutine wrt_write_area(iua,aline,narea,massa,massa0)
 
 c computes masses for different areas
 
+	use shympi
+
 	implicit none
 
-	integer iua
-	integer it
-	integer ndim
-	double precision massa(0:ndim)
-	double precision massa0(0:ndim)
+	integer iua				!unit
+	character*20 aline			!time line
+	integer narea				!total number of areas
+	double precision massa(0:narea)		!mass of areas
+	double precision massa0(0:narea)	!initial mass of areas
 
 	integer i
-	real mass0
-	real mass(0:ndim)
+	real perctot
+	real perc(0:narea)
 
-	if( ndim .le. 0 ) return
+	if( narea .le. 0 ) return
 
-	do i=0,ndim
-	  mass(i) = 0.
+	do i=0,narea
+	  perc(i) = 0.
 	  if( massa0(i) > 0. ) then
-	    mass(i) = 100. * massa(i) / massa0(i)
+	    perc(i) = 100. * massa(i) / massa0(i)
 	  end if
 	end do
+	perctot = 100. * sum(massa) / sum(massa0)
 
-	write(iua,*) it,mass
+	if( shympi_is_master() ) then
+	  write(iua,*) aline,perc
+	end if
 	
 	end
 
 c******************************************************
 
-	subroutine wrt_mass_area(ndim,cnv,massa,vola,conza)
+	subroutine wrt_mass_area(narea,cnv,massa,vola,conza)
 
 c computes masses for different areas
 
 	use evgeom
 	use levels
 	use basin
+	use shympi
 
 	implicit none
 
-	integer ndim				!dimension of massa,vola,conza
+	integer narea				!total number of areas
 	real cnv(nlvdi,nkn)			!scalar for which to compute
-	double precision massa(0:ndim)		!total mass of scalar
-	double precision vola(0:ndim)		!total volume
-	double precision conza(0:ndim)		!average conc of scalar
+	double precision massa(0:narea)		!total mass of scalar
+	double precision vola(0:narea)		!total volume
+	double precision conza(0:narea)		!average conc of scalar
 
-	integer ie,k,ii,ia,l,lmax,nlev
+	integer ie,k,ii,ia,l,lmax,nlev,ntot
 	real v,conz,area,hdep
 	real h(nlvdi)
 
 	real volnode
 
-	if( ndim .le. 0 ) return
+	if( narea .le. 0 ) return
 
 	massa = 0.
 	vola = 0.
 	conza = 0.
 
-	do ie=1,nel
+	ntot = nel_unique
+
+	do ie=1,ntot
 	  ia = iarv(ie)
-	  if( ia > ndim .or. ia < 0 ) goto 99
+	  if( ia > narea .or. ia < 0 ) goto 99
           lmax = ilhv(ie)
 	  area = 4.*ev(10,ie)
 	  call dep3dele(ie,+1,nlev,h)
@@ -570,6 +546,9 @@ c computes masses for different areas
 	    end do
 	  end do
 	end do
+
+	call shympi_gather_and_sum(massa)
+	call shympi_gather_and_sum(vola)
 
 	where( vola > 0. ) conza = massa / vola
 
@@ -616,6 +595,7 @@ c computes mass and volume on internal nodes
 
 	use levels
 	use basin, only : nkn,nel,ngr,mbw
+	use shympi
 
 	implicit none
 
@@ -624,13 +604,15 @@ c computes mass and volume on internal nodes
 	real vol(nlvdi,nkn)		!volume on node (return)
 	double precision mass,volume	!total mass/volume (return)
 
-	integer k,l,lmax
+	integer k,l,lmax,ntot
 	real v,conz
 
 	real volnode
 
         mass = 0.
         volume = 0.
+
+	ntot = nkn_unique
 
         do k=1,nkn
           if( rinside(k) .ne. 0. ) then
@@ -644,6 +626,9 @@ c computes mass and volume on internal nodes
             end do
           end if
         end do
+
+	mass = shympi_sum(mass)
+	volume = shympi_sum(volume)
 
 	end
 
@@ -687,20 +672,15 @@ c resets acumulated value
 
 	double precision cvacu(nlvdi,nkn)
 
-	integer k,lmax,l
-
-        do k=1,nkn
-          lmax = ilhkv(k)
-          do l=1,lmax
-            cvacu(l,k) = 0.
-          end do
-        end do
+        cvacu = 0.
 
 	end
 
 c***************************************************************
 
-	subroutine acu_acum(blog,it,c0,cnv,vol,rinside,cvacu,volacu)
+	subroutine acu_acum(blog,dtime,c0,cnv,vol,rinside,cvacu,volacu)
+
+c accumulate renewal time
 
 	use levels
 	use basin, only : nkn,nel,ngr,mbw
@@ -708,7 +688,7 @@ c***************************************************************
 	implicit none
 
 	logical blog				!use logarithm to compute
-	integer it
+	double precision dtime
 	real c0					!value used for initialization
 	real cnv(nlvdi,nkn)
 	real vol(nlvdi,nkn)
@@ -748,19 +728,11 @@ c***************************************************************
           end do
         end do
 
-	!l = 4
-	!k = 106
-	!write(166,*) it,cnv(l,k),vol(l,k)
-
-	!l = 1
-	!k = 100
-	!write(6,*) cnv(l,k),cvacu(l,k),volacu(l,k)
-
 	end
 
 c***************************************************************
 
-	subroutine acu_comp(ia_out,da_out,blog,badj,it,c0,ccut,rcorrect
+	subroutine acu_comp(da_out,blog,badj,dtime,c0,ccut,rcorrect
      +				,tacu,cvacu
      +				,cnv,cvres3)
 
@@ -771,10 +743,9 @@ c compute renewal time and write to file
 
 	implicit none
 
-	integer ia_out(4)
 	double precision da_out(4)
 	logical blog,badj
-	integer it
+	double precision dtime
 	real c0
 	real ccut
 	real rcorrect
@@ -786,7 +757,6 @@ c compute renewal time and write to file
 	integer k,lmax,l,ivar,ierr,id,ishyff
 	double precision conz,conze,rconv,corr,cc0
 	double precision secs_in_day,ttacu
-	double precision dtime
 
 	double precision dgetpar
 
@@ -837,18 +807,9 @@ c write to file
 c---------------------------------------------------------------
 
 	ivar = 99
-	dtime = it
-	ishyff = nint(dgetpar('ishyff'))
+	id = nint(da_out(4))
 	write(6,*) 'writing wrt file for time ',dtime
-	if( ishyff /= 1 ) then
-	  write(6,*) 'writing wrt file old format ',ia_out,ivar
-	  call write_scalar_file(ia_out,ivar,nlvdi,cvres3)
-	end if
-	if( ishyff /= 0 ) then
-	  id = nint(da_out(4))
-	  write(6,*) 'writing wrt file new format ',id,ivar
-	  call shy_write_scalar_record(id,dtime,ivar,nlvdi,cvres3)
-	end if
+	call shy_write_scalar_record(id,dtime,ivar,nlvdi,cvres3)
 
 c---------------------------------------------------------------
 c end of routine
@@ -858,7 +819,10 @@ c---------------------------------------------------------------
 
 c**********************************************************************
 
-	subroutine wrt_restime_summary(ius,it,it0,mass,mass0,rcorrect)
+	subroutine wrt_restime_summary(ius,dtime,dtime0
+     +					,mass,mass0,rcorrect)
+
+c write summuary of WRT computation to file
 
 c perc		percentage of mass still in domain
 c restime	renewal time computed by integrating
@@ -870,7 +834,7 @@ c resstd	standard deviation of renewal time
      	implicit none
 	
 	integer ius		!negative if reset and summary write
-	integer it,it0
+	double precision dtime,dtime0
 	double precision mass
 	double precision mass0
 	real rcorrect
@@ -880,15 +844,19 @@ c resstd	standard deviation of renewal time
         real remnant,rlast
 	real restime,restimel,restimec
         real resmed,resstd
+	character*20 aline
 
 	logical breset
 	integer ndata,iu
+	integer it
 	double precision remint,remlog,remtim
 	double precision rsum,rsumsq
 	save ndata
 	save remint,remlog,remtim
 	save rsum,rsumsq
 	data ndata / 0 /
+
+	external get_timeline
 
 	breset = ius .le. 0
 	iu = abs(ius)
@@ -920,7 +888,7 @@ c resstd	standard deviation of renewal time
 	restimec = min(restimec,999999.)
 
 	remlog = remlog - log(remnant)
-	remtim = remtim + (it-it0)
+	remtim = remtim + (dtime-dtime0)
 	restimel = 0.
 	if( remlog .gt. 0. ) restimel = ( remtim / remlog ) / 86400.
 	restimel = min(restimel,999999.)
@@ -933,27 +901,36 @@ c resstd	standard deviation of renewal time
 	resstd = sqrt( rsumsq/ndata - resmed*resmed )
 	resstd = min(resstd,999999.)
 
-        !write(6,1000) it,perc,restime,restimec,restimel,resmed,resstd
-        write(iu,1000) it,perc,restime,restimec,restimel,resmed,resstd
+	call get_timeline(dtime,aline)
+!	write(6,1000) aline,perc,restime,restimec
+!     +					,restimel,resmed,resstd
+        write(iu,1000) aline,perc,restime,restimec
+     +					,restimel,resmed,resstd
 
- 1000	format(i10,6f10.2)
+	it = nint(dtime)
+        write(177,2000) it,perc,restime,restimec
+     +					,restimel,resmed,resstd
+
+ 1000	format(a20,6f10.2)
+ 2000	format(i10,6f10.2)
 	end
 
 c**********************************************************************
 c**********************************************************************
 c**********************************************************************
 
-	subroutine acu_freq(iu,it,ctop,rinside,cvres3,volacu)
+	subroutine acu_freq(iu,aline,ctop,rinside,cvres3,volacu)
 
 c write histogram
 
 	use levels
 	use basin, only : nkn,nel,ngr,mbw
+	use shympi
 
 	implicit none
 
 	integer iu
-	integer it
+	character*20 aline
 	real ctop			!cut at this value of renewal time
 	real rinside(nkn)		!point is intern
 	real cvres3(nlvdi,nkn)
@@ -963,7 +940,7 @@ c write histogram
 	parameter (ndim=100)
 
 	logical bdebug
-	integer k,lmax,l,i,ic
+	integer k,lmax,l,i,ic,ntot
 	integer icount(0:ndim)
 	double precision dcount(0:ndim)
 	double precision dc,tot,vtot
@@ -977,18 +954,20 @@ c---------------------------------------------------------------
 c compute maximum
 c---------------------------------------------------------------
 
+	ntot = nkn_unique
+
 	cmax = 0.
-        do k=1,nkn
+        do k=1,ntot
           lmax = ilhkv(k)
           do l=1,lmax
 	    cmax = max(cmax,cvres3(l,k))
 	  end do
 	end do
 
+	cmax = shympi_max(cmax)
 	amax = cmax
 	if( ctop .gt. 0. .and. amax .gt. ctop ) amax = ctop
 	if( ctop .lt. 0. ) amax = -ctop
-	write(iu,*) 'cmax: ',it,cmax,amax
 
 c---------------------------------------------------------------
 c compute average
@@ -996,7 +975,7 @@ c---------------------------------------------------------------
 
 	tot = 0.
 	vtot = 0.
-        do k=1,nkn
+        do k=1,ntot
 	  if( rinside(k) .le. 0. ) cycle
           lmax = ilhkv(k)
           do l=1,lmax
@@ -1006,20 +985,17 @@ c---------------------------------------------------------------
 	    vtot = vtot + v
 	  end do
 	end do
-	write(iu,2000) 'aver_by_tot: ',it,tot,vtot,tot/vtot
+	tot = shympi_sum(tot)
+	vtot = shympi_sum(vtot)
 
 c---------------------------------------------------------------
 c compute frequency curve
 c---------------------------------------------------------------
 
-	ic = 0
-	dc = 0.
-	do i=0,ndim
-	  icount(i) = 0
-	  dcount(i) = 0.
-	end do
+	icount = 0
+	dcount = 0.
 
-        do k=1,nkn
+        do k=1,ntot
 	  if( rinside(k) .le. 0. ) cycle
           lmax = ilhkv(k)
           do l=1,lmax
@@ -1031,22 +1007,32 @@ c---------------------------------------------------------------
 	    if (i .gt. ndim) i = ndim
 
 	    icount(i) = icount(i) + 1
-	    ic = ic + 1
 	    dcount(i) = dcount(i) + v
-	    dc = dc + v
 	  end do
 	end do
 
+	call shympi_gather_and_sum(icount)
+	call shympi_gather_and_sum(dcount)
+	ic = sum(icount)
+	dc = sum(dcount)
+
 c---------------------------------------------------------------
-c write frequency curve to file
+c write to file (if master)
+c---------------------------------------------------------------
+
+	if( .not. shympi_is_master() ) return
+
+	write(iu,*) 'cmax: ',aline,cmax,amax
+	write(iu,2000) 'aver_by_tot: ',aline,tot,vtot,tot/vtot
+
+c---------------------------------------------------------------
+c compute and write frequency curve to file
 c---------------------------------------------------------------
 
 	dw = 1.
 	tot = 0.
 	vtot = 0.
-	!call make_name(it,file,'freq_by_bin_','.his')
-	!open(11,file=file,status='unknown',form='formatted')
-	write(iu,*) 'freq_by_bin: ',it,ndim+1
+	write(iu,*) 'freq_by_bin: ',aline,ndim+1
 	do i=0,ndim
 	  c = i*amax/ndim
 	  val = 100.*icount(i)/(float(ic)*dw)
@@ -1054,15 +1040,12 @@ c---------------------------------------------------------------
 	  vtot = vtot + val
 	  write(iu,*) i,val,icount(i)
 	end do
-	!close(11)
-	write(iu,2000) 'aver_by_bin: ',it,tot,vtot,tot/vtot
+	write(iu,2000) 'aver_by_bin: ',aline,tot,vtot,tot/vtot
 
 	dw = amax/100.
 	tot = 0.
 	vtot = 0.
-	!call make_name(it,file,'freq_by_res_','.his')
-	!open(11,file=file,status='unknown',form='formatted')
-	write(iu,*) 'freq_by_res: ',it,ndim+1
+	write(iu,*) 'freq_by_res: ',aline,ndim+1
 	do i=0,ndim
 	  c = i*amax/ndim
 	  val = 100.*icount(i)/(float(ic)*dw)
@@ -1070,15 +1053,12 @@ c---------------------------------------------------------------
 	  vtot = vtot + val
 	  write(iu,*) c,val,icount(i)
 	end do
-	!close(11)
-	write(iu,2000) 'aver_by_res: ',it,tot,vtot,tot/vtot
+	write(iu,2000) 'aver_by_res: ',aline,tot,vtot,tot/vtot
 
 	dw = 1.
 	tot = 0.
 	vtot = 0.
-	!call make_name(it,file,'freq_by_vol_','.his')
-	!open(11,file=file,status='unknown',form='formatted')
-	write(iu,*) 'freq_by_vol: ',it,ndim+1
+	write(iu,*) 'freq_by_vol: ',aline,ndim+1
 	do i=0,ndim
 	  c = i*amax/ndim
 	  val = 100.*dcount(i)/(dc*dw)
@@ -1086,14 +1066,13 @@ c---------------------------------------------------------------
 	  vtot = vtot + val
 	  write(iu,*) c,val,icount(i)
 	end do
-	!close(11)
-	write(iu,2000) 'aver_by_vol: ',it,tot,vtot,tot/vtot
+	write(iu,2000) 'aver_by_vol: ',aline,tot,vtot,tot/vtot
 
 c---------------------------------------------------------------
 c write out all data to file (for debug and median)
 c---------------------------------------------------------------
 
-	!write(76,*) nkn,it
+	!write(76,*) nkn,aline
         !do k=1,nkn
 	!  conz = cvres3(1,k)
 	!  write(76,*) conz
@@ -1103,7 +1082,7 @@ c---------------------------------------------------------------
 c end of routine
 c---------------------------------------------------------------
 
- 2000	format(a,i12,2e14.6,f14.4)
+ 2000	format(a,a20,2e14.6,f14.4)
 	end
 
 c**********************************************************************
@@ -1112,21 +1091,20 @@ c**********************************************************************
 c**********************************************************************
 c**********************************************************************
 
-	subroutine custom_reset(it,breset)
+	subroutine custom_reset(dtime,breset)
 
 	implicit none
 
-	integer it
+	double precision dtime
 	logical breset
 
-	integer i,itres
+	integer i
 	integer date,time
-	integer year,month,day,hour,min,sec
 
 	integer, save :: idate = 0
 
 	integer, save :: ndate,ndim
-	integer, save, allocatable :: restime(:)
+	double precision, save, allocatable :: restime(:)
 
 	character*80 file
 
@@ -1151,7 +1129,7 @@ c see if we have to reset
 c---------------------------------------------------------------
 
 	if( idate > ndate ) return
-	if( it < restime(idate) ) return
+	if( dtime < restime(idate) ) return
 
 c---------------------------------------------------------------
 c ok, reset needed - advance to next reset time
@@ -1177,14 +1155,14 @@ c gets custom reset time from file
 	character*(*) file
 	integer ndim		!ndim==0 => check how many dates are given
 	integer n
-	integer restime(n)
+	double precision restime(n)
 
 	integer ianz,ios,nline,i
 	integer date,time
-	integer year,month,day,hour,min,sec
-	integer itres,itold
+	double precision dtime,atime,atime0,dtold
 	double precision d(2)
 	character*80 line
+	character*20 aline
 	logical bdebug
 
 	integer iscand
@@ -1205,6 +1183,8 @@ c gets custom reset time from file
 	  end if
 	end if
 	if( ios /= 0 ) return
+
+	call get_absolute_ref_time(atime0)
 
 	do
 	  read(1,'(a)',iostat=ios) line
@@ -1233,11 +1213,10 @@ c gets custom reset time from file
 	    stop 'error stop get_reset_time: dimension error ndim'
 	  end if
 
-	  call unpacktime(time,hour,min,sec)
-	  call unpackdate(date,year,month,day)
-	  call dts2it(itres,year,month,day,hour,min,sec)
+	  call dts_to_abs_time(date,time,atime)
+	  dtime = atime - atime0
 
-	  restime(n) = itres		!insert relative time
+	  restime(n) = dtime		!insert relative time
 	end do
 
 	if( ios > 0 ) then
@@ -1249,13 +1228,13 @@ c gets custom reset time from file
 
 	if( bdebug ) then
 	  write(6,*) 'custom reset times: ',n
-	  itold = restime(1) - 1
+	  dtold = restime(1) - 1
 	  do i=1,n
-	    itres = restime(i)
-	    call dts2dt(itres,year,month,day,hour,min,sec)
-	    write(6,1000) i,itres,year,month,day,hour,min,sec
- 1000	    format(i5,i12,6i5)
-	    if( itres <= itold ) then
+	    dtime = restime(i)
+	    atime = atime0 + dtime
+	    call dts_format_abs_time(atime,aline)
+	    write(6,*) i,aline
+	    if( dtime <= dtold ) then
 	      write(6,*) 'times in custom reset must be ascending...'
 	      stop 'error stop get_reset_time: wrong order'
 	    end if

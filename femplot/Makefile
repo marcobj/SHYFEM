@@ -27,7 +27,7 @@ NPOBJS  = supbas.o supiso.o supdep.o supano.o \
 		supint.o supver.o suplag.o \
 		suplin.o suplin1.o \
 		mod_plot2d.o mod_plot3d.o mod_hydro_plot.o \
-		plotutil.o
+		plotutil.o $(MPI_OBJ)
 
 LPOBJS = subfil.o subbas.o links.o sublnku.o subnsu.o	# not used anymore
 LPOBJS = 
@@ -53,6 +53,15 @@ EXESALL = $(EXES) $(EXESAUX)
 EXESLINKS = $(EXES)
 
 MAKEDEPEND = $(FEMBIN)/mkdp.pl
+
+#------------------------------------------------------------
+
+MPI_OBJ = supmpi.o
+ifeq ($(PARALLEL_MPI),NODE)
+  MPI_OBJ = 
+  FFLAGS += $(MPI_COMPILE_FLAGS)
+  LFLAGS += $(MPI_LINK_FLAGS)
+endif
 
 #------------------------------------------------------------
 
@@ -222,13 +231,13 @@ shyplot.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/mod_hydro_print.mod \
 		../femlib/mod/mod_hydro_vel.mod \
 		../femlib/mod/plotutil.mod \
-		../femlib/mod/shyfile.mod \
+		../femlib/mod/shyfile.mod ../femlib/mod/shympi.mod \
 		../femlib/mod/shyutil.mod 
 supano.o: ../femlib/mod/basin.mod ../femlib/mod/color.mod \
 		../femlib/mod/mod_bash.mod legend.h simul.h 
 supbas.o: ../femlib/mod/basin.mod ../femlib/mod/mod_geom.mod \
 		../femlib/mod/mod_hydro_plot.mod supout.h 
-supcol.o: ../femlib/mod/color.mod
+supcol.o: ../femlib/mod/color.mod ../femlib/mod/para.mod
 supdep.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \

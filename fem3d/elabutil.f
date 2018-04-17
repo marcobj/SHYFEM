@@ -65,6 +65,12 @@
         character*80, save :: snode		= ' '
         character*80, save :: scoord		= ' '
 
+	logical, save :: bcheck			= .false.
+        character*80, save :: scheck		= ' '
+
+        character*80, save :: newstring		= ' '
+        character*80, save :: factstring	= ' '
+
         character*80, save :: regstring		= ' '
 	integer, save :: regexpand		= -1
 
@@ -118,6 +124,7 @@
 	logical, save :: bextfile		= .false.
 	logical, save :: bfemfile		= .false.
 	logical, save :: btsfile		= .false.
+	logical, save :: binputfile		= .false.
 
         character*10, save :: file_type		= ' '
 
@@ -195,6 +202,8 @@
 	  write(6,*) 'type : ',trim(type)
 	  stop 'error stop elabutil_set_options: unknown type'
 	end if
+
+	binputfile = bfemfile .or. btsfile
 
 	text = 'returns info on or elaborates a ' //
      +			'shyfem file'
@@ -289,6 +298,15 @@
      +		,'splits file (EXT and FLX) for extended data')
 	end if
 
+	if( bshowall .or. binputfile ) then
+          call clo_add_option('check period',' '
+     +				,'checks data over period')
+          call clo_add_com('  period can be '//
+     +				'all,year,month,week,day,none')
+          call clo_add_option('checkdt',.false.
+     +			,'check for change of time step')
+	end if
+
 	if( bshowall .or. bshyfile ) then
           call clo_add_option('node nlist',' '
      +			,'extract vars of nodes in list')
@@ -302,8 +320,6 @@
 
 	if( bshowall .or. btsfile ) then
           call clo_add_sep('time series options')
-          call clo_add_option('checkdt',.false.
-     +			,'check for change of time step')
           call clo_add_option('convert',.false.
      +			,'convert time column to ISO string')
 	end if
@@ -331,6 +347,14 @@
         call clo_add_com('    node is internal numbering in fem file'
      +                  //' or ix,iy of regular grid')
         call clo_add_com('    coord is x,y of point to extract')
+        call clo_add_option('newstring sstring',' '
+     +			,'substitute string description in fem-file')
+        call clo_add_com('    sstring is comma separated strings,'
+     +                  //' empty for no change')
+        call clo_add_option('facts fstring',' '
+     +			,'apply factors to data in fem-file')
+        call clo_add_com('    fstring is comma separated factors,'
+     +                  //' empty for no change')
 
 	end subroutine elabutil_set_fem_options
 
@@ -340,7 +364,10 @@
 
 	use clo
 
-	if( .not. bshowall .and. .not. bfemfile ) return
+	logical bregopt
+
+	bregopt = bshowall .or. bfemfile .or. bshyfile
+	if( .not. bregopt ) return
 
         call clo_add_sep('regular grid FEM file options')
 
@@ -477,13 +504,16 @@
 	if( bshowall .or. bflxfile .or. bextfile ) then
           call clo_get_option('splitall',bsplitall)
 	end if
+	if( bshowall .or. binputfile ) then
+          call clo_get_option('check',scheck)
+          call clo_get_option('checkdt',bcheckdt)
+	end if
 	if( bshowall .or. bshyfile ) then
           call clo_get_option('node',nodelist)
           call clo_get_option('nodes',nodefile)
 	end if
 
 	if( bshowall .or. btsfile ) then
-          call clo_get_option('checkdt',bcheckdt)
           call clo_get_option('convert',bconvert)
 	end if
 
@@ -493,9 +523,11 @@
           call clo_get_option('grd',bgrd)
           call clo_get_option('nodei',snode)
           call clo_get_option('coord',scoord)
+          call clo_get_option('newstring',newstring)
+          call clo_get_option('facts',factstring)
 	end if
 
-	if( bshowall .or. bfemfile ) then
+	if( bshowall .or. bfemfile .or. bshyfile ) then
           call clo_get_option('reg',regstring)
           call clo_get_option('regexpand',regexpand)
 	end if
@@ -570,6 +602,7 @@
         bnodes = nodefile .ne. ' '
 
 	barea = ( areafile /= ' ' )
+	bcheck = ( scheck /= ' ' )
 
         boutput = bout
         boutput = boutput .or. b2d
@@ -577,6 +610,7 @@
 	boutput = boutput .or. outformat /= 'native'
         boutput = boutput .or. bsumvar
         boutput = boutput .or. bmap
+        boutput = boutput .or. newstring /= ' '
 
         !btrans is added later
 	!if( bsumvar ) boutput = .false.
@@ -1011,5 +1045,103 @@ c decides if with concatenation we have to use record or not
 
 c***************************************************************
 c***************************************************************
+c***************************************************************
+c output utilities
+c***************************************************************
+c***************************************************************
+c***************************************************************
+
+	subroutine compute_range(n,string)
+
+	implicit none
+
+	integer n
+	character*(*) string
+
+        string = '1'
+        if( n > 1 ) then
+          write(string,'(i5)') n
+          string = adjustl(string)
+          string = '1-' // trim(string)
+        end if
+
+	end
+
+c***************************************************************
+
+	subroutine write_vars(nvar,ivars)
+
+	use shyfem_strings
+
+	implicit none
+
+	integer nvar
+	integer ivars(nvar)
+
+	integer iv,ivar
+	character*20 short
+	character*80 full
+
+	do iv=1,nvar
+          ivar = ivars(iv)
+	  call ivar2filename(ivar,short)
+          !call strings_get_short_name(ivar,short)
+          call strings_get_full_name(ivar,full)
+          write(6,*) '  ',short,trim(full)
+	end do
+
+	end
+
+c***************************************************************
+
+	subroutine write_extra_vars(nvar,ivars,post,descrp)
+
+	use shyfem_strings
+
+	implicit none
+
+	integer nvar
+	integer ivars(nvar)
+	character*(*) post,descrp
+
+	integer iv,ivar
+	character*20 short
+	character*80 full
+
+	do iv=1,nvar
+          ivar = ivars(iv)
+	  call ivar2filename(ivar,short)
+	  short = trim(short) // trim(post)
+          call strings_get_full_name(ivar,full)
+	  full = trim(full) // trim(descrp)
+          write(6,*) '  ',short,trim(full)
+	end do
+
+	end
+
+c***************************************************************
+
+	subroutine write_special_vars(nvar,what,descrp)
+
+	use shyfem_strings
+
+	implicit none
+
+	integer nvar
+	character*(*) what(nvar)
+	character*(*) descrp(nvar)
+
+	integer iv
+	character*20 short
+	character*80 full
+
+	do iv=1,nvar
+	  short = what(iv)
+	  full = descrp(iv)
+          write(6,*) '  ',short,trim(full)
+	end do
+
+	end
+
 c***************************************************************
 

@@ -8,6 +8,7 @@
 ! 01.10.2015	ggu	converted to basutil
 ! 01.05.2016	ggu	new routine to convert depth from node to elem
 ! 21.03.2017	ggu	new flag area to compute area/vol on area code
+! 13.04.2018	ggu	new routine for partitioning
 !
 !************************************************************
 
@@ -27,6 +28,7 @@
 	logical, save :: bdepth
 	logical, save :: bunique
 	logical, save :: bdelem
+	logical, save :: bnpart
 
 	logical, save :: bquality
 	logical, save :: bresol
@@ -35,10 +37,12 @@
 	logical, save :: bcompare
 	logical, save :: bbox
 	logical, save :: barea
+	logical, save :: binvert
 
 	real, save :: hsigma
 
         character*80, save :: bfile
+        character*80, save :: lfile
 	logical, save :: ball
 	integer, save :: btype
 	logical, save :: bnode
@@ -114,6 +118,10 @@
         call clo_add_option('delem',.false.
      +		,'writes grd file with constant depths on elements')
         call clo_add_option('hsigma',-1,'creates hybrid depth level')
+        call clo_add_option('npart',.false.
+     +		,'writes grd file with nodal partition to be visualized')
+        call clo_add_option('part grd-file',' '
+     +		,'uses lines contained in grd-file to create partition')
 
         call clo_add_sep('what to do:')
 
@@ -126,6 +134,8 @@
         call clo_add_option('check',.false.,'runs extra check on file')
         call clo_add_option('compare',.false.
      +				,'compares depth of 2 basins')
+        call clo_add_option('invert_depth',.false.
+     +				,'inverts depth values')
         call clo_add_option('box',.false.,'creates index for box model')
 
         call clo_add_sep('bathymetry interpolation:')
@@ -175,12 +185,15 @@
         call clo_get_option('depth',bdepth)
         call clo_get_option('unique',bunique)
         call clo_get_option('delem',bdelem)
+        call clo_get_option('npart',bnpart)
+        call clo_get_option('part',lfile)
 
         call clo_get_option('quality',bquality)
         call clo_get_option('resol',bresol)
         call clo_get_option('freq',bfreq)
         call clo_get_option('check',bcheck)
         call clo_get_option('compare',bcompare)
+        call clo_get_option('invert_depth',binvert)
         call clo_get_option('box',bbox)
 
         call clo_get_option('hsigma',hsigma)

@@ -12,7 +12,7 @@
 ! Responsible   : Dr.-Ing. Aron Roland, IWW, Technische Universitat Darmstadt
 !
 !
-        subroutine submud(it,dt)
+        subroutine submud
 
 	use mod_bound_geom
 	use mod_sinking
@@ -25,9 +25,6 @@
 
           implicit none
 
-          integer it                        !time in seconds
-          real dt                           !time step in seconds
-  
           include 'param.h'
   
 
@@ -46,6 +43,9 @@
 
         integer kranf,krend,ibc
         integer kin,kou,nnode,knode,nk
+          integer it                        !time in seconds
+          real dt                           !time step in seconds
+  
 
         integer iround
         real getpar
@@ -101,6 +101,10 @@
 
         t_now = t_now + 1.
 
+	call get_timestep(dt)
+	call get_act_dtime(dtime)
+	it = dtime
+
         imud = iround(getpar('imud'))
         rhow = getpar('rowass')
 
@@ -108,6 +112,8 @@
           icall = -1
           return
         end if
+
+	stop 'error stop submud: not adapted yet for new framework'
 
         if( icall .eq. 0 ) then
 

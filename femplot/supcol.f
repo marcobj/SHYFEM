@@ -47,6 +47,8 @@ c************************************************************
 	subroutine colrd
 
 c reads color block from str file
+c
+c this is not called anymore - the setup is done in colchk
 
 	use color
 
@@ -103,6 +105,63 @@ c reads color block from str file
 
 	isoanz = nisord
 c	call putpar('dval',0.)	!if section is given -> no automatic
+
+	if( bdebug ) then
+	  write(6,*) 'color debug : ',nisord,ncolrd
+	  write(6,*) (fiso(i),i=1,nisord)
+	  write(6,*) (ciso(i),i=1,ncolrd)
+	end if
+
+	end
+
+c************************************************************
+
+	subroutine colchk
+
+	use color
+	use para
+
+	implicit none
+
+	logical bdebug
+	integer i,ndim
+
+	bdebug = .true.
+	bdebug = .false.
+
+	call colini
+
+	ndim = isodim
+
+	if( para_has_array('color') ) then
+	  call para_get_array_size('color',ncolrd)
+	end if
+	if( para_has_array('isoval') ) then
+	  call para_get_array_size('isoval',nisord)
+	end if
+
+	if( ncolrd .gt. ndim+1 ) stop 'error stop colchk: dimension'
+	if( nisord .gt. ndim ) stop 'error stop colchk: dimension'
+
+	!call para_info_name('color')
+	!call para_info_name('isoval')
+
+	if( ncolrd .gt. 0 .and. nisord .gt. 0 ) then
+	  if( nisord + 1 .ne. ncolrd ) then
+		write(6,*) 'ncolrd,nisord: ',ncolrd,nisord
+		write(6,*) 'There must be one more color than isovalue'
+		stop 'error stop : colchk'
+	  end if
+	end if
+
+	if( ncolrd > 0 ) then
+	  call para_get_array_value('color',ndim+1,ncolrd,ciso)
+	end if
+	if( nisord > 0 ) then
+	  call para_get_array_value('isoval',ndim,nisord,fiso)
+	end if
+
+	isoanz = nisord
 
 	if( bdebug ) then
 	  write(6,*) 'color debug : ',nisord,ncolrd
@@ -361,8 +420,8 @@ c computes values for which single isolines are plotted
 	  end do
 	end if
 
-	write(6,*) 'make_single_isolines: ',nriso
-	write(6,*) (riso(i),i=1,nriso)
+	!write(6,*) 'make_single_isolines: ',nriso
+	!write(6,*) (riso(i),i=1,nriso)
 
 	end
 

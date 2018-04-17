@@ -97,7 +97,7 @@ c	call inlgr	!float tracking
 
 c other parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-	call putpar('const',flag)
+	call putpar('zconst',flag)
 	call putpar('flag',flag)
 
 	end
@@ -124,6 +124,7 @@ c revised 13.06.97 by ggu !$$kranf - check if kranf <= krend
 	include 'mkonst.h'
 	include 'pkonst.h'
 
+	integer ibarcl
         real getpar
         integer nkbnd
 
@@ -150,9 +151,15 @@ c re-allocate boundary arrays
 	call ckclos
 c	call ckoxy	!oxygen
 
+	ibarcl=nint(getpar('ibarcl'))
+	if( ibarcl == 0 ) then
+	  call putpar('itemp',0.)
+	  call putpar('isalt',0.)
+	end if
+
 	call modules(M_CHECK)
 
-	call ckcori	!set coriolis parameter
+	call ckcori	!sets dlat for coriolis parameter
 
 	end
 

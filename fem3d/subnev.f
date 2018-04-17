@@ -90,6 +90,8 @@ c  1	spherical (lat/lon)
 	  allocate(ev(evdim,nel))
 	end if
 
+	ev = 0.
+
 	end subroutine ev_init
 
 c****************************************************************
@@ -359,15 +361,18 @@ c checks if coordinates are lat/lon
 
 	use basin
 	use evgeom
+	use shympi
 
 	implicit none
 
-	logical bverbose
+	logical bverbose,bldebug
 	integer k,isphe
 	real xmin,xmax,ymin,ymax
 
 	bverbose = .true.
 	bverbose = .false.
+	bldebug = .true.
+	bldebug = .false.
 
 	xmin = xgv(1)
 	xmax = xgv(1)
@@ -409,8 +414,38 @@ c checks if coordinates are lat/lon
 	  isphe = isphe_ev	!take desired value
 	end if
 
+	if( bldebug ) then
+	  write(6,*) 'start debug check_spheric_ev'
+	  write(6,*) xmin,xmax,ymin,ymax
+	  write(6,*) isphe_ev,isphe
+	end if
+	
+	!write(6,*) 'isphe before mpi call: ',isphe
+	isphe = shympi_min(isphe)
+	if( isphe < 0 .or. isphe > 1 ) then
+	  write(6,*) 'erroneous value for isphe: ',isphe
+	  stop 'error stop check_spheric_ev: isphe'
+	end if
+
+	if( shympi_is_master() ) then
+	  write(6,*) 'isphe_mpi: ',my_id,isphe
+	end if
+
+	if( bldebug ) then
+	  write(6,*) isphe
+	  write(6,*) 'end debug check_spheric_ev'
+	end if
+
 	isphe_ev = isphe
 	init_ev = .true.
+
+	if( shympi_is_master() ) then
+	  if( isphe == 1 ) then
+	    write(6,*) 'using lat/lon coordinates'
+	  else
+	    write(6,*) 'using cartesian coordinates'
+	  end if
+	end if
 
 	if( verbose_ev ) then
 	 if( isphe == 1 ) then

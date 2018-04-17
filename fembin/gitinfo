@@ -1,4 +1,11 @@
 #!/bin/sh
+#
+# for Klaipeda:
+#
+#   scl enable devtoolset-6 bash	#for new version of gfortran
+#   scl enable git19 bash		#for new version of git
+#
+#---------------------------------------------------
 
 cat <<EOI
 
@@ -71,6 +78,16 @@ git diff --stat			statistics on changed files
 	git diff --stat --staged
 	git diff --stat HEAD
 
+branching:
+
+git checkout -b new_branch	(or: git branch new_branch; git co new_branch)
+	git co -b hotfix
+	fo work...; git add -u
+	git commit
+	git co develop
+	git merge hotfix
+	git branch -d hotfix
+
 commands:
 
 gitcommit		makes commit writing to COMMIT
@@ -106,7 +123,7 @@ gitcommit
 gittag
 git push origin develop --tags
 
-gitpack
+gitpack (or gittar tag; mail_shyfem.sh file; tag can also be commit)
 mv tar-file manual-file arc
 
 EOI

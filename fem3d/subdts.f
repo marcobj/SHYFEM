@@ -331,6 +331,27 @@ c************************************************************************
 	
 c************************************************************************
 
+	subroutine dtstimespand(ddt,line,ierr)
+
+c parses time span given in line and converts it to ddt
+c
+c only integer values are allowed (still to be fixed)
+
+	implicit none
+
+	double precision ddt
+	character*(*) line
+	integer ierr
+
+	integer idt
+
+	call dtstimespan(idt,line,ierr)
+	ddt = idt
+
+	end
+
+c************************************************************************
+
 	subroutine dtstimespan(idt,line,ierr)
 
 c parses time span given in line and converts it to idt
@@ -1213,6 +1234,57 @@ c given absolute time converts to date and time
 
 c************************************************************************
 
+	subroutine dts_from_abs_time_to_ys(atime,ys)
+
+c given absolute time converts to ys structure
+
+	implicit none
+
+	double precision atime
+	integer ys(8)
+
+	double precision secs_in_day
+	parameter (secs_in_day = 86400.)
+
+	integer days,secs
+	double precision dsecs
+
+	days = atime/secs_in_day
+	dsecs = atime - secs_in_day*days
+	secs = dsecs
+
+        call days2date(days,ys(1),ys(2),ys(3))
+        call secs2hms(secs,ys(4),ys(5),ys(6))
+	ys(7) = 1000.*(dsecs-secs)
+	ys(8) = 0
+
+	end
+
+c************************************************************************
+
+	subroutine dts_from_abs_time_to_days_in_year(atime,days)
+
+c given absolute time converts to julian days
+
+	implicit none
+
+	double precision atime
+	integer days
+
+	double precision secs_in_day
+	parameter (secs_in_day = 86400.)
+
+	integer days0
+	integer iy,im,id
+
+	days0 = atime/secs_in_day		!days from year 0
+        call days2date(days0,iy,im,id)
+        call date2j(iy,im,id,days)
+
+	end
+
+c************************************************************************
+
 	subroutine dts_format_abs_time(atime,line)
 
 c formats date and time given absolute time
@@ -1228,6 +1300,7 @@ c formats date and time given absolute time
 	integer year,month,day
 	integer hour,min,sec
 	integer days,secs
+	character*20 laux
 
 	days = atime/secs_in_day
 	secs = atime - secs_in_day*days
@@ -1238,7 +1311,9 @@ c formats date and time given absolute time
 	if( year > 1000 ) then
 	  call dtsform(year,month,day,hour,min,sec,line)
 	else
-	  call dtsform(0,0,days,hour,min,sec,line)
+	  write(laux,'(i20)') nint(atime)
+	  line = adjustl(laux)
+	  !call dtsform(0,0,days,hour,min,sec,line)
 	end if
 
 	end
@@ -1253,7 +1328,7 @@ c************************************************************************
 c************************************************************************
 c************************************************************************
 
-	subroutine dts_string2time(string,atime)
+	subroutine dts_string2time(string,atime,ierr)
 
 c converts string to time stamp
 c
@@ -1264,15 +1339,16 @@ c or a relative time (integer)
 
 	character*(*) string		!string indicating date
 	double precision atime		!absolute time (return)
+	integer ierr
 
 	integer year,month,day,hour,min,sec
-	integer date,time,it
-	integer ierr
+	integer date,time,it,ios
 
 	call dtsunform(year,month,day,hour,min,sec,string,ierr)
 
 	if( ierr > 0 ) then
-	  read(string,'(i10)',err=9) it
+	  read(string,'(i10)',iostat=ios) it
+	  if( ios /= 0 ) return			!returns with ierr /= 0
 	  atime = it
 	else
           call packdate(date,year,month,day)
@@ -1280,13 +1356,8 @@ c or a relative time (integer)
 	  call dts_to_abs_time(date,time,atime)
 	end if
 
-	return
-    9	continue
-        write(6,*) '*** cannot parse date: ',ierr,string(1:20)
-        write(6,*) '    format should be YYYY-MM-DD::hh:mm:ss'
-        write(6,*) '    possible also YYYY-MM-DD[::hh[:mm[:ss]]]'
-        write(6,*) '    or it should be an integer (relative time)'
-	stop 'error stop dts_string2time: conversion error'
+	ierr = 0
+
 	end
 
 c************************************************************
@@ -1755,6 +1826,26 @@ c************************************************************************
 
 c************************************************************************
 
+	subroutine test_diy(string)
+	implicit none
+	character*(*) string
+	double precision atime
+	integer ierr,days
+	call dts_string2time(string,atime,ierr)
+	call dts_from_abs_time_to_days_in_year(atime,days)
+	write(6,*) trim(string),' : ',days
+	end
+
+	subroutine test_days_in_years
+	implicit none
+	call test_diy('2012-01-01::12:00:00')
+	call test_diy('2012-01-31::14:00:00')
+	call test_diy('2012-12-31::19:00:00')
+	call test_diy('2013-12-31::19:00:00')
+	end
+
+c************************************************************************
+
         subroutine test_date_all
 
 	call datetest
@@ -1770,7 +1861,8 @@ c************************************************************************
 c************************************************************************
 !	program datet
 !        !call test_date_all
-!        call test_timespan
+!        !call test_timespan
+!	 call test_days_in_years
 !        !call date_compute
 !	end
 c************************************************************************

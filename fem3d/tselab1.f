@@ -25,12 +25,15 @@ c writes info on ts file
 	real dmin,dmax
 	integer ierr
 	integer nfile
-	integer nrec,i,ich,nrecs
+	integer nrec,i,ich,nrecs,iv
 	integer date,time
 	integer datetime(2)
-	logical bfirst,bskip
+	logical bfirst,bskip,debug
 	character*20 dline
 	character*20 format
+	character*80 varline
+	integer,allocatable :: ivars(:)
+	character*80,allocatable :: strings(:)
 	real,allocatable :: data(:)
 	real,allocatable :: data_minmax(:,:)
 	integer, save :: iout = 0
@@ -38,6 +41,7 @@ c writes info on ts file
 
 	logical check_ts_file
 
+	debug = .false.
 	datetime = 0
 	nrec = 0
 
@@ -72,8 +76,16 @@ c--------------------------------------------------------------
 	end if
 
 	nvar = 0
-	call ts_open_file(infile,nvar,datetime,iunit)
+	call ts_open_file(infile,nvar,datetime,varline,iunit)
 	if( iunit .le. 0 ) stop
+
+	allocate(data(nvar))
+	allocate(data_minmax(2,nvar))
+	allocate(strings(nvar))
+	allocate(ivars(nvar))
+
+	strings = ' '
+	call parse_varline(varline,nvar,strings,ivars)
 
 	if( .not. bquiet ) then
 	  write(6,*) 'file name : ',trim(infile)
@@ -84,6 +96,13 @@ c--------------------------------------------------------------
 	    call dts_format_abs_time(atime0e,dline)
 	    write(6,*) 'extra time information: ',dline
 	  end if
+	  if( varline /= ' ' ) then
+	    write(6,*) 'variables contained in file: '
+            write(6,*) '   varnum     varid    varname'
+            do iv=1,nvar
+              write(6,'(2i10,4x,a)') iv,ivars(iv),trim(strings(iv))
+	    end do
+	  end if
 	end if
 
 	if( nvar0 == 0 ) nvar0 = nvar
@@ -92,15 +111,12 @@ c--------------------------------------------------------------
 	  stop 'error stop: nvar /= nvar0'
 	end if
 
-	allocate(data(nvar))
-	allocate(data_minmax(2,nvar))
-
 	if( bout .and. iout == 0 ) then
 	  iout = 1
 	  open(iout,file='out.txt',form='formatted',status='unknown')
 	  !write(format,'(a,i3,a)') '(f18.2,',nvar,'g14.6)'
 	  write(format,'(a,i3,a)') '(a20,',nvar,'g14.6)'
-	  write(6,*) 'used format: ',trim(format)
+	  if( debug ) write(6,*) 'used format: ',trim(format)
 	end if
 
 	atime0 = 0
@@ -109,16 +125,17 @@ c--------------------------------------------------------------
 	    dtime = 0.
 	    call dts_convert_to_atime(datetime,dtime,atime)
 	    atime0 = atime
-	    write(6,*) 'using absolute date from file'
+	    if( debug ) write(6,*) 'using absolute date from file'
 	  else if( atime0e /= 0 ) then
 	    atime0 = atime0e
-	    write(6,*) 'using absolute date from extra information'
+	    if( debug ) write(6,*) 
+     +			'using absolute date from extra information'
 	  else
 	    write(6,*) 'no absolute time... cannot convert'
 	    stop 'error stop: missing absolute time'
 	  end if
 	  call dts_format_abs_time(atime0,dline)
-	  write(6,*) 'absolute date reference: ',dline
+	  if( debug ) write(6,*) 'absolute date reference: ',dline
 	end if
 
         date = 0
@@ -145,7 +162,7 @@ c--------------------------------------------------------------
 	if( binfo ) return
 
 	nvar = 0
-	call ts_open_file(infile,nvar,datetime,iunit)
+	call ts_open_file(infile,nvar,datetime,varline,iunit)
 	if( iunit .le. 0 ) stop
 
 c--------------------------------------------------------------
@@ -187,6 +204,11 @@ c--------------------------------------------------------------
 	  end if
 	  if( bverb ) write(6,*) nrec,atime,dline
 
+          if( bcheck ) then
+            call fem_check(atime,1,1,nvar,data,flag
+     +                          ,strings,scheck,bquiet)
+          end if
+
 	  bskip = .false.
 	  if( nrec > 1 ) then
 	    if( nrec == 2 ) idt = nint(atime-atold)
@@ -194,14 +216,19 @@ c--------------------------------------------------------------
 	    if( idtact .ne. idt ) then
 	      ich = ich + 1
 	      if( bcheckdt ) then
-	        write(6,*) '* change in time step: ',nrec,idt,idtact
+	        call dts_format_abs_time(atime,dline)
+	        write(6,'(a,a,3i8)') '* change in time step: '
+     +     					,dline,nrec,idt,idtact
 	      end if
 	      idt = idtact
 	    end if
 	    bskip = idt <= 0
 	    if( bcheckdt .and. bskip ) then
 	      write(6,*) '*** zero or negative time step: ',nrec,idt
-     +				,atime,atold
+	      call dts_format_abs_time(atold,dline)
+	      write(6,*) '    old time: ',dline
+	      call dts_format_abs_time(atime,dline)
+	      write(6,*) '    new time: ',dline
 	    end if
 	  end if
 
@@ -212,6 +239,12 @@ c--------------------------------------------------------------
 
 	  atlast = atime
 	end do
+
+        if( bcheck ) then       !write final data
+          atime = -1.
+          call fem_check(atime,1,1,nvar,data,flag
+     +                          ,strings,scheck,bquiet)
+        end if
 
 c--------------------------------------------------------------
 c finish loop - info on time records
@@ -249,8 +282,15 @@ c--------------------------------------------------------------
 	  write(6,*) 'output written to file out.txt'
 	end if
 
+        if( bcheck ) then       !write final message
+          atime = -2.
+          call fem_check(atime,1,1,nvar,data,flag
+     +                          ,strings,scheck,bsilent)
+        end if
+
 	close(iunit)
 
+	deallocate(strings)
 	deallocate(data)
 	deallocate(data_minmax)
 
@@ -302,6 +342,55 @@ c*****************************************************************
         end do
 
         end
+
+c*****************************************************************
+
+	subroutine parse_varline(varline,nvar,strings,ivars)
+
+	use shyfem_strings
+
+	implicit none
+
+	character*(*) varline
+	integer nvar
+	character*(*) strings(nvar)
+	integer ivars(nvar)
+
+	integer nvars,iv,ivar
+	character*80 name,full
+	character*80 s(nvar+1)
+	integer iscans
+
+	strings = ' '
+	if( varline == ' ' ) return
+
+	nvars = iscans(varline,s,0)
+	nvars = nvars - 1	!subtract time column
+
+	if( nvars /= nvar ) then
+	  write(6,*) 'number of variables on varline /= '//
+     +			'number of data columns'
+	  write(6,*) 'varline: ',trim(varline)
+	  write(6,*) 'nvars,nvar: ',nvars,nvar
+	  write(6,*) 'not using varline...'
+	  varline = ' '
+	  return
+	end if
+
+	nvars = iscans(varline,s,nvar+1)
+
+	do iv=1,nvar
+	  strings(iv) = s(iv+1)		!get rid of time column
+	  name = strings(iv)
+	  call strings_get_ivar(name,ivar)
+	  if( ivar >= 0 ) then
+	    call strings_get_full_name(ivar,full)
+	    strings(iv) = full
+	  end if
+	  ivars(iv) = ivar
+	end do
+
+	end
 
 c*****************************************************************
 

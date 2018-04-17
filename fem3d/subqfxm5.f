@@ -59,6 +59,8 @@
 	real 		    :: es,ea,qs,qa,rhoa
 	real 		    :: qe,qh,qb
 
+        if( airp > 10000 ) stop 'error stop heatcoare: p not in mbar'
+
 !       ---------------------------------------------------------
 !       Initialize
 !       ---------------------------------------------------------
@@ -702,6 +704,7 @@
 	real 	:: hsb,hlb,qout,dels,qcol,alq,xlamx
 	real 	:: tau,dwat,dtmp,alfac,RF
 	real 	:: Ch,Ce
+	character*20 :: aline
 
 	integer :: iunit
 	integer :: itact
@@ -778,10 +781,10 @@
 
 	zetaux = zetu
 	if( abs(zetaux) < eps ) then
-	  call get_act_time(itact)
+	  call get_act_timeline(aline)
 	  call getinfo(iunit)
 	  write(iunit,*) '====================== COARE error 1'
-	  write(iunit,*) itact,zetaux,zu
+	  write(iunit,*) aline,zetaux,zu
 	  write(iunit,*) sst,airt,ws,rain
 	  write(iunit,*) Rns,Rnl,Qs,Q,rhoa
 	  write(iunit,*) '======================'
@@ -826,10 +829,10 @@
 
 	zetaux = zet
 	if( abs(zetaux) < eps ) then
-	  call get_act_time(itact)
+	  call get_act_timeline(aline)
 	  call getinfo(iunit)
 	  write(iunit,*) '====================== COARE error 2'
-	  write(iunit,*) itact,zetaux,zu
+	  write(iunit,*) aline,zetaux,zu
 	  write(iunit,*) sst,airt,ws,rain
 	  write(iunit,*) Rns,Rnl,Qs,Q,rhoa
 	  write(iunit,*) '======================'

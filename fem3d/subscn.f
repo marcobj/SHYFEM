@@ -9,7 +9,8 @@
 ! function istod(line,d,ioff)			converts string to number
 ! function iscand(line,d,max)			converts string to numbers
 ! function iscanf(line,f,max)			converts string to numbers
-! function iscan(line,ioff,f)			converts string to numbers
+! function iscans(line,s,max)			returns tokens separated by ws
+! function istot(line,string,ioff)		returns next token on line
 ! function istos(line,string,ioff)		returns next string on line
 ! function iston(line,string,ioff)		returns next name on line
 !
@@ -46,11 +47,12 @@
 ! 15.04.2017	ggu	new routines istot
 ! 15.05.2017	ggu	bug fix in istod -> do not change ioff on error
 ! 03.11.2017	ggu	bug fix -> tab was char(8), restructured with module
+! 10.04.2018	ggu	ialfa now handles ndec < -1 gracefully
 !
 !****************************************************************
 
 !================================================================
-	module scan
+	module scan_string
 !================================================================
 
 	character*1,  parameter :: blank = ' '
@@ -63,13 +65,15 @@
 	character*10, parameter :: number = '1234567890'
 
 !================================================================
-	end module scan
+	end module scan_string
 !================================================================
 
 !****************************************************************
 
 	function istof(line,f,ioff)
 	
+! converts string to number (reads exactly one number) (real version)
+
 	implicit none
 
 	integer istof
@@ -89,7 +93,7 @@
 
 	function istod(line,d,ioff)
 
-! converts string to number (reads exactly one number)
+! converts string to number (reads exactly one number) (double version)
 !
 ! a comma is treated like a blank (,, does not denote a value of 0)
 !
@@ -99,7 +103,7 @@
 ! ioff		offset in string to start (in) 
 !		position of first non blank char after number (out)
 
-	use scan
+	use scan_string
 
 	implicit none
 
@@ -317,29 +321,40 @@
 	end
 
 !****************************************************************
+!****************************************************************
+!****************************************************************
 
-	function iscan(line,ioff,f)
+	function iscans(line,s,max)
 
-! converts string to numbers
-!
-! better use iscanf of iscand which gives the possibility to limit input
-!
-! iscan		total number of numbers converted ( >0 )
-!		0: blank line   <0: read error in |iscanf|'th number
-! line		string to convert
-! ioff		offset in string
-! f		array of converted numbers (return)
+! returns tokens separated by ws (maximum max tokens, max==0 -> just count)
+
+	use scan_string
 
 	implicit none
 
-	integer iscan
-	character*(*) line
-	integer ioff
-	real f(*)
+	integer iscans		!total number of tokens found (returned)
+	character*(*) line	!line to scan
+	character*(*) s(max)	!returned tokens
+	integer max		!max number of tokens returned (0: just count)
 
-	integer iscanf
+	integer ioff,n,i
+	integer istot
+	character*80 string
 
-	iscan = iscanf(line(ioff:),f,-1)
+	ioff = 1
+	n = 0
+
+	do
+	  i = istot(line,string,ioff)
+	  if( i <= 0 ) exit
+	  n = n + 1
+	  if( max > 0 ) then
+	    s(n) = string
+	    if( max == n ) exit
+	  end if
+	end do
+
+	iscans = n
 
 	end
 
@@ -355,7 +370,7 @@
 ! == 0	no text
 ! < 0	read or conversion error
 
-	use scan
+	use scan_string
 
 	implicit none
 
@@ -745,7 +760,7 @@
 ! lennum	length of number (return value)
 ! string	string where the value is stored
 
-	use scan
+	use scan_string
 
 	implicit none
 
@@ -800,7 +815,7 @@
 !		 0	centred
 !		 1	right justified
 
-	use scan
+	use scan_string
 
 	implicit none
 
@@ -813,7 +828,7 @@
 	integer idigs
 	integer i,j
 	integer izi,izf,izahli,izahlf
-	integer ifact
+	integer ifact,nc
 	real fact
 	real zahl
 
@@ -825,18 +840,16 @@
 	is=0
 	zahl=value
 
+	nc = ndec
+	if( nc < -1 ) nc = -1
 !------ new --------------
-	if( ndec .ge. 0 ) then          !(ROUND)
-	  fact = 10**ndec
+	if( nc .ge. 0 ) then          !(ROUND)
+	  fact = 10**nc
         else
-	  fact = 10**(ndec+1)           !(ROUND)
+	  fact = 10**(nc+1)           !(ROUND)
         end if
 	zahl = zahl * fact
-	if( zahl .ge. 0. ) then	!(MINUS0)
-	  zahl = zahl + 0.5
-	else
-	  zahl = zahl - 0.5
-	end if
+	zahl = anint(zahl)
 	zahl = zahl / fact
 !-------------------------
 
@@ -955,7 +968,7 @@
 
 ! skips white space
 
-	use scan
+	use scan_string
 
 	implicit none
 
@@ -1010,6 +1023,10 @@
 !****************************************************************
 !****************************************************************
 !****************************************************************
+! test routines
+!****************************************************************
+!****************************************************************
+!****************************************************************
 
 	subroutine scants
 
@@ -1061,8 +1078,49 @@
 	end
 
 !****************************************************************
+
+	subroutine test_iscans
+
+	implicit none
+
+	integer, parameter :: ndim = 5
+	character*80 :: line
+
+	line = '  ggg hhh yyyy '
+	call check_iscans(line,ndim)
+	line = 'ggg hhh yyyy'
+	call check_iscans(line,ndim)
+	line = 'ggg hhh yyyy aaa     kkk    y1'
+	call check_iscans(line,ndim)
+
+	end
+
+!****************************************************************
+
+	subroutine check_iscans(line,max)
+
+	implicit none
+
+	character*(*) line
+	integer max
+
+	integer i,n
+	character*80 :: strings(max)
+	integer iscans
+
+	n = iscans(line,strings,0)
+	write(6,*) n,trim(line)
+	n = iscans(line,strings,max)
+	do i=1,n
+	  write(6,*) i,trim(strings(i))
+	end do
+
+	end
+
+!****************************************************************
 !	program scan
 !	call scants
+!	call test_iscans
 !	end
 !****************************************************************
 

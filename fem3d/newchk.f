@@ -576,18 +576,17 @@ c*************************************************************
 
 c computes and writes total water volume
 
+	use shympi
+
         implicit none
 
 	integer mode
 
-	include 'femtime.h'
-
         real mtot              !total computed mass of ts
 	double precision masscont
+	character*20 aline
 
-	integer ninfo
-	save ninfo
-	data ninfo /0/
+	integer, save :: ninfo = 0
 
 	if( mode .ne. 1 .and. mode .ne. -1 ) then
 	  write(6,*) 'mode = ',mode
@@ -596,8 +595,11 @@ c computes and writes total water volume
 
 	mtot = masscont(mode)
 
-	if( ninfo .eq. 0 ) call getinfo(ninfo)
-	write(ninfo,*) 'total_volume: ',it,mtot
+        if(shympi_is_master()) then
+	  if( ninfo .eq. 0 ) call getinfo(ninfo)
+	  call get_act_timeline(aline)
+	  write(ninfo,*) 'total_volume: ',aline,mtot
+	end if
 
         end
 
@@ -997,32 +999,44 @@ c*************************************************************
 c*************************************************************
 c*************************************************************
 
-	blockdata check_blockdata
+	module check_unit
 
-	implicit none
+	integer, save :: iucheck = 6
 
-	integer iucheck
-	common /iucheck/iucheck
-	save /iucheck/
-	data iucheck / 6 /
-
-	end
+	end module check_unit
 
 c*************************************************************
 
 	subroutine check_set_unit(iu)
 
+	use check_unit
+
 	implicit none
 
 	integer iu
-
-	integer iucheck
-	common /iucheck/iucheck
 
 	iucheck = iu
 
 	end
 
+c*************************************************************
+
+	subroutine check_get_unit(iu)
+
+	use check_unit
+
+	implicit none
+
+	integer iu
+
+	iu = iucheck
+
+	end
+
+c*************************************************************
+c*************************************************************
+c*************************************************************
+c*************************************************************
 c*************************************************************
 
 	subroutine check_node(k)
@@ -1047,9 +1061,6 @@ c writes debug information on node k
 
 	integer k
 
-	integer iucheck
-	common /iucheck/iucheck
-
 	include 'femtime.h'
 
 	integer iu
@@ -1058,7 +1069,7 @@ c writes debug information on node k
 	integer ipext
 	real volnode
 
-	iu = iucheck
+	call check_get_unit(iu)
 	lmax = ilhkv(k)
 
 	write(iu,*) '-------------------------------- check_node'
@@ -1075,8 +1086,8 @@ c writes debug information on node k
 	write(iu,*) 'mfluxv:        ',(mfluxv(l,k),l=1,lmax)
 	write(iu,*) 'tempv:         ',(tempv(l,k),l=1,lmax)
 	write(iu,*) 'saltv:         ',(saltv(l,k),l=1,lmax)
-	write(iu,*) 'visv:          ',(visv(l,k),l=1,lmax)
-	write(iu,*) 'difv:          ',(difv(l,k),l=1,lmax)
+	write(iu,*) 'visv:          ',(visv(l,k),l=0,lmax)
+	write(iu,*) 'difv:          ',(difv(l,k),l=0,lmax)
 	write(iu,*) 'qpnv:          ',(qpnv(l,k),l=1,lmax)
 	write(iu,*) 'uprv:          ',(uprv(l,k),l=1,lmax)
 	write(iu,*) 'vprv:          ',(vprv(l,k),l=1,lmax)
@@ -1104,9 +1115,6 @@ c writes debug information on element ie
 	integer iunit
 	integer ie
 
-	integer iucheck
-	common /iucheck/iucheck
-
 	include 'femtime.h'
 
 	integer iu
@@ -1114,7 +1122,7 @@ c writes debug information on element ie
 
 	integer ieext
 
-	iu = iucheck
+	call check_get_unit(iu)
 	lmax = ilhv(ie)
 
 	write(iu,*) '-------------------------------- check_elem'
@@ -1151,13 +1159,10 @@ c writes debug information on nodes in element ie
 
 	integer ie
 
-	integer iucheck
-	common /iucheck/iucheck
-
 	integer ii,k,iu
 	integer ieext
 
-	iu = iucheck
+	call check_get_unit(iu)
 
 	write(iu,*) '-------------------------------------------'
 	write(iu,*) 'checking nodes in element: ',ie,ieext(ie)
@@ -1182,15 +1187,12 @@ c writes debug information on elements around node k
 
 	integer k
 
-	integer iucheck
-	common /iucheck/iucheck
-
 	integer ie,ii,kk,iu
 	logical bdebug
 
 	integer ipext
 
-	iu = iucheck
+	call check_get_unit(iu)
 
 	write(iu,*) '-------------------------------------------'
 	write(iu,*) 'checking elements around node: ',k,ipext(k)

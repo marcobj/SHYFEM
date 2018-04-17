@@ -1,3 +1,246 @@
+version  7_5_44    03-04-2018    VERS_7_5_44   commit_2018-04-15
+
+version  7_5_44    03-04-2018    VERS_7_5_44   commit_2018-04-13
+
+version  7_5_44    03-04-2018    VERS_7_5_44   commit_2018-04-12
+
+version  7_5_44    03-04-2018    VERS_7_5_44   commit_2018-04-12
+
+version  7_5_44    03-04-2018    VERS_7_5_44   commit_2018-04-12
+
+version  7_5_44    03-04-2018    VERS_7_5_44   commit_2018-04-11
+
+version  7_5_44    03-04-2018    VERS_7_5_44   commit_2018-04-11
+
+version  7_5_44    03-04-2018    VERS_7_5_44   commit_2018-04-10
+
+version  7_5_44    03-04-2018    VERS_7_5_44   commit_2018-04-06
+
+version  7_5_44    03-04-2018    VERS_7_5_44   commit_2018-04-04
+
+version  7_5_44    03-04-2018    VERS_7_5_44
+
+========================================================== 03-04-2018 - 7_5_44
+
+c ./fem3d/subver.f:
+c 03.04.2018	ggu	version 7.5.44	small bug fix
+
+==========================================================
+
+version  7_5_43    03-04-2018    VERS_7_5_43   commit_2018-04-03
+
+version  7_5_43    03-04-2018    VERS_7_5_43   commit_2018-04-03
+
+version  7_5_43    03-04-2018    VERS_7_5_43   commit_2018-04-03
+
+version  7_5_43    03-04-2018    VERS_7_5_43
+
+========================================================== 03-04-2018 - 7_5_43
+
+c ./fem3d/subtime.f:
+c 23.02.2018    ggu     most parts converted from int to double
+c 29.03.2018    ggu     bug fix for syncronization step
+c
+c ./fem3d/subver.f:
+c 03.04.2018	ggu	version 7.5.43	post Easter 2018 release
+c
+c ./fem3d/subflx.f:
+c 03.03.2018	ggu	determine nvar for versions < 6
+c
+c ./fem3d/subflxa.f:
+c 27.03.2018    ggu     new code for generic flux handling (fluxes_generic())
+c
+c ./fem3d/optintp.f:
+c 26.03.2018	ggu	completely restructured for model driven obs
+c
+c ./fem3d/subtsuvfile.f:
+c 25.02.2018    ggu	file cleaned - time is now double
+c
+c ./fem3d/suboi.f:
+c 26.03.2018	ggu	some parameters are now arrays (sigma,rr)
+
+==========================================================
+
+version  7_5_42    22-02-2018    VERS_7_5_42   commit_2018-04-03
+
+version  7_5_42    22-02-2018    VERS_7_5_42   commit_2018-04-03
+
+version  7_5_42    22-02-2018    VERS_7_5_42   commit_2018-04-03
+
+version  7_5_42    22-02-2018    VERS_7_5_42   commit_2018-04-03
+
+version  7_5_42    22-02-2018    VERS_7_5_42   commit_2018-03-29
+
+version  7_5_42    22-02-2018    VERS_7_5_42   commit_2018-03-26
+
+version  7_5_42    22-02-2018    VERS_7_5_42   commit_2018-03-08
+
+version  7_5_42    22-02-2018    VERS_7_5_42   commit_2018-03-05
+
+version  7_5_42    22-02-2018    VERS_7_5_42   commit_2018-03-05
+
+version  7_5_42    22-02-2018    VERS_7_5_42   commit_2018-03-02
+
+version  7_5_42    22-02-2018    VERS_7_5_42   commit_2018-03-02
+
+version  7_5_42    22-02-2018    VERS_7_5_42   commit_2018-02-23
+
+version  7_5_42    22-02-2018    VERS_7_5_42
+
+========================================================== 22-02-2018 - 7_5_42
+
+c ./femplot/supsim.f:
+c 13.02.2018    ggu	new routine for plotting boxes (plobox)
+c
+c ./fem3d/sedtrans05.f:
+! 22.02.2018	ccf	bug fix for TAUCD (wrong formula, look for TAUCD=)
+c
+c ./fem3d/sedi3d.f:
+! 22.02.2018    ccf     adjusted for new sinking velocity
+c
+c ./fem3d/femcombine.f:
+! 30.01.2018    ggu     written with new fem_util module
+c
+c ./fem3d/subver.f:
+c 22.02.2018	ggu	version 7.5.42	post Lithuania release
+c
+c ./fem3d/newcon.f:
+c 03.02.2018    ggu     sindex did not use rstol for stability
+c
+c ./fem3d/subboxa.f:
+c 15.02.2018    ggu     code checked and error debug (is running)
+c
+c ./fem3d/subflxu.f:
+c 04.02.2018    ggu     new routines with accumulator in double
+c
+c ./fem3d/subfemutil.f:
+c 30.01.2018    ggu     new routine for combining records
+c
+ * ./grid/gridhs.c:
+ * 16-Feb-2018: in checking area consider LatLon			*
+
+==========================================================
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-22
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-22
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-22
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-21
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-19
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-16
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-15
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-13
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-13
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-11
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-08
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-05
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-03
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-03
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-02-02
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-01-31
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-01-31
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-01-31
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-01-26
+
+version  7_5_41    24-01-2018    VERS_7_5_41   commit_2018-01-25
+
+version  7_5_41    24-01-2018    VERS_7_5_41
+
+========================================================== 24-01-2018 - 7_5_41
+
+c ./fem3d/shypart.f:
+C 16.12.2017    ggu     started from scratch
+c
+c ./fem3d/subver.f:
+c 24.01.2018	ggu	version 7.5.41
+
+==========================================================
+
+version  7_5_40    07-12-2017    VERS_7_5_40   commit_2018-01-24
+
+version  7_5_40    07-12-2017    VERS_7_5_40   commit_2018-01-23
+
+version  7_5_40    07-12-2017    VERS_7_5_40   commit_2018-01-12
+
+version  7_5_40    07-12-2017    VERS_7_5_40   commit_2017-12-18
+
+version  7_5_40    07-12-2017    VERS_7_5_40   commit_2017-12-16
+
+version  7_5_40    07-12-2017    VERS_7_5_40   commit_2017-12-15
+
+version  7_5_40    07-12-2017    VERS_7_5_40   commit_2017-12-15
+
+version  7_5_40    07-12-2017    VERS_7_5_40   commit_2017-12-08
+
+version  7_5_40    07-12-2017    VERS_7_5_40
+
+========================================================== 07-12-2017 - 7_5_40
+
+c ./fem3d/subver.f:
+c 07.12.2017	ggu	version 7.5.40
+
+==========================================================
+
+version  7_5_39    05-12-2017    VERS_7_5_39   commit_2017-12-07
+
+version  7_5_39    05-12-2017    VERS_7_5_39   commit_2017-12-06
+
+version  7_5_39    05-12-2017    VERS_7_5_39   commit_2017-12-06
+
+version  7_5_39    05-12-2017    VERS_7_5_39
+
+========================================================== 05-12-2017 - 7_5_39
+
+c ./fem3d/subexta.f:
+c 22.11.2017    ccf     write also waves and sediment concentration
+c
+c ./fem3d/subreg.f:
+c 04.12.2017	ggu	check t,u values and correct if out of bounds
+c
+c ./fem3d/subver.f:
+c 05.12.2017	ggu	version 7.5.39
+c
+c ./fem3d/lagrange_inout.f:
+c 27.11.2017    ggu	inserted code to start from lgr files
+c
+c ./femutil/dstruc/hash.f:
+c 22.11.2017	ggu	new framework finished
+
+==========================================================
+
+version  7_5_38    17-11-2017    VERS_7_5_38   commit_2017-12-05
+
+version  7_5_38    17-11-2017    VERS_7_5_38   commit_2017-12-04
+
+version  7_5_38    17-11-2017    VERS_7_5_38   commit_2017-12-04
+
+version  7_5_38    17-11-2017    VERS_7_5_38   commit_2017-12-02
+
+version  7_5_38    17-11-2017    VERS_7_5_38   commit_2017-12-01
+
+version  7_5_38    17-11-2017    VERS_7_5_38   commit_2017-11-30
+
+version  7_5_38    17-11-2017    VERS_7_5_38   commit_2017-11-30
+
+version  7_5_38    17-11-2017    VERS_7_5_38   commit_2017-11-28
+
 version  7_5_38    17-11-2017    VERS_7_5_38   commit_2017-11-27
 
 version  7_5_38    17-11-2017    VERS_7_5_38

@@ -53,12 +53,15 @@
         use evgeom
         use basin
         use plotutil
+        use shympi
 
 	implicit none
 
 	integer ivar
 
         call read_command_line_file(basfilename)
+
+	call shympi_init(.false.)
 
 	call bash_verbose(bsdebug)
 	call ev_set_verbose(.not.bquiet)
@@ -1349,7 +1352,9 @@ c*****************************************************************
 	  ivar3 = ivars(ivnum)
 	end if
         if( ivar3 == 0 ) then
-          write(6,*) 'no variable given to be plotted: ',ivar3
+          write(6,*) '*** no variable given to be plotted: ',ivar3
+	  write(6,*) 'Please provide one of the following: '
+	  write(6,*) '  -varnum  -varid  -varname'
           stop 'error stop shyplot'
         end if
 

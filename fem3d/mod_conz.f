@@ -25,6 +25,12 @@
         real, allocatable, save :: conzv(:,:,:)
         real, allocatable, save :: cnv(:,:)
 
+        logical, save :: baccum = .false.
+	double precision, save :: dtconz_accum
+        double precision, allocatable, save :: conz_aver(:,:,:)
+        real, allocatable, save :: conz_min(:,:,:)
+        real, allocatable, save :: conz_max(:,:,:)
+
 	integer, save :: iconz = 0
         integer, save :: icall_conz = 0
         integer, save :: ninfo = 0
@@ -37,7 +43,6 @@
         real, save :: cref,rkpar,difmol,contau
 
         integer, save, allocatable :: idconz(:)
-        integer, save :: ia_out(4)
         double precision, save :: da_out(4)
 
         real, save, allocatable :: cdefs(:)
@@ -69,6 +74,9 @@
         if( nkn_conz > 0 ) then
           deallocate(conzv)
           deallocate(cnv)
+          deallocate(conz_aver)
+          deallocate(conz_min)
+          deallocate(conz_max)
         end if
 
         ncs_conz = ncs
@@ -80,7 +88,23 @@
         allocate(conzv(nlv,nkn,ncs))
         allocate(cnv(nlv,nkn))
 
+	if( baccum ) then
+          allocate(conz_aver(nlv,nkn,ncs))
+          allocate(conz_min(nlv,nkn,ncs))
+          allocate(conz_max(nlv,nkn,ncs))
+	end if
+
         end subroutine mod_conz_init
+
+!*****************************************************
+
+        function mod_conz_is_initialized()
+
+        logical mod_conz_is_initialized
+
+        mod_conz_is_initialized = ( nkn_conz > 0 )
+
+        end function mod_conz_is_initialized
 
 !==================================================================
         end module mod_conz

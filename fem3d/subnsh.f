@@ -87,9 +87,10 @@ c************************************************************
 
 c writes output to terminal or log file
 
+	use shympi
+
 	implicit none
 
-	!include 'basin.h'
 	include 'modules.h'
 	include 'femtime.h'
 	include 'simul.h'
@@ -97,6 +98,8 @@ c writes output to terminal or log file
 	character*80 name
         integer nrb,nbc
         integer nkbnd,nbnds
+
+	if( .not. shympi_is_master() ) return
 
         nrb = nkbnd()
         nbc = nbnds()
@@ -235,9 +238,7 @@ c to do before time loop
 
 	include 'modules.h'
 
-	include 'femtime.h'
-
-	call wrboxa(it)
+	call wrboxa
 	call wrousa
 
 	end
@@ -252,12 +253,9 @@ c to do in time loop before time step
 
 	include 'modules.h'
 
-	include 'femtime.h'
-
 	call modules(M_BEFOR)
 
-        call tideforce(it)       !tidal potential !ccf
-
+        call tideforce       !tidal potential !ccf
 	call adjust_chezy
 
 	end
@@ -271,20 +269,19 @@ c to do in time loop after time step
 	implicit none
 
 	include 'modules.h'
-	include 'femtime.h'
 
 	double precision dtime
 
 	call modules(M_AFTER)
 
-	dtime = it
+	call get_act_dtime(dtime)
 
 c	call wrouta
 	call wrousa
-c	call wrexta(dtime)
-	call wrflxa(dtime)
-	call wrvola(it)
-	call wrboxa(it)
+c	call wrexta
+	call wrflxa
+	call wrvola(dtime)
+	call wrboxa
 
         call resid
         call rmsvel
@@ -296,7 +293,7 @@ c        call tsmed
 
 c	call wrnetcdf		!output in netcdf format - not supported
 
-	call custom(it)
+	call custom(dtime)
 
 	end
 
@@ -580,9 +577,7 @@ c initializes parameters for semi-implicit time-step
 
 	include 'femtime.h'
 
-	integer icall
-	save icall
-	data icall / 0 /
+	integer, save :: icall = 0
 
 	if( icall .gt. 0 ) return
 
@@ -733,9 +728,7 @@ c gets unit of info file
 
         integer ifemop
 
-        integer iu
-        save iu
-        data iu / 0 /
+        integer, save :: iu = 0
 
         if( iu .le. 0 ) then
           iu = ifemop('.inf','formatted','new')
@@ -753,7 +746,7 @@ c**********************************************************************
 c**********************************************************************
 c**********************************************************************
 
-	subroutine setup_parallel
+	subroutine setup_omp_parallel
 
 	implicit none
 
@@ -766,7 +759,7 @@ c**********************************************************************
 	if( openmp_is_parallel() ) then
 	  write(6,*) 'the program can run in OMP parallel mode'
 	else
-	  write(6,*) 'the program can run only in serial mode'
+	  write(6,*) 'the program can not run in OMP parallel mode'
 	end if
 	  
 	call openmp_get_max_threads(n)
@@ -795,25 +788,40 @@ c********************************************************************
 
 c writes info on total energy to info file
 
+	use shympi
+
 	implicit none
 
-	include 'femtime.h'
+	real kenergy,penergy,tenergy,ksurf,paux
+	real energy(3)
+	character*20 aline
+	logical debug
 
-	real kenergy,penergy,tenergy
+	integer, save :: iuinfo = 0
 
-	integer iuinfo
-	save iuinfo
-	data iuinfo / 0 /
+	debug = .false.
 
 	if( iuinfo .eq. 0 ) then
           call getinfo(iuinfo)  !unit number of info file
 	end if
 
-	call energ3d(kenergy,penergy,-1)
-	!call energ3d(kenergy,penergy,0)
+	call energ3d(kenergy,penergy,ksurf,-1)
+	!call energ3d(kenergy,penergy,ksurf,0)
+
+	if( debug ) write(6,*) 'penergy: ',my_id,penergy
+	kenergy = shympi_sum(kenergy)
+	penergy = shympi_sum(penergy)
+	ksurf = shympi_sum(ksurf)
+	if( debug ) write(6,*) 'penergy total: ',my_id,penergy
+
 	tenergy = kenergy + penergy
 
-	write(iuinfo,*) 'energy: ',it,kenergy,penergy,tenergy
+	if(shympi_is_master()) then
+	  call get_act_timeline(aline)
+	  write(iuinfo,1000) ' energy: ',aline
+     +				,kenergy,penergy,tenergy,ksurf
+ 1000	  format(a,a20,4e12.4)
+	end if
 
 	end
 

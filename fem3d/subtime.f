@@ -72,6 +72,10 @@ c 23.09.2015    ggu     time step is now working with dt as double
 c 10.10.2015    ggu     use bsync as global to check for syncronization
 c 23.09.2016    ggu     cleaned set_timestep()
 c 20.10.2017    ggu     new get_absolute_act_time(),get_absolute_ref_time()
+c 23.02.2018    ggu     most parts converted from int to double
+c 29.03.2018    ggu     bug fix for syncronization step
+c 13.04.2018    ggu     hydro_stability includes explicit gravity wave
+c 13.04.2018    ggu     set_timestep now is working with mpi
 c
 c**********************************************************************
 c**********************************************************************
@@ -80,6 +84,8 @@ c**********************************************************************
 	subroutine print_time
 
 c prints time after time step
+
+	use shympi
 
 	implicit none
 
@@ -90,11 +96,12 @@ c prints time after time step
         real perc,dt
 
 	integer year,month,day,hour,min,sec
-	integer, save :: isplit
-	double precision daux
+	integer, save :: isplit,itime
+	double precision daux,dtime,ddt,atime
 
-	character*20 line
+	character*20 dline
 	character*9 frac
+	character*4 atext
 	double precision dgetpar
 	logical dts_has_date
 
@@ -111,8 +118,11 @@ c---------------------------------------------------------------
         naver = 20
         naver = 0
 
+	ddt = dt_act
+	dtime = t_act
+
         !perc = (100.*(it-itanf))/(itend-itanf)
-        perc = (100.*(t_act-itanf))/(itend-itanf)
+        perc = (100.*(dtime-dtanf))/(dtend-dtanf)
 
 c---------------------------------------------------------------
 c compute total number of iterations
@@ -124,9 +134,9 @@ c---------------------------------------------------------------
 	if( bsync ) then	!syncronization - do not count
 	  !
 	else if( idt .gt. 0 ) then
-          nit1 = niter + (itend-it)/idt
-	else if( dt_act > 0 ) then
-          daux = (itend-t_act)/dt_act
+          nit1 = niter + (dtend-dtime)/ddt
+	else if( ddt > 0 ) then	!sub second time step
+          daux = (dtend-dtime)/ddt
 	  if( daux > 1000000000. ) then
 	    write(6,*) '******************************************'
 	    write(6,*) '******************************************'
@@ -139,40 +149,47 @@ c---------------------------------------------------------------
 	    write(6,*) '******************************************'
 	    stop 'error stop print_time: internal error'
 	  else
-            nit1 = niter + nint((itend-t_act)/dt_act)
-	    idtfrac = nint(1./dt_act)
+            nit1 = niter + nint((dtend-dtime)/ddt)
+	    idtfrac = nint(1./ddt)
 	  end if
 	else
-	  write(6,*) 'idt,dt_act: ',idt,dt_act
+	  write(6,*) 'idt,dt_act: ',idt,ddt
 	  write(6,*) 'warning: time step was 0'
 	  stop 'error stop print_time: 0 time step'
 	end if
 
 	nit2 = nit1
-	if( it .gt. itanf ) then
-          nit2 = nint(niter*( 1 + (itend-t_act)/(t_act-itanf)))
+	if( dtime .gt. dtanf ) then
+          nit2 = nint(niter*( 1 + (dtend-dtime)/(dtime-dtanf)))
 	end if
 
         nits = nit2
         if( naver .gt. 0 ) nits = ( 1*nit1 + (naver-1)*nit2 ) / naver
 
+	icall = icall + 1
+
 c---------------------------------------------------------------
 c write to terminal
 c---------------------------------------------------------------
 
+	if( .not. shympi_is_master() ) return
+
 	if( dts_has_date() ) then
-	  call dtsgf(it,line)
+	  atime = atime0 + dtime
+	  atext = 'date'
+	  call dts_format_abs_time(atime,dline)
 	else
-	  line = ' '
+	  atime = dtime
+	  atext = 'time'
+	  write(dline,'(f20.4)') dtime
 	end if
-	if( mod(icall,50) .eq. 0 ) write(6,1003)
-	if( .true. ) then
-	  !write(6,*) isplit,idtorig,dt_act
+
+	if( mod(icall,50) .eq. 0 ) write(6,1003) atext
+
 	  if( isplit == 3 .or. idtorig == 0 ) then
-	    dt = dt_act
-            write(6,1007) it,line,dt,niter,nits,perc
+            write(6,1007) dline,ddt,niter,nits,perc
 	  else if( idtfrac == 0 ) then
-            write(6,1005) it,line,idt,niter,nits,perc
+            write(6,1005) dline,idt,niter,nits,perc
 	  else
 	    frac = ' '
 	    write(frac,'(i9)') idtfrac
@@ -180,45 +197,40 @@ c---------------------------------------------------------------
 	      if( frac(i:i) == ' ' ) exit
 	    end do
 	    frac(i-1:i) = '1/'
-            write(6,1006) it,line,frac,niter,nits,perc
+            write(6,1006) dline,frac,niter,nits,perc
 	  end if
-!          write(6,1002) it,year,month,day,hour,min,sec
-!     +			,idt,niter,nits,perc
-	else
-          write(6,1001) it,idt,niter,nits,perc
-	end if
-
-	icall = icall + 1
 
 c---------------------------------------------------------------
 c end of routine
 c---------------------------------------------------------------
 
 	return
- 1000   format(' time =',i10,'   iterations =',i6,' / ',i6,f9.2,' %')
- 1001   format(' time =',i12,'    dt =',i5,'    iterations ='
-     +                 ,i8,' /',i8,f10.2,' %')
- 1002   format(i12,i9,5i3,i9,i8,' /',i8,f10.2,' %')
- 1003   format(8x,'time',19x,'date',8x,'dt',8x,'iterations'
-     +              ,5x,'percent')
- 1005   format(i12,3x,a20,1x,i9,i8,' /',i8,f10.2,' %')
- 1006   format(i12,3x,a20,1x,a9,i8,' /',i8,f10.2,' %')
- 1007   format(i12,3x,a20,1x,f9.2,i8,' /',i8,f10.2,' %')
+! 1000   format(' time =',i10,'   iterations =',i6,' / ',i6,f9.2,' %')
+! 1001   format(' time =',i12,'    dt =',i5,'    iterations ='
+!     +                 ,i8,' /',i8,f10.2,' %')
+! 1002   format(i12,i9,5i3,i9,i8,' /',i8,f10.2,' %')
+ 1003   format(19x,a4,8x,'dt',12x,'iterations',5x,'percent')
+ 1005   format(3x,a20,1x,  i9,i10,' /',i10,f10.3,' %')
+ 1006   format(3x,a20,1x,  a9,i10,' /',i10,f10.3,' %')
+ 1007   format(3x,a20,1x,f9.2,i10,' /',i10,f10.3,' %')
 	end
 
 c********************************************************************
 
-	subroutine print_end_time
+	subroutine print_end_time	!FIXME
 
 c prints stats after last time step
+
+	use shympi
 
 	implicit none
 
 	include 'femtime.h'
 
-	write(6,1035) it,niter
- 1035   format(' program stop at time =',i10,' seconds'/
-     +         ' iterations = ',i10)
+	if( .not. shympi_is_master() ) return
+
+	write(6,*) 'program stop at time = ',aline_act
+	write(6,*) 'total iterations = ',niter
 
 	end
 
@@ -235,13 +247,16 @@ c setup and check time parameters
 	include 'femtime.h'
 
 	integer date,time
-	double precision didt
+	double precision didtm,atime,didt
 	character*20 dline
 
 	double precision dgetpar
 
-	call convert_date('itanf',itanf)
-	call convert_date('itend',itend)
+	call dts_get_date(date,time)
+	call dts_to_abs_time(date,time,atime0)
+
+	call convert_date_d('itanf',dtanf)
+	call convert_date_d('itend',dtend)
 	call convert_time_d('idt',didt)
 
 	if( didt .le. 0 ) then
@@ -249,31 +264,36 @@ c setup and check time parameters
 	  write(6,*) 'Time step is not positive'
 	  write(6,*) 'idt :',didt
 	  stop 'error stop setup_time: idt'
-	else if( itanf+didt .gt. itend ) then
+	else if( dtanf+didt .gt. dtend ) then
 	  write(6,*) 'Error in compulsory time parameters'
 	  write(6,*) 'itend too small, no time step will be performed'
-	  write(6,*) 'itanf,itend,idt :',itanf,itend,didt
-	  call dtsgf(itanf,dline)
+	  write(6,*) 'itanf,itend,idt :',dtanf,dtend,didt
+	  atime = atime0 + dtanf
+	  call dts_format_abs_time(atime,dline)
 	  write(6,*) 'initial time: ',dline
-	  call dtsgf(itend,dline)
+	  atime = atime0 + dtend
+	  call dts_format_abs_time(atime,dline)
 	  write(6,*) 'final time:   ',dline
-	  stop 'error stop setup_time: itend'
+	  stop 'error stop setup_time: dtend'
 	end if
 
 	niter = 0
-	it = itanf
-	nits = (itend-itanf) / didt
+	nits = (dtend-dtanf) / didt
 
-	t_act = it
+	t_act = dtanf
 	dt_act = didt
 	dt_orig = didt
 
-	idt = didt
+        atime = atime0 + t_act
+        call dts_format_abs_time(atime,aline_act)
+
+	idt = nint(didt)
+	itanf = nint(dtanf)
+	itend = nint(dtend)
+	it = itanf
+
 	itunit = nint(dgetpar('itunit'))
 	idtorig = idt
-
-	call dts_get_date(date,time)
-	call dts_to_abs_time(date,time,atime0)
 
 	end
 
@@ -374,15 +394,18 @@ c********************************************************************
 
 c controls time step
 
+	use shympi
+
         implicit none
 
 	include 'femtime.h'
 
 	logical bdebug
         integer idtdone,idtrest,idts
-	integer idtfrac,itnext
+	integer idtfrac
         integer istot
-        double precision dt
+	integer idta(n_threads)
+        double precision dt,dtnext,atime,ddts,dtsync,dtime
 	real dtr
         real ri,rindex,rindex1
 	real perc,rmax
@@ -431,6 +454,8 @@ c	 idtmin = 1		 !minimum time step allowed
 c	 tfact = 0		 !factor of maximum decrease of time step
 c----------------------------------------------------------------------
 
+	call check_time('in set_timestep start')
+
         if( isplit .ge. 0 ) then
           dtr = 1.
           call hydro_stability(dtr,rindex)
@@ -439,6 +464,7 @@ c----------------------------------------------------------------------
         end if
 
 	istot = 0
+	idtfrac = 0
 
         if( isplit .le. 0 ) then
           idts = 0
@@ -468,6 +494,17 @@ c----------------------------------------------------------------------
           stop 'error stop set_timestep: value for isplit not allowed'
         end if
 
+	!write(6,*) 'set_timestep: rindex ',rindex,dt
+
+	if( dt < 0 ) then
+	  write(6,*) 'dt is negative after setting'
+	  write(6,*) dtr,isplit,idts,idtfrac,dt_orig
+	  write(6,*) dt,cmax,rindex,cmax/rindex
+	  stop 'error stop set_timestep: negative time step'
+	end if
+
+	call check_time('in set_timestep 1')
+
 c----------------------------------------------------------------------
 c dt	 is proposed new time step
 c idts   is time step with which to syncronize
@@ -476,27 +513,46 @@ c rindex is computed stability index (refers to time step == 1)
 c----------------------------------------------------------------------
 
 c----------------------------------------------------------------------
+c syncronize time step between domains if running in mpi mode
+c----------------------------------------------------------------------
+
+	idt = dt
+	call shympi_gather(idt,idta)
+	if( my_id == 0 ) then
+	  write(6,*) 'dts: ',idta
+	end if
+
+	dt = shympi_min(dt)
+
+c----------------------------------------------------------------------
 c	syncronize time step
 c----------------------------------------------------------------------
 
-	itnext = 0
-	bsync = .false.		!true if time step has been syncronized
+	dtime = t_act
+	dtsync = idts
+        call sync_step(dtanf,dtsync,dtime,dt,bsync)
 
-	if( t_act + dt .gt. itend ) then	!sync with end of sim
-	  dt = itend - t_act
+	if( dtime .gt. dtend ) then	!sync with end of sim
+	  dtime = dtend
+	  dt = dtend - dtime
 	  bsync = .true.
-        else if( idts .gt. 0 ) then               !syncronize time step
-	  itnext = itanf + idts * ceiling( (t_act-itanf)/idts )	!is integer
-	  if( itnext == it ) itnext = itnext + idts
-	  if( t_act + dt > itnext ) then
-	    dt = itnext - t_act
-	    bsync = .true.
-	  end if
-        end if
+	end if
+
+	if( dt < 0 ) then
+	  write(6,*) 'dt is negative after syncronize'
+	  write(6,*) dtime,dtanf,dtend
+	  write(6,*) dtr,isplit,idtfrac,dt_orig
+	  write(6,*) dt,cmax,rindex,cmax/rindex
+	  write(6,*) dtnext,bsync
+	  stop 'error stop set_timestep: negative time step'
+	end if
+
+	call check_time('in set_timestep 2')
 
 c----------------------------------------------------------------------
 c ri     is stability index for computed time step
 c dtmin  is minimum time step allowed
+c dt	 is the computed time step
 c----------------------------------------------------------------------
 
         ri = dt*rindex
@@ -507,9 +563,9 @@ c----------------------------------------------------------------------
           write(6,*) 'dt is less than dtmin'
           !write(6,*) it,itanf,mod(it-itanf,idtorig)
           !write(6,*) idtnew,idtdone,idtrest,idtorig
-          write(6,*) idtorig,itnext
+          write(6,*) idtorig
           write(6,*) idts,idtsync
-          write(6,*) t_act,dt,dtmin
+          write(6,*) dtime,dt,dtmin
           write(6,*) isplit,istot
           write(6,*) cmax,rindex,ri
 	  write(6,*) 'possible computed time step:  dt = ',dt
@@ -518,12 +574,21 @@ c----------------------------------------------------------------------
           stop 'error stop set_timestep: time step too small'
         end if
 
+c----------------------------------------------------------------------
+c set new values
+c----------------------------------------------------------------------
+
         niter=niter+1
 
 	dt_act = dt
-	t_act = t_act + dt
+	t_act = dtime
 	idt = dt
 	it = t_act
+
+	call check_time('in set_timestep end')
+	
+	atime = atime0 + t_act
+	call dts_format_abs_time(atime,aline_act)
 
 	if( bdebug ) then
 	  write(107,*) '========================'
@@ -534,14 +599,47 @@ c----------------------------------------------------------------------
 	end if
 
 	!perc = (100.*(it-itanf))/(itend-itanf)
-	perc = (100.*(t_act-itanf))/(itend-itanf)
+	perc = (100.*(t_act-dtanf))/(dtend-dtanf)
 
-        write(iuinfo,1001) '----- new timestep: ',it,idt,perc
-        write(iuinfo,1002) 'set_timestep: ',it,ri,rindex,istot,idt
+	if(shympi_is_master()) then
+          write(iuinfo,1004) 'timestep: ',aline_act
+     +				,t_act,istot,dt,perc
+!          write(iuinfo,1003) 'timestep: ',aline_act
+!     +				,ri,rindex,istot,dt,perc
+	end if
 
         return
- 1001   format(a,i12,i8,f8.2)
- 1002   format(a,i12,2f12.4,2i8)
+ 1003   format(a,a20,2f12.4,i5,2f10.2)
+ 1004   format(a,a20,f18.4,i5,2f10.2)
+        end
+
+c**********************************************************************
+
+        subroutine sync_step(dtanf,dtsync,dtime,dt,bsync)
+
+! syncronizes time step and returns dtime,dt,bsync
+
+        implicit none
+
+        double precision dtanf,dtsync
+        double precision dtime,dt
+        logical bsync
+
+        double precision dtnext,dtold
+
+        bsync = .false.
+        dtold = dtime
+        dtime = dtime + dt
+        if( dtsync <= 0. ) return
+
+        dtnext = dtanf + dtsync*(1.+aint((dtold-dtanf)/dtsync))
+
+        if( dtime >= dtnext ) then
+          dt = dtnext - dtold
+          dtime = dtnext
+          bsync = .true.
+        end if
+
         end
 
 c**********************************************************************
@@ -599,7 +697,7 @@ c true if in initialization phase
 
 	include 'femtime.h'
 
-	bfirst = it .eq. itanf
+	bfirst = t_act .eq. dtanf
 
 	end
 
@@ -615,23 +713,58 @@ c true if in last time step
 
 	include 'femtime.h'
 
-	blast = it .eq. itend
+	blast = t_act .eq. dtend
 
 	end
 
 c**********************************************************************
 
-        subroutine get_act_time(itact)
+        subroutine get_act_dtime(dtact)
 
-c returns actual time
+c returns actual time (double)
 
         implicit none
 
-	integer itact
+	double precision dtact
 
 	include 'femtime.h'
 
-	itact = it
+	dtact = t_act
+
+	end
+
+c**********************************************************************
+
+        subroutine get_timeline(dtime,aline)
+
+c returns actual time as string
+
+        implicit none
+
+	double precision dtime
+	character*(*) aline
+
+	include 'femtime.h'
+	double precision atime
+
+	atime = atime0 + dtime
+	call dts_format_abs_time(atime,aline)
+
+	end
+
+c**********************************************************************
+
+        subroutine get_act_timeline(aline)
+
+c returns actual time as string
+
+        implicit none
+
+	character*(*) aline
+
+	include 'femtime.h'
+
+	aline = aline_act
 
 	end
 
@@ -669,33 +802,49 @@ c returns actual time
 
 c**********************************************************************
 
-        subroutine get_first_time(itfirst)
+        subroutine get_passed_dtime(dtime)
 
-c returns first (initial) time
+c returns time passed since start of simulation
 
         implicit none
 
-	integer itfirst
+	double precision dtime
 
 	include 'femtime.h'
 
-	itfirst = itanf
+	dtime = t_act - dtanf
 
 	end
 
 c**********************************************************************
 
-        subroutine get_last_time(itlast)
+        subroutine get_first_dtime(dtime)
+
+c returns first (initial) time
+
+        implicit none
+
+	double precision dtime
+
+	include 'femtime.h'
+
+	dtime = dtanf
+
+	end
+
+c**********************************************************************
+
+        subroutine get_last_dtime(dtime)
 
 c returns end time
 
         implicit none
 
-	integer itlast
+	double precision dtime
 
 	include 'femtime.h'
 
-	itlast = itend
+	dtime = dtend
 
 	end
 
@@ -735,4 +884,106 @@ c returns original real time step (in real seconds)
 c********************************************************************
 c********************************************************************
 c********************************************************************
+
+	subroutine check_time(text)
+
+! to be deleted later
+
+	implicit none
+
+	character*(*) text
+
+	integer, save :: nbcheck = 0
+	double precision, save :: t_old = 0
+	integer ifemop
+
+	include 'femtime.h'
+
+! -1372895700.0000
+! -3520376896.0000
+
+	return
+
+	if( nbcheck == 0 ) then
+	  nbcheck=ifemop('.check.txt','form','new')
+	  if( nbcheck == 0 ) stop 'error stop check_time'
+	end if
+
+	if( t_act < -1372895700.0000 ) then
+	  write(6,*) 'error from check_time: ',trim(text)
+	  write(6,*) t_act,t_old,dt_act,dtanf,dtend
+	  write(nbcheck,*) 'error from check_time: ',trim(text)
+	  write(nbcheck,*) t_act,t_old,dt_act,dtanf,dtend
+	end if
+	
+	if( t_act > t_old ) t_old = t_act
+
+	end
+
+c********************************************************************
+c********************************************************************
+c********************************************************************
+
+        subroutine test_sync
+
+        implicit none
+
+        logical bsync
+        integer ierr,nrec
+        double precision dtanf,dtsync,dtorig,dt,dtime,r,dtrun,dts
+        double precision dtmax,dtnext,dnew,dtn,dyears
+
+        dtanf = 0
+        dtanf = -10000000.
+        dtmax = dtanf
+        dtmax = 1000000000.
+        dtsync = 3600
+        dtorig = 300
+
+        dt = dtorig
+        dtnext = dtanf + dtsync
+        ierr = 0
+        nrec = 0
+
+        dtime = dtanf
+        do
+          nrec = nrec + 1
+          call random_number(r)
+          dt = dtorig/2. + 1.5*(r-0.5)*dtorig
+          if( dt > dtorig ) dt = dtorig
+          if( dt < 1. ) dt = 1.
+          !dt = int(dt)
+
+          call sync_step(dtanf,dtsync,dtime,dt,bsync)
+
+          !write(6,*) dtime,dt
+          if( bsync ) then
+            write(6,*) 'syn',dtime,dt
+            if( dtime /= dtnext ) then
+              write(6,*) '**** ',dtnext,dtime
+              ierr = ierr + 1
+              stop 'error stop: syncronize time wrong'
+            end if
+            dtnext = dtnext + dtsync
+          else
+            if( dtime > dtnext ) then
+              write(6,*) dtime,dtnext
+              stop 'error stop: no syncronization'
+            end if
+          end if
+          if( dtmax > dtanf .and. dtime > dtmax ) exit
+        end do
+
+        if( ierr > 0 ) write(6,*) 'errors: ',ierr
+        if( nrec > 0 ) write(6,*) 'time steps: ',nrec
+        dyears = (dtime-dtanf)/(365*86400)
+        write(6,*) 'years simulated: ',dyears
+
+        end
+
+!******************************************************************
+!        program test_main
+!        call test_sync
+!        end
+!******************************************************************
 

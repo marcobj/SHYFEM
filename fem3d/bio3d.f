@@ -73,25 +73,32 @@ c notes :
 c
 c State variables used: (Wasp)
 c
-c nh3		71	1
-c no3		72	2
-c opo4		73	3
-c phyto		74	4
-c cbod		75	5
-c do		76	6
-c on		77	7
-c op		78	8
-c zoo		79	9
+c nh3		1	71	701
+c no3		2	72	702
+c opo4		3	73	703
+c phyto		4	74	704
+c cbod		5	75	705
+c do		6	76	706
+c on		7	77	707
+c op		8	78	708
+c zoo		9	79	709
 c
-c opsed         91      1
-c onsed         92      2
+c opsed         1	91      721
+c onsed         2	92      722
 c
-c shellfarm     93      density of benthic filter feeding      
-c shellsize     94      size of each individual
-c shelldiag     95      diagnostic variable
-
+c shellfarm     1	93      731	density of benthic filter feeding      
+c shellsize     2	94      732	size of each individual
+c shelldiag     3	95      733	diagnostic variable
+c
+c ulva biomass  1  	-	741
+c ulva quota    2	- 	742
+c
+c
 c eseed is the initial seeding for shellfarm, applied 
 c only in the shell farming sites, set in weutro_seed.f
+c
+c useed is the initial seeding for ulva biomass, applied 
+c only in the ulva farming sites, set in weutro_ulva.f
 c
 c State variables used: (Haka)
 c
@@ -112,41 +119,42 @@ c********************************************************************
 	integer, parameter :: nstate = 9
 	integer, parameter :: nsstate = 2
 	integer, parameter :: nshstate = 3
+	integer, parameter :: nulstate = 2       ! ulva
 
 	real, save, allocatable :: e(:,:,:)	!state vector
 	real, save, allocatable :: eload(:,:,:)	!loadings
 	real, save, allocatable :: eseed(:,:,:)	!seed benthic filters
+	real, save, allocatable :: ulseed(:,:,:)	!seed benthic filters for ulva
 	real, save, allocatable :: es(:,:)	!sediment state vector
 	real, save, allocatable :: esh(:,:)	!benthic filters state vector
+	real, save, allocatable :: eul(:,:)	!ulva            state vector
 
-        integer, save :: ia_out(4)
         double precision, save :: da_out(4)
 
-        integer, save :: iubp,iubs,iubh
+        integer, save :: iubp,iubs,iubh,iubul
 
 	logical, save :: bsedim = .false.
         logical, save :: bshell = .false.
+        logical, save :: bulva = .true.
+        logical, save :: bflux = .true.
 
 !====================================================================
         end module eutro
 !====================================================================
 
-        subroutine ecological_module(it,dt)
+        subroutine ecological_module
 
 c general interface to ecological module
 
         implicit none
 
-        integer it
-        real dt
-
-        call bio3d_eutro(it,dt)
+        call bio3d_eutro
 
         end
 
 c********************************************************************
 
-	subroutine bio3d_eutro(it,dt)
+	subroutine bio3d_eutro
 
 c eco-model cosimo
 
@@ -156,10 +164,6 @@ c eco-model cosimo
 	use eutro
 
 	implicit none
-
-	integer it	!time in seconds
-	real dt		!time step in seconds
-
 
 	include 'mkonst.h'
 
@@ -177,11 +181,13 @@ c eco-model cosimo
 	real eaux(nstate)
 	real esaux(nsstate)
         real eshaux(nshstate)
+        real eulaux(nulstate)         ! ulva
 	real elaux(nstate)
 
 	real, save :: einit(nstate)
 	real, save :: esinit(nsstate)
         real, save :: eshinit(nshstate) !initializ. of shell var
+        real, save :: eulinit(nulstate) !initializ. of ulva var
 
         real, save :: elinit(nstate)
         real, save :: ebound(nstate)
@@ -193,6 +199,8 @@ c eco-model cosimo
 
 	integer icall,iunit
 	integer j
+	integer it	!time in seconds
+	real dt		!time step in seconds
 	real rlux,rluxaux,itot,fday
 	real dtday
 	real area,vol
@@ -200,7 +208,6 @@ c eco-model cosimo
 	real getpar
 	integer iround
 	integer ieint,ipint
-	logical has_output,next_output
 
         integer mode
         real ai,lsurf
@@ -209,7 +216,7 @@ c eco-model cosimo
 	logical bresi,breact,bdecay
 	integer ie,ii
 	integer kspec
-	integer itanf,nvar
+	integer nvar
 	double precision dtime0,dtime
 	real d
 	real cbod,nh3,krear,sod
@@ -220,6 +227,7 @@ c eco-model cosimo
         real mass
 	real wsink
         real shellfarm
+        real ulvabiomass
         real qrad       !solar radiation Watt/m2
 
 	integer nbnds
@@ -238,27 +246,22 @@ c
 c ebound is used in case no values are given in STR file
 c
 c laguna di Venezia
-c        data einit /0.05, 0.4, 0.01, 0.05, 2.,   11.,0.2,0.01,0.015/
-c 	 data einit /0.0, 0., 0.0, 0.0, 0.,   0.,0.,0.0,0.0/
+c        data einit /0.05, 0.4, 0.01, 0.05, 2.,11.,0.2,0.01,0.015/
+c 	 data einit /0.0, 0., 0.0, 0.0, 0., 0.,0.,0.0,0.0/
 c 	 data einit /1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0/
 c 	 data ebound /10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0/
-c 	 data ebound /1.0, 2., 3.0, 4.0, 5.,   6.,7.,8.0,9.0/
+c 	 data ebound /1.0, 2., 3.0, 4.0, 5., 6.,7.,8.0,9.0/
 
 c                     nh3 no3 opo4 phyto cbod do  on  op  zoo 
- 	 data ebound  /0., 0., 0.,   0.,  0.,  0., 0., 0., 0./
- 	 !data einit   /0., 0., 0.,   0.,  0.,  0., 0., 0., 0./
+ 	 data ebound  /0., 0., 0.,  0., 0., 0., 0., 0., 0./
+ 	 !data einit   /0., 0., 0., 0., 0., 0., 0., 0., 0./
  	 data einit   /0.02,0.05,0.03,0.06,1.0,7.8,0.03,0.005,0.012/
  	 data elinit  /0., 0., 0., 0.,0., 0., 0., 0., 0./
 
 	 data esinit  /0.,0./
          !data eshinit /0.,0.,0./
          data eshinit /0.01,0.01,0.01/
-
-c mare di taranto
-c        data einit /0.042,0.355,0.009,0.0342,3.15,7.78,0.2,0.01,0.015/
-c 	 data einit /0.0, 0., 0.0, 0.0, 0.,   0.,0.,0.0,0.0/
-c	data esinit /0.,0./
-c	data esinit /0.01,0.01/
+         data eulinit  /0.05,0.05/  ! ulva
 
 c hakata reactor
 c                     phy     zoo     det     dop     dip
@@ -297,13 +300,16 @@ c         --------------------------------------------------
 c	  initialize state variables with einit
 c         --------------------------------------------------
 
-	  allocate(e(nlvdi,nkndi,nstate))
-	  allocate(eload(nlvdi,nkndi,nstate))
-	  allocate(es(nkndi,nsstate))
+	  allocate(e(nlvdi,nkndi,nstate))	!pelagic variables
+	  allocate(eload(nlvdi,nkndi,nstate))	!pelagic loading
+	  allocate(es(nkndi,nsstate))		!sediment variables
+          allocate(esh(nkndi,nshstate))		!shell fish variables
+          allocate(eul(nkndi,nulstate))		!ulva variables
+
           allocate(eseed(nlvdi,nkndi,nshstate))	!eseed is needed 2D but has been
                                                 !set 3D in weutro_seed
                                                 !seeding occurs only in l=1
-          allocate(esh(nkndi,nshstate))
+          allocate(ulseed(nlvdi,nkndi,nulstate))!ulva
 
 	  do i=1,nstate
 	    e(:,:,i) = einit(i)
@@ -318,12 +324,15 @@ c         --------------------------------------------------
             esh(:,i) = eshinit(i)
           end do
 
+          do i=1,nulstate          ! ulva
+            eul(:,i) = eulinit(i)
+          end do
+
 c         --------------------------------------------------
 c	  initialize state variables from external file
 c         --------------------------------------------------
 
-	  call get_first_time(itanf)
-          dtime0 = itanf
+	  call get_first_dtime(dtime0)
 
 	  nvar = nstate
           call tracer_file_init('bio init','bioin',dtime0
@@ -334,8 +343,10 @@ c         --------------------------------------------------
      +                          ,nvar,1,1,nkn,esinit,es)
 
 c         --------------------------------------------------
-c	  set loadings in the interal areas
+c	  set loadings for special state variables
 c         --------------------------------------------------
+
+c	  --- shell fish ---
 
 	  eseed = 0.
 	  if( bshell ) then
@@ -344,6 +355,17 @@ c         --------------------------------------------------
 
           do i=1,nshstate
             esh(:,i) = eseed(1,:,i)	!eseed is the initial value of esh
+          end do
+
+c         --- ulva ---
+
+	  ulseed = 0.
+	  if( bulva ) then
+            call setseed_ulva(ulseed) !seeding for benthic filters feeding
+	  end if
+
+          do i=1,nulstate
+            eul(:,i) = ulseed(1,:,i)	!ulseed is the initial value of eul
           end do
 
 c         --------------------------------------------------
@@ -382,10 +404,19 @@ c         --------------------------------------------------
 	  write(6,*) 'bio3d model initialized...'
 	  if( bsedim ) write(6,*) 'sediment module active...'
 	  if( bshell ) write(6,*) 'shellfish module active...'
+	  if( bulva  ) write(6,*) 'ulva module active...'
 
 	  call loicz1(0,0.,0.)
 
 	end if
+
+c-------------------------------------------------------------------
+c end of initialization
+c-------------------------------------------------------------------
+
+	call get_timestep(dt)
+	call get_act_dtime(dtime)
+	it = dtime			!FIXME
 
 c-------------------------------------------------------------------
 c custom computation of residence times
@@ -419,6 +450,8 @@ c	-------------------------------------------------------------------
 c	call check_es(es)
 
 	if( breact ) then	!use reactor ?
+
+!	call weutro_check('Prima')
 
 	do k=1,nkn		!loop on nodes
 
@@ -477,7 +510,20 @@ c	  -----------------------------------------------------------------
             end if
           end if
 
+          if(bulva) then
+            ulvabiomass=ulseed(1,k,1)
+            if (ulvabiomass.gt.0) then
+      	      eaux(:) = e(l,k,:)
+              eulaux(:)=eul(k,:)
+              call wulva(k,tday,dtday,vol,d,vel,t,qrad,eaux,eulaux)
+              e(l,k,:)=eaux(:)
+              eul(k,:)=eulaux(:)
+            end if
+          end if
+
 	end do
+
+!	call weutro_check('Dopo')
 
 	end if	!breact
 
@@ -493,7 +539,6 @@ c	-------------------------------------------------------------------
 
 	if( bcheck ) call check_bio('before advection',e,es)
 
-	dtime = it
 	call bnds_read_new(what,idbio,dtime)
 
 !$OMP PARALLEL PRIVATE(i)
@@ -529,6 +574,8 @@ c	-------------------------------------------------------------------
 c	call loicz1(0,0.,0.)
 
 	if( bcheck ) call check_bio('at end',e,es)
+
+	if( bflux ) call fluxes_generic('.wfx',700,nstate,e)
 
 c	-------------------------------------------------------------------
 c	debug output
@@ -1071,33 +1118,15 @@ c****************************************************************
 
         implicit none
 
-        integer ishyff,nvar,id
-        logical has_output,has_output_d
-        real getpar
-
-        ishyff = nint(getpar('ishyff'))
-
-          call init_output('itmcon','idtcon',ia_out)
-          if( ishyff == 1 ) ia_out = 0
-          if( has_output(ia_out) ) then
-            call open_scalar_file(ia_out,nlv,nstate,'bio')
-            iubp = ia_out(4)
-	    if( bsedim ) then
-              call open_scalar_file(ia_out,1,nsstate,'sed')
-              iubs = ia_out(4)
-	    end if
-	    if( bshell ) then
-              call open_scalar_file(ia_out,1,nshstate,'she')
-              iubh = ia_out(4)
-	    end if
-          end if
+        integer nvar,id
+        logical has_output_d
 
 	  nvar = nstate
 	  if( bsedim ) nvar = nvar + nsstate
 	  if( bshell ) nvar = nvar + nshstate
+	  if( bulva  ) nvar = nvar + nulstate
 
           call init_output_d('itmcon','idtcon',da_out)
-          if( ishyff == 0 ) da_out = 0
           if( has_output_d(da_out) ) then
             call shyfem_init_scalar_file('eutro',nvar,.false.,id)
             da_out(4) = id
@@ -1118,33 +1147,7 @@ c*************************************************************
         double precision dtime
 
         integer nvar,id,idc,i
-        logical next_output,next_output_d
-
-        if( next_output(ia_out) ) then
-
-          ia_out(4) = iubp
-          do i=1,nstate
-            idc = 700 + i
-            call write_scalar_file(ia_out,idc,nlvdi,e(1,1,i))
-          end do
-
-	  if( bsedim ) then
-            ia_out(4) = iubs
-            do i=1,nsstate
-              idc = 720 + i
-              call write_scalar_file(ia_out,idc,1,es(1,i))
-            end do
-	  end if
-
-	  if( bshell ) then
-            ia_out(4) = iubh
-            do i=1,nshstate
-              idc = 730 + i
-              call write_scalar_file(ia_out,idc,1,esh(1,i))
-            end do
-	  end if
-
-        end if
+        logical next_output_d
 
         if( next_output_d(da_out) ) then
 
@@ -1168,6 +1171,14 @@ c*************************************************************
               idc = 730 + i
               call shy_write_scalar_record(id,dtime,idc,1
      +                                          ,esh(1,i))
+            end do
+	  end if
+
+	  if( bulva  ) then
+            do i=1,nulstate
+              idc = 740 + i
+              call shy_write_scalar_record(id,dtime,idc,1
+     +                                          ,eul(1,i))
             end do
 	  end if
 

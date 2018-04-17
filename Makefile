@@ -22,7 +22,7 @@ include ./Rules.make
 
 #---------------------------------------------------------------
 
-RULES_MAKE_EXPECTED = 1.3
+RULES_MAKE_EXPECTED = 1.6
 RULES_MAKE_COMPATIBILITY = RULES_MAKE_OK
 ifneq ($(RULES_MAKE_VERSION),"0.0")
   ifneq ($(RULES_MAKE_VERSION),$(RULES_MAKE_EXPECTED))
@@ -208,12 +208,13 @@ info: version
 	@echo "  DISTRIBUTION_TYPE = $(DISTRIBUTION_TYPE)"
 	@echo "  SHYFEM directory  = $(SHYFEMDIR)"
 	@echo "macros:"
-	@echo "  COMPILER   = $(COMPILER)"
-	@echo "  PARALLEL   = $(PARALLEL)"
-	@echo "  SOLVER     = $(SOLVER)"
-	@echo "  NETCDF     = $(NETCDF)"
-	@echo "  GOTM       = $(GOTM)"
-	@echo "  ECOLOGICAL = $(ECOLOGICAL)"
+	@echo "  COMPILER     = $(COMPILER)"
+	@echo "  PARALLEL_OMP = $(PARALLEL_OMP)"
+	@echo "  PARALLEL_MPI = $(PARALLEL_MPI)"
+	@echo "  SOLVER       = $(SOLVER)"
+	@echo "  NETCDF       = $(NETCDF)"
+	@echo "  GOTM         = $(GOTM)"
+	@echo "  ECOLOGICAL   = $(ECOLOGICAL)"
 	@echo "parameters:"
 	@echo "  NKNDIM = $(NKNDIM)"
 	@echo "  NELDIM = $(NELDIM)"
@@ -275,8 +276,15 @@ install_hard_reset: checkv
 #--------------------------------------------------------
 
 ggu_help: help_ggu
-help_ggu: help_dev
-	@echo "rules_ggu          copies back my Rules.make file"
+help_ggu:
+	@echo "rules_ggu_save     saves my Rules.make file"
+	@echo "rules_ggu_restore  restores my Rules.make file"
+	@echo "nemon              set special treatment nemunas server on"
+	@echo "nemoff             set special treatment nemunas server off"
+	@echo "rules_nemunas      copy Rules.make for nemunas server"
+	@echo "rules_lagoon       copy Rules.make for lagoon"
+	@echo "rules_carbonium    copy Rules.make for carbonium"
+	@echo "git_nemunas        enable git for push on nemunas server"
 
 help_dev:
 	@echo "help_dev           this screen"
@@ -310,11 +318,12 @@ regress:
 revision:
 	 $(FEMBIN)/revision_last.sh
 
-rules_ggu:
-	cp -f arc/rules/Rules.ggu ./Rules.make
+rules_ggu_save:
+	cp -f ./Rules.make arc/rules/Rules.ggu
+	cp -f femcheck/Rules.dist ./Rules.make
 
-rules_save:
-	cp -f arc/rules/Rules.save ./Rules.make
+rules_ggu_restore:
+	cp -f arc/rules/Rules.ggu ./Rules.make
 
 rules_dist:
 	cp -f femcheck/Rules.dist ./Rules.make
@@ -359,6 +368,28 @@ last_commit:
 
 shyfemdir:
 	@echo "shyfemdir: $(SHYFEMDIR)"
+
+#---------------------------------------------------------------
+# special targets for ggu
+#---------------------------------------------------------------
+
+nemon:
+	fem3d/bin/nemunas_adjust.sh -nemunas
+
+nemoff:
+	fem3d/bin/nemunas_adjust.sh -original
+
+rules_nemunas:
+	cp -f arc/rules/Rules.nemunas ./Rules.make
+
+rules_lagoon:
+	cp -f arc/rules/Rules.lagoon ./Rules.make
+
+rules_carbonium:
+	cp -f arc/rules/Rules.carbonium ./Rules.make
+
+git_nemunas:
+	. arc/rules/nemunas-git.sh
 
 #---------------------------------------------------------------
 # check if routines are executable

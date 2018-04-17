@@ -11,7 +11,7 @@ c        subroutine ckvola
 c        subroutine prvola
 c        subroutine tsvola
 c
-c        subroutine wrvola(it)				write of vol data
+c        subroutine wrvola(dtime)			write of vol data
 c
 c        subroutine volareas(kvol,ivol,n,az,vol)	vol in areas
 c        function volarea(kvol,ivol,n,az)		vol in area
@@ -78,7 +78,7 @@ c******************************************************************
 	include 'femtime.h'
  
         if( mode .eq. M_AFTER ) then
-           call wrvola(it)
+           call wrvola(t_act)
         else if( mode .eq. M_INIT ) then
            call invola
         else if( mode .eq. M_READ ) then
@@ -287,13 +287,13 @@ c******************************************************************
 
 c******************************************************************
 
-	subroutine wrvola(it)
+	subroutine wrvola(dtime)
 
 c write of vol data
 
 	implicit none
 
-	integer it
+	double precision dtime
 
         integer iscdim
         parameter(iscdim=500)
@@ -301,9 +301,9 @@ c write of vol data
 	include 'param.h'
 	include 'volcomp.h'
 
-
 	integer itend,idtvol
 	integer i
+	integer it
 	real az,rr
 
 	integer iround,ideffi
@@ -373,6 +373,7 @@ c initialization
 c normal call
 
         icall = icall + 1
+	it = nint(dtime)
 
         if( .not. is_over_output(ia_out) ) return
 

@@ -15,7 +15,7 @@
 !
 !******************************************************************
 
-	program femelab
+	program femintp
 
 ! interpolates between fem records
 
@@ -30,6 +30,7 @@
 	logical bdebug,bskip,bout,btmin,btmax
 	logical bverb,bwrite,bquiet,binfo
 	logical bchform,bcheckdt
+	logical bw,bsilent
 
 	bdebug = .true.
 	bdebug = .false.
@@ -38,44 +39,26 @@
 ! set command line options
 !--------------------------------------------------------------
 
-	call clo_init('femelab','fem-file','1.2')
+	call clo_init('femintp','fem-file','1.2')
 
-	call clo_add_info('elaborates and rewrites a fem file')
+	call clo_add_info('interpolates records of a fem file')
 
         call clo_add_sep('what to do (only one of these may be given)')
 
-	call clo_add_option('out',.false.,'create output file out.fem')
-        call clo_add_option('node node',' ','extract value for node')
-        call clo_add_option('coord coord',' ','extract coordinate')
-	call clo_add_option('split',.false.,'splits to single variables')
-        call clo_add_option('regexpand iexp',-1,'expand regular grid')
+        call clo_add_option('intp data',' ','data for interpolation')
+	call clo_add_com('  data is nintp,nextb,nextf,idt')
+	call clo_add_com('   nintp  number of new records between '
+     +				// 'existing ones')
+	call clo_add_com('   nextb  number of records before start')
+	call clo_add_com('   nextf  number of records after end')
+	call clo_add_com('   idt    time step for extension records')
 
         call clo_add_sep('options in/output')
 
         call clo_add_option('verb',.false.,'be more verbose')
         call clo_add_option('write',.false.,'write min/max of records')
         call clo_add_option('quiet',.false.,'do not write time records')
-        call clo_add_option('info',.false.,'only give info on header')
-	call clo_add_option('condense',.false.
-     +				,'condense data to one node')
-
-	call clo_add_sep('additional options')
-
-	call clo_add_option('chform',.false.,'change output format')
-        call clo_add_option('checkdt',.false.
-     +                          ,'check for change of time step')
-	call clo_add_option('tmin time',' '
-     +				,'only process starting from time')
-	call clo_add_option('tmax time',' '
-     +				,'only process up to time')
-
-	call clo_add_sep('additional information')
-
-	call clo_add_extra('format for time is YYYY-MM-DD[::hh:mm:ss]')
-	call clo_add_extra('time may be integer for relative time')
-	call clo_add_extra('node is internal numbering in fem file')
-	call clo_add_extra('   or ix,iy of regular grid')
-	call clo_add_extra('coord is x,y of point to extract')
+        call clo_add_option('silent',.false.,'be silent')
 
 !--------------------------------------------------------------
 ! parse command line options
@@ -90,13 +73,6 @@
 	call clo_get_option('verb',bverb)
 	call clo_get_option('write',bwrite)
 	call clo_get_option('quiet',bquiet)
-	call clo_get_option('info',binfo)
-
-	call clo_get_option('out',bout)
-	call clo_get_option('chform',bchform)
-        call clo_get_option('checkdt',bcheckdt)
-	call clo_get_option('tmin',stmin)
-	call clo_get_option('tmax',stmax)
 
 !--------------------------------------------------------------
 ! set parameters
@@ -155,7 +131,7 @@
 	integer idt,idtact
 	double precision dtime,atmin,atmax,atime0,atime1997
 	double precision atime,atime1,atime2
-	double precision rit
+	double precision rit,dt
 	real dmin,dmax,dmed
 	integer ierr
 	integer nfile,nintp
@@ -164,7 +140,7 @@
 	integer iformat,iformout
 	integer datetime(2),dateanf(2),dateend(2)
 	integer iextract,it
-	integer next,idte
+	integer nextb,nextf,idte
 	integer ie,nx,ny,ix,iy
 	integer regexpand
 	integer np_out
@@ -177,12 +153,14 @@
 	logical bverb,bwrite,bquiet,binfo
 	logical bchform,bcheckdt,bdtok,bextract,breg,bintime,bexpand
 	logical bsplit,bread
+	logical bw,bsilent
 	integer, allocatable :: ivars(:)
 	character*80, allocatable :: strings(:)
 	character*20 dline,aline,fline
 	character*40 eformat
 	character*80 stmin,stmax
 	character*80 snode,scoord
+	character*80 intpstring
 	real,allocatable :: data(:,:,:)
 	real,allocatable :: data_profile(:)
 	real,allocatable :: dext(:)
@@ -203,27 +181,22 @@
 	call clo_get_option('verb',bverb)
 	call clo_get_option('write',bwrite)
 	call clo_get_option('quiet',bquiet)
-	call clo_get_option('info',binfo)
-	call clo_get_option('condense',bcondense)
+	call clo_get_option('silent',bsilent)
 
-	call clo_get_option('out',bout)
-	call clo_get_option('regexpand',regexpand)
-        call clo_get_option('split',bsplit)
-	call clo_get_option('chform',bchform)
-        call clo_get_option('checkdt',bcheckdt)
-        call clo_get_option('node',snode)
-        call clo_get_option('coord',scoord)
-	call clo_get_option('tmin',stmin)
-	call clo_get_option('tmax',stmax)
+	call clo_get_option('intp',intpstring)
 
-	if( bchform ) bout = .true.
-	if( bcondense ) bout = .true.
-	bexpand = regexpand > -1
+	if( bsilent ) bquiet = .true.
+	bw = .not. bquiet
 	boutput = .true.
 
 	nintp = 4	!how many records to interpolate (-1)
-	next = 2	!extend records before and after read records
+	nextb = 2	!extend records backwards before read records
+	nextf = 1	!extend records forward after read records
 	idte = 6*3600	!time step for records to extend
+
+	call intp_data(intpstring,nintp,nextb,nextf,idte)
+	nintp = nintp + 1
+	if( bw ) write(6,*) 'intp data: ',nintp,nextb,nextf,idte
 
 !--------------------------------------------------------------
 ! open file
@@ -234,7 +207,7 @@
 	call femutil_open_for_read(infile,0,ffinfo_in,ierr)
 	if( ierr /= 0 ) stop
 
-	write(6,*) 'file name: ',trim(infile)
+	if( bw ) write(6,*) 'file name: ',trim(infile)
 
 !--------------------------------------------------------------
 ! prepare for output if needed
@@ -262,21 +235,23 @@
 
 	call femutil_get_time(finfo1,atime1)
 	call dts_format_abs_time(atime1,dline)
-	write(6,*) trim(dline)
+	!write(6,*) trim(dline)
 
 !--------------------------------------------------------------
 ! write first records
 !--------------------------------------------------------------
 
+	if( bw ) write(6,*) 'extending records backward...'
+
 	nout = 0
 	if( boutput ) then
 	  finfo2 = finfo1
-	  atime = atime1 - (next+1)*idte
-	  do it=1,next			!extend records
+	  atime = atime1 - (nextb+1)*idte
+	  do it=1,nextb			!extend records
 	      atime = atime + idte
 	      call femutil_set_time(finfo2,atime)
 	      call dts_format_abs_time(atime,dline)
-	      write(6,*) '   extp: ',trim(dline)
+	      if( bw ) write(6,*) '   extp: ',trim(dline)
 	      nout = nout + 1
 	      call femutil_write_record(ffinfo_out,finfo2)
 	  end do
@@ -284,21 +259,28 @@
 	  call femutil_write_record(ffinfo_out,finfo1)
 	end if
 
-
 !--------------------------------------------------------------
 ! loop on all records
 !--------------------------------------------------------------
 
+	if( bw ) write(6,*) 'interpolating records...'
+
 	do 
 	  irec = irec + 1
-	  if( irec > 10 ) exit
+	  !if( irec > 10 ) exit		!for bebug
 	  call femutil_read_record(ffinfo_in,finfo2,ierr)
 	  if( ierr .lt. 0 ) exit
 	  if( ierr .gt. 0 ) goto 99
 
 	  call femutil_get_time(finfo2,atime2)
 	  call dts_format_abs_time(atime2,dline)
-	  write(6,*) trim(dline)
+	  if( bw ) write(6,*) ' read: ',trim(dline)
+	  dt = (atime2-atime1)/nintp
+	  if( nint(dt) /= dt ) then
+	    write(6,*) 'time step is not an integer: ',dt
+	    write(6,*) 'maybe the value of nintp is wrong: ',nintp
+	    stop 'error stop femintp: time step'
+	  end if
 
 	  if( .not. femutil_is_compatible(finfo1,finfo2) ) goto 92
 
@@ -309,12 +291,15 @@
 	      call record_interpolate(finfo1,finfo2,finfo,rit)
 	      call femutil_get_time(finfo,atime)
 	      call dts_format_abs_time(atime,dline)
-	      write(6,*) '   intp: ',trim(dline)
+	      if( bw ) write(6,*) '   intp: ',trim(dline)
 	
 	      call femutil_write_record(ffinfo_out,finfo)
 	    end do
 	    nout = nout + 1
 	    call femutil_write_record(ffinfo_out,finfo2)
+	    call femutil_get_time(finfo2,atime)
+	    call dts_format_abs_time(atime,dline)
+	    if( bw ) write(6,*) '  write: ',trim(dline)
           end if
 
 	  atime1 = atime2
@@ -325,14 +310,17 @@
 ! finish loop - last records
 !--------------------------------------------------------------
 
+	if( bw ) write(6,*) 'extending records forward...'
+
 	if( boutput ) then
 	  finfo2 = finfo1
-	  do it=1,next			!extend records
+	  do it=1,nextf			!extend records
 	      atime = atime + idte
 	      call femutil_set_time(finfo2,atime)
 	      call dts_format_abs_time(atime,dline)
-	      write(6,*) '   extp: ',trim(dline)
+	      if( bw ) write(6,*) '   extp: ',trim(dline)
 	      call femutil_write_record(ffinfo_out,finfo2)
+	      nout = nout + 1
 	  end do
 	end if
 
@@ -340,11 +328,13 @@
 ! info on time records
 !--------------------------------------------------------------
 
+	if( .not. bsilent ) then
 	nrecs = irec - 1
 	write(6,*) 'nrecs:  ',nrecs
 	if( nout > 0 ) then
 	  write(6,*) 'output records written: ',nout
 	  write(6,*) 'output written to file out.fem'
+	end if
 	end if
 
 !--------------------------------------------------------------
@@ -420,6 +410,35 @@
 	    end do
 	  end do
 	end do
+
+	end
+
+!*****************************************************************
+
+	subroutine intp_data(string,nintp,nextb,nextf,idte)
+
+	implicit none
+
+	character*(*) string
+	integer nintp,nextb,nextf,idte
+
+	integer ianz
+	double precision d(4)
+
+	integer iscand
+
+	ianz = iscand(string,d,4)
+
+	if( ianz /= 4 ) then
+	  write(6,*) 'need 4 values for interpolation'
+	  write(6,*) 'string given: ',trim(string)
+	  stop 'error stop intp_data: need 4 values'
+	end if
+
+	nintp = nint(d(1))
+	nextb = nint(d(2))
+	nextf = nint(d(3))
+	idte  = nint(d(4))
 
 	end
 

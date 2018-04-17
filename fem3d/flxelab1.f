@@ -49,7 +49,7 @@ c elaborates flx file
 	integer nvers
 	integer nknnos,nelnos,nvar
 	integer ierr
-	integer ivar,iv,ivarnew
+	integer ivar,iv,ivarnew,ivarfirst
 	integer ii,i,j,l,k,lmax,node,nn,n1,n2
 	integer ip,nb,naccum
 	integer kfluxm
@@ -59,7 +59,7 @@ c elaborates flx file
 	character*80 title,name,femver
 	character*20 dline
 	character*80 basnam,simnam
-        character*10 :: format
+        character*10 :: format,range
         character*10 :: short
         character*40 :: full
 	real rnull
@@ -124,6 +124,7 @@ c--------------------------------------------------------------
         call flx_read_header2(nin,nvers,nsect,kfluxm
      +                          ,kflux,nlayers
      +                          ,atime0,title,femver,strings,ierr)
+	if( ierr /= 0 ) goto 92
 
 	call set_nodes(nsect,kfluxm,kflux,nsnodes)
 
@@ -135,8 +136,9 @@ c--------------------------------------------------------------
           write(6,*) 'nlmax      : ',nlmax
           write(6,*) 'nvar       : ',nvar 
           write(6,*) 'title      : ',trim(title)
+          write(6,*) 'femver     : ',trim(femver)
           write(6,*) 'Sections contained in file:'
-          write(6,*) ' i   nodes  layers   description'
+          write(6,*) ' i   nodes  layers  description'
           do i=1,nsect
 	    nn = 1 + nsnodes(2,i) - nsnodes(1,i)
             write(6,1000) i,nn,nlayers(i),'  ',trim(strings(i))
@@ -179,21 +181,26 @@ c--------------------------------------------------------------
         if( .not. bquiet .and. nvar > 0 ) then
           write(6,*) 'Variables contained in file:'
           write(6,*) ' i ivar  short     full'
-          do iv=1,nvar
-            call flx_read_record(nin,nvers,atime
+	end if
+
+	ivarfirst = 0
+        do iv=1,nvar
+          call flx_read_record(nin,nvers,atime
      +                  ,nlvdi,nsect,ivar
      +                  ,nlayers,fluxes,ierr)
-            if( ierr /= 0 ) goto 91
-	    ivars(iv) = ivar
-            call strings_get_short_name(ivar,short)
-            call strings_get_full_name(ivar,full)
-            write(6,'(i3,i5,a,a,a)') iv,ivar,'  ',short,full
-          end do
+          if( ierr /= 0 ) goto 91
+	  ivars(iv) = ivar
+	  if( iv == 1 ) ivarfirst = ivar
+          call strings_get_short_name(ivar,short)
+          call strings_get_full_name(ivar,full)
+          if( .not. bquiet ) then
+	    write(6,'(i3,i5,a,a,a)') iv,ivar,'  ',short,full
+	  end if
+        end do
 
-          do iv=1,nvar
-            backspace(nin)
-          end do
-        end if
+        do iv=1,nvar
+          backspace(nin)
+        end do
 
 	if( binfo ) return
 
@@ -262,9 +269,12 @@ c--------------------------------------------------------------
      +			,nlayers,fluxes,ierr)
          if(ierr.gt.0) write(6,*) 'error in reading file : ',ierr
          if(ierr.ne.0) exit
+
 	 nread = nread + 1
-	 if( ivar == 0 ) nrec = nrec + 1
-	 if( ivar == 0 ) iv = 0
+	 if( ivar == ivarfirst ) then
+	   nrec = nrec + 1
+	   iv = 0
+	 end if
 	 iv = iv + 1
 
 	 atlast = atime
@@ -364,20 +374,14 @@ c--------------------------------------------------------------
 	   write(6,*) '  disch_absolute          absolute discharge'
 	  end if
           write(6,*) 'what is one of the following:'
-          do iv=1,nvar
-	    ivar = ivars(iv)
-            call strings_get_short_name(ivar,short)
-            call strings_get_full_name(ivar,full)
-            write(6,*) '  ',short,'  ',full
-          end do
+	  call write_vars(nvar,ivars)
           write(6,*) 'dim is 0d, 2d or 3d'
           write(6,*) '  0d for depth averaged variables (one column)'
           write(6,*) '  2d for depth averaged variables'
           write(6,*) '  3d for output at each layer'
-          write(format,'(i5)') nsect
-          format = adjustl(format)
-	  write(6,'(a,i4)') ' sect is consecutive section numbering: 1-'
-     +				//format
+	  call compute_range(nsect,range)
+	  write(6,'(a,a)') ' sect is consecutive section numbering: '
+     +				,trim(range)
 	  write(6,*) 'discharge data is normally total discharge'
 	  write(6,*) 'for 2d files the 4 columns are: '//
      +			'total,positive,negative,absolute'
@@ -401,8 +405,11 @@ c--------------------------------------------------------------
 	write(6,*) 'error reading first data record'
 	write(6,*) 'maybe the file is empty'
 	stop 'error stop flxelab: empty record'
+   92	continue
+	write(6,*) 'error reading second header'
+	stop 'error stop flxelab: error in header'
    93	continue
-	write(6,*) 'error reading header'
+	write(6,*) 'error reading first header'
 	stop 'error stop flxelab: error in header'
    99	continue
 	write(6,*) 'error writing to file unit: ',nb
@@ -466,6 +473,7 @@ c writes 2d fluxes to file (only for ivar=0)
           ptot(3,j) = fluxes(0,3,j)                     !negative
           ptot(4,j) = fluxes(0,2,j) + fluxes(0,3,j)     !absolute
 	  iu = iusplit(j,iv)
+	  call iusplit_info(iu,j,iv,nsect,nvar)
 	  write(iu,'(a20,4f14.3)') dline,(ptot(i,j),i=1,4)
         end do
 
@@ -646,6 +654,8 @@ c*******************************************************************
 	  end if
 	end do
 
+	if( bsect ) nsnodes(2,is) = i-1
+
 	if( is /= nsect ) goto 99
 
 	!do is=1,nsect
@@ -658,6 +668,30 @@ c*******************************************************************
 	write(6,*) 'kflux does not contain expected sections: '
 	write(6,*) 'is,nsect: ',is,nsect
 	stop 'error stop set_nodes: nsect'
+	end
+
+c*******************************************************************
+
+	subroutine iusplit_info(iu,j,iv,nsect,nvar)
+
+	implicit none
+
+	integer iu
+	integer j,iv
+	integer nsect,nvar
+
+	if( iu < 10 .or. iu > 1000 ) then
+	  write(6,*) 'error in unit number: ',iu
+	end if
+
+	if( j < 1 .or. j > nsect ) then
+	  write(6,*) 'error in section number: ',j,nsect
+	end if
+
+	if( iv < 1 .or. iv > nvar ) then
+	  write(6,*) 'error in variable number: ',iv,nvar
+	end if
+
 	end
 
 c*******************************************************************

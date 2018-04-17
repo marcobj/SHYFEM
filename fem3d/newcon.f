@@ -86,7 +86,7 @@ c         call make_scal_flux(...,cnv,r3v,sbconz,...)
 c	  do
 c           call conz3d(...,cnv,sbconz,...)
 c           call assert_min_max_property(...,cnv,sbconz,...)
-c           call bndo_setbc(it,what,nlvddi,cnv,rcv,uprv,vprv)
+c           call bndo_setbc(what,nlvddi,cnv,rcv,uprv,vprv)
 c	  end do
 c
 c-------------------------------------------------------------
@@ -174,6 +174,7 @@ c 26.10.2015    ggu     critical omp sections introduced (eliminated data race)
 c 26.10.2015    ggu     mass check only for levdbg > 2
 c 01.04.2016    ggu     most big arrays moved from stack to allocatable
 c 20.10.2016    ccf     pass rtauv for differential nudging
+c 03.02.2018    ggu     sindex did not use rstol for stability
 c
 c*********************************************************************
 
@@ -198,8 +199,6 @@ c shell for scalar (for parallel version)
         real difhv(nlvdi,nel)
 	real difv(0:nlvdi,nkn)
         real difmol
-
-	include 'femtime.h'
 
         real, allocatable :: r3v(:,:)
         real, allocatable :: caux(:,:)
@@ -236,7 +235,7 @@ c--------------------------------------------------------------
 c transfer boundary conditions of var ivar to 3d matrix r3v
 c--------------------------------------------------------------
 
-	dtime = it
+	call get_act_dtime(dtime)
 
 	call bnds_trans_new(whatvar(1:iwhat)
      +			,ids,dtime,ivar,nkn,nlv,nlvdi,r3v)
@@ -287,8 +286,6 @@ c shell for scalar with nudging (for parallel version)
 	real robs
 	real rtauv(nlvdi,nkn)		!varible relaxation coefficient
 
-	include 'femtime.h'
-
         real, allocatable :: r3v(:,:)
         real, allocatable :: wsinkv(:,:)
 	real, allocatable :: caux(:,:)
@@ -323,7 +320,7 @@ c--------------------------------------------------------------
 c transfer boundary conditions of var ivar to 3d matrix r3v
 c--------------------------------------------------------------
 
-	dtime = it
+	call get_act_dtime(dtime)
 
 	call bnds_trans_new(whatvar(1:iwhat)
      +			,ids,dtime,ivar,nkn,nlv,nlvdi,r3v)
@@ -377,8 +374,6 @@ c special version with factor for BC, variable sinking velocity and loads
 	real difv(0:nlvdi,nkn)
         real difmol
 
-	include 'femtime.h'
-
         real, allocatable :: r3v(:,:)
         real, allocatable :: caux(:,:)
 
@@ -409,7 +404,7 @@ c--------------------------------------------------------------
 c transfer boundary conditions of var ivar to 3d matrix r3v
 c--------------------------------------------------------------
 
-	dtime = it
+	call get_act_dtime(dtime)
 
 	call bnds_trans_new(whatvar(1:iwhat)
      +			,ids,dtime,ivar,nkn,nlv,nlvdi,r3v)
@@ -471,6 +466,7 @@ c shell for scalar T/D
 	use mod_hydro_print
 	use levels, only : nlvdi,nlv
 	use basin, only : nkn,nel,ngr,mbw
+	use shympi
 
 	implicit none
 
@@ -497,9 +493,7 @@ c parameters
 	!parameter ( istot_max = 300 )
 	parameter ( istot_max = 1000 )
 c common
-	include 'femtime.h'
 	include 'mkonst.h'
-
 c local
         real, allocatable :: saux(:,:)		!aux array
         real, allocatable :: sbflux(:,:)	!flux boundary conditions
@@ -520,6 +514,8 @@ c local
 	real mass,massold,massdiff
 	real azpar,adpar,aapar
 	real ssurface
+	real wsinkl				!local sinking
+	character*20 aline
 c function
 	real getpar
 
@@ -550,8 +546,13 @@ c-------------------------------------------------------------
 	gradxv = 0.
 	gradyv = 0.
 
+	wsinkl = wsink
+	!wsinkl = wsink * 10.
+
 !$OMP CRITICAL
-        call getinfo(iuinfo)  !unit number of info file
+	if(shympi_is_master()) then
+          call getinfo(iuinfo)  !unit number of info file
+	end if
 !$OMP END CRITICAL
 
 	eps = 1.e-5
@@ -563,18 +564,21 @@ c check stability criterion -> set istot
 c-------------------------------------------------------------
 
 	call get_timestep(dt)
+	call get_act_timeline(aline)
 
 	saux = 0.
-	call make_stability(dt,robs,rtauv,wsink,wsinkv,rkpar,
+	call scalar_stability(dt,robs,rtauv,wsinkl,wsinkv,rkpar,
      +					sindex,istot,saux)
 
 !$OMP CRITICAL
-        write(iuinfo,*) 'stability_',what,':',it,sindex,istot
+	if(shympi_is_master()) then
+          write(iuinfo,*) 'stability_',what,': ',aline,sindex,istot
+	end if
 !$OMP END CRITICAL
 
         if( istot .gt. istot_max ) then
-	    call info_stability(dt,robs,rtauv,wsink,wsinkv,rkpar
-     +					,sindex,istot,saux)
+	    call scalar_info_stability(dt,robs,rtauv,wsinkl,wsinkv
+     +				,rkpar,sindex,istot,saux)
             write(6,*) 'istot  = ',istot,'   sindex = ',sindex
             stop 'error stop scal3sh: istot index too high'
         end if
@@ -601,7 +605,6 @@ c-------------------------------------------------------------
 c transport and diffusion
 c-------------------------------------------------------------
 
-
 	call massconc(-1,cnv,nlvddi,massold)
 
 	do isact=1,istot
@@ -620,7 +623,7 @@ c-------------------------------------------------------------
      +          ,sbconz
      +		,itvd,itvdv,gradxv,gradyv
      +		,cobs,robs,rtauv
-     +		,wsink,wsinkv
+     +		,wsinkl,wsinkv
      +		,rload,load
      +		,azpar,adpar,aapar
      +          ,istot,isact
@@ -629,9 +632,17 @@ c-------------------------------------------------------------
 
 	  call assert_min_max_property(cnv,saux,sbconz,gradxv,gradyv,eps)
 
-          call bndo_setbc(it,what,nlvddi,cnv,rcv,uprv,vprv)
+          call bndo_setbc(what,nlvddi,cnv,rcv,uprv,vprv)
 
 	end do
+
+        if( shympi_is_parallel() .and. istot > 1 ) then
+          write(6,*) 'cannot handle istot>1 with mpi yet'
+          stop 'error stop scal3sh: istot>1'
+        end if
+        !call shympi_comment('exchanging scalar: '//trim(what))
+        call shympi_exchange_3d_node(cnv)
+        !call shympi_barrier
 
 c-------------------------------------------------------------
 c check total mass
@@ -641,8 +652,10 @@ c-------------------------------------------------------------
 	  call massconc(+1,cnv,nlvddi,mass)
 	  massdiff = mass - massold
 !$OMP CRITICAL
-	  write(iuinfo,1000) 'scal3sh_',what,':'
-     +                          ,it,niter,mass,massold,massdiff
+          if(shympi_is_master())then
+	    write(iuinfo,1000) 'scal3sh_'//trim(what)//': ',aline
+     +                          ,mass,massold,massdiff
+	  end if
 !$OMP END CRITICAL
 	end if
 
@@ -655,9 +668,9 @@ c end of routine
 c-------------------------------------------------------------
 
         return
- 1000   format(a,a,a,2i10,3d13.5)
+ !1000   format(a,a,a,2i10,3d13.5)
+ 1000   format(a,a,3d13.5)
 	end
-
 
 c**************************************************************
 
@@ -746,6 +759,7 @@ c DPGGU -> introduced double precision to stabilize solution
 	use evgeom
 	use levels
 	use basin
+	use shympi
 
 	implicit none
 c
@@ -770,8 +784,6 @@ c arguments
         real ddt,rkpar
         real azpar,adpar,aapar			!$$azpar
 	integer istot,isact
-c common
-	include 'femtime.h'
 c local
 	logical bdebug,bdebug1,debug,btvdv
 	integer k,ie,ii,l,iii,ll,ibase
@@ -1306,6 +1318,14 @@ c----------------------------------------------------------------
 	  end do
 	end do
 
+        !call shympi_comment('shympi_elem: exchange scalar')
+	if( shympi_partition_on_elements() ) then
+          call shympi_exchange_and_sum_3d_nodes(cn)
+          call shympi_exchange_and_sum_3d_nodes(cdiag)
+          call shympi_exchange_and_sum_3d_nodes(clow)
+          call shympi_exchange_and_sum_3d_nodes(chigh)
+	end if
+
 c----------------------------------------------------------------
 c integrate boundary conditions
 c----------------------------------------------------------------
@@ -1465,6 +1485,7 @@ c DPGGU -> introduced double precision to stabilize solution
 	use evgeom
 	use levels
 	use basin
+	use shympi
 
 	implicit none
 c
@@ -1480,9 +1501,7 @@ c arguments
 	real wsinkv(0:nlvddi,nkn)
 	integer istot,isact
 c common
-	include 'femtime.h'
 	include 'mkonst.h'
-
 c local
 	logical bdebug,bdebug1,debug
 	integer k,ie,ii,l,iii
@@ -1491,7 +1510,7 @@ c local
 	integer itot,isum	!$$flux
 	logical berror
 	integer kn(3)
-        real sindex,rstol
+        real sindex,rstol,raux
 	double precision us,vs
 	double precision az,azt
 	double precision aa,aat,ad,adt
@@ -1911,6 +1930,10 @@ c		  end if
           end if
 	end do
 
+	raux = stabind			!FIXME - SHYFEM_FIXME
+        stabind = shympi_max(raux)
+        !call shympi_comment('stability_conz: shympi_max(stabind)')
+
 c        write(6,*) 'stab check: ',nkn,nlv
 c        call check2Dr(nlvddi,nlv,nkn,cwrite,0.,0.,"NaN check","cstab")
 
@@ -1925,7 +1948,7 @@ c-----------------------------------------------------------------
 
 	rstol = getpar('rstol')
         istot = 1 + stabind / rstol
-        sindex = stabind
+        sindex = stabind / rstol
 
 	call get_orig_timestep(dtorig)
 	if( .not. openmp_in_parallel() ) then
@@ -1967,6 +1990,7 @@ c computes total mass of conc
 
 	use levels
 	use basin, only : nkn,nel,ngr,mbw
+	use shympi
 
 	implicit none
 
@@ -1975,13 +1999,13 @@ c arguments
 	integer nlvddi
 	real cn(nlvddi,nkn)
 	real mass
-c common
-	include 'femtime.h'
 c local
 	integer k,l,lmax
         double precision vol
 	double precision sum,masstot
 	real volnode
+
+!SHYMPI_ELEM - should be total nodes to use - FIXME shympi
 
         masstot = 0.
 
@@ -1997,7 +2021,9 @@ c local
 
 	mass = masstot
 
-c	write(88,*) 'tot mass: ',it,mass
+        mass = shympi_sum(mass)
+        !call shympi_comment('massconc: shympi_sum(masstot)')
+	!shympi on elems FIXME
 
 	end
 
@@ -2069,15 +2095,13 @@ c checks min/max property
 	real rmax(nlvdi,nkn)		!aux arrray to contain max
 	real eps
 
-	include 'femtime.h'
-
-
 	logical bwrite,bstop
 	integer k,ie,l,ii,lmax,ierr
 	integer levdbg
 	real amin,amax,c,qflux,dmax
 	real drmax,diff
 	real dt
+	character*20 aline
 
 	integer ipext
 	logical is_zeta_bound
@@ -2153,6 +2177,8 @@ c---------------------------------------------------------------
 	dmax = 0.
 	drmax = 0.
 
+	call get_act_timeline(aline)
+
 	do k=1,nkn
 	 !if( .not. is_external_boundary(k) ) then	!might be relaxed
 	 if( .not. is_zeta_bound(k) ) then	!might be relaxed
@@ -2168,7 +2194,7 @@ c---------------------------------------------------------------
 	      dmax = max(dmax,diff)
 	      drmax = max(drmax,diff*(amax-amin))
 	      if( bwrite ) then
-	        write(6,*) 'min/max property violated: ',it,idt
+	        write(6,*) 'min/max property violated: '
 	        write(6,*) '   ',l,k,ipext(k)
 	        write(6,*) '   ',c,amin,amax
 	      end if
@@ -2185,10 +2211,10 @@ c---------------------------------------------------------------
 	if( ierr .gt. 0 ) then
 	  if( drmax .gt. eps .and. dmax .gt. eps ) then
 	    if( levdbg .ge. 3 ) then
-	      write(6,*) 'min/max error: ',it,ierr,dmax,drmax
+	      write(6,*) 'min/max error: ',aline,ierr,dmax,drmax
 	    end if
 	  end if
-	  !write(94,*) 'min/max error violated: ',it,ierr,dmax,drmax
+	  !write(94,*) 'min/max error violated: ',aline,ierr,dmax,drmax
 	  if( bstop ) then
 	    stop 'error stop assert_min_max_property: violation'
 	  end if
