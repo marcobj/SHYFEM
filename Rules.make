@@ -286,24 +286,10 @@ print-% : ; @echo $* = $($*)
 
 # next is for NORMAL
 
-<<<<<<< HEAD
-#DEBUG = true
-DEBUG = false
-
-OPTIMIZE = MEDIUM
-#OPTIMIZE = HIGH
-#OPTIMIZE = NONE
-
-#WARNING = true
-WARNING = false
-
-#BOUNDS = true
-=======
 PROFILE = false
 DEBUG = true
 OPTIMIZE = MEDIUM
 WARNING = true
->>>>>>> develop
 BOUNDS = false
 
 ifeq ($(COMPILER_PROFILE),CHECK)
@@ -426,17 +412,12 @@ ifeq ($(FORTRAN_COMPILER),GNU_G77)
 endif
 
 ifeq ($(FORTRAN_COMPILER),GNU_GFORTRAN)
-<<<<<<< HEAD
-  FGNU		= gfortran 
-  FGNU95	= gfortran 
-=======
   FGNU		= gfortran
   FGNU95	= gfortran
   ifneq ($(PARALLEL_MPI),NONE)
     FGNU        = /usr/bin/mpif90
     FGNU95      = /usr/bin/mpif90
   endif
->>>>>>> develop
   F77		= $(FGNU)
   F95		= $(FGNU95)
   LINKER	= $(F77)
