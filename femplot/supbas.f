@@ -996,8 +996,6 @@ c computes number of fractional digits of real r
 	  !write(6,*) 'new pos: ',ir,np
 	end do
 
-	if( np < 0 ) np = 0
-
 	end
 
 c**************************************************************
@@ -1214,7 +1212,8 @@ c**************************************************************
 	subroutine label_bw_frame
 
 c handles labeling of frame
-
+	
+	use plot_fonts
 	use mod_bash
 
 	implicit none
@@ -1227,7 +1226,7 @@ c handles labeling of frame
 	real xdmin,ydmin,xdmax,ydmax
 	real x0,y0,dx,dy
 	real dist,x,y
-	real size,ftext,eps
+	real size,ftext,eps, fextra_space, mm_per_point
 	character*10 string
 	logical bdebug
 
@@ -1244,10 +1243,13 @@ c handles labeling of frame
 
 	if( bbverb ) write(6,*) 'starting label_bw_frame...'
 
-	size = 0.5	!leave this space around plot for labeling
-	ftext = 2.8	!factor to shift text vertically
-	ftext = 3.2	!factor to shift text vertically
-	nxymax = 50	!not more than these number of reg grids
+	!size = 0.5	                               
+	fextra_space = 0.4                         !factor for space between text and outer line
+	mm_per_point = 0.352777778                 !mm per point of font size
+	size = (fs_bw_frame * mm_per_point)/10.    !fs_bw_frame (font size) is defined in module plot_fonts
+	size = size + size * fextra_space		   !space around plot for labeling in cm													
+	ftext  = 2.5	                           !factor to shift text vertically (from inner line)	
+	nxymax = 50	                               !not more than these number of reg grids
 
 	reggrd = getpar('reggrd')
 	imicro = nint(getpar('regdst'))
@@ -1273,7 +1275,7 @@ c here labeling
 
 	dist = reggrd
 	call frac_pos(dist,nc)
-	if( nc <= 0 ) nc = -1
+	if( nc .eq. 0 ) nc = -1
 	if( bbverb ) write(6,*) 'label_bw_frame: ',dist,nc,imicro
 
 	xdmin = rround(xmin,dist,-1)
@@ -1294,7 +1296,8 @@ c here labeling
 	call qfont('Times-Roman')
 	call qgray(0.0)
 
-	call qtxts(9)
+	!call qtxts(9) !Font size defined in module plot_fonts now
+	call qtxts(fs_bw_frame)
 
 	do n=0,nx
 	 x = x0 + n * dx

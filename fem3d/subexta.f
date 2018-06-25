@@ -11,6 +11,7 @@ c 01.02.2000    ggu     module framework introduced
 c 20.05.2015    ggu     modules introduced
 c 20.10.2017    ggu     new framework - read also table with strings
 c 22.11.2017    ccf     write also waves and sediment concentration
+c 11.04.2018    ggu     for mpi use global vertical levels
 c
 c******************************************************************
 c******************************************************************
@@ -135,23 +136,24 @@ c******************************************************************
 
 	implicit none
 
-	integer k,knode
+	integer i,ke,ki
 	integer ipint
 	logical bstop
 
 	bstop = .false.
 
-        do k=1,knausm
-           knode=ipint(knaus(k))                !$$EXTINW
-           if(knode.le.0) then
-	     if( .not. bmpi ) then
-                write(6,*) 'section EXTRA : node not found ',knaus(k)
-                bstop=.true.
-	     end if
-	   else if( .not. shympi_is_inner_node(knode) ) then
-	     knode = 0
-           end if
-           knaus(k)=knode
+        do i=1,knausm
+	  ke = knaus(i)
+          ki = ipint(ke)                !$$EXTINW
+          if( ki <= 0 ) then
+	    if( .not. shympi_exist_node(ke) ) then
+              write(6,*) 'section EXTRA : node not found ',ke
+              bstop = .true.
+	    end if
+	  else if( .not. shympi_is_unique_node(ki) ) then
+	    ki = 0
+          end if
+          knaus(i) = ki
         end do
 
 	if( bstop ) stop 'error stop: ckexta'
@@ -223,7 +225,7 @@ c writes and administers ext file
 	include 'simul.h'
 
 	integer nbext,ierr
-	integer ivar,m,j,k,iv,nlv2d
+	integer ivar,m,j,k,iv,nlv2d,nlv3d
 	integer lmax,l
 	real href,hzmin
 	double precision atime,atime0
@@ -232,7 +234,7 @@ c writes and administers ext file
 	real hdep(knausm)
 	real x(knausm)
 	real y(knausm)
-	real vals(nlv,knausm,3)
+	real vals(nlv_global,knausm,3)
 	integer, save :: nvar
 	logical, save :: btemp,bsalt,bconz,bwave,bsedi
 	integer, save, allocatable :: il(:)
@@ -276,7 +278,7 @@ c--------------------------------------------------------------
 	    nbext=ideffi('datdir','runnam','.ext','unform','new')
             if(nbext.le.0) goto 99
 	    da_out(4) = nbext
-            call ext_write_header(nbext,0,knausm,nlv,nvar,ierr)
+            call ext_write_header(nbext,0,knausm,nlv_global,nvar,ierr)
             if( ierr /= 0 ) goto 98
 	  end if
 
@@ -295,10 +297,10 @@ c--------------------------------------------------------------
 	  call get_shyfem_version(femver)
 	  call get_absolute_ref_time(atime0)
 	  if( shympi_is_master() ) then
-            call ext_write_header2(nbext,0,knausm,nlv
+            call ext_write_header2(nbext,0,knausm,nlv_global
      +                          ,atime0
      +                          ,href,hzmin,title,femver
-     +                          ,kext,hdep,il,x,y,strings,hlv
+     +                          ,kext,hdep,il,x,y,strings,hlv_global
      +                          ,ierr)
             if( ierr /= 0 ) goto 96
 	  end if
@@ -315,7 +317,8 @@ c--------------------------------------------------------------
         nbext = nint(da_out(4))
 	call get_absolute_act_time(atime)
 
-	nlv2d = nlv
+	nlv2d = nlv_global
+	nlv3d = nlv_global
 	!nlv2d = 1	!to be tested
 	vals = 0.
 
@@ -351,7 +354,7 @@ c	-------------------------------------------------------
 	  call shympi_collect_node_value(k,vprv,vals(:,j,2))
 	end do
 	if( shympi_is_master() ) then
-          call ext_write_record(nbext,0,atime,knausm,nlv
+          call ext_write_record(nbext,0,atime,knausm,nlv3d
      +                                  ,ivar,m,il,vals,ierr)
           if( ierr /= 0 ) goto 97
 	end if
@@ -370,7 +373,7 @@ c	-------------------------------------------------------
 	    call shympi_collect_node_value(k,tempv,vals(:,j,1))
 	  end do
 	  if( shympi_is_master() ) then
-            call ext_write_record(nbext,0,atime,knausm,nlv
+            call ext_write_record(nbext,0,atime,knausm,nlv3d
      +                                  ,ivar,m,il,vals,ierr)
             if( ierr /= 0 ) goto 97
 	  end if
@@ -388,7 +391,7 @@ c	-------------------------------------------------------
 	    call shympi_collect_node_value(k,saltv,vals(:,j,1))
 	  end do
 	  if( shympi_is_master() ) then
-            call ext_write_record(nbext,0,atime,knausm,nlv
+            call ext_write_record(nbext,0,atime,knausm,nlv3d
      +                                  ,ivar,m,il,vals,ierr)
             if( ierr /= 0 ) goto 97
 	  end if
@@ -406,7 +409,7 @@ c	-------------------------------------------------------
 	    call shympi_collect_node_value(k,cnv,vals(:,j,1))
 	  end do
 	  if( shympi_is_master() ) then
-            call ext_write_record(nbext,0,atime,knausm,nlv
+            call ext_write_record(nbext,0,atime,knausm,nlv3d
      +                                  ,ivar,m,il,vals,ierr)
             if( ierr /= 0 ) goto 97
 	  end if
@@ -424,7 +427,7 @@ c	-------------------------------------------------------
 	    call shympi_collect_node_value(k,tcn,vals(:,j,1))
 	  end do
 	  if( shympi_is_master() ) then
-            call ext_write_record(nbext,0,atime,knausm,nlv
+            call ext_write_record(nbext,0,atime,knausm,nlv3d
      +                                  ,ivar,m,il,vals,ierr)
             if( ierr /= 0 ) goto 97
 	  end if

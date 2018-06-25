@@ -5,6 +5,7 @@ c 20.05.2015    erp     transformed for OMP
 c 30.09.2015    ggu     routine cleaned, no reals in conz3d
 c 20.11.2015    ggu&erp chunk size introduced, omp finalized
 c 20.10.2016    ccf     pass rtauv for differential nudging
+c 11.05.2018    ggu     compute only unique nodes (needed for zeta layers)
 c
 c**************************************************************
 
@@ -110,14 +111,14 @@ c DPGGU -> introduced double precision to stabilize solution
         !double precision,dimension(nlvddi,nkn),intent(out) :: cn
         
 	logical :: btvdv
-	integer :: ie,k,ilevel,ibase,ii,l,n,i,j,x,ies,iend,kl,kend
+	integer :: ie,k,ilevel,ibase,ii,l,n,i,j,x,ies,iend,kl,kend,ntot
 	integer :: myid,numthreads,j_init,j_end,knod,k_end,jel
 	integer,allocatable,dimension(:) :: subset_l
 	real :: time1,time2
 	double precision :: dtime1,dtime2
 	integer :: nchunk,nthreads,nelems,nnodes
 	double precision :: dt
-	double precision :: az,ad,aa,azt,adt,aat
+	double precision :: az,ad,aa,azt,adt,aat,an,ant
 	double precision :: rstot,rso,rsn,rsot,rsnt
 	double precision :: timer,timer1,chunk,rest
 	
@@ -133,7 +134,7 @@ c DPGGU -> introduced double precision to stabilize solution
 	double precision,dimension(:,:),allocatable :: clow
 	double precision,dimension(:,:),allocatable :: chigh
 
-        if(nlv.ne.nlev) stop 'error stop conzstab: level'
+        if(nlv.ne.nlev) stop 'error stop conz3d_omp: nlv/=nlev'
 	
 c----------------------------------------------------------------
 c initialize variables and parameters
@@ -151,10 +152,12 @@ c----------------------------------------------------------------
 	az = azpar
 	ad = adpar
 	aa = aapar
+	an = 0.			!implicit parameter nudging
 	
 	azt=1.-az
 	adt=1.-ad
 	aat=1.-aa
+	ant=1.-an
 
 	rstot = istot			!ERIC - what a brown paper bag bug
 	rso=(isact-1)/rstot
@@ -197,6 +200,7 @@ c----------------------------------------------------------------
 !$OMP& PRIVATE(j,ie)
 !$OMP& SHARED(nlvddi,nlev,itvd,itvdv,istot,isact,aa,nchunk)
 !$OMP& SHARED(difmol,robs,wsink,rload,ddt,rkpar,az,ad)
+!$OMP& SHARED(an,ant)
 !$OMP& SHARED(azt,adt,aat,rso,rsn,rsot,rsnt,dt,nkn)
 !$OMP& SHARED(cn,co,cdiag,clow,chigh,subset_el,cn1,co1) 
 !$OMP& SHARED(subset_num,indipendent_subset) 
@@ -214,7 +218,7 @@ c----------------------------------------------------------------
      +			,cobs,robs,rtauv
      +			,wsink,wsinkv
      +			,rload,load
-     +			,az,ad,aa,azt,adt,aat
+     +			,az,ad,aa,azt,adt,aat,an,ant
      +			,rso,rsn,rsot,rsnt
      +			,nlvddi,nlev)
 		end if
@@ -235,17 +239,19 @@ c----------------------------------------------------------------
          call shympi_exchange_and_sum_3d_nodes(chigh)
        end if
 
-!$     nchunk = nkn / ( nthreads * 10 )
+       ntot = nkn
+       if( shympi_partition_on_nodes() ) ntot = nkn_unique
+!$     nchunk = ntot / ( nthreads * 10 )
        nchunk = max(nchunk,1)
 
 !$OMP TASKWAIT
 !!!$OMP TASKGROUP
-       do knod=1,nkn,nchunk
+       do knod=1,ntot,nchunk
 !$OMP TASK FIRSTPRIVATE(knod) PRIVATE(k) DEFAULT(NONE)
 !$OMP& SHARED(cn,cdiag,clow,chigh,cn1,cbound,load,nchunk,
-!$OMP&           rload,ad,aa,dt,nlvddi,nkn)
+!$OMP&           rload,ad,aa,dt,nlvddi,ntot)
 	 do k=knod,knod+nchunk-1
-	 if(k .le. nkn) then
+	 if(k .le. ntot) then
 	   call conz3d_nodes(k,cn,cdiag(:,k),clow(:,k),chigh(:,k),
      +                          cn1,cbound,load,rload,
      +                          ad,aa,dt,nlvddi)
@@ -288,7 +294,7 @@ c*****************************************************************
      +			,cobs,robs,rtauv
      +			,wsink,wsinkv
      +			,rload,load
-     +			,az,ad,aa,azt,adt,aat
+     +			,az,ad,aa,azt,adt,aat,an,ant
      +			,rso,rsn,rsot,rsnt
      +			,nlvddi,nlev)
      
@@ -316,7 +322,7 @@ c*****************************************************************
       real,dimension(nlvddi,nkn),intent(in) :: cobs,rtauv,load
       real,intent(in),dimension(0:nlvddi,nkn) :: wsinkv,difv
       double precision,intent(in) :: dt
-      double precision,intent(in) :: az,ad,aa,azt,adt,aat
+      double precision,intent(in) :: az,ad,aa,azt,adt,aat,an,ant
       double precision,intent(in) :: rso,rsn,rsot,rsnt
       double precision,dimension(nlvddi,nkn),intent(inout) :: cdiag
       double precision,dimension(nlvddi,nkn),intent(inout) :: clow
@@ -340,9 +346,10 @@ c*****************************************************************
       double precision,dimension(0:nlvddi+1,3) :: hnew,htnew,rtau,cob
       double precision,dimension(0:nlvddi+1,3) :: hold,htold,vflux,wl
       double precision,dimension(0:nlvddi+1,3) :: cl
+      double precision,dimension(0:nlvddi+1,3) :: finu
       double precision,dimension(nlvddi,3) :: clc,clm,clp,cle
 	
-	if(nlv.ne.nlev) stop 'error stop conzstab: level'
+	if(nlv.ne.nlev) stop 'error stop conz3d_element: nlv/=nlev'
 
 ! ----------------------------------------------------------------
 !  initialize variables and parameters
@@ -351,8 +358,6 @@ c*****************************************************************
 	btvd = itvd .gt. 0
 	bgradup = itvd .eq. 2	!use upwind gradient for tvd scheme
 	btvdv = itvdv .gt. 0
-
-	wws = 0.
 
 ! ----------------------------------------------------------------
 ! global arrays for accumulation of implicit terms
@@ -447,6 +452,7 @@ c*****************************************************************
 ! 	compute vertical fluxes (w/o vertical TVD scheme)
 ! 	----------------------------------------------------------------
 
+	wws = 0.	!sinking already in wl
 	call vertical_flux_ie(btvdv,ie,ilevel,dt,wws,cl,wl,hold,vflux)
 
 ! ----------------------------------------------------------------
@@ -534,7 +540,7 @@ c*****************************************************************
 ! 	  if we are in last layer, w(l,ii) is zero
 ! 	  if we are in first layer, w(l-1,ii) is zero (see above)
 
-	  w = wl(l-1,ii) - wws		!top of layer
+	  w = wl(l-1,ii)		!top of layer
 	  if( l .eq. 1 ) w = 0.		!surface -> no transport (WZERO)
 	  if( w .ge. 0. ) then
 	    fw(ii) = aat*w*cl(l,ii)
@@ -546,7 +552,7 @@ c*****************************************************************
 	    clm(l,ii) = clm(l,ii) + aa*w
 	  end if
 
-	  w = wl(l,ii) - wws		!bottom of layer
+	  w = wl(l,ii)			!bottom of layer
 	  if( l .eq. ilevel ) w = 0.	!bottom -> handle flux elsewhere (WZERO)
 	  if( w .gt. 0. ) then
 	    fw(ii) = fw(ii) - aat*w*cl(l+1,ii)
@@ -618,7 +624,8 @@ c*****************************************************************
 ! 	----------------------------------------------------------------
 
 	do ii=1,3
-	  fnudge(ii) = robs * rtau(l,ii) * ( cob(l,ii) - cl(l,ii) )
+	  fnudge(ii) = robs * rtau(l,ii) * ( cob(l,ii) - ant * cl(l,ii) )
+	  finu(l,ii) = an * robs * rtau(l,ii)	!implicit contribution
 	end do
 
 ! 	----------------------------------------------------------------
@@ -649,12 +656,12 @@ c*****************************************************************
 	  
 	  alow  = aj4 * dt * clm(l,ii)
 	  ahigh = aj4 * dt * clp(l,ii)
-	  adiag = aj4 * dt * clc(l,ii) + aj4 * hnew(l,ii)
+	  adiag = aj4 * dt * clc(l,ii) 
+     +			+ aj4 * (1.+dt*finu(l,ii)) * hnew(l,ii)
 	  cn(l,k)    = cn(l,k)    + cexpl
 	  clow(l,k)  = clow(l,k)  + alow
 	  chigh(l,k) = chigh(l,k) + ahigh   
           cdiag(l,k) = cdiag(l,k) + adiag
-	   
 	end do
 
 	end do		! loop over l
@@ -693,6 +700,7 @@ c*****************************************************************
 	use evgeom
 	use levels
 	use basin
+	use shympi
 	
 	implicit none
 	
@@ -747,17 +755,16 @@ c*****************************************************************
 
 	if((aa .eq. 0. .and. ad .eq. 0.).or.(nlv .eq. 1)) then
 
-	if( nlv .gt. 1 ) then
-	  write(6,*) 'conz: computing explicitly ',nlv
-	end if
-
-	!do k=1,nkn
-	 ilevel = ilhkv(k)
-	 do l=1,ilevel
-	  if(cdiag(l).ne.0.) then
-	    cn(l,k)=cn(l,k)/cdiag(l)
+	  if( nlv .gt. 1 ) then
+	    write(6,*) 'conz: computing explicitly ',nlv
 	  end if
-	 end do
+
+	  ilevel = ilhkv(k)
+	  do l=1,ilevel
+	    if(cdiag(l).ne.0.) then
+	      cn(l,k)=cn(l,k)/cdiag(l)
+	    end if
+	  end do
 
 	else
 
@@ -766,6 +773,7 @@ c*****************************************************************
 	  chigh(1)=chigh(1)*aux
 	  cn(1,k)=cn(1,k)*aux
 	  do l=2,ilevel
+	    if( cdiag(l) == 0. ) goto 99
 	    aux=1./(cdiag(l)-clow(l)*chigh(l-1))
 	    chigh(l)=chigh(l)*aux
 	    cn(l,k)=(cn(l,k)-clow(l)*cn(l-1,k))*aux
@@ -780,6 +788,12 @@ c*****************************************************************
 !  end of routine
 ! ----------------------------------------------------------------
 
+	return
+   99	continue
+	write(6,*) k,l,ilevel
+	write(6,*) nkn_inner,nkn_local,nkn
+	write(6,*) cdiag(l),clow(l),chigh(l-1)
+	stop 'error stop conz3d_nodes (omp): diag == 0'
       end subroutine conz3d_nodes
 
 c*****************************************************************

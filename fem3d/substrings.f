@@ -513,6 +513,10 @@
 
 	integer isub,i
 	character*80 string
+	character*1, parameter :: dir(2) = (/'x','y'/)
+	integer, save :: idir = 0
+
+	logical has_direction
 
 	call strings_get_short_name(ivar,string,isub)
 
@@ -527,6 +531,9 @@
 	  end do
 	  string(1:1) = '_'
 	  filename = trim(filename) // string(1:4)
+	else if( has_direction(string) ) then
+	  idir = mod(idir,2) + 1
+	  filename = trim(filename) // '-' // dir(idir)
 	end if
 
 	end
@@ -776,6 +783,7 @@ c finds direction if vector
 	!call strings_add_new('velocity in x-direction',61)
 	call strings_add_new('index',75)
 	call strings_add_new('type',76)
+	call strings_add_new('distance',77)
 	call strings_add_new('lgr',80)
 	call strings_add_new('ice cover',85)
 	call strings_add_new('time step',95)
@@ -863,6 +871,7 @@ c finds direction if vector
 	call strings_set_short(60,'bstress')
 	call strings_set_short(75,'index')
 	call strings_set_short(76,'type')
+	call strings_set_short(77,'distance')
 	call strings_set_short(80,'lgr')
 	call strings_set_short(85,'ice')
 	call strings_set_short(95,'timestep')

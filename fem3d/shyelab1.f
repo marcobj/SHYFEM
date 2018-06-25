@@ -21,6 +21,7 @@
 ! 11.05.2017    ggu     use catmode to concatenate files
 ! 05.10.2017    ggu     implement silent option
 ! 07.10.2017    ggu     new names for -split option of hydro file
+! 11.05.2018    ggu     call shympi_init later (after basin)
 !
 !**************************************************************
 
@@ -74,9 +75,9 @@
 	integer naccum
 	character*80 title,name,file
 	character*80 basnam,simnam
-	character*20 dline
+	character*20 aline
 	real rnull
-	real cmin,cmax,cmed,cstd,vtot
+	real cmin,cmax,cmed,cstd,atot,vtot
 	double precision dtime,dtstart,dtnew,ddtime
 	double precision atfirst,atlast
 	double precision atime,atstart,atnew,atold
@@ -112,7 +113,7 @@
 
 	call elabutil_init('SHY','shyelab')
 
-	call shympi_init(.false.)
+	!call shympi_init(.false.)
 
 	!--------------------------------------------------------------
 	! open input files
@@ -121,9 +122,9 @@
 	call open_new_file(ifile,id,atstart)	!atstart=-1 if no new file
 	if( bverb ) call shy_write_filename(id)
 	if( atstart /= -1 ) then
-	  call dts_format_abs_time(atstart,dline)
+	  call dts_format_abs_time(atstart,aline)
 	  if( .not. bsilent ) then
-	    write(6,*) 'initial date for next file: ',dline
+	    write(6,*) 'initial date for next file: ',aline
 	  end if
 	end if
 
@@ -149,6 +150,11 @@
 	call basin_set_read_basin(.true.)
 	call shy_copy_basin_from_shy(id)
 	call shy_copy_levels_from_shy(id)
+
+	!call test_internal_numbering(id)
+
+	call shympi_init(.false.)		!call after basin has been read
+	call shympi_set_hlv(nlv,hlv)
 
 	call ev_set_verbose(.not.bquiet)
         call ev_init(nel)
@@ -200,6 +206,7 @@
 	call init_sigma_info(nlv,hlv)
 
 	call shy_make_area
+	!call shy_check_area
 	call outfile_make_depth(nkn,nel,nen3v,hm3v,hev,hkv)
 
 	!--------------------------------------------------------------
@@ -308,6 +315,7 @@
 	 end if
 
 	 call dts_convert_to_atime(datetime_elab,dtime,atime)
+	 call dts_format_abs_time(atime,aline)
 	 if( concat_cycle_a(atime,atlast,atstart) ) cycle
 	 atlast = atime
 
@@ -395,9 +403,10 @@
 
 	  if( baverbas .and. bscalar ) then
 	    call shy_assert(nndim==nkn,'shyelab internal error (123)')
-	    call shy_make_basin_aver(idims(:,iv),nndim,cv3,ikflag
-     +                          ,cmin,cmax,cmed,cstd,vtot)
-	    call shy_write_aver(dtime,ivar,cmin,cmax,cmed,cstd,vtot)
+	    call shy_make_basin_aver(idims(:,iv),nlv,nndim,cv3,ikflag
+     +                          ,cmin,cmax,cmed,cstd,atot,vtot)
+	    call shy_write_aver(aline,nvar,iv,ivar
+     +				,cmin,cmax,cmed,cstd,atot,vtot)
 	  end if
 
 	 end do		!loop on ivar
@@ -407,7 +416,7 @@
 	 !--------------------------------------------------------------
 
 	 if( baverbas .and. bhydro ) then
-           call shy_make_hydro_aver(dtime,nndim,cv3all,ikflag
+           call shy_make_hydro_aver(aline,nndim,cv3all,ikflag
      +                  ,znv,uprv,vprv,sv,dv)
 	 end if
 
@@ -473,10 +482,10 @@
 	if( .not. bsilent ) then
 
 	write(6,*)
-	call dts_format_abs_time(atfirst,dline)
-	write(6,*) 'first time record: ',dline
-	call dts_format_abs_time(atlast,dline)
-	write(6,*) 'last time record:  ',dline
+	call dts_format_abs_time(atfirst,aline)
+	write(6,*) 'first time record: ',aline
+	call dts_format_abs_time(atlast,aline)
+	write(6,*) 'last time record:  ',aline
 
 	call shyelab_get_nwrite(nwrite,nwtime)
 
@@ -555,7 +564,7 @@
 !***************************************************************
 !***************************************************************
 
-        subroutine shy_make_hydro_aver(dtime,nndim,cv3all,ikflag
+        subroutine shy_make_hydro_aver(aline,nndim,cv3all,ikflag
      +                  ,znv,uprv,vprv,sv,dv)
 
         use basin
@@ -566,7 +575,8 @@
         implicit none
 
         integer, parameter :: nvar = 4
-        double precision dtime
+	character*20 aline
+	integer iv
         integer nndim
         integer idims(4,nvar)
         real cv3all(nlvdi,nndim,0:nvar)
@@ -578,36 +588,41 @@
         real dv(nlvdi,nkn)
 
         integer ivar,idim(4)
-        real cmin,cmax,cmed,cstd,vtot
+        real cmin,cmax,cmed,cstd,atot,vtot
 
         call prepare_hydro(.true.,nndim,cv3all,znv,uprv,vprv)
         call convert_to_speed(uprv,vprv,sv,dv)
 
+	iv = 1
         ivar = 1
         idim = (/nkn,1,1,ivar/)
-        call shy_make_basin_aver(idim,nkn,znv,ikflag
-     +                          ,cmin,cmax,cmed,cstd,vtot)
-	!vtot = 0.
-        call shy_write_aver(dtime,ivar,cmin,cmax,cmed,cstd,vtot)
+        call shy_make_basin_aver(idim,1,nkn,znv,ikflag
+     +                          ,cmin,cmax,cmed,cstd,atot,vtot)
+        call shy_write_aver(aline,nvar,iv,ivar
+     +				,cmin,cmax,cmed,cstd,atot,vtot)
 
+	iv = 2
         ivar = 2
         idim = (/nkn,1,nlv,ivar/)
-        call shy_make_basin_aver(idim,nkn,uprv,ikflag
-     +                          ,cmin,cmax,cmed,cstd,vtot)
-	!vtot = 0.
-        call shy_write_aver(dtime,ivar,cmin,cmax,cmed,cstd,vtot)
+        call shy_make_basin_aver(idim,nlv,nkn,uprv,ikflag
+     +                          ,cmin,cmax,cmed,cstd,atot,vtot)
+        call shy_write_aver(aline,nvar,iv,ivar
+     +				,cmin,cmax,cmed,cstd,atot,vtot)
 
-        call shy_make_basin_aver(idim,nkn,vprv,ikflag
-     +                          ,cmin,cmax,cmed,cstd,vtot)
-	!vtot = 0.
-        call shy_write_aver(dtime,ivar,cmin,cmax,cmed,cstd,vtot)
+	iv = 3
+        call shy_make_basin_aver(idim,nlv,nkn,vprv,ikflag
+     +                          ,cmin,cmax,cmed,cstd,atot,vtot)
+        call shy_write_aver(aline,nvar,iv,ivar
+     +				,cmin,cmax,cmed,cstd,atot,vtot)
 
+	iv = 4
         ivar = 6
         idim = (/nkn,1,nlv,ivar/)
-        call shy_make_basin_aver(idim,nkn,sv,ikflag
-     +                          ,cmin,cmax,cmed,cstd,vtot)
+        call shy_make_basin_aver(idim,nlv,nkn,sv,ikflag
+     +                          ,cmin,cmax,cmed,cstd,atot,vtot)
 	!vtot = 0.
-        call shy_write_aver(dtime,ivar,cmin,cmax,cmed,cstd,vtot)
+        call shy_write_aver(aline,nvar,iv,ivar
+     +				,cmin,cmax,cmed,cstd,atot,vtot)
 
         end
 
@@ -869,3 +884,45 @@ c compute dominant discharge and put index in valri (custom routine)
 	end subroutine shy_write_filename
 
 !***************************************************************
+
+	subroutine test_internal_numbering(id)
+
+	use basin
+
+	implicit none
+
+	integer id
+	integer i
+
+	write(6,*) 'test_internal_numbering: '
+
+	do i=1,nel,nel/10
+	  write(6,*) i,ipev(i)
+	end do
+
+	do i=1,nkn,nkn/10
+	  write(6,*) i,ipv(i)
+	end do
+
+	stop
+
+	end
+
+!***************************************************************
+
+	subroutine shy_check_area
+
+	use shyutil
+
+	implicit none
+
+	real area_k,area_e
+
+	area_k = sum(areak)
+	area_e = sum(areae)
+	write(6,*) 'areas: ',area_k,area_e
+
+	end
+
+!***************************************************************
+

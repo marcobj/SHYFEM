@@ -7,6 +7,7 @@
 !
 ! 24.11.2015    ggu     project started
 ! 10.04.2018    ggu     adjourned with new function calls
+! 11.05.2018    ggu     new function calls for global values and internal pointers
 !
 !******************************************************************
 
@@ -24,6 +25,11 @@
 	integer,save :: n_threads = 1
 	integer,save :: my_id = 0
 	integer,save :: my_unit = 0
+
+        integer,save :: status_size = 0          !ngr of total basin
+
+        integer,save :: ngr_global = 0          !ngr of total basin
+        integer,save :: nlv_global = 0          !nlv of total basin
 
 	integer,save :: nkn_global = 0		!total basin
 	integer,save :: nel_global = 0
@@ -51,16 +57,22 @@
 	integer,save,allocatable :: ghost_elems_in(:,:)
 	integer,save,allocatable :: ghost_elems_out(:,:)
 
-	integer,save,allocatable :: i_buffer_in(:,:)
-	integer,save,allocatable :: i_buffer_out(:,:)
-	real,save,allocatable    :: r_buffer_in(:,:)
-	real,save,allocatable    :: r_buffer_out(:,:)
+	!integer,save,allocatable :: i_buffer_in(:,:)
+	!integer,save,allocatable :: i_buffer_out(:,:)
+	!real,save,allocatable    :: r_buffer_in(:,:)
+	!real,save,allocatable    :: r_buffer_out(:,:)
 	
-	integer,save,allocatable :: request(:)		!for exchange
-	integer,save,allocatable :: status(:,:)		!for exchange
-
 	integer,save,allocatable :: id_node(:)
 	integer,save,allocatable :: id_elem(:,:)
+
+        integer,save,allocatable :: ip_ext_node(:)      !global external nums
+        integer,save,allocatable :: ip_ext_elem(:)
+        integer,save,allocatable :: ip_int_node(:)      !global internal nums
+        integer,save,allocatable :: ip_int_elem(:)
+        integer,save,allocatable :: ip_int_nodes(:,:)   !all global int nums
+        integer,save,allocatable :: ip_int_elems(:,:)
+        integer,save,allocatable :: nen3v_global(:,:)
+	real,save,allocatable :: hlv_global(:)
 
         type communication_info
           integer, public :: numberID
@@ -182,6 +194,7 @@
         INTERFACE shympi_gather
         	MODULE PROCEDURE  
      +			  shympi_gather_scalar_i
+     +                   ,shympi_gather_array_i
      +                   ,shympi_gather_array_r
      +                   ,shympi_gather_array_d
         END INTERFACE
@@ -318,6 +331,8 @@
 	call shympi_init_internal(my_id,n_threads)
 	!call check_part_basin('nodes')
 
+	ngr_global = ngr
+
 	nkn_global = nkn
 	nel_global = nel
 	nkn_local = nkn
@@ -330,8 +345,12 @@
 	bmpi = n_threads > 1		!this is always false
 
 	if( b_want_mpi ) then
+	 if( shympi_is_master() ) then
+          !write(6,*) 'mpi thread: ',my_id
           write(6,*) 'program wants mpi but only one thread available'
-          stop 'error stop shympi_init'
+	  write(6,*) 'the program has not been compiled with mpi support'
+	 end if
+         call shympi_stop('error stop shympi_init')
 	end if
 
         !-----------------------------------------------------
@@ -340,8 +359,6 @@
 
 	call shympi_get_status_size_internal(size)
 
-	allocate(request(2*n_threads))
-	allocate(status(size,2*n_threads))
         allocate(nkn_domains(n_threads))
         allocate(nel_domains(n_threads))
         allocate(nkn_cum_domains(0:n_threads))
@@ -352,6 +369,8 @@
         nkn_cum_domains(1) = nkn
         nel_cum_domains(0) = 0
         nel_cum_domains(1) = nel
+
+	call shympi_alloc_global(nkn,nel,nen3v,ipv,ipev)
 
         !-----------------------------------------------------
         ! next is needed if program is not running in mpi mode
@@ -371,7 +390,7 @@
 	  open(unit=my_unit,file=file,status='unknown')
 	  !open(newunit=my_unit,file=file,status='unknown')
 	  write(my_unit,*) 'shympi initialized: ',my_id,n_threads
-	else
+	else if( bmpi_debug ) then
           write(6,*) 'shympi initialized: ',my_id,n_threads
           write(6,*) 'shympi is not running in mpi mode'
 	end if
@@ -398,7 +417,7 @@
 
 	integer nk,ne
 
-	write(6,*) 'shympi_alloc_id: ',nk,ne
+	!write(6,*) 'shympi_alloc_id: ',nk,ne
 
 	allocate(id_node(nk))
 	allocate(id_elem(0:2,ne))
@@ -407,6 +426,41 @@
 	id_elem = my_id
 
 	end subroutine shympi_alloc_id
+
+!******************************************************************
+
+        subroutine shympi_alloc_global(nk,ne,nen3v,ipv,ipev)
+
+        integer nk,ne
+        integer nen3v(3,ne)
+	integer ipv(nk)
+	integer ipev(ne)
+
+        integer i
+
+        allocate(ip_ext_node(nk))
+        allocate(ip_ext_elem(ne))
+        allocate(ip_int_node(nk))
+        allocate(ip_int_elem(ne))
+        allocate(ip_int_nodes(nk,1))
+        allocate(ip_int_elems(ne,1))
+        allocate(nen3v_global(3,ne))
+
+        do i=1,nk
+          ip_int_node(i) = i
+          ip_int_nodes(i,1) = i
+        end do
+
+        do i=1,ne
+          ip_int_elem(i) = i
+          ip_int_elems(i,1) = i
+        end do
+
+        nen3v_global = nen3v
+        ip_ext_node = ipv
+        ip_ext_elem = ipev
+
+        end subroutine shympi_alloc_global
 
 !******************************************************************
 
@@ -435,6 +489,10 @@
         subroutine shympi_alloc_buffer(n)
 
         integer n
+	integer,save,allocatable :: i_buffer_in(:,:)
+	integer,save,allocatable :: i_buffer_out(:,:)
+	real,save,allocatable    :: r_buffer_in(:,:)
+	real,save,allocatable    :: r_buffer_out(:,:)
 
         if( n_buffer >= n ) return
 
@@ -454,6 +512,80 @@
         allocate(r_buffer_out(n_buffer,n_ghost_areas))
 
         end subroutine shympi_alloc_buffer
+
+!******************************************************************
+!******************************************************************
+!******************************************************************
+
+        function shympi_internal_node(k)
+
+        integer shympi_internal_node
+        integer k
+        integer i
+
+        do i=1,nkn_global
+          if( ip_ext_node(i) == k ) exit
+        end do
+        if( i > nkn_global ) i = 0
+
+        shympi_internal_node = i
+
+        end function shympi_internal_node
+
+!******************************************************************
+
+        function shympi_internal_elem(ie)
+
+        integer shympi_internal_elem
+        integer ie
+        integer i
+
+        do i=1,nel_global
+          if( ip_ext_elem(i) == ie ) exit
+        end do
+        if( i > nel_global ) i = 0
+
+        shympi_internal_elem = i
+
+        end function shympi_internal_elem
+
+!******************************************************************
+
+        function shympi_exist_node(k)
+
+        logical shympi_exist_node
+        integer k
+
+        shympi_exist_node = ( shympi_internal_node(k) > 0 )
+
+        end function shympi_exist_node
+
+!******************************************************************
+
+        function shympi_exist_elem(ie)
+
+        logical shympi_exist_elem
+        integer ie
+
+        shympi_exist_elem = ( shympi_internal_elem(ie) > 0 )
+
+        end function shympi_exist_elem
+
+!******************************************************************
+!******************************************************************
+!******************************************************************
+
+        subroutine shympi_set_hlv(nlv,hlv)
+
+	integer nlv
+	real hlv(nlv)
+
+	allocate(hlv_global(nlv))
+
+	nlv_global = nlv
+	hlv_global = hlv
+
+        end subroutine shympi_set_hlv
 
 !******************************************************************
 !******************************************************************
@@ -900,6 +1032,17 @@
 
 !*******************************
 
+        subroutine shympi_gather_array_i(val,vals)
+
+        integer val(:)
+        integer vals(size(val),n_threads)
+
+	vals(:,1) = val(:)
+
+        end subroutine shympi_gather_array_i
+
+!*******************************
+
         subroutine shympi_gather_array_r(val,vals)
 
         real val(:)
@@ -1030,6 +1173,7 @@
         do k=1,nkn_unique
           if( ipv(k) == ke ) exit
         end do
+	if( k > nkn_unique ) k = 0
 
         ki = k
         id = 0
@@ -1677,10 +1821,32 @@
         use shympi
         implicit none
 	integer n
-        integer val
-        integer vals(1)
-	vals(1) = val
+        integer val(n)
+        integer vals(n,1)
+	vals(:,1) = val
         end subroutine shympi_allgather_i_internal
+
+!******************************************************************
+
+        subroutine shympi_allgather_r_internal(n,val,vals)
+        use shympi
+        implicit none
+	integer n
+        real val(n)
+        real vals(n,1)
+	vals(:,1) = val
+        end subroutine shympi_allgather_r_internal
+
+!******************************************************************
+
+        subroutine shympi_allgather_d_internal(n,val,vals)
+        use shympi
+        implicit none
+	integer n
+        double precision val(n)
+        double precision vals(n,1)
+	vals(:,1) = val
+        end subroutine shympi_allgather_d_internal
 
 !******************************************************************
 

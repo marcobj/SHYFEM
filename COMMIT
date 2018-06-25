@@ -1,5 +1,407 @@
 ============================================================
 
+Thu Jun 14 09:06:05 EEST 2018
+
+bug fix for make_aver_3d
+
+ fem3d/elab_off.f |    4 ++--
+ fem3d/shyelab1.f |   17 +++++++++++++++++
+ fem3d/shyutil.f  |    5 +++--
+ 3 files changed, 22 insertions(+), 4 deletions(-)
+
+============================================================
+
+Wed Jun 13 20:19:51 CEST 2018
+
+compatibility programs adjourned
+
+ fem3d/mod_shympi_dummy.f | 16 ++++++++++++++++
+ fem3d/mod_shympi_node.f  | 40 ++++++++++++++++++++++++++++++++++++++++
+ fem3d/newini.f           |  5 ++++-
+ fem3d/nos2shy.f          |  4 ++++
+ fem3d/ous2shy.f          |  6 +++++-
+ fem3d/shyelab.f          | 30 ++++++++++++++++++++++++++----
+ fem3d/shyelab1.f         |  1 +
+ fem3d/shyutil.f          |  2 +-
+ 8 files changed, 97 insertions(+), 7 deletions(-)
+
+============================================================
+
+Sun Jun 10 11:41:54 CEST 2018
+
+new offline output and bug fix hydro output
+
+ fem3d/Makefile         |   5 +-
+ fem3d/elab_off.f       | 191 +++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/elabutil.f       |   5 +-
+ fem3d/shyelab_output.f |  17 +++++
+ fem3d/subshyutil.f     |   3 +-
+ 5 files changed, 218 insertions(+), 3 deletions(-)
+ new file:
+   fem3d/elab_off.f
+
+============================================================
+
+Fri Jun  8 17:24:16 EEST 2018
+
+bug fix for ice data
+
+ fem3d/subfemintp.f |    5 ++++-
+ fem3d/submeteo2.f  |    4 +++-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+============================================================
+
+Thu Jun  7 17:02:17 CEST 2018
+
+fontsize and small bug fixes
+
+ fem3d/Makefile        |  7 ++---
+ fem3d/shyelab_units.f | 72 ---------------------------------------------------
+ fem3d/unitutils.f     | 72 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ femplot/Makefile      |  9 ++++---
+ femplot/shyplot.f     |  6 +++++
+ femplot/supano.f      | 12 ++++++---
+ femplot/supbas.f      | 25 +++++++++---------
+ femplot/supcust.f     | 33 +++++++++++++++++++++++
+ 8 files changed, 142 insertions(+), 94 deletions(-)
+ new file:
+   femplot/supcust.f
+ renamed:
+    fem3d/shyelab_units.f -> fem3d/unitutils.f
+
+============================================================
+
+Thu Jun  7 14:04:43 CEST 2018
+
+with -averbas also write area
+
+ fem3d/elabutil.f | 18 +++++++++++-------
+ fem3d/shyelab1.f | 31 ++++++++++++++++---------------
+ fem3d/shyutil.f  | 48 +++++++++++++++++++++++++++---------------------
+ 3 files changed, 54 insertions(+), 43 deletions(-)
+
+============================================================
+
+Thu Jun  7 10:46:20 CEST 2018
+
+changes for -averbas of shyelab
+
+ fem3d/elabutil.f   | 54 ++++++++++++++++++++++++++++++++++++------------------
+ fem3d/shyelab1.f   | 47 +++++++++++++++++++++++++++--------------------
+ fem3d/shyutil.f    | 17 +++++++++++------
+ fem3d/substrings.f |  7 +++++++
+ post/psgraph.c     | 22 +++++++++-------------
+ 5 files changed, 90 insertions(+), 57 deletions(-)
+
+============================================================
+
+Thu Jun  7 00:49:14 EEST 2018
+
+bug fix for ice cover in boundary files
+
+ fem3d/subfemintp.f | 13 +++++++++++--
+ fem3d/submeteo2.f  | 23 +++++++++++++++--------
+ 2 files changed, 26 insertions(+), 10 deletions(-)
+
+============================================================
+
+Tue Jun  5 21:00:22 CEST 2018
+
+bug fix for external/internal mpi numb
+
+ Makefile                 |  3 +-
+ fem3d/mod_shympi_dummy.f | 72 ++++++++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 71 insertions(+), 4 deletions(-)
+
+============================================================
+
+Sat Jun  2 22:10:39 CEST 2018
+
+small changes for external/internal mpi numbering
+
+ Makefile                            |  3 ++
+ fem3d/mod_shympi_dummy.f            |  6 +++-
+ fem3d/mod_shympi_node.f             | 72 +++++++++++++++++++++++++++++++++++--
+ fem3d/shyelab1.f                    | 28 +++++++++++++++
+ fem3d/subexta.f                     | 25 ++++++-------
+ fem3d/subnls.f                      |  3 +-
+ fem3d/subnsu.f                      | 13 ++++---
+ fembin/git_info/git_info_branch.txt | 35 ++++++++++++++++++
+ 8 files changed, 164 insertions(+), 21 deletions(-)
+ new file:
+   fembin/git_info/git_info_branch.txt
+
+============================================================
+
+Sat Jun  2 10:52:51 CEST 2018
+
+bug fix for implicit nudging
+
+ fem3d/newcon.f     | 187 +++++++++++++++++++++++------------------------------
+ fem3d/newcon_omp.f |  26 ++++----
+ fem3d/subqfxm5.f   |   2 +
+ 3 files changed, 98 insertions(+), 117 deletions(-)
+
+============================================================
+
+Thu May 31 16:15:29 EEST 2018
+
+better stability output and rst handling
+
+ fem3d/bdist.f      |    5 +-
+ fem3d/elab_check.f |   29 ++++++-
+ fem3d/newcon.f     |  114 +++++++++++++---------------
+ fem3d/newcon_omp.f |    4 +-
+ fem3d/rstinf.f     |   22 +++---
+ fem3d/shyfem.f     |   43 ++++++++++-
+ fem3d/subcon1.f    |   30 ++++++++
+ fem3d/subnsh.f     |   13 ++-
+ fem3d/suboutputd.f |   18 ++++-
+ fem3d/subrst.f     |  210 ++++++++++++++++++++++++++++++---------------------
+ fem3d/subshyutil.f |   15 ++++
+ fem3d/substrings.f |    2 +
+ fem3d/subsys.f     |    6 ++
+ fembin/extimate.sh |   14 +++-
+ 14 files changed, 349 insertions(+), 176 deletions(-)
+
+============================================================
+
+Tue May 29 15:13:43 EEST 2018
+
+bug fix in reg BC
+
+ fem3d/newlevels.f  |   15 +++++++
+ fem3d/subfemintp.f |  111 +++++++++++++++++++++++++++++++++++++++++----------
+ fem3d/subqfxu1.f   |    6 ++-
+ fem3d/subreg.f     |  111 +++++++++++++++++++++++++++++++++++++--------------
+ 4 files changed, 189 insertions(+), 54 deletions(-)
+
+============================================================
+
+Fri May 11 19:15:38 CEST 2018
+
+New version 7_5_47
+
+
+============================================================
+
+Fri May 11 19:14:46 CEST 2018
+
+mpi working with 3d (sigma and zeta), also wetting and drying
+
+ LOG                              |  36 +++++++++++++++++++
+ RELEASE_NOTES                    |   8 ++++-
+ fem3d/MPI_todo                   |   3 +-
+ fem3d/Makefile                   |   8 +++--
+ fem3d/mod_shympi_dummy.f         |   9 +++++
+ fem3d/mod_shympi_node.f          |  35 ++++++++++--------
+ fem3d/mod_shympi_node_internal.f |  68 ++++++++++++++++++++++-------------
+ fem3d/new3di.f                   |   2 +-
+ fem3d/newcon.f                   |  34 ++++++++++--------
+ fem3d/newcon_omp.f               |  40 +++++++++++++--------
+ fem3d/newini.f                   |  45 +++++++++++++++++++++++
+ fem3d/semi.h                     |   8 -----
+ fem3d/shyelab1.f                 |   5 ++-
+ fem3d/shyfem.f                   |   5 ++-
+ fem3d/simsys_spk.f               |  17 ++++++---
+ fem3d/subexta.f                  |  24 +++++++------
+ fem3d/subnsh.f                   |  76 ++++++++++++---------------------------
+ fem3d/subousa.f                  |   8 ++---
+ fem3d/subres.f                   |   7 +---
+ fem3d/subshyutil.f               |  62 +++++++++++++++++++++++++-------
+ fem3d/subver.f                   |   9 ++---
+ femcheck/parallel/hw_mix.sh      |   6 ++--
+ femcheck/parallel/hw_mpi.sh      |  11 ++++--
+ femdoc/final/shyfem.pdf          | Bin 293478 -> 293459 bytes
+ femutil/var/Makefile             |  10 ++++++
+ femutil/var/array_assign.f       |  42 ++++++++++++++++++++++
+ 26 files changed, 393 insertions(+), 185 deletions(-)
+ new file:
+   femutil/var/Makefile
+   femutil/var/array_assign.f
+ deleted:
+    fem3d/semi.h
+
+============================================================
+
+Thu Apr 26 18:33:27 CEST 2018
+
+mpi version with wet&dry and area code
+
+ fem3d/MPI_todo  |  8 ++++----
+ fem3d/shyfem.f  |  2 +-
+ fem3d/sublnks.f | 23 ++++++++++-------------
+ fem3d/subn35.f  | 51 +++++++++++++++++++++++++++++++++++++--------------
+ 4 files changed, 52 insertions(+), 32 deletions(-)
+
+============================================================
+
+Thu Apr 26 13:35:25 CEST 2018
+
+New version 7_5_46
+
+
+============================================================
+
+Thu Apr 26 13:34:43 CEST 2018
+
+prepared mpi semi-implicit for new version
+
+ LOG                     |  25 +++++++++++++++++++++++++
+ RELEASE_NOTES           |   7 +++++++
+ Rules.make              |   2 +-
+ fem3d/Makefile          |  11 +++++++----
+ fem3d/subver.f          |   7 ++++---
+ femdoc/final/shyfem.pdf | Bin 293480 -> 293478 bytes
+ 6 files changed, 44 insertions(+), 8 deletions(-)
+
+============================================================
+
+Thu Apr 26 13:28:11 CEST 2018
+
+final version for semi-implicit
+
+ Rules.make                       |   2 +-
+ fem3d/MPI_todo                   |  17 +-
+ fem3d/Makefile                   |   3 +-
+ fem3d/mod_shympi_dummy.f         |  66 ++++++-
+ fem3d/mod_shympi_node.f          | 104 +++++++---
+ fem3d/mod_shympi_node_internal.f |  81 ++++++--
+ fem3d/mod_system.f               | 276 +++++++++++++++-----------
+ fem3d/new3di.f                   |  20 +-
+ fem3d/newcon.f                   |  15 +-
+ fem3d/newpoi.f                   |   8 +-
+ fem3d/shyfem.f                   |  24 ++-
+ fem3d/simsys_spk.f               | 408 +++++++++++++++++++++++++++++++++++----
+ fem3d/subcoo.f                   | 258 +++++++++++++++----------
+ fem3d/subfil.f                   |   3 +-
+ fem3d/submpi_basin.f             |  30 ++-
+ fem3d/submpi_custom.f            |  10 +-
+ fem3d/submpi_time.f              |  84 ++++++++
+ fem3d/subnsh.f                   |  25 +--
+ fem3d/subspk.f                   |  77 +++++---
+ femcheck/parallel/Makefile       |   6 +
+ femcheck/test_compile.sh         |   2 +-
+ 21 files changed, 1118 insertions(+), 401 deletions(-)
+ new file:
+   fem3d/submpi_time.f
+
+============================================================
+
+Sun Apr 22 15:39:44 CEST 2018
+
+started mpi semi-implicit - only data structures
+
+ fem3d/mod_shympi_node.f     |   4 +
+ fem3d/mod_system.f          |  65 ++++++++--
+ fem3d/simsys_spk.f          |   3 +-
+ fem3d/simsys_spkmpi.f       | 307 ++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/subcoo.f              | 143 +++++++++++++++++----
+ fem3d/subspk.f              |   6 +-
+ femcheck/parallel/Makefile  |  25 ++++
+ femcheck/parallel/hw_mix.f  |  40 ++++++
+ femcheck/parallel/hw_mix.sh |  16 +++
+ femcheck/parallel/hw_mpi.f  |  21 +++
+ femcheck/parallel/hw_mpi.sh |  16 +++
+ femcheck/parallel/hw_omp.f  |  23 ++++
+ femcheck/parallel/hw_omp.sh |  16 +++
+ 13 files changed, 647 insertions(+), 38 deletions(-)
+ new file:
+   fem3d/simsys_spkmpi.f
+   femcheck/parallel/Makefile
+   femcheck/parallel/hw_mix.f
+   femcheck/parallel/hw_mix.sh
+   femcheck/parallel/hw_mpi.f
+   femcheck/parallel/hw_mpi.sh
+   femcheck/parallel/hw_omp.f
+   femcheck/parallel/hw_omp.sh
+
+============================================================
+
+Fri Apr 20 18:44:23 CEST 2018
+
+small changes in WRT
+
+ fem3d/subwrt.f | 24 +++++++-----------------
+ 1 file changed, 7 insertions(+), 17 deletions(-)
+
+============================================================
+
+Fri Apr 20 11:12:23 CEST 2018
+
+better error check in shybas
+
+ fem3d/basutil_part.f | 201 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ fem3d/links.f        |  25 +++++--
+ fem3d/shybas.f       |   1 +
+ 3 files changed, 216 insertions(+), 11 deletions(-)
+
+============================================================
+
+Thu Apr 19 16:58:50 CEST 2018
+
+New version 7_5_45
+
+
+============================================================
+
+Thu Apr 19 16:58:14 CEST 2018
+
+final polishing with new mpi code and wrt computation
+
+ LOG                              |  66 ++++++++++++++++++++++++++++++++++++++
+ RELEASE_NOTES                    |   9 ++++++
+ fem3d/MPI_todo                   |   1 +
+ fem3d/Makefile                   |  13 ++++----
+ fem3d/mod_shympi_node.f          |   2 +-
+ fem3d/mod_shympi_node_internal.f |   2 +-
+ fem3d/shypre.f                   |   1 +
+ fem3d/subnev.f                   |  18 +++++------
+ fem3d/subver.f                   |   7 ++--
+ fem3d/subwrt.f                   |  67 +++++++++++++++++++++++++++------------
+ femdoc/final/shyfem.pdf          | Bin 293477 -> 293480 bytes
+ femplot/Makefile                 |   3 +-
+ femplot/col.f                    |  12 ++++---
+ femplot/mod_hydro_plot.f         |   3 ++
+ femplot/supbas.f                 |   2 ++
+ femplot/supiso.f                 |   5 +++
+ femplot/supout.f                 |   8 ++++-
+ femplot/supsim.f                 |   9 ++++--
+ 18 files changed, 177 insertions(+), 51 deletions(-)
+
+============================================================
+
+Wed Apr 18 18:47:01 CEST 2018
+
+some work on WRT, cleaned up mpi
+
+ fem3d/MPI_todo                             |  12 +
+ fem3d/Makefile                             |   2 +-
+ fem3d/{basutil_custom.f => basutil_part.f} | 109 ++++++-
+ fem3d/mod_shympi_dummy.f                   |  33 ++-
+ fem3d/mod_shympi_node.f                    |  30 +-
+ fem3d/new3di.f                             |   4 +
+ fem3d/newstab.f                            |  54 +++-
+ fem3d/shybas.f                             |  94 +-----
+ fem3d/shyfem.f                             |   5 +
+ fem3d/subdry.f                             |   1 +
+ fem3d/subtime.f                            |  50 +++-
+ fem3d/subwrt.f                             | 449 ++++++++++++++++++-----------
+ femutil/stab/Makefile                      |  10 +
+ femutil/stab/nudge.f                       |  35 +++
+ femutil/stab/nudge.sh                      |   7 +
+ 15 files changed, 603 insertions(+), 292 deletions(-)
+ new file:
+   fem3d/MPI_todo
+   femutil/stab/Makefile
+   femutil/stab/nudge.f
+   femutil/stab/nudge.sh
+ renamed:
+    fem3d/basutil_custom.f -> fem3d/basutil_part.f
+
+============================================================
+
 Sun Apr 15 18:56:06 CEST 2018
 
 wrt prepared for mpi

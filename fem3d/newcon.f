@@ -175,6 +175,11 @@ c 26.10.2015    ggu     mass check only for levdbg > 2
 c 01.04.2016    ggu     most big arrays moved from stack to allocatable
 c 20.10.2016    ccf     pass rtauv for differential nudging
 c 03.02.2018    ggu     sindex did not use rstol for stability
+c 23.04.2018    ggu     exchange mpi inside loop for istot>1
+c 11.05.2018    ggu     compute only unique nodes (needed for zeta layers)
+c 30.05.2018    ggu     better debug output in conzstab (idtstb,itmstb)
+c 01.06.2018    ggu     stability of scalar revised - aa > 0 possible again
+c 01.06.2018    ggu     implicit nudging (relaxation)
 c
 c*********************************************************************
 
@@ -634,14 +639,18 @@ c-------------------------------------------------------------
 
           call bndo_setbc(what,nlvddi,cnv,rcv,uprv,vprv)
 
+cccgguccc!$OMP CRITICAL
+          call shympi_exchange_3d_node(cnv)
+cccgguccc!$OMP END CRITICAL
+
 	end do
 
-        if( shympi_is_parallel() .and. istot > 1 ) then
-          write(6,*) 'cannot handle istot>1 with mpi yet'
-          stop 'error stop scal3sh: istot>1'
-        end if
+        !if( shympi_is_parallel() .and. istot > 1 ) then
+        !  write(6,*) 'cannot handle istot>1 with mpi yet'
+        !  stop 'error stop scal3sh: istot>1'
+        !end if
         !call shympi_comment('exchanging scalar: '//trim(what))
-        call shympi_exchange_3d_node(cnv)
+        !call shympi_exchange_3d_node(cnv)
         !call shympi_barrier
 
 c-------------------------------------------------------------
@@ -785,8 +794,8 @@ c arguments
         real azpar,adpar,aapar			!$$azpar
 	integer istot,isact
 c local
-	logical bdebug,bdebug1,debug,btvdv
-	integer k,ie,ii,l,iii,ll,ibase
+	logical bdebug,bdebug1,btvdv
+	integer k,ie,ii,l,iii,ll,ibase,ntot
 	integer lstart
 	integer ilevel
 	integer itot,isum	!$$flux
@@ -797,10 +806,10 @@ c local
 	integer elems(maxlnk)
         double precision mflux,qflux,cconz
 	double precision loading
-	double precision wws
 	double precision us,vs
 	double precision az,azt
 	double precision aa,aat,ad,adt
+	double precision an,ant
 	double precision aj,rk3,rv,aj4,aj12
 	double precision hmed,hmbot,hmtop
 	double precision hmotop,hmobot,hmntop,hmnbot
@@ -836,6 +845,7 @@ c local (new)
 	double precision vflux(0:nlvddi+1,3)
 	double precision cob(0:nlvddi+1,3)
 	double precision rtau(0:nlvddi+1,3)
+	double precision finu(0:nlvddi+1,3)
 
 	double precision hdv(0:nlvddi+1)
 	double precision haver(0:nlvddi+1)
@@ -855,13 +865,14 @@ c tvd
 	integer ies
 	integer iext
 	double precision fls(3)
+        double precision wws
 
 c functions
 c	integer ipint,ieint
 	integer ipext
 	integer ithis
 
-        if(nlv.ne.nlev) stop 'error stop conzstab: level'
+        if(nlv.ne.nlev) stop 'error stop conz3d_orig: nlv/=nlev'
 
 c----------------------------------------------------------------
 c initialize variables and parameters
@@ -869,8 +880,6 @@ c----------------------------------------------------------------
 
         bdebug1 = .true.
         bdebug1 = .false.
-        debug = .false.
-        debug = .true.
 	bdebug=.false.
 	berror=.false.
 	!btvdv =.false.
@@ -886,15 +895,14 @@ c----------------------------------------------------------------
 	adt=1.-ad
 	aa=aapar
 	aat=1.-aa
+	an=0.			!nudging implicit parameter (1 for implicit)
+	ant=1.-an
 
 	rstot=istot		!$$istot
 	rso=(isact-1)/rstot
 	rsn=(isact)/rstot
 	rsot=1.-rso
 	rsnt=1.-rsn
-
-	wws = wsink
-	wws = 0.
 
 	dt=ddt/rstot
 
@@ -1024,6 +1032,7 @@ c	----------------------------------------------------------------
 c	compute vertical fluxes (w/o vertical TVD scheme)
 c	----------------------------------------------------------------
 
+	wws = 0.	!sinking velocity alread in wl
 	call vertical_flux_ie(btvdv,ie,ilevel,dt,wws,cl,wl,hold,vflux)
 
 c----------------------------------------------------------------
@@ -1107,11 +1116,12 @@ c	  ----------------------------------------------------------------
 c	  in fw(ii) is explicit contribution
 c	  the sign is for the term on the left side, therefore
 c	  fw(ii) must be subtracted from the right side
+c	  fw is positive if flux out of node
 c
 c	  if we are in last layer, w(l,ii) is zero
 c	  if we are in first layer, w(l-1,ii) is zero (see above)
 
-	  w = wl(l-1,ii) - wws		!top of layer
+	  w = wl(l-1,ii)		!top of layer
 	  if( l .eq. 1 ) w = 0.		!surface -> no transport (WZERO)
 	  if( w .ge. 0. ) then
 	    fw(ii) = aat*w*cl(l,ii)
@@ -1123,7 +1133,7 @@ c	  if we are in first layer, w(l-1,ii) is zero (see above)
 	    clm(l,ii) = clm(l,ii) + aa*w
 	  end if
 
-	  w = wl(l,ii) - wws		!bottom of layer
+	  w = wl(l,ii)			!bottom of layer
 	  if( l .eq. ilevel ) w = 0.	!bottom -> handle flux elsewhere (WZERO)
 	  if( w .gt. 0. ) then
 	    fw(ii) = fw(ii) - aat*w*cl(l+1,ii)
@@ -1208,7 +1218,8 @@ c	contributions from nudging
 c	----------------------------------------------------------------
 
 	do ii=1,3
-	  fnudge(ii) = robs * rtau(l,ii) * ( cob(l,ii) - cl(l,ii) )
+	  fnudge(ii) = robs * rtau(l,ii) * ( cob(l,ii) - ant * cl(l,ii) )
+	  finu(l,ii) = an * robs * rtau(l,ii)	!implicit contribution
 	end do
 
 c	----------------------------------------------------------------
@@ -1269,7 +1280,8 @@ c clm -> top
 	    ccle(l,ii,ie) =            cle(l,ii)
 	    cclm(l,ii,ie) = aj4 * dt * clm(l,ii)
 	    cclp(l,ii,ie) = aj4 * dt * clp(l,ii)
-	    cclc(l,ii,ie) = aj4 * ( dt * clc(l,ii) + hnew(l,ii) )
+	    cclc(l,ii,ie) = aj4 * ( dt * clc(l,ii) 
+     +				+ (1.+dt*finu(l,ii)) * hnew(l,ii) )
 	  end do
           do l=ilevel+1,nlv
 	    ccle(l,ii,ie) = 0.
@@ -1330,9 +1342,12 @@ c----------------------------------------------------------------
 c integrate boundary conditions
 c----------------------------------------------------------------
 
+       ntot = nkn
+       if( shympi_partition_on_nodes() ) ntot = nkn_unique
+
 c in case of negative flux (qflux<0) must check if node is OBC (BUG_2010_01)
 
-	do k=1,nkn
+	do k=1,ntot
 	  ilevel = ilhkv(k)
 	  do l=1,ilevel
             !mflux = cbound(l,k)		!mass flux has been passed
@@ -1362,22 +1377,22 @@ c----------------------------------------------------------------
 
 	if( ( aa .eq. 0. .and. ad .eq. 0. ) .or. ( nlv .eq. 1 ) ) then
 
-	if( nlv .gt. 1 ) then
-	  write(6,*) 'conz: computing explicitly ',nlv
-	end if
-
-	do k=1,nkn
-	 ilevel = ilhkv(k)
-	 do l=1,ilevel
-	  if(cdiag(l,k).ne.0.) then
-	    cn(l,k)=cn(l,k)/cdiag(l,k)
+	  if( nlv .gt. 1 ) then
+	    write(6,*) 'conz: computing explicitly ',nlv
 	  end if
-	 end do
-	end do
+
+	  do k=1,ntot
+	   ilevel = ilhkv(k)
+	   do l=1,ilevel
+	    if(cdiag(l,k).ne.0.) then
+	      cn(l,k)=cn(l,k)/cdiag(l,k)
+	    end if
+	   end do
+	  end do
 
 	else
 
-	do k=1,nkn
+	do k=1,ntot
 	  ilevel = ilhkv(k)
 	  aux=1./cdiag(1,k)
 	  chigh(1,k)=chigh(1,k)*aux
@@ -1395,7 +1410,7 @@ c----------------------------------------------------------------
 
 	end if
 
-	do k=1,nkn		!DPGGU
+	do k=1,ntot		!DPGGU
           do l=1,nlv
 	    cn1(l,k)=cn(l,k)
 	  end do
@@ -1409,8 +1424,6 @@ c----------------------------------------------------------------
 
 c*****************************************************************
 
-!        subroutine conzstab(cn1,co1
-!     +			,ddt
         subroutine conzstab(
      +			ddt
      +			,robs,rtauv,wsink,wsinkv
@@ -1420,7 +1433,7 @@ c*****************************************************************
      +                  ,sindex
      +			,istot,isact
      +			,nlvddi,nlev)
-c
+
 c checks stability
 c
 c cn     new concentration
@@ -1503,11 +1516,10 @@ c arguments
 c common
 	include 'mkonst.h'
 c local
-	logical bdebug,bdebug1,debug
-	integer k,ie,ii,l,iii
+	logical bdebug,bdebug1
+	integer k,ie,ii,l,iii,id
 	integer lstart
 	integer ilevel
-	integer itot,isum	!$$flux
 	logical berror
 	integer kn(3)
         real sindex,rstol,raux
@@ -1523,7 +1535,9 @@ c local
 	double precision rso,rsn,rsot,rsnt,rstot
 	double precision hn,ho
         double precision wdiff(3)
-        double precision wws
+	double precision dtime
+
+	character*20 aline
 
 	double precision difabs,difrel,volold,volnew,flxin,flxtot,diff
 	double precision stabind,stabadv,stabdiff,stabvert,stabpoint
@@ -1532,30 +1546,24 @@ c local
 c------------------------------------------------------------
 c big arrays
 c------------------------------------------------------------
-	!double precision cn(nlvddi,nkn)		!DPGGU	!FIXME
-	!double precision co(nlvddi,nkn)
-	!double precision cdiag(nlvddi,nkn)
-	!double precision clow(nlvddi,nkn)
-	!double precision chigh(nlvddi,nkn)
-        !real cwrite(nlvddi,nkn)
-        !real saux(nlvddi,nkn)
 	double precision, allocatable :: cn(:,:)
 	double precision, allocatable :: co(:,:)
 	double precision, allocatable :: cdiag(:,:)
 	double precision, allocatable :: clow(:,:)
 	double precision, allocatable :: chigh(:,:)
         real, allocatable :: cwrite(:,:)
+        real, allocatable :: c2write(:)
         real, allocatable :: saux(:,:)
 c------------------------------------------------------------
 c end of big arrays
 c------------------------------------------------------------
 
 	double precision cexpl
-	double precision fw(3),fd(3)
+	double precision cadv,cviadv,cvoadv,chdiff,cvdiff
+	double precision ciadv,coadv,chadv
+	double precision fwin(3),fwout(3),fd(3)
 	double precision fl(3)
 c local (new)
-	double precision clc(nlvddi,3), clm(nlvddi,3), clp(nlvddi,3)
-	!double precision cl(0:nlvddi+1,3)
 	double precision wl(0:nlvddi+1,3)
 c
 	double precision hdv(0:nlvddi+1)
@@ -1567,16 +1575,15 @@ c
         integer kstab
 	real dtorig
 
-        !integer iustab
-        !save iustab
-        !data iustab /0/
+	integer, save :: icall = 0
+	double precision, save :: da_out(4) = 0
+
 c functions
-	logical is_zeta_bound,openmp_in_parallel
+	logical is_zeta_bound,openmp_in_parallel,openmp_is_master
+	logical has_output_d,next_output_d
 	real getpar
 
-	!write(6,*) 'conzstab called...'
-
-        if(nlv.ne.nlev) stop 'error stop conzstab: level'
+        if(nlv.ne.nlev) stop 'error stop conzstab: nlv/=nlev'
 
 c-----------------------------------------------------------------
 c allocation
@@ -1585,6 +1592,23 @@ c-----------------------------------------------------------------
 	allocate(cn(nlvddi,nkn),co(nlvddi,nkn),cdiag(nlvddi,nkn))
 	allocate(clow(nlvddi,nkn),chigh(nlvddi,nkn))
 	allocate(cwrite(nlvddi,nkn),saux(nlvddi,nkn))
+	allocate(c2write(nkn))
+
+c-----------------------------------------------------------------
+c global initialization
+c-----------------------------------------------------------------
+
+	if( icall == 0 ) then
+	 if( openmp_is_master() ) then
+          call init_output_d('itmstb','idtstb',da_out)
+          if( has_output_d(da_out) ) then
+            call shyfem_init_scalar_file('stb',1,.true.,id)	!1 variable, 2d output
+            da_out(4) = id
+          end if
+	  icall = 1
+	  call info_output_d(da_out)
+	 end if
+	end if
 
 c-----------------------------------------------------------------
 c initialization
@@ -1592,8 +1616,6 @@ c-----------------------------------------------------------------
 
         bdebug1 = .true.
         bdebug1 = .false.
-        debug = .true.
-        debug = .false.
 	bdebug=.false.
 	berror=.false.
 
@@ -1611,16 +1633,13 @@ c-----------------------------------------------------------------
 	aa=aapar
 	aat=1.-aa
 
-	wws = wsink
-	wws = 0.
-
-	if( aa .ne. 0. .and. nlv .gt. 1 ) then
-	  write(6,*) 'aapar = ',aapar
-	  write(6,*) 'Cannot use implicit vertical advection.'
-	  write(6,*) 'This might be resolved in a future version.'
-	  write(6,*) 'Please set aapar = 0 in the STR file.'
-	  stop 'error stop conzstab: implicit vertical advection'
-	end if
+	!if( aa .ne. 0. .and. nlv .gt. 1 ) then
+	!  write(6,*) 'aapar = ',aapar
+	!  write(6,*) 'Cannot use implicit vertical advection.'
+	!  write(6,*) 'This might be resolved in a future version.'
+	!  write(6,*) 'Please set aapar = 0 in the STR file.'
+	!  stop 'error stop conzstab: implicit vertical advection'
+	!end if
 
 c	-----------------------------------------------------------------
 c	 fractional time step
@@ -1648,6 +1667,7 @@ c	-----------------------------------------------------------------
             clow(l,k)=0.
             chigh(l,k)=0.
             cwrite(l,k)=0.
+	    saux(l,k)=0.
           end do
 	end do
 
@@ -1667,24 +1687,6 @@ c	-----------------------------------------------------------------
 	    wl(l,ii) = 0.	!vertical velocity
 	  end do
 	end do
-
-c	-----------------------------------------------------------------
-c	these are the local arrays for accumulation of implicit terms
-c	(maybe we do not need them, but just to be sure...)
-c	after accumulation we copy them on the global arrays
-c	-----------------------------------------------------------------
-
-        do l=1,nlv
-	  do ii=1,3
-	    clc(l,ii) = 0.
-	    clm(l,ii) = 0.
-	    clp(l,ii) = 0.
-	  end do
-	end do
-
-c	-----------------------------------------------------------------
-c	vertical velocities
-c	-----------------------------------------------------------------
 
 c-----------------------------------------------------------------
 c loop over elements
@@ -1748,54 +1750,54 @@ c-----------------------------------------------------------------
 
         rk3 = 3. * rkpar * difhv(l,ie)
 
-	itot=0
-	isum=0
 	do ii=1,3
-	  k=kn(ii)
-	  f(ii)=us*b(ii)+vs*c(ii)	!$$azpar
-	  if(f(ii).lt.0.) then	!flux out of node
-	    itot=itot+1
-	    isum=isum+ii
-	  end if
 
-c new weights for diffusion
+	  k=kn(ii)
+
+c	  --------------------------------------------------------
+c	  new weights for horizontal diffusion
+c	  --------------------------------------------------------
 
           wdiff(ii) = wdifhv(ii,ii,ie)
 
-c	  initialization to be sure we are in a clean state
+c	  --------------------------------------------------------
+c	  contributions from horizontal advection
+c	  --------------------------------------------------------
 
-	  fw(ii) = 0.
-	  clc(l,ii) = 0.
-	  clm(l,ii) = 0.
-	  clp(l,ii) = 0.
+	  f(ii)=us*b(ii)+vs*c(ii)	!$$azpar - positive if flux into node
 
+c	  --------------------------------------------------------
 c	  contributions from vertical advection
+c	  --------------------------------------------------------
 c
 c	  in fw(ii) is explicit contribution
-c	  the sign is for the term on the left side, therefore
-c	  fw(ii) must be subtracted from the right side
+c	  now using fwin and fwout
+c	  fw is positive if out of layer
 c
-c	  if we are in last layer, w(l,ii) is zero
-c	  if we are in first layer, w(l-1,ii) is zero (see above)
+c	  if we are in last layer, wl(l,ii) is zero
+c	  if we are in first layer, wl(l-1,ii) is zero (see above)
+c	  wl already contains sinking velocity
 
-	  w = wl(l-1,ii) - wws		!top of layer
+	  fwin(ii) = 0.
+	  fwout(ii) = 0.
+
+	  w = wl(l-1,ii)		!top of layer
 	  if( w .gt. 0. ) then          !out
-	    fw(ii) = aat*w
-	    clc(l,ii) = clc(l,ii) + aa*w
+	    fwout(ii) = fwout(ii) + aat*w
 	  else
-	    fw(ii) = 0.
-	    clm(l,ii) = clm(l,ii) + aa*w
+	    fwin(ii) = fwin(ii) - aat*w
 	  end if
 
-	  w = wl(l,ii) - wws		!bottom of layer
+	  w = wl(l,ii)			!bottom of layer
 	  if( w .gt. 0. ) then
-	    clp(l,ii) = clp(l,ii) - aa*w
-	  else
-	    fw(ii) = fw(ii) - aat*w
-	    clc(l,ii) = clc(l,ii) - aa*w
+	    fwin(ii) = fwin(ii) + aat*w
+	  else				!out
+	    fwout(ii) = fwout(ii) - aat*w
 	  end if
 
+c	  --------------------------------------------------------
 c	  contributions from vertical diffusion
+c	  --------------------------------------------------------
 c
 c	  in fd(ii) is explicit contribution
 c	  the sign is for the term on the left side, therefore
@@ -1811,49 +1813,50 @@ c	  time dependent layer thickness
 
           fd(ii) = adt * ( hmtop + hmbot )
 
-	  clc(l,ii) = clc(l,ii) + ad * ( hmtop + hmbot )
-	  clm(l,ii) = clm(l,ii) - ad * ( hmtop )
-	  clp(l,ii) = clp(l,ii) - ad * ( hmbot )
 	end do
 
-c sum explicit contributions
+c	--------------------------------------------------------
+c	sum explicit contributions
+c	--------------------------------------------------------
+c
+c	chigh contains explicit advection (horizontal and vertical)
+c	clow contains explicit horizontal diffusion
+c	cn contains flux due to explicit vertical diffusion
+c	co contains flux due to point sources and nudging
 
+	coadv = 0.
+	ciadv = 0.
 	do ii=1,3
 	  k=kn(ii)
           hmed = hold(l,ii)                      !new ggu   !HACK
-          cexpl = dt * aj4 * rk3 * hmed * wdiff(ii)	!bug fix 12.2.2010
-	  clow(l,k) = clow(l,k) + cexpl
-          cexpl = dt * aj4 * 3. * f(ii)
-          if( cexpl .lt. 0. ) then             !flux out of node
-	    !chigh(l,k) = chigh(l,k) - cexpl
+          chdiff = dt * aj4 * rk3 * hmed * wdiff(ii)	!bug fix 12.2.2010
+	  cvdiff = dt * aj4 * fd(ii)
+          chadv = dt * aj4 * 3. * f(ii)
+	  cviadv = dt * aj4 * fwin(ii)
+	  cvoadv = dt * aj4 * fwout(ii)
+          if( chadv < 0. ) then             !flux out of node
+	    coadv = cvoadv - chadv
+	  else
+	    ciadv = cviadv + chadv
           end if
-          if( cexpl .gt. 0. ) then             !flux into node
-	    chigh(l,k) = chigh(l,k) + cexpl
-          end if
-          cn(l,k) = cn(l,k) + dt * aj4 * ( fw(ii) + fd(ii) )
+	  cadv = max(coadv,ciadv)
+	  chigh(l,k) = chigh(l,k) + cadv
+	  clow(l,k) = clow(l,k) + chdiff
+          cn(l,k) = cn(l,k) + cvdiff
           co(l,k) = co(l,k) + dt * aj4 * hmed * robs * rtauv(l,k) !nudging
 	end do
 
 	end do		! loop over l
 
-c set up implicit contributions
+c	--------------------------------------------------------
+c	sum volumes
+c	--------------------------------------------------------
 c
-c cdiag is diagonal of tri-diagonal system
-c chigh is high (right) part of tri-diagonal system
-c clow is low (left) part of tri-diagonal system
-
-	do ii=1,3
-	  clm(1,ii) = 0.
-	  clp(ilevel,ii) = 0.
-	end do
+c	cdiag contains volume of finite node
 
         do l=1,ilevel
 	  do ii=1,3
 	    k=kn(ii)
-	    !clow(l,k)  = clow(l,k)  + aj4 * dt * clm(l,ii)
-	    !chigh(l,k) = chigh(l,k) + aj4 * dt * clp(l,ii)
-	    !cdiag(l,k) = cdiag(l,k) + aj4 * dt * clc(l,ii)
-	    !clow(l,k)  = clow(l,k)  + aj4 * hold(l,ii)
             hmed = min(hold(l,ii),hnew(l,ii))
 	    cdiag(l,k) = cdiag(l,k) + aj4 * hmed
 	  end do
@@ -1865,9 +1868,9 @@ c-----------------------------------------------------------------
 c compute stability
 c
 c cdiag		volume of cell
-c chigh		flux due to horizontal advection
+c chigh		flux due to advection
 c clow		flux due to horizontal diffusion
-c cn		flux due to vertical advection and diffusion (explicit)
+c cn		flux due to vertical diffusion (explicit)
 c co		flux due to point sources and nudging
 c-----------------------------------------------------------------
 
@@ -1879,14 +1882,10 @@ c-----------------------------------------------------------------
         kstab = 0		!node with highest stabind
 
 	do k=1,nkn
-	  !bdebug1 = k .eq. 1402
-	  !bdebug1 = k .eq. 1405
 	  bdebug1 = k .eq. -1
 	  ilevel = ilhkv(k)
-          if( .not. is_zeta_bound(k) ) then	!FIXME
-          !if( is_inner(k) ) then	!FIXME
-          !if( .true. ) then	!FIXME
-	   do l=1,ilevel
+          if( is_zeta_bound(k) ) cycle
+	  do l=1,ilevel
             voltot = cdiag(l,k)
             flxtot = chigh(l,k) + clow(l,k) + cn(l,k) + co(l,k)
 	    if( bdebug1 ) write(99,*) k,l,voltot,flxtot
@@ -1905,41 +1904,16 @@ c-----------------------------------------------------------------
                   aux5 = co(l,k) / voltot
                   stabpoint = max(stabpoint,aux5)
 	          if( bdebug1 ) write(99,*) aux1,aux2,aux3,aux4,aux5
-
-c		  aux=flxtot / voltot
-c		  if( 300*aux/dt .gt. 1000 ) then
-c			  write(6,*) is_boundary(k)
-c			  write(6,*) is_external_boundary(k)
-c			  write(6,*) is_internal_boundary(k)
-c			  write(6,*) is_inner(k)
-c			  write(6,*) stabind,stabadv,stabdiff,stabvert
-c			  call check_set_unit(6)
-c			  call check_node(k)
-c		  end if
-
-            else
-		  cwrite(l,k) = 0
-		  saux(l,k) = 0.
             end if
-	   end do
-          else
-	   do l=1,ilevel
-		  cwrite(l,k) = 0
-		  saux(l,k) = 0.
-           end do
-          end if
+	  end do
 	end do
 
 	raux = stabind			!FIXME - SHYFEM_FIXME
         stabind = shympi_max(raux)
-        !call shympi_comment('stability_conz: shympi_max(stabind)')
-
-c        write(6,*) 'stab check: ',nkn,nlv
-c        call check2Dr(nlvddi,nlv,nkn,cwrite,0.,0.,"NaN check","cstab")
 
 c-----------------------------------------------------------------
 c in stabind is stability index (advection and diffusion)
-c in cdiag is the local value of the stability index
+c in cdiag is the volume of the node
 c in cwrite is the value of the stability index for each node
 c
 c istot  is saved and returned from subroutine (number of iterations)
@@ -1950,21 +1924,24 @@ c-----------------------------------------------------------------
         istot = 1 + stabind / rstol
         sindex = stabind / rstol
 
-	call get_orig_timestep(dtorig)
-	if( .not. openmp_in_parallel() ) then
-	  call output_stability_node(dtorig,cwrite)
+	!if( .not. openmp_in_parallel() ) then
+	if( openmp_is_master() ) then
+          if( next_output_d(da_out) ) then
+            id = nint(da_out(4))
+	    call get_act_dtime(dtime)
+	    call get_act_timeline(aline)
+	    write(6,*) 'writing STB at ',aline,' (more info in fort.197)'
+	    forall(k=1:nkn) c2write(k) = maxval(cwrite(:,k))
+            call shy_write_scalar_record(id,dtime,75,1,c2write)
+	    write(197,1010) aline,kstab
+     +			,stabind,stabadv,stabdiff,stabvert,stabpoint
+	  end if
+	  !call get_orig_timestep(dtorig)
+	  !call output_stability_node(dtorig,cwrite)
 	end if
 
-c        if( .false. ) then
-c        !if( idt .le. 3 ) then
-c	  write(6,*) 'kstab = ',kstab,'  stabind = ',stabind
-c          call conwrite(iustab,'.stb',1,777,nlvddi,cwrite)
-c        end if
-
-c        call stb_histo(it,nlvddi,nkn,ilhkv,cwrite)
-
 c-----------------------------------------------------------------
-c allocation
+c deallocation
 c-----------------------------------------------------------------
 
 	deallocate(cn,co,cdiag)
@@ -1976,6 +1953,7 @@ c end of routine
 c-----------------------------------------------------------------
 
 	return
+ 1010	format(a20,i10,5f10.3)
 	end
 
 c*****************************************************************

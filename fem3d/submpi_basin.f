@@ -28,7 +28,9 @@
 	  stop 'error stop shympi_setup: cannot yet partition on elems'
 	end if
 
-	write(6,*) 'setting up mpi with number of threads: ',n_threads
+	if( shympi_is_master() ) then
+	  write(6,*) 'setting up mpi with number of threads: ',n_threads
+	end if
 
 	call basin_get_partition(nkn,nel,nnp,nep,area_node,area_elem)
 
@@ -43,13 +45,16 @@
 !	from here on everything is general
 !	=====================================================================
 
-	call make_domain(my_id,area_node,nodes,elems,nc)
-
+	nc = maxval(area_node)
 	if( nc+1 /= n_threads ) then
-	  write(6,*) 'number of threads = ',n_threads
-	  write(6,*) 'number of domains = ',nc+1
-	  stop 'error stop: thread/domain mismatch'
+	  if( shympi_is_master() ) then
+	    write(6,*) 'number of threads = ',n_threads
+	    write(6,*) 'number of domains = ',nc+1
+	  end if
+	  call shympi_stop('error stop: thread/domain mismatch')
 	end if
+
+	call make_domain(my_id,area_node,nodes,elems,nc)
 
 	call make_index(my_id,nkn,n_lk,nodes,nindex)
 	call make_index(my_id,nel,n_le,elems,eindex)
@@ -95,7 +100,7 @@
 
 	call shympi_syncronize
 
-	call shympi_alloc_buffer(n_ghost_max)
+	call shympi_alloc_buffer(n_ghost_max)	!should probably be 1
 	call ghost_exchange
 
         call shympi_univocal_nodes
@@ -608,17 +613,20 @@
 	subroutine transfer_domain(n_lk,n_le,nindex,eindex)
 
 ! transfers global domain to local domain
+!
+! nindex/eindex contain global internal node/elem numbers -> save
 
 	use basin
 	use shympi
 
 	implicit none
 
-	integer n_lk,n_le
+	integer n_lk,n_le,nmax
 	integer nindex(n_lk)
 	integer eindex(n_le)
 
 	integer ie,k,i,ii,kk
+	integer nkn_max,nel_max
 	integer inverse(nkn)		!aux array for check
 
         integer, allocatable :: nen3v_aux(:,:)
@@ -626,6 +634,7 @@
         integer, allocatable :: ipv_aux(:)
         integer, allocatable :: iarv_aux(:)
         integer, allocatable :: iarnv_aux(:)
+        integer, allocatable :: ipaux(:)
 
         real, allocatable :: xgv_aux(:)
         real, allocatable :: ygv_aux(:)
@@ -712,6 +721,35 @@
 	deallocate(ygv_aux)
 	deallocate(hm3v_aux)
 
+!	----------------------------------
+!	save global internal node/elem numbers
+!	----------------------------------
+
+	deallocate(ip_int_node,ip_int_elem)
+	allocate(ip_int_node(n_lk),ip_int_elem(n_le))
+	ip_int_node = nindex
+	ip_int_elem = eindex
+
+	nkn_max = shympi_max(n_lk)
+	nel_max = shympi_max(n_le)
+	deallocate(ip_int_nodes,ip_int_elems)
+	allocate(ip_int_nodes(nkn_max,n_threads))
+	allocate(ip_int_elems(nel_max,n_threads))
+	ip_int_nodes = 0
+	ip_int_elems = 0
+
+	allocate(ipaux(nkn_max))
+	ipaux = 0
+	ipaux(1:n_lk) = ip_int_node(1:n_lk)
+        call shympi_gather(ipaux,ip_int_nodes)
+	deallocate(ipaux)
+
+	allocate(ipaux(nel_max))
+	ipaux = 0
+	ipaux(1:n_le) = ip_int_elem(1:n_le)
+        call shympi_gather(ipaux,ip_int_elems)
+	deallocate(ipaux)
+	
 !	----------------------------------
 !	end routine
 !	----------------------------------

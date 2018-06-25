@@ -80,6 +80,7 @@ c 01.12.2014    ccf     handle new section waves for wave module
 c 24.09.2015    ggu     call initialization for irv before reading STR file
 c 26.05.2016    ggu     new check for sections: count_sections()
 c 16.06.2016    wjm     added check for section nonhyd 
+c 11.05.2018    ggu     semi.h deleted and substituted with module
 c
 c************************************************************
 
@@ -98,6 +99,7 @@ c writes output to terminal or log file
 	character*80 name
         integer nrb,nbc
         integer nkbnd,nbnds
+	character*20 aline
 
 	if( .not. shympi_is_master() ) return
 
@@ -107,20 +109,24 @@ c writes output to terminal or log file
 	call getfnm('runnam',name)
 	write(6,*)
 	write(6,*) '     Name of run :'
-	write(6,*) name
+	write(6,*) trim(name)
 
 	write(6,*)
 	write(6,*) '     Description of run :'
-	write(6,*) descrp
+	write(6,*) trim(descrp)
 	write(6,*)
 
-	write(6,*) '     itanf,itend,idt :',itanf,itend,idt
+	call dts_format_abs_time(atime0+dtanf,aline)
+	write(6,*) '     itanf = ',aline
+	call dts_format_abs_time(atime0+dtend,aline)
+	write(6,*) '     itend = ',aline
+	write(6,*) '     idt =   ',idt
 	write(6,*) '     Iterations to go :',nits
 
 	call getfnm('basnam',name)
 	write(6,*)
 	write(6,*) '     Name of basin :'
-	write(6,*) name
+	write(6,*) trim(name)
 
 	write(6,*)
 	write(6,*) '     Description of basin :'
@@ -567,54 +573,25 @@ c**********************************************************************
 c**********************************************************************
 c**********************************************************************
 
-	subroutine impini
+!======================================================================
+	module semi_implicit
+!======================================================================
 
-c initializes parameters for semi-implicit time-step
+	double precision, save :: 	dtimpl
+	real, save :: 			weight = 0.5
+	logical, save :: 		binit = .false.
 
-	implicit none
-
-	include 'semi.h'
-
-	include 'femtime.h'
-
-	integer, save :: icall = 0
-
-	if( icall .gt. 0 ) return
-
-	icall = 1
-	weight = 0.5
-	itimpl = itanf
-
-	end
-
-c**********************************************************************
-
-	function bimpli(it)
-
-c checks if semi-implicit time-step is active
-
-	implicit none
-
-	logical bimpli
-	integer it
-
-	include 'semi.h'
-
-	call impini
-
-	if( it .le. itimpl ) then
-	   bimpli = .true.
-	else
-	   bimpli = .false.
-	end if
-
-	end
+!======================================================================
+	end module semi_implicit
+!======================================================================
 
 c**********************************************************************
 
 	subroutine getaz(azpar)
 
 c returns actual az
+
+	use semi_implicit
 
 	implicit none
 
@@ -638,6 +615,8 @@ c**********************************************************************
 
 c returns actual az,am
 
+	use semi_implicit
+
 	implicit none
 
 	real azpar
@@ -660,16 +639,14 @@ c**********************************************************************
 
 c changes parameters for semi-implicit time-step if necessary
 
+	use semi_implicit
+
 	implicit none
 
 	integer it
 	real azpar,ampar
 
-	include 'semi.h'
-
-	call impini
-
-	if( it .le. itimpl ) then
+	if( binit .and. it .le. dtimpl ) then
 	  azpar = weight
 	  ampar = weight
 	end if
@@ -682,19 +659,17 @@ c**********************************************************************
 
 c sets parameters for semi-implicit time-step
 
+	use semi_implicit
+
 	implicit none
 
 	integer it
 	real aweigh
 
-	include 'semi.h'
-
-	call impini
-
-	itimpl = it
+	dtimpl = it
 	weight = aweigh
 
-	write(6,*) 'implicit parameters changed: ',itimpl,weight
+	write(6,*) 'implicit parameters changed: ',dtimpl,weight
 
 	end
 
@@ -704,11 +679,11 @@ c**********************************************************************
 
 c gets weight for semi-implicit time-step
 
+	use semi_implicit
+
 	implicit none
 
 	real getimp
-
-	include 'semi.h'
 
 	getimp = weight
 
@@ -748,34 +723,39 @@ c**********************************************************************
 
 	subroutine setup_omp_parallel
 
+	use shympi
+
 	implicit none
 
+	logical bm
 	integer n,nomp
 	real getpar
 	logical openmp_is_parallel
+
+	call openmp_get_max_threads(n)
+	nomp = nint(getpar('nomp'))
+	if( nomp > 0 ) then
+	  nomp = min(nomp,n)
+	else if( nomp == 0 ) then
+	  nomp = 1
+	else	!nomp < 0 ... use all threads
+	  nomp = n
+	end if
+	call openmp_set_num_threads(nomp)
+	call putpar('nomp',float(nomp))
+
+	if( .not. shympi_is_master() ) return
 
 	write(6,*) 'start of setup of parallel OMP threads'
 
 	if( openmp_is_parallel() ) then
 	  write(6,*) 'the program can run in OMP parallel mode'
 	else
-	  write(6,*) 'the program can not run in OMP parallel mode'
+	  write(6,*) 'the program cannot run in OMP parallel mode'
 	end if
 	  
-	call openmp_get_max_threads(n)
-	write(6,*) 'maximum available threads: ',n
-
-	nomp = nint(getpar('nomp'))
-	if( nomp .gt. 0 ) then
-	  nomp = min(nomp,n)
-	  call openmp_set_num_threads(nomp)
-	else
-	  nomp = n
-	end if
-	call putpar('nomp',float(nomp))
-
-	write(6,*) 'available threads: ',nomp
-
+	write(6,*) 'maximum available OMP threads: ',n
+	write(6,*) 'for simulation used OMP threads: ',nomp
 	write(6,*) 'end of setup of parallel OMP threads'
 
 	end

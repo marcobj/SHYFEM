@@ -160,6 +160,7 @@ c local variables
 	real dt
 	double precision timer
 	double precision mpi_t_start,mpi_t_end,parallel_start
+	double precision mpi_t_solve
 	double precision dtime,dtanf,dtend
 	character*80 strfile
 
@@ -187,8 +188,8 @@ c-----------------------------------------------------------
 	call cstinit
 	call cstfile(strfile)			!read STR and basin
 
-	call setup_omp_parallel
 	call shympi_init(bmpirun)
+	call setup_omp_parallel
 
 	call cpu_time(time3)
 	call system_clock(count3, count_rate, count_max)
@@ -265,10 +266,11 @@ c initialize depth arrays and barene data structure
 c-----------------------------------------------------------
 
 	call setweg(0,n)
+	!if( bmpi .and. n > 0 ) goto 95
 	call setznv		! -> change znv since zenv has changed
 
-        call inirst             !restart
-	call setup_time		!in case start time has changed
+        call rst_perform_restart        !restart
+	call setup_time			!in case start time has changed
 
 	!call init_vertical	!do again after restart
 
@@ -366,11 +368,8 @@ c%%%%%%%%%%%%%%%%%%%%%%%%% time loop %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 	bfirst = .true.
-        !if( bmpi ) call shympi_stop('scheduled stop')
 
 	do while( dtime .lt. dtend )
-
-           !call shympi_comment('new time iteration -----------------')
 
            if(bmpi_debug) call shympi_check_all
 
@@ -411,15 +410,16 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 	   call do_after
 
-           if( bfirst ) call print_file_usage
-
 	   call tracer_write
 	   call bfm_write
+
+           if( bfirst ) call print_file_usage
 
 	   call print_time			!output to terminal
 
 	   call total_energy
 	   call check_all
+	   !call check_layer_depth
 	   !call check_special
 
            call write_wwm
@@ -433,12 +433,11 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 c%%%%%%%%%%%%%%%%%%%%%% end of time loop %%%%%%%%%%%%%%%%%%%%%%%%
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-	write(6,*) 'checking parameter values...'
 	call check_parameter_values('after main')
 
 	call print_end_time
 
-	print *,"NUMBER OF MPI THREADS USED  = ",n_threads
+	if( shympi_is_master() ) then
 
 !$OMP PARALLEL
 !$OMP MASTER
@@ -462,9 +461,15 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	print *,"TIME TO SOLUTION PARALLEL REGION (CPU) = "
      +				,time2-time3,my_id
 
+	print *,"NUMBER OF MPI THREADS USED  = ",n_threads
+
         mpi_t_end = shympi_wtime()
         write(6,*)'MPI_TIME =',mpi_t_end-mpi_t_start,my_id
         write(6,*)'Parallel_TIME =',mpi_t_end-parallel_start,my_id
+	call shympi_time_get(1,mpi_t_solve)
+        write(6,*)'MPI_SOLVE_TIME =',mpi_t_solve,my_id
+
+	end if
 
         !call ht_finished
 
@@ -475,6 +480,10 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	call shympi_exit(99)
 	call exit(99)
 
+	stop
+   95	continue
+        write(6,*) 'no wetting and drying for mpi yet...',n
+        stop 'error stop shyfem: not yet ready'
         end
 
 c*****************************************************************
@@ -496,6 +505,7 @@ c*****************************************************************
         subroutine shyfem_init(strfile,bdebug,bdebout,bmpirun)
 
         use clo
+        use shympi
 
         implicit none
 
@@ -504,7 +514,9 @@ c*****************************************************************
 
         character*80 version
 
-        call shyfem_copyright('shyfem - 3D hydrodynamic SHYFEM routine')
+	if( shympi_is_master() ) then
+	  call shyfem_copyright('shyfem - 3D hydrodynamic SHYFEM routine')
+	end if
 
 	call get_shyfem_version(version)
         call clo_init('shyfem','str-file',trim(version))
@@ -699,10 +711,15 @@ c*****************************************************************
 	subroutine print_file_usage
 
 	use intp_fem_file
+	use shympi
 
 	implicit none
 
+	if( .not. shympi_is_master() ) return
+
+	write(6,*) '--------------------------------'
 	call useunit(200)
+	write(6,*) '--------------------------------'
 	call iff_print_info(0)
 	write(6,*) '--------------------------------'
 
@@ -792,6 +809,44 @@ c*****************************************************************
 	write(66) ntot,nfirst
 	write(66) text1
 	write(66) val
+	end
+
+c*****************************************************************
+
+	subroutine check_layer_depth
+
+	use mod_depth
+	use mod_layer_thickness
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
+	implicit none
+
+	integer k,l,lmax,kmin,lmin
+	integer iunit
+	real htot,hmin
+
+	iunit = 6
+	iunit = 167
+
+	htot = maxval(hev)
+
+	hmin = htot
+	kmin = 0
+	lmin = 0
+	do k=1,nkn
+	  lmax = ilhkv(k)
+	  do l=1,lmax
+	    if( hdknv(l,k) < hmin ) then
+	      hmin = hdknv(l,k)
+	      kmin = k
+	      lmin = l
+	    end if
+	  end do
+	end do
+
+	write(iunit,*) 'hdknv: ',htot,hmin,kmin,lmin
+
 	end
 
 c*****************************************************************
