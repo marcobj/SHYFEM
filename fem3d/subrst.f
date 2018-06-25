@@ -596,7 +596,6 @@
 
 	if( nvers .ge. 5 ) then
 	  read(iunit) ibarcl
-	  ibarcl_rst = ibarcl
 	  if( ibarcl .gt. 0 ) then
 	    iflag = iflag + 100
 	    read(iunit)
@@ -607,7 +606,6 @@
 
 	if( nvers .ge. 6 ) then
 	  read(iunit) iconz
-	  iconz_rst = iconz
 	  if( iconz .gt. 0 ) then
 	    iflag = iflag + 1000
 	    read(iunit)
@@ -616,7 +614,6 @@
 
 	if( nvers .ge. 7 ) then
 	  read(iunit) iwvert
-	  iwvert_rst = iwvert
 	  if( iwvert .gt. 0 ) then
 	    iflag = iflag + 10000
 	    read(iunit)
@@ -625,14 +622,11 @@
 
 	if( nvers .ge. 8 ) then
           read(iunit) ieco
-	  ieco_rst = ieco
           if( ieco .gt. 0 ) then
 	    iflag = iflag + 100000
 	    call skip_restart_eco(iunit)
           end if
         end if
-
-	iflag_rst = iflag
 
 	ierr = 0
 	return
@@ -705,9 +699,6 @@
 	else if( it /= idrst ) then
 	  goto 7
 	end if
-
-	date_rst = date
-	time_rst = time
 
 	atime = 0.
 	if( date > 0 ) call dts_to_abs_time(date,time,atime)
