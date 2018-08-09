@@ -1,7 +1,16 @@
-
-c*****************************************************************
-c*****************************************************************
-c*****************************************************************
+!
+! convert nc files to fem files: general utilities
+!
+! contents :
+!
+!
+! revision log :
+!
+! 03.07.2018    ggu     revision control introduced
+!
+!*****************************************************************
+!*****************************************************************
+!*****************************************************************
 
 	subroutine handle_data_3d(ncid,name,pre,it,n
      +				,ndim,aux,fact)
@@ -457,10 +466,13 @@ c*****************************************************************
 
         integer ix1,ix2,iy1,iy2,iz1,iz2
 	integer iz
+	character*80 file
+
+	file = 'zcoords.dat'
 
 	call nc_get_domain(ix1,ix2,iy1,iy2,iz1,iz2)
 
-	open(2,file='zcoord.dat',status='unknown',form='formatted')
+	open(2,file=file,status='unknown',form='formatted')
 
 	write(2,*) 0,0,iz2-iz1+1
 	do iz=iz1,iz2
@@ -469,7 +481,7 @@ c*****************************************************************
 
 	close(2)
 
-	write(6,*) 'z-coordinates written to file: zcoords.grd'
+	write(6,*) 'z-coordinates written to file: ',trim(file)
 
 	end
 
@@ -718,6 +730,37 @@ c*****************************************************************
 
 c*****************************************************************
 
+	subroutine write_1d_grd(file,n,x,y,val)
+
+	implicit none
+
+	character*(*) file
+	integer n
+	real x(n)
+	real y(n)
+	real val(n)
+
+	integer i
+	real, parameter :: flag = -999.
+
+	open(1,file=file,status='unknown',form='formatted')
+
+	do i=1,n
+	  if( val(i) == flag ) then
+	    write(1,1000) 1,i,1,x(i),y(i)
+	  else
+	    write(1,1000) 1,i,0,x(i),y(i),val(i)
+	  end if
+	end do
+
+	close(1)
+
+	return
+ 1000	format(i1,i10,i5,3f14.6)
+	end
+
+c*****************************************************************
+
 	subroutine write_2d_grd(file,nx,ny,x,y,val)
 
 	implicit none
@@ -739,9 +782,9 @@ c*****************************************************************
 	  do ix=1,nx
 	    n = n + 1
 	    if( val(ix,iy) == flag ) then
-	      write(1,1000) 1,n,1,x(ix,iy),y(ix,iy)
+	      write(1,1000) 1,n,3,x(ix,iy),y(ix,iy)
 	    else
-	      write(1,1000) 1,n,0,x(ix,iy),y(ix,iy),val(ix,iy)
+	      write(1,1000) 1,n,2,x(ix,iy),y(ix,iy),val(ix,iy)
 	    end if
 	  end do
 	end do
@@ -935,8 +978,12 @@ c*****************************************************************
 	write(6,*) 'nxx,nyx,nxy,nyy: ',nxx,nyx,nxy,nyy
 	stop 'error stop setup_coordinates: dimensions mismatch'
    99	continue
+	write(6,*) 'namex: ',trim(namex)
+	write(6,*) 'namey: ',trim(namey)
 	write(6,*) 'nx,nxdim: ',nx,nxdim
 	write(6,*) 'ny,nydim: ',ny,nydim
+	write(6,*) 'probable error: no valid dimension x/y found'
+	write(6,*) '(insert dimensions in ncnames_add_dimensions)'
 	stop 'error stop setup_coordinates: dimensions'
 	end
 
@@ -999,7 +1046,7 @@ c*****************************************************************
 	  do ix=1,nx
 	    n = n + 1
 	    x = x0 + (ix-1)*dx
-	    write(1,1000) 1,n,3,x,y
+	    write(1,1000) 1,n,4,x,y
 	  end do
 	end do
 
@@ -1042,9 +1089,9 @@ c*****************************************************************
 	    val = scal(n)
 	    x = x0 + (ix-1)*ddx
 	    if( val == flag ) then
-	      write(1,1000) 1,n,4,x,y
+	      write(1,1000) 1,n,5,x,y
 	    else
-	      write(1,1000) 1,n,3,x,y,val
+	      write(1,1000) 1,n,6,x,y,val
 	    end if
 	  end do
 	end do

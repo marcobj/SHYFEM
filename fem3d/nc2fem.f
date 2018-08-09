@@ -1,4 +1,17 @@
 !
+! convert nc files to fem files
+!
+! contents :
+!
+!
+! revision log :
+!
+! 03.07.2018    ggu     revision control introduced
+! 04.07.2018    ggu     single points introduced
+! 06.07.2018    ggu     bug fix in handle_data: valnew was not 3d
+!
+! notes :
+!
 ! still to do:
 !
 !	handle iregular grid
@@ -8,6 +21,30 @@
 !	pass hlv for 3d
 !	construct ilhkv
 !
+!*********************************************************************
+
+	subroutine write_about
+
+	implicit none
+
+	write(6,*) 'converts nc (netcdf) file to fem file'
+	write(6,*) 
+	write(6,*) 'The file created is either a regular fem file'
+	write(6,*) 'or it can be single points to be used for'
+	write(6,*) 'boundary conditions given with the option -single'
+	write(6,*) 'The domain can be adjusted with -domain'
+	write(6,*) 'The variables to be written are given with -vars'
+	write(6,*) 
+	write(6,*) 'The program should recognize most of the'
+	write(6,*) 'dimensions and coordinates used in nc files'
+	write(6,*) 'If some of these are not recognized you can'
+	write(6,*) 'insert them at the end of file nc_dim_coords.f'
+	write(6,*) 'and then recompile with "make fem"'
+	write(6,*) 'The same is true for the description of the'
+	write(6,*) 'variables written to file'
+
+	end
+
 !*********************************************************************
 
 	program nc2fem
@@ -20,7 +57,7 @@
 
 	integer ncid
         character*132 file
-        character*80 var_name,files
+        character*80 var_name,files,sfile
         character*80 name,xcoord,ycoord,zcoord,tcoord,bathy,slmask
         character*80 varline,descrpline,factline,text,fulltext,dstring
         character*80, allocatable :: vars(:)
@@ -30,7 +67,7 @@
         integer ndims, nvars, ngatts, unlim
 	integer dim_id,dim_len
 	integer nt,nx,ny,nz,nz1
-	integer nxnew,nynew
+	integer nxnew,nynew,ns
 	integer nit,i,it,n,nd,nrec
 	integer iwhat
 	integer dims(10)
@@ -52,7 +89,7 @@
 	double precision t
 	logical bverb,bcoords,btime,binfo,bvars,bwrite,bdebug,bsilent
 	logical binvertdepth,binvertslm,bunform,bquiet,blist
-	logical bregular
+	logical bregular,bsingle,babout
 	logical exists_var
 
 	interface
@@ -78,44 +115,47 @@ c-----------------------------------------------------------------
 
 	call clo_add_sep('general options')
 
+        call clo_add_option('about',.false.,'about this program')
         call clo_add_option('info',.false.,'general info on nc file')
         call clo_add_option('verbose',.false.,'be verbose')
         call clo_add_option('quiet',.false.,'be as quiet as possible')
         call clo_add_option('silent',.false.,'be silent')
         call clo_add_option('debug',.false.,'produce debug information')
         call clo_add_option('varinfo',.false.
-     +			,'list variables contained in file')
+     +		,'list variables contained in file')
         call clo_add_option('list',.false.
-     +			,'list possible names for description')
+     +		,'list possible names for description')
 
 	call clo_add_sep('special variables')
 
         call clo_add_option('time',.false.
-     +			,'write available time records to terminal')
+     +		,'write available time records to terminal')
         call clo_add_option('coords',.false.,'write coordinate file')
         call clo_add_option('bathy var',' '
-     +			,'write bathymetry file using variable var')
+     +		,'write bathymetry file using variable var')
         call clo_add_option('slmask var',' '
-     +			,'write sea-land mask file using variable var')
+     +		,'write sea-land mask file using variable var')
 
         call clo_add_option('invertdepth',.false.
-     +			,'invert depth values for bathymetry')
+     +		,'invert depth values for bathymetry')
         call clo_add_option('invertslm',.false.
-     +			,'invert slmask values (0 for sea)')
+     +		,'invert slmask values (0 for sea)')
         call clo_add_option('unform',.false.
-     +			,'write fem file unformatted')
+     +		,'write fem file unformatted')
 
 	call clo_add_sep('output general variables')
 
         call clo_add_option('vars text',' '
-     +			,'write variables given in text to out.fem')
+     +		,'write variables given in text to out.fem')
         call clo_add_option('descrp text',' '
-     +			,'use this description for variables')
-        call clo_add_option('fact fact',' '
-     +			,'scale vars with these factors')
+     +		,'use this description for variables')
+        call clo_add_option('fact facts',' '
+     +		,'scale vars with these factors')
+        call clo_add_option('single file',' '
+     +		,'file containing x/y coordinates for interpolation')
 
         call clo_add_option('domain limits',' '
-     +			,'give domain limits and resolution')
+     +		,'give domain limits and resolution')
         call clo_add_option('regexpand iexp',-1,'expand regular grid')
 
         call clo_add_com('    iexp>0 expands iexp cells, =0 whole grid')
@@ -123,7 +163,8 @@ c-----------------------------------------------------------------
 
         call clo_add_sep('additional information')
         call clo_add_com('  var is name of variable in nc file')
-        call clo_add_com('  fact is factor for multiplication of vars')
+        call clo_add_com('  facts is list of factors for'
+     +				// ' multiplication of vars')
         call clo_add_com('  text is list of variables and descriptions'
      +				// ' for output')
         call clo_add_com('    seperate with comma and leave no space')
@@ -137,6 +178,7 @@ c-----------------------------------------------------------------
 
 	call clo_parse_options
 
+	call clo_get_option('about',babout)
 	call clo_get_option('info',binfo)
 	call clo_get_option('verbose',bverb)
 	call clo_get_option('quiet',bquiet)
@@ -150,6 +192,7 @@ c-----------------------------------------------------------------
 	call clo_get_option('slmask',slmask)
 	call clo_get_option('vars',varline)
 	call clo_get_option('descrp',descrpline)
+	call clo_get_option('single',sfile)
 	call clo_get_option('domain',dstring)
 	call clo_get_option('regexpand',regexpand)
 	call clo_get_option('fact',factline)
@@ -157,6 +200,11 @@ c-----------------------------------------------------------------
 	call clo_get_option('invertdepth',binvertdepth)
 	call clo_get_option('invertslm',binvertslm)
 	call clo_get_option('unform',bunform)
+
+	if( babout ) then
+	  call write_about
+	  call exit(99)
+	end if
 
 	if( blist ) then
 	  call list_strings
@@ -170,6 +218,7 @@ c-----------------------------------------------------------------
 
 	bwrite = bverb .or. binfo
 	if( bsilent ) bquiet = .true.
+	bsingle = ( sfile /= ' ' ) 
 
         !call read_frequency(ifreq)
 
@@ -240,8 +289,10 @@ c - in regpar is info on desired regular output grid
 c - bregular is true if regular_data is regular
 c-----------------------------------------------------------------
 
+	!call handle_unusual_coordinates(nxdim,nydim,xlon,ylat)
 	call check_regular_coords(nxdim,nydim,xlon,ylat
      +				,bregular,regpar_data)
+	if( bverb ) write(6,*) bregular,regpar_data
 	call handle_domain(bverb,dstring,bregular,regpar_data,regpar)
 
 	if( .not. bsilent ) then
@@ -309,12 +360,14 @@ c-----------------------------------------------------------------
 
 	nxnew = nint(regpar(1))
 	nynew = nint(regpar(2))
-	allocate(batnew(nxdim,nydim))
-	batnew = -999.
 
-	if( bregular ) then	!no interpolation - already regular
+	if( bsingle ) then		!interpolate on single points (BC)
+	  call prepare_single(sfile,ns,nxdim,nydim,xlon,ylat,regpar)
+	  nxnew = ns
+	  nynew = 1
+	else if( bregular ) then	!no interpolation - already regular
 	  call prepare_no_interpol
-	else
+	else				!interpolate onto regular grid
 	  call prepare_interpol(nxdim,nydim,xlon,ylat,regpar)
 	end if
 
@@ -323,6 +376,8 @@ c interpolate special variables
 c-----------------------------------------------------------------
 
 	if( bathy .ne. ' ' ) then
+	  allocate(batnew(nxdim,nydim))
+	  batnew = -999.
 	  call handle_interpol_2d(nxdim,nydim,bat,nxnew,nynew,batnew)
 	  call write_2d_fem('bathy_new.fem','bathymetry',regpar,batnew)
 	  call write_2d_grd_regular('bathy_new.grd',regpar,batnew)
@@ -622,7 +677,7 @@ c*****************************************************************
 	integer level
 	integer nit,it,var_id,i,ns
 	integer iformat,nvers,ntype,ndd
-	integer iunit,lmax,np,ierr,nzz,npnew
+	integer iunit,lmax,ierr,nzz,npnew
 	integer datetime(2)
 	integer ids(nvar)
 	integer dims(nvar)
@@ -635,7 +690,7 @@ c*****************************************************************
 	character*80 atext,string,aname
 	character(len=len(vars)) var
 
-	logical nc_has_var_attrib
+	logical nc_has_var_attrib,is_single
 
 	real, allocatable :: hd(:)
 	integer, allocatable :: ilhkv(:)
@@ -655,8 +710,8 @@ c*****************************************************************
 	dtime = 0.
 	nvers = 0
 	ntype = 11
+	if( is_single() ) ntype = 1
 	lmax = nz
-	np = nx*ny
 	npnew = nxnew*nynew
 	string = 'unknown'
 	off = 0.
@@ -715,7 +770,6 @@ c*****************************************************************
 
 	lmax = nz1
 	if( ndd == 2 ) lmax = 1
-	np = nxnew*nynew
 
 	!write(6,*) 'ggu: ',ndd,nz,lmax,level
 
@@ -738,7 +792,7 @@ c*****************************************************************
 	  end if
 
 	  call fem_file_write_params(iformat,iunit,dtime
-     +                          ,nvers,np,lmax
+     +                          ,nvers,npnew,lmax
      +                          ,nvar,ntype,datetime)
           call fem_file_write_2header(iformat,iunit,ntype,lmax
      +                  	,hlv,regpar(1:7))
@@ -750,7 +804,7 @@ c*****************************************************************
      +				,nx,ny,nzz
      +				,x,y
      +				,nxnew,nynew,regpar,ilhkv
-     +				,data,femdata,np)
+     +				,data,femdata,npnew)
 
 	    if( bexpand ) then
 	      call reg_expand_3d(nz,nxnew,nynew,lmax,regexpand
@@ -771,7 +825,7 @@ c*****************************************************************
 	    lmax = nzz
 	    string = descrps(i)
             call fem_file_write_data(iformat,iunit
-     +                          ,nvers,np,lmax
+     +                          ,nvers,npnew,lmax
      +                          ,string
      +                          ,ilhkv,hd
      +                          ,lmax,femdata)
@@ -827,11 +881,12 @@ c*****************************************************************
 	real data2d(nx,ny)
 	real femdata2d(nxnew*nynew)
 	real cdata(nx*ny,nz)
-	real valnew(nxnew*nynew)
+	!real valnew(nxnew*nynew)
+	real, allocatable :: valnew(:,:)
 	real, save :: my_flag = -999.
 	character*80 file,filename
 
-	logical must_interpol
+	logical must_interpol,is_single
 
 	debug = bdebug
 
@@ -874,6 +929,7 @@ c*****************************************************************
 
 	if( must_interpol() ) then
 	  np = nxnew*nynew
+	  allocate(valnew(np,nz))
 	  if( nz == 1 ) then
 	    call do_interpol_2d(nx,ny,data,nxnew,nynew,valnew)
 	  else
@@ -905,8 +961,11 @@ c*****************************************************************
 	real data(nx,ny,nz)
 	real femdata(nz,nxnew*nynew)
 
+	logical bsingle
+	integer ns
 	real, allocatable :: data2d(:,:)
 	real, allocatable :: femdata2d(:)
+	real, allocatable :: xs(:),ys(:)
 	character*80 filename,file
 
 	!write(6,*) 'nx,ny: ',nx,ny,nxnew,nynew
@@ -915,11 +974,23 @@ c*****************************************************************
 	data2d(:,:) = data(:,:,1)
 	femdata2d(:) = femdata(1,:)
 
+	bsingle = ( regpar(1) == 0 )
+
 	call make_filename(varname,it,filename)
+
 	file=trim(filename)//'_orig.grd'
 	call write_2d_grd(file,nx,ny,x,y,data2d)
-	file=trim(filename)//'_intp.grd'
-	call write_2d_grd_regular(file,regpar,femdata2d)
+
+	if( bsingle ) then
+	  file=trim(filename)//'_single.grd'
+	  call get_single_points(0,ns,xs,ys)
+	  allocate(xs(ns),ys(ns))
+	  call get_single_points(ns,ns,xs,ys)
+	  call write_1d_grd(file,ns,xs,ys,femdata2d)
+	else
+	  file=trim(filename)//'_intp.grd'
+	  call write_2d_grd_regular(file,regpar,femdata2d)
+	end if
 
 	end
 
@@ -1010,6 +1081,61 @@ c*****************************************************************
 
 	filename = 'debug_' // trim(varname) // trim(sit)
 
+	end
+
+c*****************************************************************
+
+	subroutine handle_unusual_coordinates(nx,ny,x,y)
+
+	implicit none
+
+	integer nx,ny
+	real x(nx,ny)
+	real y(nx,ny)
+	
+	logical, save :: bneuman = .true.
+	real, save :: flag = 1.e+20
+	integer ix,iy
+	real xx(nx)
+	real yy(ny)
+
+	xx = flag
+	yy = flag
+
+	if( bneuman ) then
+	  do iy=1,ny
+	    do ix=1,nx
+	      if( x(ix,iy) /= flag ) then
+	        if( xx(ix) /= flag .and. xx(ix) /= x(ix,iy) ) goto 99
+		xx(ix) = x(ix,iy)
+	      end if
+	      if( y(ix,iy) /= flag ) then
+	        if( yy(iy) /= flag .and. yy(iy) /= y(ix,iy) ) goto 99
+		yy(iy) = y(ix,iy)
+	      end if
+	    end do
+	  end do
+	  if( any( xx == flag ) ) goto 98
+	  if( any( yy == flag ) ) goto 98
+	  do iy=1,ny
+	    do ix=1,nx
+	      x(ix,iy) = xx(ix)
+	      y(ix,iy) = yy(iy)
+	    end do
+	  end do
+	end if
+
+	return
+   98	continue
+	write(6,*) 'some flags in coordinates...'
+	write(6,*) xx
+	write(6,*) yy
+   99	continue
+	write(6,*) 'coordinates are not regular...'
+	write(6,*) ix,iy,x(ix,iy),y(ix,iy)
+	write(6,*) x(ix,iy),y(ix,iy)
+	write(6,*) xx(ix),yy(iy)
+	stop 'error stop handle_unusual_coordinates: not regular'
 	end
 
 c*****************************************************************

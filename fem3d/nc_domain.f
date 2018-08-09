@@ -1,3 +1,16 @@
+!
+! convert nc files to fem files: domain handling
+!
+! contents :
+!
+!
+! revision log :
+!
+! 03.07.2018    ggu     revision control introduced
+!
+!*****************************************************************
+!*****************************************************************
+!*****************************************************************
 
 !=================================================================
 	module nc_domain
@@ -20,7 +33,11 @@
 	logical, save :: do_interpolation = .false.
 	real, save :: nc_flag = -999.
 	real, save, allocatable :: fm(:,:,:)
-	real, save, allocatable :: valfem(:)
+
+	logical, save :: do_single = .false.
+	integer, save :: nsingle = 0
+	real, save, allocatable :: xsingle(:)
+	real, save, allocatable :: ysingle(:)
 
 !=================================================================
 	end module nc_interpol
@@ -105,12 +122,15 @@
         logical bregular		!return
         real regpar(9)			!return
 
+	logical bdebug
         integer ix,iy
         real xtot,ytot,eps,dx,dy,dxx,dyy
 	real xmin,xmax,ymin,ymax
 	real flag
 	double precision dxxtot,dyytot
 
+	bdebug = .true.
+	bdebug = .false.
         bregular = .true.
         regpar = 0.
         dx = 0.
@@ -149,6 +169,14 @@
 	if( bregular ) then
 	  dxx = dx
 	  dyy = dy
+	end if
+
+	if( bdebug ) then
+	  write(6,*) nx,ny
+	  write(6,*) xmin,xmax
+	  write(6,*) ymin,ymax
+	  write(6,*) dx,dxx,dxxtot
+	  write(6,*) dy,dyy,dyytot
 	end if
 
 	flag = -999.
@@ -492,6 +520,20 @@
 
 !*****************************************************************
 
+	function is_single()
+
+	use nc_interpol
+
+	implicit none
+
+	logical is_single
+
+	is_single = do_single
+
+	end
+
+!*****************************************************************
+
 	subroutine prepare_no_interpol
 
 	use nc_interpol
@@ -506,7 +548,6 @@
 
 	subroutine prepare_interpol(nx,ny,xx,yy,regpar)
 
-	use basin
 	use nc_interpol
 
 	implicit none
@@ -519,16 +560,15 @@
 	integer ip,jp
 	real dx,dy,x0,y0,x1,y1,flag
 
-	call bas_insert_irregular(nx,ny,xx,yy)	!inserts data coordinates into basin
+	call bas_insert_irregular(nx,ny,xx,yy)	!inserts data coords into basin
 
 	call get_regpar(regpar,ip,jp,dx,dy,x0,y0,x1,y1,flag)
-	call setgeo(x0,y0,dx,dy,flag)		!prepares for interpolation on reg
+	call setgeo(x0,y0,dx,dy,flag)		!prepares for interp on reg
 
 	nc_flag = flag
 	do_interpolation = .true.
 
 	allocate(fm(4,ip,jp))
-	allocate(valfem(nkn))
 
 	call av2fm(fm,ip,jp)			!computes interpolation matrix
 
@@ -538,7 +578,6 @@
 
 	subroutine handle_interpol_2d(nx,ny,val,nxnew,nynew,valnew)
 
-	use basin
 	use nc_interpol
 
 	implicit none
@@ -568,36 +607,36 @@
 
 !*****************************************************************
 
-	subroutine do_interpol_2d(nx,ny,val,nxnew,nynew,valnew)
+	subroutine insert_interpol_2d(nx,ny,val,ndim,valaux,flag)
 
-	use basin
-	use nc_interpol
+! inserts values val in data structure
 
 	implicit none
 
 	integer nx,ny
 	real val(nx,ny)
-	integer nxnew,nynew
-	real valnew(nxnew,nynew)
+	integer ndim
+	real valaux(ndim)
+	real flag
 
 	integer k,ix,iy,n,i
 	integer, save :: ixx(4) = (/0,1,1,0/)
 	integer, save :: iyy(4) = (/0,0,1,1/)
-	real v,vv,flag
-
-	flag = nc_flag
+	real v,vv
 
         k = 0
+
         do iy=1,ny
           do ix=1,nx
             k = k + 1
-            valfem(k) = val(ix,iy)
+            valaux(k) = val(ix,iy)
           end do
         end do
 
         do iy=2,ny
           do ix=2,nx
             k = k + 1
+	    if( k > ndim ) goto 99
 	    v = 0
 	    n = 0
 	    do i=1,4
@@ -607,16 +646,42 @@
 	        v = v + vv
 	      end if
 	    end do
-            !v = val(ix,iy)+val(ix-1,iy)+val(ix,iy-1)+val(ix-1,iy-1)
 	    if( n == 0 ) then
-	      valfem(k) = flag
+	      valaux(k) = flag
 	    else
-              valfem(k) = v/n
+              valaux(k) = v/n
 	    end if
           end do
         end do
 
-	call fm2am2d(valfem,nxnew,nynew,fm,valnew)
+	return
+   99	continue
+	stop 'error stop insert_interpol_2d: internal errror ndim'
+	end
+
+!*****************************************************************
+
+	subroutine do_interpol_2d(nx,ny,val,nxnew,nynew,valnew)
+
+	use nc_interpol
+
+	implicit none
+
+	integer nx,ny
+	real val(nx,ny)
+	integer nxnew,nynew
+	real valnew(nxnew,nynew)
+
+	integer ndim
+	real flag
+	real, allocatable :: valaux(:)
+
+	flag = nc_flag
+	ndim = nx*ny + (nx-1)*(ny-1)
+	allocate(valaux(ndim))
+
+	call insert_interpol_2d(nx,ny,val,ndim,valaux,flag)
+	call fm2am2d(valaux,nxnew,nynew,fm,valnew)
 
 	end
 
@@ -632,8 +697,13 @@
 	real valnew(nxnew,nynew,nz)
 
 	integer iz
-	real val2d(nx,ny)
-	real val2dnew(nxnew,nynew)
+	!real val2d(nx,ny)
+	!real val2dnew(nxnew,nynew)
+	real, allocatable :: val2d(:,:)
+	real, allocatable :: val2dnew(:,:)
+
+	allocate(val2d(nx,ny))
+	allocate(val2dnew(nxnew,nynew))
 
 	do iz=1,nz
 	  val2d(:,:) = val(:,:,iz)
@@ -641,6 +711,122 @@
 	  valnew(:,:,iz) = val2dnew(:,:)
 	end do
 
+	end
+
+!*****************************************************************
+
+	subroutine prepare_single(sfile,ns,nx,ny,xx,yy,regpar)
+
+	use nc_interpol
+
+	implicit none
+
+	character*(*) sfile
+	integer ns
+        integer nx,ny
+        real xx(nx,ny)
+        real yy(nx,ny)
+        real regpar(9)
+
+	integer ndim,ip,jp
+
+	ns = 0
+	if( sfile == ' ' ) return
+
+	ndim = 0
+	call read_single_points(sfile,ndim,ns,xsingle,ysingle)
+	allocate(xsingle(ns),ysingle(ns))
+	ndim = ns
+	call read_single_points(sfile,ndim,ns,xsingle,ysingle)
+	nsingle = ns
+
+	write(6,*) 'single coordinates read: ',ns,trim(sfile)
+
+	call bas_insert_irregular(nx,ny,xx,yy)	!inserts data coords into basin
+
+	nc_flag = regpar(7)
+	do_interpolation = .true.
+	do_single = .true.
+	regpar(1) = 0.
+	regpar(2) = 0.
+
+	ip = ns
+	jp = 1
+	allocate(fm(4,ip,jp))
+	call av2fm_single(fm,ns,xsingle,ysingle)
+
+	end
+
+!*****************************************************************
+
+	subroutine read_single_points(sfile,ndim,ns,xs,ys)
+
+	implicit none
+
+	character*(*) sfile
+	integer ndim
+	integer ns
+	real xs(ndim)
+	real ys(ndim)
+
+	integer ios
+	real x,y
+
+	ns = 0
+	if( sfile == ' ' ) return
+
+	open(1,file=sfile,form='formatted',status='old')
+
+	do
+	  read(1,*,iostat=ios) x,y
+	  if( ios < 0 ) exit
+	  if( ios > 0 ) goto 99
+	  ns = ns + 1
+	  if( ndim == 0 ) cycle		!only check size
+	  if( ns > ndim ) goto 98
+	  xs(ns) = x
+	  ys(ns) = y
+	end do
+
+	close(1)
+
+	return
+   98	continue
+	write(6,*) 'ndim = ',ndim
+	stop 'error stop read_single_points: ndim'
+   99	continue
+	write(6,*) 'line = ',ns
+	stop 'error stop read_single_points: read error'
+	end
+
+!*****************************************************************
+
+	subroutine get_single_points(ndim,ns,xs,ys)
+
+	use nc_interpol
+
+	implicit none
+
+	integer ndim
+	integer ns
+	real xs(ndim)
+	real ys(ndim)
+
+	integer ios
+	real x,y
+
+	ns = nsingle
+	if( ndim == 0 ) return
+
+	if( ndim < ns ) goto 98
+
+	xs(1:ns) = xsingle
+	ys(1:ns) = ysingle
+
+	return
+   98	continue
+	write(6,*) 'ndim,ns = ',ndim,ns
+	stop 'error stop get_single_points: ndim'
 	end
 
 !*****************************************************************

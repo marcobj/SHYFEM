@@ -1,5 +1,177 @@
 ============================================================
 
+Fri Jul 20 16:43:47 CEST 2018
+
+projection for shyelab
+
+ fem3d/Makefile       |  5 ++++
+ fem3d/elabutil.f     |  7 ++++++
+ fem3d/shyelab1.f     |  3 +++
+ fem3d/shyelab_proj.f | 70 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/subnev.f       | 26 +++++++++++++++++++
+ 5 files changed, 111 insertions(+)
+ new file:
+   fem3d/shyelab_proj.f
+
+============================================================
+
+Fri Jul 20 14:06:10 CEST 2018
+
+minor changes, weutro
+
+ fem3d/bio3d.f                        |   5 +-
+ fem3d/submeteo2.f                    |   2 +-
+ fem3d/subssed.f                      |  34 ++++++--
+ fem3d/weutro.f                       |  15 ++--
+ fem3d/weutro_ulva.f                  |   4 +-
+ fembin/git_info/git_info_general.txt | 127 ++++++++++++++++++++++++++++++
+ fembin/git_info/git_info_stable.txt  |  13 ++++
+ fembin/git_info/git_info_stash.txt   |  12 +++
+ fembin/git_info/git_info_version.txt |  26 +++++++
+ fembin/gitinfo                       | 147 ++++++-----------------------------
+ 10 files changed, 246 insertions(+), 139 deletions(-)
+ new file:
+   fembin/git_info/git_info_stable.txt
+   fembin/git_info/git_info_stash.txt
+   fembin/git_info/git_info_version.txt
+
+============================================================
+
+Fri Jul 13 15:57:24 CEST 2018
+
+New version 7_4_1
+
+
+============================================================
+
+Fri Jul 13 15:37:50 CEST 2018
+
+small changes in lagrangian
+
+ fem3d/mod_lagrange.f | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+============================================================
+
+Fri Jul  6 17:47:31 CEST 2018
+
+still more on nc routines
+
+ fem3d/nc2fem.f        |  5 ++++-
+ fem3d/nc_dim_coords.f | 15 ++++++++++++++-
+ fem3d/nc_domain.f     |  9 +++++++--
+ fem3d/subfemintp.f    |  3 ++-
+ fem3d/subiso8601.f    |  1 +
+ fem3d/subreg.f        |  4 +++-
+ 6 files changed, 31 insertions(+), 6 deletions(-)
+
+============================================================
+
+Fri Jul  6 14:15:24 CEST 2018
+
+New version 7_5_48
+
+
+============================================================
+
+Fri Jul  6 14:14:40 CEST 2018
+
+more on nc files, version now also with commit
+
+ LOG                     |  72 ++++++++++++++++++++
+ RELEASE_NOTES           |  13 ++++
+ fem3d/Makefile          |   7 +-
+ fem3d/line_util.f       |  12 ++--
+ fem3d/nc2fem.f          |  38 ++++++++++-
+ fem3d/nc_dim_coords.f   |   3 +
+ fem3d/nc_util.f         |   7 +-
+ fem3d/shyelab_area.f    | 177 +++++++++++++++++++++++++++++-------------------
+ fem3d/shyfem.f          |   2 +-
+ fem3d/subboxa.f         |   2 +-
+ fem3d/subcon1.f         |   4 +-
+ fem3d/subetsa.f         |   2 +-
+ fem3d/subexta.f         |   2 +-
+ fem3d/subflxa.f         |   4 +-
+ fem3d/subgrd.f          | 151 ++++++++++++++++++++++++++++++++++++++++-
+ fem3d/subshyutil.f      |   2 +-
+ fem3d/subsys.f          |   5 +-
+ fem3d/subver.f          |  24 ++++++-
+ fembin/extract_lines.sh |  19 ++++++
+ femdoc/final/shyfem.pdf | Bin 293459 -> 293584 bytes
+ femplot/supbas.f        |  17 ++---
+ 21 files changed, 450 insertions(+), 113 deletions(-)
+ new file:
+   fembin/extract_lines.sh
+
+============================================================
+
+Wed Jul  4 18:17:30 CEST 2018
+
+single points in nc2fem introduced
+
+ fem3d/nc2fem.f        |  45 ++++++++----
+ fem3d/nc_dim_coords.f |  76 ++++++++------------
+ fem3d/nc_domain.f     | 187 +++++++++++++++++++++++++++++++++++++++++++++-----
+ fem3d/nc_util.f       |  41 +++++++++--
+ 4 files changed, 265 insertions(+), 84 deletions(-)
+
+============================================================
+
+Wed Jul  4 12:24:39 CEST 2018
+
+more on netcdf
+
+ fem3d/nc2fem.f        | 38 ++++++++++++++-----------
+ fem3d/nc_dim_coords.f | 10 +++++++
+ fem3d/nc_domain.f     |  8 ++++--
+ fem3d/nc_tutil.f      |  9 ++++++
+ fem3d/subreg.f        | 77 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 124 insertions(+), 18 deletions(-)
+
+============================================================
+
+Tue Jul  3 17:21:10 CEST 2018
+
+nc routines reviewed
+
+ fem3d/nc2fem.f        |  11 ++
+ fem3d/nc_dim_coords.f | 318 +++++---------------------------------------------
+ fem3d/nc_domain.f     |  13 +++
+ fem3d/nc_tutil.f      |  13 +++
+ fem3d/nc_util.f       |  19 ++-
+ 5 files changed, 80 insertions(+), 294 deletions(-)
+
+============================================================
+
+Tue Jul  3 13:35:20 CEST 2018
+
+commit fail resolved
+
+ COMMIT         | 11 +++++++++++
+ VERSION        |  2 ++
+ fem3d/newcon.f |  4 ++--
+ fem3d/subn11.f | 40 +++++++++++++++++++++++++++++++++++++++-
+ fem3d/subrst.f |  5 +----
+ 5 files changed, 55 insertions(+), 7 deletions(-)
+
+============================================================
+
+Tue Jul  3 13:32:02 CEST 2018
+
+nc2fem and shyelab -split adjourned
+
+ fem3d/mod_shympi_node.f | 10 +++++++--
+ fem3d/nc2fem.f          | 57 +++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/nc_dim_coords.f   | 42 +++++++++++++++++++++++++-----------
+ fem3d/nc_domain.f       | 11 ++++++++++
+ fem3d/nc_util.f         |  2 ++
+ fem3d/shyelab_output.f  | 12 +++++------
+ fem3d/subshy.f          | 28 ++++++++++++++----------
+ fem3d/subshyutil.f      | 38 +++++++++++++++++++++++----------
+ 8 files changed, 157 insertions(+), 43 deletions(-)
+
+============================================================
+
 Thu Jun 28 13:37:28 CEST 2018
 
 minor bug fixes, tramp for water levels
