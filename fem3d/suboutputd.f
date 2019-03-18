@@ -1,6 +1,28 @@
-c
-c $Id: subtime.f,v 1.54 2010-03-22 15:29:31 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c time management routines
 c
 c contents :
@@ -70,6 +92,7 @@ c 24.09.2015    ggu     routines re-written for double precision
 c 20.10.2015    ggu     new routines to set/get id
 c 04.11.2015    ggu     allow for initial output in adjust_itmidt()
 c 04.11.2017    ggu     new routine init_output_i()
+c 03.10.2018    ggu     some instances of itanf and itend eliminated
 c
 c info :
 c
@@ -98,12 +121,12 @@ c sets-up output frequency and first output
 
         binit = ( itmout /= -1. )                !output initial time?
 
-	if( itmout .eq. -1. ) itmout = itanf
-	if( itmout .lt. itanf ) itmout = itanf
+	if( itmout .eq. -1. ) itmout = dtanf
+	if( itmout .lt. dtanf ) itmout = dtanf
 
 	itout = itmout
-	if( itmout .eq. itanf .and. .not. binit ) itout = itout + idtout
-	if( itout .gt. itend .and. idtout .gt. 0 ) idtout = 0
+	if( itmout .eq. dtanf .and. .not. binit ) itout = itout + idtout
+	if( itout .gt. dtend .and. idtout .gt. 0 ) idtout = 0
 
 	end
 

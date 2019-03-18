@@ -1,3 +1,28 @@
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! ------ SUBROUTINE SEDI3D ---------
 ! ***********************************
 !
@@ -12,56 +37,55 @@
 ! 
 !  revision log :
 ! 
-!  Mar, 2005     ccf     (sedi3d_f1.f) coming from sedi3d_e3_multi7.f
-!                        	new cohesive routine
-!  Mar, 2005     ccf     (sedi3d_f2.f) add mixing thickness
-!  Mar, 2005     ccf     (sedi3d_f3.f) merge layer 1 and 2 if bedn(1) < bmix
-!  Mar, 2005     ccf     (sedi3d_f4.f) update element depth
-!  Mar, 2005     ccf     (sedi3d_f5.f) get viscosity from new routine
-!  Mar, 2005     ccf     (sedi3d_f6.f) active layer = bottom roughness heigh
-!  Apr, 2005     ccf     (sedi3d_f7.f) style changes, create sedt05
-!  Apr, 2005     ccf     (sedi3d_f8.f) initialize percbd from file
-!  Apr, 2005     ccf     (sedi3d_f8.f) change rhos per cohesive sed
-!  Jun, 2005     ccf     (sedi3d_f13.f) adapt to 3D, bottom layer and total depth
-!                        	bugfix error in computing bedn(1,3), 
-! 				dimension in tuek
-!  Jun, 2005     ccf     (sedi3d_f15.f) change deposition density,
-! 				add consolidation
-!  Jun, 2005     ccf     (sedi3d_f16.f) change units, bug fix in TCONC1
-!  Jun, 2005     ccf     (sedi3d_f17.f) bug fix in upedepth
-!  Jun, 2005     ccf     (sedi3d_f18.f) bug fix in checkbed, 
-! 				adapt to sedtrans05-h5.f
-!  Jul, 2005     ccf     (sedi3d_f20.f) adapt to sedtrans05-h6.f
-!  Jul, 2005     ccf     (sedi3d_f21.f) bug fix in updepth (as subdry.f)
-!  Jul, 2005     ccf     (sedi3d_f22.f) bug fix in bedload
-!  Aug, 2005     ccf     (sedi3d_f23.f) eliminate ripple variables
-!  Aug, 2005     ccf     (sedi3d_f24.f) bed slope contribution. adjust updepth
-!  Aug, 2005     ccf     (sedi3d_f25.f) change deposition characteristics
-!  Sep, 2005     ccf     (sedi3d_f26.f) bug fix in bedman,
-! 				change boundary for cohesive
-!  Sep, 2005     ccf     (sedi3d_f27.f) separete erosion and deposition in bedman
-!                        	number of layer computed each time
-!  Nov, 2005     ccf     (sedi3d_f28f) adapt for 3D version
-!  Nov, 2005     ccf     (sedi3d_f29f) bed slope on threshold, bug fix in updepth
-!  Nov, 2005     ccf     (sedi3d_f30f) bug fix in bedslope and in getmd
-!  Nov, 2005     ccf     (sedi3d_f31f) bed slope by gradients
-!  Nov, 2005     ccf     (sedi3d_f32f) last layer not smaller than 0.1 m
-!  Nov, 2005     ccf     (sedi3d_f33f) compute vertical mixing coeffcients
-!  Jan, 2006     ccf     (sedi3d_f34f) bug fix in upedepth and blimit
-!  Feb, 2006     ccf     (sedi3d_f35f) new suspco routine
-!  Feb, 2006     ccf     (sedi3d_f36f) adapt to Van Rijn (C0) in sedtrans05-h8.f
-!  Feb, 2006     ccf     (sedi3d_f37f) correct bugs in checkbed and other things
-!  May, 2006     ccf     (sedi3d_f38f) correct bugs in line 1119. Introduce KCOES
-!  May, 2006     ccf     (sedi3d_f39f) bugs nonco. non used edr in cohse.
-!                        	no limit percbd. pers(1)>0.1 in line 1120
-!  May, 2006     ccf     (sedi3d_f40f) limit BEDCHA(1,2) to 0.1. 
-! 				bugfix in suspco, better conc in cohse
-!  Jun, 2006     ccf     (sedi3d_f41f) no transport in case of depth< 0.1m
-!  Jun, 2006     ccf     (sedi3d_f42f) read constants from file
-!  Jun, 2006     ccf     (sedi3d_f43f) add limcoh
-!  Jun, 2006     ccf     (sedi3d_f44f) smooth bed elevation change, get_timestep
-!  Jul, 2006     ccf     (sedi3d_f45f) read angle of repose, 
-! 				limit shear velocity, write bathymetry
+!  01.03.2005     ccf     (sedi3d_f1.f) coming from sedi3d_e3_multi7.f
+!  ...                      	new cohesive routine
+!  01.03.2005     ccf     (sedi3d_f2.f) add mixing thickness
+!  01.03.2005     ccf     (sedi3d_f3.f) merge layer 1 and 2 if bedn(1) < bmix
+!  01.03.2005     ccf     (sedi3d_f4.f) update element depth
+!  01.03.2005     ccf     (sedi3d_f5.f) get viscosity from new routine
+!  01.03.2005     ccf     (sedi3d_f6.f) active layer = bottom roughness heigh
+!  01.04.2005     ccf     (sedi3d_f7.f) style changes, create sedt05
+!  01.04.2005     ccf     (sedi3d_f8.f) initialize percbd from file
+!  01.04.2005     ccf     (sedi3d_f8.f) change rhos per cohesive sed
+!  01.06.2005     ccf     (sedi3d_f13.f) adapt 3D, bottom layer and total depth
+!  ...                      	bugfix in computing bedn(1,3), dimension in tuek
+!  01.06.2005     ccf     (sedi3d_f15.f) change deposition density,
+!  ...				add consolidation
+!  01.06.2005     ccf     (sedi3d_f16.f) change units, bug fix in TCONC1
+!  01.06.2005     ccf     (sedi3d_f17.f) bug fix in upedepth
+!  01.06.2005     ccf     (sedi3d_f18.f) bug fix in checkbed, 
+!  ...				adapt to sedtrans05-h5.f
+!  01.07.2005     ccf     (sedi3d_f20.f) adapt to sedtrans05-h6.f
+!  01.07.2005     ccf     (sedi3d_f21.f) bug fix in updepth (as subdry.f)
+!  01.07.2005     ccf     (sedi3d_f22.f) bug fix in bedload
+!  01.08.2005     ccf     (sedi3d_f23.f) eliminate ripple variables
+!  01.08.2005     ccf     (sedi3d_f24.f) bed slope contribution. adjust updepth
+!  01.08.2005     ccf     (sedi3d_f25.f) change deposition characteristics
+!  01.09.2005     ccf     (sedi3d_f26.f) bug fix in bedman,
+!  ...				change boundary for cohesive
+!  01.09.2005     ccf     (sedi3d_f27.f) separete erosion/deposition in bedman
+!  ...                       	number of layer computed each time
+!  01.11.2005     ccf     (sedi3d_f28f) adapt for 3D version
+!  01.11.2005     ccf     (sedi3d_f29f) bed slope threshold, bug fix in updepth
+!  01.11.2005     ccf     (sedi3d_f30f) bug fix in bedslope and in getmd
+!  01.11.2005     ccf     (sedi3d_f31f) bed slope by gradients
+!  01.11.2005     ccf     (sedi3d_f32f) last layer not smaller than 0.1 m
+!  01.11.2005     ccf     (sedi3d_f33f) compute vertical mixing coeffcients
+!  01.01.2006     ccf     (sedi3d_f34f) bug fix in upedepth and blimit
+!  01.02.2006     ccf     (sedi3d_f35f) new suspco routine
+!  01.02.2006     ccf     (sedi3d_f36f) adapt Van Rijn (C0) in sedtrans05-h8.f
+!  01.02.2006     ccf     (sedi3d_f37f) bug fix in checkbed and other things
+!  01.05.2006     ccf     (sedi3d_f38f) bug fix in line 1119. Introduce KCOES
+!  01.05.2006     ccf     (sedi3d_f39f) bugs nonco. non used edr in cohse.
+!  ...                       	no limit percbd. pers(1)>0.1 in line 1120
+!  01.05.2006     ccf     (sedi3d_f40f) limit BEDCHA(1,2) to 0.1. 
+!  ...				bugfix in suspco, better conc in cohse
+!  01.06.2006     ccf     (sedi3d_f41f) no transport in case of depth< 0.1m
+!  01.06.2006     ccf     (sedi3d_f42f) read constants from file
+!  01.06.2006     ccf     (sedi3d_f43f) add limcoh
+!  01.06.2006     ccf     (sedi3d_f44f) smooth bed elevation, get_timestep
+!  01.07.2006     ccf     (sedi3d_f45f) read angle of repose, 
+!  ...				limit shear velocity, write bathymetry
 ! 11.04.2008    ggu&ccf treatment of boundaries slightly changed
 ! 16.04.2008    ggu&ccf bugfix calling lin (must pass double precision 0.)
 ! 22.04.2008    ggu     advection parallelized
@@ -83,6 +107,10 @@
 ! 29.08.2017	ccf	read parameters as array
 ! 17.11.2017    ggu     readsed split in readsed and initsed
 ! 22.02.2018    ccf     adjusted for new sinking velocity
+! 03.02.2019    ggu     adjust z0 etc (GGUZ0)
+! 05.02.2019    ggu     upgraded to new version from chris
+! 14.02.2019    ggu     set negative conz values to 0
+! 15.02.2019    ccf     pass PHIB,PHI100 into nonco (bug)
 ! 
 !****************************************************************************
 
@@ -175,6 +203,10 @@
       integer, save             :: NBCC                 !same as NBCONC but equal 0 if no cohesive
 
       real, save		:: difmol	!Molecolar diffusion coefficient [m**2/s]
+      logical, save		:: wsetbio = .true.	!temp dependent settling velocity
+      !logical, save		:: wsetbio = .false.	!temp dependent settling velocity
+
+      logical, save :: bbudget = .false.		!write budget file
 
 ! ==================================================================
 
@@ -191,6 +223,7 @@
       use mod_sediment
       use mod_sediment_para
       use mod_sedtrans05
+      use mod_bstress, only : taubot
 
       implicit none
 
@@ -209,8 +242,8 @@
       integer, save	:: icall = 0
       integer, save	:: nscls	!number of grainsize classes
       integer, save	:: nbed		!initial number of bed layers
+      integer, save     :: ius = 0	!unit for budget file
       double precision, save	:: adjtime	!time for initialization [s]
-
       integer, allocatable, save :: idsedi(:)   !information on boundaries
       real, allocatable, save :: gskm(:) 	!AVERAGE SEDIMENT GRAIN DIAMETER ON NODES (M)
       real, allocatable, save :: sbound(:)      !boundary vector [kg/m3]
@@ -227,7 +260,8 @@
       double precision, allocatable, save :: scn(:,:,:) !suspended sediment conc (kg/m3)
       double precision, allocatable, save :: sload(:,:) !suspended sediment load [kg/s]
       double precision, allocatable, save :: wsink(:,:,:) !settling velocity for suspended sediment
-      double precision, allocatable, save :: bdh(:)     !total elevation change [>0depo,<0ero]
+      double precision, allocatable, save :: bdh(:)     !total elevation change per timestep [>0depo,<0ero]
+      double precision, allocatable, save :: bedk(:)    !kg of sediment eroded or deposited [>0depo,<0ero]
       double precision, allocatable, save :: gs(:) 	!SEDIMENT GRAIN DIAMETER (M)
       double precision, allocatable, save :: riph(:)    !ripple height [m]
       double precision, allocatable, save :: ripl(:)    !ripple length [m]
@@ -235,6 +269,7 @@
       double precision, allocatable, save :: sedx(:,:) 	!x bedload component [kg/ms]
       double precision, allocatable, save :: sedy(:,:)  !y bedload component [kg/ms]
       double precision, allocatable, save :: bflx(:,:) 	!flux of bedload sediment [m3/m2]
+      double precision, allocatable, save :: bload(:)   !flux of bedload sediment [kg]
       double precision, allocatable, save :: percbd(:,:,:) !fraction of sediment [0,1]
       double precision, allocatable, save :: bedn(:,:,:)!bed characteristics in 3 columns
                                                 	! (1) depth below sediment surface (m)
@@ -253,6 +288,7 @@
       double precision	:: timedr	!time step [s]
 	
 ! function
+      integer 		:: ifemop
       real		:: getpar
       logical		:: has_output_d
 
@@ -289,8 +325,8 @@
 !         --------------------------------------------------
 !	  Initialize state variables and constants
 !         --------------------------------------------------
-          conref = sedpa(2)		!initial concentration
           nscls  = nint(sedpa(4))	!number of grain size classes
+          conref = sedpa(2)/nscls	!initial concentration
 	  call convert_date_d('adjtime',adjtime)
           sedpa(7) = adjtime		!time for re-initialization
           difmol = getpar('difmol')	!molecular vertical diffusivity [m**2/s]
@@ -321,6 +357,7 @@
           allocate(v1v(nkn))
           allocate(sload(nkn,nscls))
           allocate(bdh(nkn))
+          allocate(bedk(nkn))
           allocate(gs(nscls))
           allocate(riph(nkn))
           allocate(ripl(nkn))
@@ -328,6 +365,7 @@
           allocate(sedx(nscls,nkn))
           allocate(sedy(nscls,nkn))
           allocate(bflx(nscls,nkn))
+          allocate(bload(nkn))
           allocate(percbd(nlbdim,nscls,nkn))
           allocate(bedn(nlbdim,3,nkn))
           allocate(percc(nkn))
@@ -349,11 +387,13 @@
           end do
 
           bh     = 0.d0
+          bdh    = 0.d0
+          bedk   = 0.d0
           gdx    = 0.
           gdy    = 0.
-	  riph   = 0.d0
-	  ripl   = 0.d0
-	  totbed = 0.
+          riph   = 0.d0
+          ripl   = 0.d0
+          totbed = 0.
           sedx   = 0.d0	
           sedy   = 0.d0
           sload  = 0.d0
@@ -364,6 +404,7 @@
           tmsus  = 0.
           bdens  = 0.
           bleve  = 0.
+          bload  = 0.d0
 
 !         --------------------------------------------------
 !         Initialize SEDTRANS05 arrays WSI
@@ -390,9 +431,15 @@
 !         --------------------------------------------------
 
 	  call init_sed_output
+	  if( bbudget ) then
+            ius = ifemop('.sed.bdg','formatted','new')
+	    call get_timestep(dt)
+            timedr = dt
+            call totcon(nscls,scn)
+            call sedbudget(ius,dtime,timedr,nscls,sload,bload,bedk)
+	  end if
 
           write(6,*) 'Sediment model initialized...'
-
 	endif
 
 ! -------------------------------------------------------------------
@@ -422,6 +469,7 @@
         call sed_loop(timedr,nscls,gs,hzoff,totbed,riph,ripl,scn,eps,
      +                sedx,sedy,gdx,gdy,tao,gskm,percbd,bedn,salref,
      +                temref,wsink,sload,sflx)
+	taubot = tao
 
 !       -------------------------------------------------------------------
 !       Zero erosion-deposition in the area with rocks (krocks(k) = 1)
@@ -431,12 +479,17 @@
 !       -------------------------------------------------------------------
 !       Compute bedload transport
 !       -------------------------------------------------------------------
-        call bedload(nscls,sedx,sedy,timedr,bh,bflx)
+        call bedload(nscls,sedx,sedy,timedr,bedn,bh,bflx,bload)
 
 !       -------------------------------------------------------------------
 !       Transport and diffusion for each sediment class
 !       -------------------------------------------------------------------
 	call scn_compute(idsedi,nscls,sload,wsink,eps,scn)
+
+!       -------------------------------------------------------------------
+!       Update suspended flux after transp/diff
+!       -------------------------------------------------------------------
+	call update_sflx(nscls,sload,timedr,sflx)
 
 !	-------------------------------------------------------------------
 !	Update bed configuration and compute bed elevation change      
@@ -459,11 +512,6 @@
         call totcon(nscls,scn)
 
 !       -------------------------------------------------------------------
-!       Check mass conservation - only for closed system
-!       -------------------------------------------------------------------
-        !call sedcons(it,bh,bedn)
-
-!       -------------------------------------------------------------------
 !       Compute fraction of mud and sand in surface layer (just for output)
 !       -------------------------------------------------------------------
 	call mud_sand_fract(nlbdim,nscls,nkn,nbcc,percbd,percc,percs)
@@ -472,6 +520,13 @@
 !       Write of results (files SED and SCO)
 !       -------------------------------------------------------------------
 	call wr_sed_output(dtime,bh,gskm,tao,percc,percs,totbed)
+
+!       -------------------------------------------------------------------
+!       Compute sediment budget
+!       -------------------------------------------------------------------
+	if( bbudget ) then
+          call sedbudget(ius,dtime,timedr,nscls,sload,bload,bedk)
+	end if
 
 !       -------------------------------------------------------------------
 !       Compute variables for AQUABC model
@@ -999,7 +1054,7 @@
         CTAUDEP   = cvalue(13)
         PRS       = cvalue(14)
         RHOMUD    = cvalue(15)
-        DPROFA    = cvalue(16)
+        DPROFA    = max(cvalue(16),RHOMUD)
         DPROFB    = cvalue(17)
         DPROFC    = cvalue(18)
         DPROFD    = cvalue(19)
@@ -1330,8 +1385,9 @@ c initialization of conz from file
 	double precision ustar  !shear velocity 
 	real br 	  	!bottom roughness height [m]
 	real z0   		!bottom roughness length [m]
-	double precision k    	!von karman costant
-	parameter(k=0.4d0)
+        double precision :: dz0 !d/z0
+        double precision, parameter :: dz0min = 1.1     !min val for dz0
+        double precision, parameter :: k = 0.4          !von karman costant
 
         br = 2.5*real(gd)		!see amos article
         z0 = br/30.
@@ -1339,7 +1395,11 @@ c initialization of conz from file
         if (uz .le. 0.d0) then
 	  z = d/2.d0
 	else
-          ustar = (uz*k*d/z0)/(d/z0*(log(d/z0)-1.d0)+1.d0)
+          dz0 = dz0min                          !GGUZ0
+          if( z0 > 0. ) dz0 = d/z0
+          if( dz0 < dz0min ) dz0 = dz0min
+          ustar = (uz*k*dz0)/(dz0*(log(dz0)-1.d0)+1.d0)
+          !ustar = (uz*k*d/z0)/(d/z0*(log(d/z0)-1.d0)+1.d0)
           z = z0*exp(uz*k/ustar)
 	end if
 
@@ -1545,6 +1605,7 @@ c initialization of conz from file
 	use basin, only : nkn
         use mod_sediment
         use mod_sediment_para
+        use mod_bound_geom
 
         implicit none
 
@@ -1575,6 +1636,7 @@ c initialization of conz from file
                                                 ! (3) dry bulk density (kg/m**3)
         double precision scns(nscls)    	!suspended sediment conc at bottom layer (kg/m3)
 	double precision hzoff
+	real z0b
 	real totbed(nkn)			!total bedload transport (kg/ms)
         real salref,temref			!salinity [psu] and temperature [C]
         double precision wsink(0:nlvdi,nkn,nscls) !settling velocity for suspended sediment
@@ -1660,7 +1722,8 @@ c initialization of conz from file
 
           call getmd(u,v,UZ,CDIR)		!gets UZ, CDIR
           GD = gskm(k)				!gs50
-          call zvel(UZ,DL,GD,z0bk(k),Z)		!get Z
+	  z0b = z0bk(k)
+          call zvel(UZ,DL,GD,z0b,Z)		!get Z
           call getts(lmax,k,temp,salt)          !gets temp and salt
           if (temp .eq. 0. .and. salt .eq. 0.) then
             temp = temref
@@ -1682,7 +1745,13 @@ c initialization of conz from file
      $nscls,gs,UW,hzoff,scns,sedx(1,k),sedy(1,k),ws,gdx(k),gdy(k),
      $lmax,eps,tao(k),Z0,sloads,sflx(1,k))
 
-	  z0bk(k) = real(Z0)
+	  z0b = real(Z0)
+	  z0bk(k) = max(z0b,z0bmin)		!GGUZ0
+
+          !if( is_external_boundary(k) ) then
+          !  sloads = 0.
+          !  sflx = 0.
+	  !end if
 
           do is = 1,nscls
 	    totbed(k) = totbed(k) + real(sqrt(sedx(is,k)**2 +
@@ -1811,6 +1880,7 @@ c initialization of conz from file
 	double precision btype		!type of active layer or bmix thickness
 	integer dtype			!type of diffusivity algoritm
 	integer wtype			!type of bottom particle velocity algoritm
+        DOUBLE PRECISION wwsb !settling velocity considering biological effect
 
 !       --------------------------------------------------
 !       Initialize variables
@@ -1845,6 +1915,7 @@ c initialization of conz from file
 	U100    = 0.d0
 	USTCWS  = 0.d0
 	USTCW   = 0.d0
+	wwsb    = 1.d0
 
         if ( D .LT. hzoff ) return
 
@@ -1910,9 +1981,10 @@ c initialization of conz from file
      +ust(is),dxx(is))
         end do
 
+	if ( wsetbio ) call wsinkbio(tem,wwsb)
         do is = 1,nbcc
-          ws(is) = max(1d-5,ws(is))
- 	  WSI(is) = ws(is)
+          ws(is) = max(1d-6,ws(is))
+ 	  WSI(is) = min(ws(is),wwsb)
 	end do
 
         CALL THRESH(VISK,GD,RHOS,RHOW,FALL,USTCRB,USTCRS,USTUP,DX)
@@ -1987,10 +2059,10 @@ c initialization of conz from file
 !       Set the surficial layer equal to the active layer (bmix)
 !       -------------------------------------------------------------------
 
-        call bedact(nscls,bmix,BEDCHA,PERCS)
-        do is = 1,nscls
-          pers(is) = PERCS(1,is)
-        end do
+        !call bedact(nscls,bmix,BEDCHA,PERCS)
+        !do is = 1,nscls
+        !  pers(is) = PERCS(1,is)
+        !end do
 
 !       -------------------------------------------------------------------
 !       Calculate sediment transport rate for each sediment class in node k
@@ -2016,7 +2088,7 @@ c initialization of conz from file
           call nonco(BEDCHA,TIMEDR,D,DL,UA,UB,U100,HT,PER,CDIR,
      $RHOW,USTCWS,USTCW,usb,uss,ust,Z0,BETA,RHOS,FCW,WDIR,
      $Z0C,DELTACW,USTCS,USTWS,USTCWSB,USTC,USTW,RPLCOEF,USTBF,
-     $nscls,pers,gs,dxx,ws,scns,sedx,sedy,sloads,sflx)
+     $PHIB,PHI100,nscls,pers,gs,dxx,ws,scns,sedx,sedy,sloads,sflx)
 
         end if
 
@@ -2289,16 +2361,18 @@ c initialization of conz from file
         DOUBLE PRECISION QS		!SUSPENDED SEDIMENT TRANSPORT RATE (KG/M/S)
         DOUBLE PRECISION QSDIR		!DIRECTION OF SUSPENDED SEDIMENT TRANSPORT (DEGREE)
         DOUBLE PRECISION DMASS		!deposited mass (kg/m2)
+	DOUBLE PRECISION RHOA
+        DOUBLE PRECISION r, cdep
         integer i,is			!counters
-	double precision rhoa
-	double precision smax,sdepo
        
 !       --------------------------------------------------
 !       Initialize variables
 !       --------------------------------------------------
- 
-        emass = 0.d0
-	ZS = 0.d0
+
+        emass  = 0.d0
+	ZS     = 0.d0
+	sloads = 0.d0
+        sflux  = 0.d0
 
 !       -------------------------------------------------------------------
 !       Compute the total SSC before deposition and erosion
@@ -2366,10 +2440,11 @@ c initialization of conz from file
           call depos(DL,TIMEDR,NBCC,CONC,TAU0,RHOW,TCONC1,TCONC2,VISK,
      $DMASS)
 	  
+	  !RHOA = 2.d0/(RHOMUD+BEDCHA(1,3))
+	  RHOA = RHOMUD
           do is = 1,nbcc
 	    sloads(is) = sloads(is) - dmass * pers(is) / TIMEDR
-	    sflux(is) = sflux(is) + DMASS*2.d0/(RHOMUD+BEDCHA(1,3))
-     +                  *pers(is)
+	    sflux(is) = sflux(is) + DMASS*pers(is)/RHOA
 	  end do
         end if
 
@@ -2385,11 +2460,12 @@ c initialization of conz from file
           C0AI = C0A * pers(is)
   	  C0AI = MIN(C0AI,scns(is))
 
-	  sdepo = ws(is)*(C0AI - scns(is))
-          smax = -scns(is)*DL/TIMEDR
-          sdepo = dmax1(sdepo,smax)
-          sloads(is) = sloads(is) + sdepo
-	  sflux(is) = sflux(is) - sdepo * timedr / BEDCHA(1,3)
+          r = ws(is)/DL
+          cdep = scns(is) * exp(-r*TIMEDR)
+          C0AI = max(cdep, C0AI)
+          sloads(is) = (C0AI - scns(is))*DL/TIMEDR
+          RHOA = RHOSED * (1.d0 - SURFPOR)
+          sflux(is) = sflux(is) - sloads(is) * timedr / RHOA
         end do
 
         end 
@@ -2402,7 +2478,7 @@ c initialization of conz from file
         subroutine nonco(BEDCHA,TIMEDR,D,DL,UA,UB,U100,HT,PER,CDIR,
      $RHOW,USTCWS,USTCW,usb,uss,ust,Z0,BETA,RHOS,FCW,WDIR,
      $Z0C,DELTACW,USTCS,USTWS,USTCWSB,USTC,USTW,RPLCOEF,USTBF,
-     $nscls,pers,gs,dxx,ws,scns,sedx,sedy,sloads,sflux)
+     $PHIB,PHI100,nscls,pers,gs,dxx,ws,scns,sedx,sedy,sloads,sflux)
 
         use mod_sediment
         use mod_sediment_para
@@ -2475,16 +2551,23 @@ c initialization of conz from file
         DOUBLE PRECISION C0       !REFERENCE CONCENTRATION AT Z0 (KG/M^3)
         DOUBLE PRECISION C0A  	  !DEPTH AVERAGED REFERENCE CONCENTRATION AT Z0 (KG/M^3)
         DOUBLE PRECISION C0AI  	  !DEPTH AVERAGED REFERENCE CONCENTRATION AT Z0 (KG/M^3) per is
+	DOUBLE PRECISION r, cdep
+        DOUBLE PRECISION smax
+	DOUBLE PRECISION RHOA
         integer is		  !counters
-        real smax
+
+!       --------------------------------------------------
+!       Initialize variables
+!       --------------------------------------------------
+        sedx   = 0.d0
+        sedy   = 0.d0
+        sflux  = 0.d0
+	sloads = 0.d0
 
 !       --------------------------------------------------
 !       Loop over grainsize classes for bedload (non-cohesive only)
 !       --------------------------------------------------
- 
         do is = nbcc+1,nscls
-         sedx(is) = 0. 
-         sedy(is) = 0. 
 
 !        -------------------------------------------------------------------
 !        Calculate the duration of the different sediment transport phases
@@ -2503,19 +2586,19 @@ c initialization of conz from file
          if(SEDDIR.le.90.d0.and.SEDDIR.ge.0.d0)   SEDDIR=90.d0-SEDDIR
          if(SEDDIR.le.360.d0.and.SEDDIR.ge.90.d0) SEDDIR=450.d0-SEDDIR
          SEDDIR = SEDDIR / (45.d0 / atan (1.d0))             !rad
-         SEDM = SEDM / bedcha(1,3)
+         !SEDM = SEDM / bedcha(1,3)
 
          sedx(is) = SEDM * pers(is) * cos(SEDDIR)
          sedy(is) = SEDM * pers(is) * sin(SEDDIR)
 
 	end do
 
-	if (IOPT.eq.1 .or. IOPT.eq.3 ) goto 130
+	if (IOPT.eq.1 .or. IOPT.eq.3 ) return
 
 !       --------------------------------------------------
 !       Loop over grainsize classes for suspension
 !       --------------------------------------------------
- 
+
         do is = 1,nscls
 
 	 C0A = 0.d0
@@ -2531,37 +2614,31 @@ c initialization of conz from file
          C0AI = C0A * pers(is)
 
 !        -------------------------------------------------------------------
-!        Compute load for suspended concentration [kg/m²s]
+!        Limit sloads and set sediment bulk density
 !        -------------------------------------------------------------------
-
-         sloads(is) = ws(is)*(C0AI - scns(is))
-
-!        -------------------------------------------------------------------
-!        Limit load and set sediment bulk density
-!        -------------------------------------------------------------------
-
          if (scns(is) .gt. C0AI) then		!deposition
-           smax = -scns(is)*DL/TIMEDR
-           sloads(is) = max(sloads(is),smax)
+            r = ws(is)/DL
+            cdep = scns(is) * exp(-r*TIMEDR)
+            C0AI = max(cdep, C0AI)
+            sloads(is) = (C0AI - scns(is))*DL/TIMEDR
             if (is .le. nbcc) then
-              rhos = RHOCLAY * (1.d0 - SURFPOR)
+              RHOA = RHOMUD
             else
-              rhos = RHOSED * (1.d0 - SURFPOR)
+              RHOA = RHOSED * (1.d0 - SURFPOR)
             end if
          else					!erosion
+           sloads(is) = (C0AI - scns(is))*DL/TIMEDR
            smax = pers(is)*BEDCHA(1,3)*BEDCHA(2,1)/TIMEDR
            sloads(is) = min(sloads(is),smax)
-           rhos = BEDCHA(1,3)
+           RHOA = BEDCHA(1,3)
          end if
 
 !        -------------------------------------------------------------------
-!        Compute deposition or erosion [m³/m²]
+!        Compute flux [m³/m²]
 !        -------------------------------------------------------------------
+	 sflux(is) =  -sloads(is) * timedr / RHOA
 
-	 sflux(is) =  -sloads(is) * timedr / rhos
         end do
-
-130     continue
 
         end
 
@@ -2570,11 +2647,12 @@ c initialization of conz from file
 ! This subroutine computes the bedload sediment transport using the 
 ! sediment continuity equation
 
-        subroutine bedload(nscls,sedx,sedy,dt,bh,bflx)
+        subroutine bedload(nscls,sedx,sedy,dt,bedn,bh,bflx,bload)
 
-	use mod_bound_geom
-	use evgeom
+        use mod_bound_geom
+        use evgeom
         use basin, only : nkn,nel,nen3v
+        use mod_sediment
 
         implicit none
 
@@ -2584,9 +2662,14 @@ c initialization of conz from file
         double precision sedy(nscls,nkn)	!bedload transport in y direction [kg/ms]
 	double precision dt			!time step
         double precision bh(nkn)	    	!bottom height variation [m]
+        double precision bedn(nlbdim,3,nkn)     !bed characteristics in 3 column table
+                                                ! (1) depth below sediment surface (m)
+                                                ! (2) critical erosion stress (Pa)
+                                                ! (3) dry bulk density (kg/m**3)
 
 ! --- output variables
         double precision bflx(nscls,nkn)	!flux of bedload sediment [m3/m2]
+        double precision bload(nkn)		!flux of bedload sediment [kg]
 
 ! --- local variables
         integer k,ie,ii,is
@@ -2603,12 +2686,9 @@ c initialization of conz from file
 !       Initialize local variables
 !       -------------------------------------------------------------------
 
-        do k = 1,nkn
-         do is = 1,nscls
-           bflx(is,k) = 0.d0
-         end do
-	 v2v(k) = 0.d0
-        end do
+        bflx  = 0.d0
+        bload = 0.d0
+	v2v   = 0.d0
 
         do ie = 1,nel
 
@@ -2662,8 +2742,11 @@ c initialization of conz from file
           do is = 1,nscls
             bflx(is,k) = bflx(is,k) / v2v(k)
 	    if( is_external_boundary(k) ) bflx(is,k) = 0.d0
+            bload(k) = bload(k) + bflx(is,k)
+	    bflx(is,k) = bflx(is,k) / bedn(1,3,k)
           end do
         end do
+
 
 !       -------------------------------------------------------------------
 !       Apply slope limiter
@@ -2861,6 +2944,7 @@ c initialization of conz from file
         use mod_sediment
         use mod_sediment_para
 	use mod_sedtrans05
+	use mod_debug
 
         implicit none
 
@@ -2886,7 +2970,6 @@ c initialization of conz from file
         double precision gsmax
         double precision gsmin
         integer k,is
-	logical is_d_nan
 
 !       -------------------------------------------------------------------
 !       Initialize valiables
@@ -2915,7 +2998,7 @@ c initialization of conz from file
          do is = 1,nscls
 
           flx = bflux(is,k) + sflux(is,k)
-	  if (is_d_nan(flx)) flx = 0.
+	  if (is_nan(flx)) flx = 0.
 	  flx = min(flx,0.01)
 	  flx = max(flx,-0.01)
 
@@ -2961,7 +3044,7 @@ c initialization of conz from file
 !        Compute total bottom thikness variation
 !        -------------------------------------------------------------------
 
-	 if (is_d_nan(bdh(k))) bdh(k) = 0.
+	 if (is_nan(bdh(k))) bdh(k) = 0.
 	 bdh(k) = min(bdh(k),0.01)
 	 bdh(k) = max(bdh(k),-0.01)
 	 bdh(k) = bdh(k) * MORPHO
@@ -3463,8 +3546,8 @@ c initialization of conz from file
 
         PERCS(1,iss) = bnet / btot
 
-        BEDCHA(1,2) = (taunew*flux + tausurf*BEDCHA(2,1)) / btot
-        BEDCHA(1,2) = dmax1(BEDCHA(1,2),taunew)
+        taunew = (taunew*flux + tausurf*BEDCHA(2,1)) / btot
+        BEDCHA(1,2) = dmin1(BEDCHA(1,2),taunew)
         BEDCHA(1,2) = dmin1(BEDCHA(1,2),BEDCHA(2,2))
 
         BEDCHA(1,3) = (rhosa*flux + rhosurf*BEDCHA(2,1))/ btot
@@ -3519,7 +3602,7 @@ c initialization of conz from file
 !       Initialize valiables
 !       -------------------------------------------------------------------
 
-        blimit = BEDCHA(nlbd,1) - BEDCHA(nlbd-1,1)
+        blimit = (BEDCHA(3,1) - BEDCHA(2,1))/2.
 	bres = bedcha(2,1) - blimit
 
 	if ( bres .gt. (blimit/2.) ) then
@@ -3737,33 +3820,35 @@ c initialization of conz from file
         integer k,l,is,lmax
 
         do k = 1,nkn
-         lmax = ilhkv(k)
-         do l = 1,lmax
-	  tcn(l,k) = 0.
-          do is = 1,nscls
-           scn(l,k,is) = max(scn(l,k,is),0.d0)
-	   conc = scn(l,k,is)
+          lmax = ilhkv(k)
+          do l = 1,lmax
+             tcn(l,k) = 0.
+             do is = 1,nscls
+              scn(l,k,is) = max(scn(l,k,is),0.d0)
+              conc = scn(l,k,is)
+	      if (conc < 0.d0 ) then
+                write(6,*) 'l,k,is,scn: ',l,k,is,scn(l,k,is)
+                stop 'error stop totcon: negative concentration'
+              end if
+  
+  	      if (is .le. nbcc) then
+  	        rhos = rhoclay
+  	      else
+	        rhos = rhosed
+	      end if
 
-	   if (is .le. nbcc) then
-	     rhos = rhoclay
-	   else
-	     rhos = rhosed
-	   end if
+!             -------------------------------------------------------------------
+!             Compute total concentration
+!             -------------------------------------------------------------------
+              tcn(l,k) = tcn(l,k) + conc
 
-!          -------------------------------------------------------------------
-!          Compute total concentration
-!          -------------------------------------------------------------------
+!             -------------------------------------------------------------------
+!             Update fluid density
+!             -------------------------------------------------------------------
+              rhov(l,k) = rhov(l,k) + (conc/rhos)*(rhos-rhov(l,k))
 
-           tcn(l,k) = tcn(l,k) + conc
-
-!          -------------------------------------------------------------------
-!          Update fluid density
-!          -------------------------------------------------------------------
-
-           rhov(l,k) = rhov(l,k) + (conc/rhos)*(rhos-rhov(l,k))
-
+            end do
           end do
-         end do
         end do
 
         call nantest(nkn*nlvdi,rhov,'rhov')
@@ -3787,9 +3872,9 @@ c initialization of conz from file
 
         implicit none
 
-        double precision bdh(nkn)          !total elevation change [>0depo,<0ero]
+        double precision bdh(nkn)    !total elevation change [>0:depo,<0:eros]
 
-        real hlhv(nel)
+        !real hlhv(nel)	!GGU
 
         real dh
         real evdep				!element depth variation
@@ -3835,9 +3920,9 @@ c initialization of conz from file
             !hm3v(ii,ie) = hm3v(ii,ie) - dh	????
           end do
           evdep = evdep / 3.
-          if ((hlhv(ie) - evdep) .lt. 0.2 ) evdep = 0.
+          !if ((hlhv(ie) - evdep) .lt. 0.2 ) evdep = 0.
 
-          hlhv(ie) = hlhv(ie) - evdep
+          !hlhv(ie) = hlhv(ie) - evdep
 	  do ii = 1,3
             hm3v(ii,ie) = hm3v(ii,ie) - evdep
           end do
@@ -3952,43 +4037,57 @@ c initialization of conz from file
 
 	end subroutine resetsedi 
 
- !******************************************************************
+!******************************************************************
+! Compute the sediment bubdet in the basin considering suspended and
+! bed loads.
 
-        subroutine sedcons(it,bh,bedn)
+        subroutine sedbudget(ius,dtime,timedr,nscls,sload,bload,bedk)
 
         use levels
-	use basin, only : nkn
+        use basin, only : nkn
         use mod_sediment
 
         implicit none
 
-	integer it
-        double precision bh(nkn)		!bed elevation
-        double precision bedn(nlbdim,3,nkn)	!bed characteristics in 3 column table
-                                                ! (1) depth below sediment surface (m)
-                                                ! (2) critical erosion stress (Pa)
-                                                ! (3) dry bulk density (kg/m**3)
+        integer, intent(in)          :: ius          !unit for budget file
+        double precision, intent(in) :: dtime	     !time in seconds
+        double precision, intent(in) :: timedr	     !time step [s]
+	integer, intent(in) 	     :: nscls	     !number of grainsize classes
+        double precision, intent(in) :: sload(nkn,nscls) !suspended sediment load [kg/s]
+        double precision, intent(in) :: bload(nkn)   !flux of bedload sediment [kg]
 
-	real net,ccc,bbb
-        real areanode,area
-        real volnode,vol
+        double precision, intent(inout) :: bedk(nkn) !sediment budget in kg [>0depo,<0ero]
 
-        integer k
+	integer		 :: lmax
+	double precision :: load
+        real 		 :: sus,bed
+        real 		 :: volnode,vol
+        integer		 :: k,l
+        character*20 aline
+        external get_timeline
 
-	net = 0.
-	bbb = 0.
-	ccc = 0.
-	do k = 1,nkn
-	  area = areanode(1,k)
-	  vol = volnode(1,k,1)
-	  ccc = ccc + tcn(1,k) * vol
-	  bbb = bbb + bh(k)*area*real(bedn(1,3,k))
-	  net = ccc + bbb 
-	end do
+        call get_timeline(dtime,aline)
 
-	write(74,*)it,bbb,ccc,net
+        sus = 0.
+        bed = 0.
+        do k = 1,nkn
+          load = - sum(sload(k,:))*timedr + bload(k)
+          bedk(k) = bedk(k) + load
+          bed = bed + bedk(k)
 
-	end
+          lmax = ilhkv(k)
+	  do l = 1,lmax
+            vol = volnode(l,k,1)
+            sus = sus + tcn(l,k)*vol
+	  end do
+        end do
+
+        write(ius,1000) aline,sus,bed
+
+        return
+ 1000   format(a,2f18.2)
+
+        end subroutine sedbudget
 
 !******************************************************************
 
@@ -4099,9 +4198,11 @@ c initialization of conz from file
         DOUBLE PRECISION VISC   	!dynamic viscosity of the (sea)water (KG/M*SEC (OR N.S/M**2))
         DOUBLE PRECISION VISK     	!KINEMAMIC VISCOSITY OF THE FLUID (KG/M*SEC (OR N.S/M**2))
         DOUBLE PRECISION RHOW     	!DENSITY OF FLUID (WATER)  (KG/M**3)
-        DOUBLE PRECISION WWS(nscls)     !settling velocity of the considered floc class (m/s)
+        DOUBLE PRECISION, allocatable :: WWS(:)  !settling velocity of the considered floc class (m/s)
 
         integer k,l,is,i,lmax
+
+	allocate(WWS(nbcc))
 
 	do k = 1,nkn
           lmax = ilhkv(k)
@@ -4138,6 +4239,28 @@ c initialization of conz from file
 
 	end
 
+
+!******************************************************************
+! Set settling velocity for fine sediments in function of water temp.
+! This is specific for the Curonian Lagoon
+
+        subroutine wsinkbio(tem,wwsb)
+
+	implicit none
+
+	double precision, intent(in)	:: tem		!water temp
+	double precision, intent(out)	:: wwsb		!settling vel
+
+	if (tem > 5.) then
+ 	  wwsb = -0.03443*tem + 1.251117		!m/day
+	  wwsb = wwsb / 86400.			! to m/s
+	else
+	  wwsb = 1.
+	end if
+	wwsb = max(wwsb,1d-06)
+
+	end subroutine wsinkbio
+
 !******************************************************************
 
         subroutine scn_compute(idsedi,nscls,sload,wsink,eps,scn)
@@ -4155,7 +4278,7 @@ c initialization of conz from file
 
         integer, intent(in)		:: idsedi(*)
 	integer, intent(in)		:: nscls
-	double precision, intent(in)	:: sload(nkn,nscls)	!suspended sediment load [kg/s]
+	double precision, intent(inout)	:: sload(nkn,nscls)    !suspended sediment load [kg/s]
         double precision, intent(in)	:: wsink(0:nlvdi,nkn,nscls) !settling velocity for suspended sediment
         double precision, intent(in)	:: eps(0:nlvdi,nkn,nscls) !vertical mixing coefficient
 
@@ -4173,10 +4296,9 @@ c initialization of conz from file
 	integer				:: is
 
 !$OMP PARALLEL
-
 !$OMP SINGLE 
-
 !$OMP TASKWAIT
+
 !!!$OMP TASKGROUP
 
         dtime = it
@@ -4189,42 +4311,55 @@ c initialization of conz from file
 
 !!!$OMP TASK DEFAULT(FIRSTPRIVATE) SHARED(sload,scn,eps,wsink,idsedi)
 
-!$OMP TASK FIRSTPRIVATE(is,fact,sedkpar,difhv,difmol,what
-!$OMP& ,dt,nlvdi,nkn,ilhkv,scal,wsinks,epss,lload,load)
-!$OMP& SHARED(sload,scn,eps,wsink,idsedi) DEFAULT(NONE)
+! !$OMP TASK FIRSTPRIVATE(is,fact,sedkpar,difhv,difmol,what
+! !$OMP& ,dt,nlvdi,nkn,ilhkv,scal,wsinks,epss,lload,load)
+! !$OMP& SHARED(sload,scn,eps,wsink,idsedi) DEFAULT(NONE)
 
-  	  allocate(lload(nkn))
-  	  allocate(load(nlvdi,nkn))
-	  allocate(scal(nlvdi,nkn))
-	  allocate(epss(0:nlvdi,nkn))
-	  allocate(wsinks(0:nlvdi,nkn))
+!   	  allocate(lload(nkn))
+!   	  allocate(load(nlvdi,nkn))
+! 	  allocate(scal(nlvdi,nkn))
+! 	  allocate(epss(0:nlvdi,nkn))
+! 	  allocate(wsinks(0:nlvdi,nkn))
 
-	  lload(:) = sload(:,is)
-          call load3d(lload,nkn,nlvdi,ilhkv,load)
-          scal(:,:)   = scn(:,:,is)
-          epss(:,:)   = eps(:,:,is)
-          wsinks(:,:) = wsink(:,:,is)
-          call scal_adv_fact(what,is,fact
-     +                      ,scal,idsedi
-     +                      ,sedkpar,fact,wsinks,fact,load
-     +                      ,difhv,epss,difmol)
-          scn(:,:,is) = scal(:,:)
+! 	  lload(:) = sload(:,is)
+!           call load3d(lload,nkn,nlvdi,ilhkv,load)
+!           scal(:,:)   = scn(:,:,is)
+!           epss(:,:)   = eps(:,:,is)
+!           wsinks(:,:) = wsink(:,:,is)
+! 	  where( scal < 0. ) scal = 0.			!GGUZ0
+!          call scal_adv_fact(what,is,fact
+!      +                      ,scal,idsedi
+!      +                      ,sedkpar,fact,wsinks,fact,load
+!      +                      ,difhv,epss,difmol)
 
-  	  deallocate(lload)
-  	  deallocate(load)
-	  deallocate(scal)
-	  deallocate(epss)
-	  deallocate(wsinks)
+!          call sload3d(load,nkn,nlvdi,ilhkv,lload)
+!          scn(:,:,is) = scal(:,:)
+!          sload(:,is) = lload(:)
 
+!  	  deallocate(lload)
+!  	  deallocate(load)
+! 	  deallocate(scal)
+! 	  deallocate(epss)
+! 	  deallocate(wsinks)
+
+! !$OMP END TASK
+
+! !$OMP TASK FIRSTPRIVATE(what,is,sedkpar,difmol)
+! !$OMP& SHARED(scn,wsink,sload,eps,idsedi) DEFAULT(NONE)
+
+!$OMP TASK DEFAULT(FIRSTPRIVATE) SHARED(idsedi,scn,wsink,sload,eps)
+          call scn_compute_intern(what
+     +			,is,idsedi,sedkpar,difmol
+     +			,scn(:,:,is),wsink(:,:,is)
+     +			,sload(:,is),eps(:,:,is))
 !$OMP END TASK
 
         end do
 
 !!!$OMP END TASKGROUP     
+
 !$OMP TASKWAIT
-
 !$OMP END SINGLE 
-
 !$OMP END PARALLEL  
 
 ! -------------------------------------------------------------
@@ -4232,6 +4367,64 @@ c initialization of conz from file
 ! -------------------------------------------------------------
 
         end subroutine scn_compute
+
+!******************************************************************
+
+        subroutine scn_compute_intern(what
+     +			,is,idsedi,sedkpar,difmol
+     +			,scn,wsink,sload,eps)
+
+        use mod_diff_visc_fric
+        use levels, only : nlvdi,nlv,ilhkv
+        use basin, only : nkn
+
+	implicit none
+
+	character*(*) what
+	integer is,idsedi(*)
+	real sedkpar,difmol
+        double precision, intent(inout)	:: scn(nlvdi,nkn)
+        double precision, intent(in)	:: wsink(0:nlvdi,nkn)
+	double precision, intent(inout)	:: sload(nkn)
+        double precision, intent(in)	:: eps(0:nlvdi,nkn)
+
+        real, allocatable 		:: scal(:,:)
+        real, allocatable 		:: epss(:,:)
+        real, allocatable 		:: wsinks(:,:)
+        real, allocatable 		:: lload(:)
+        real, allocatable 		:: load(:,:)
+
+	real, parameter :: fact = 1.
+
+  	allocate(lload(nkn))
+  	allocate(load(nlvdi,nkn))
+	allocate(scal(nlvdi,nkn))
+	allocate(epss(0:nlvdi,nkn))
+	allocate(wsinks(0:nlvdi,nkn))
+
+	lload(:) = sload(:)
+        call load3d(lload,nkn,nlvdi,ilhkv,load)
+        scal(:,:)   = scn(:,:)
+        epss(:,:)   = eps(:,:)
+        wsinks(:,:) = wsink(:,:)
+	where( scal < 0. ) scal = 0.			!GGUZ0
+
+        call scal_adv_fact(what,is,fact
+     +                      ,scal,idsedi
+     +                      ,sedkpar,fact,wsinks,fact,load
+     +                      ,difhv,epss,difmol)
+
+        call sload3d(load,nkn,nlvdi,ilhkv,lload)
+        scn(:,:) = scal(:,:)
+        sload(:) = lload(:)
+
+  	deallocate(lload)
+  	deallocate(load)
+	deallocate(scal)
+	deallocate(epss)
+	deallocate(wsinks)
+
+	end subroutine scn_compute_intern
 
 !******************************************************************
 
@@ -4256,6 +4449,67 @@ c initialization of conz from file
 
 	end subroutine load3d
 
+!******************************************************************
+
+	subroutine sload3d(load,nkn,nlvdi,ilhkv,sload)
+
+	implicit none
+
+	real, intent(in)		:: load(nlvdi,nkn) !suspended sediment load (3D)
+	integer, intent(in)		:: nkn		!number of node
+	integer, intent(in)		:: nlvdi	!number of vertical levels
+        integer, intent(in)		:: ilhkv(nkn)	!number of element and node level
+
+	real, intent(out)		:: sload(nkn)	!suspended sediment load at bottom
+
+	integer		::  k,l,lmax
+
+	do k = 1,nkn
+	   lmax = ilhkv(k)
+	   sload(k) = load(lmax,k)
+	end do
+
+	end subroutine sload3d
+
+!******************************************************************
+! Update sflx in case of deposition after advection/diffusion of 
+! suspended sediment
+
+        subroutine update_sflx(nscls,sload,timedr,sflx)
+
+        use basin, only : nkn
+        use levels
+        use mod_sediment_para
+        use mod_sedtrans05
+
+        implicit none
+
+        integer, intent(in)     :: nscls
+        double precision, intent(in)    :: sload(nkn,nscls) !suspended sediment load [kg/s]
+        double precision, intent(in)    :: timedr       !time step [s]
+        double precision, intent(inout) :: sflx(nscls,nkn)  !flux of suspend sediment [m3/m2]
+
+	integer		 :: k,is,lmax
+        real 		 :: areanode,area
+	double precision :: load,RHOA
+
+        do k = 1,nkn
+          lmax = ilhkv(k)                       !bottom layer
+          area = areanode(lmax,k)               !area of node
+	  do is = 1,nscls
+             if ( sload(k,is) < 0.d0 ) then
+               if ( is <= nbcc ) then
+                 RHOA = RHOMUD
+               else
+                 RHOA = RHOSED * (1.d0 - SURFPOR)
+               end if
+               load = -sload(k,is) / area
+               sflx(is,k) =  load * timedr / RHOA
+             end if
+           end do
+	end do
+
+	end subroutine update_sflx
 
 !******************************************************************
 

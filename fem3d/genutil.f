@@ -1,6 +1,28 @@
-c
-c $Id: ousutil.f,v 1.3 2009-09-14 08:20:58 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c general utilities for output files
 c
 c revision log :
@@ -62,7 +84,7 @@ c gets records to extract from stdin
 
 c******************************************************************
 
-        subroutine get_nodes_from_stdin(ndim,nnodes,nodes,nodese)
+        subroutine get_nodes_from_stdin(ndim,nnodes,nodesi,nodese)
 
 c gets records to extract from stdin
 
@@ -70,7 +92,7 @@ c gets records to extract from stdin
 
         integer ndim            !dimension of nodes
         integer nnodes          !total number of nodes read
-        integer nodes(ndim)     !array with node numbers (nnodes in total)
+        integer nodesi(ndim)    !array with internal node numbers (nnodes total)
         integer nodese(ndim)    !array with external node numbers
 
         integer ir
@@ -104,8 +126,8 @@ c gets records to extract from stdin
             stop 'error stop get_nodes_from_stdin: ndim'
           else
             nodese(nnodes) = ir
-            nodes(nnodes) = ipint(ir)
-            if( nodes(nnodes) .le. 0 ) then
+            nodesi(nnodes) = ipint(ir)
+            if( nodesi(nnodes) .le. 0 ) then
               write(6,*) 'No such node ',ir,' ... ignoring'
               nnodes = nnodes - 1
             end if

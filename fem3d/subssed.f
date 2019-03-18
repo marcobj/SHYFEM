@@ -1,6 +1,28 @@
+
+!--------------------------------------------------------------------------
 !
-! $Id: subcus.f,v 1.58 2010-03-08 17:46:45 georg Exp $
+!    Copyright (C) 1985-2018  Georg Umgiesser
 !
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! simplified sedimentation module
 !
 ! contents :
@@ -11,6 +33,12 @@
 !
 ! 03.02.2017	ggu	old routine copied from subcus.f
 ! 09.05.2017	ggu	some bugs fixed
+!
+! notes :
+!
+! in order to run the module set issedi=1 in the STR file, $para section
+! output frequency is according to itmcon, idtcon
+! files written are with extension .ssed.shy
 !
 !******************************************************************
 
@@ -26,19 +54,26 @@
 	real, save, allocatable :: sedflux(:)	!sediment flux [kg/m**2/s]
 	integer, save, allocatable :: inarea(:)	!0 if area out of basin
 
+!------------------------------------------------------------------
 ! sediment flux is positive from sediment into water column
+!------------------------------------------------------------------
 
 	logical, save :: bssedi = .false.	!is running?
-
 	integer, save :: issedi = 0	!1 -> use module (set in STR file)
-	integer, save :: iout_area = -1	!area considered outside, -1 for none
 
-	double precision, save :: da_out(4)	!index for output file
+	double precision, save :: da_out(5)	!index for output file
+
+!------------------------------------------------------------------
+! user defined parameters - please customize
+!------------------------------------------------------------------
+
+	logical, save :: bonlys = .true. !only resuspend settled sediments
+	integer, save :: iout_area = -1	!area considered outside, -1 for none
 
 	real, save :: wsink = 5.e-4	!sinking velocity [m/s]
 	real, save :: rhos = 2500.	!density of sediments [kg/m**3]
-	real, save :: tce = 0.1		!critical threshold for erosion [N/m**2]
-	real, save :: tcd = 0.03	!critical threshold for deposition [N/m**2]
+	real, save :: tce = 0.1		!critical threshold erosion [N/m**2]
+	real, save :: tcd = 0.03	!critical threshold deposition [N/m**2]
 	real, save :: eurpar = 1.e-3	!erosion parameter [kg/m**2/s]
 
 !==================================================================
@@ -67,7 +102,8 @@
 	real caux(nlvdi)
 	real taubot(nkn)
 	real dc,f,tau,alpha
-	real cmin,cmax,ccc
+	real cmin,cmax
+	character*20 aline
 
 	integer iu,id,itmcon,idtcon,itstart
 	save iu,id,itmcon,idtcon,itstart
@@ -85,6 +121,7 @@
 	call get_timestep(dt)
 	call getinfo(iunit)
 	call get_act_dtime(dtime)
+	call get_timeline(dtime,aline)
 
 	if( tce < tcd ) stop 'error stop simple_sedi: tce < tcd'
 
@@ -142,9 +179,9 @@
 ! sinking
 !------------------------------------------------------------
 
-	  call simple_sedi_bottom_stress(taubot)
+	  call bottom_stress(taubot)
 
-	cmax = maxval(cnv)
+ 	  cmax = maxval(cnv)
 
           do k=1,nkn
 	    lmax = ilhkv(k)
@@ -164,18 +201,17 @@
             vol = volnode(lmax,k,+1)
 	    tau = taubot(k)
 	    r = dt/h
-	    call bottom_flux(k,tau,cnv(lmax,k),r,alpha,f)	!f is sediment flux
+	    call bottom_flux(k,tau,cnv(lmax,k),r,alpha,f) !f is sediment flux
+
+	    if( bonlys .and. f*dt > conza(k) ) then	!limit erosion
+	      f = conza(k) / dt
+	    end if
+
 	    sedflux(k) = f
 	    dc = f * dt / h
 	    caux(lmax) = caux(lmax) + dc
-		ccc = cnv(1,k)
 	    cnv(:,k) = cnv(:,k) + caux(:)
 
-	!if( k == 2421 ) then
-	!	write(6,*) dtime
-	!	write(6,*) f,h,dc,ccc,cnv(1,k),tau
-	!end if
-	    
 	    conzs(k) = conzs(k) - vol*dc	! [kg]
 	    conza(k) = conza(k) - h*dc		! [kg/m**2]
 	    conzh(k) = conzh(k) - (h*dc)/rhos	! [m]
@@ -207,7 +243,9 @@
         end do
 
         !write(6,*) 'sedimt: ',dtime,mass,masss,mass+masss
-        write(iunit,*) 'sedimt: ',dtime,mass,masss,mass+masss
+        !write(iunit,*) 'sedimt: ',dtime,mass,masss,mass+masss
+        write(iunit,1200) ' sedimt: ',aline,mass,masss,mass+masss
+ 1200	format(a,a,4e14.6)
 
 !------------------------------------------------------------
 ! write accumulated bottom sediments
@@ -280,12 +318,12 @@
 
 	real dc
 
-	if( tau < tcd ) then			!deposition
+	if( tau < tcd ) then			!deposition (f negative)
 	  alpha = - ( 1. - tau/tcd )
 	  dc = conz*(exp(alpha*r*wsink)-1.)
 	  f = dc / r
 	  !f = alpha * wsink * conz
-	else if( tau > tce ) then		!erosion
+	else if( tau > tce ) then		!erosion (f positive)
 	  alpha = ( tau/tce - 1. )
 	  f = alpha * eurpar
 	else					!nothing
@@ -298,11 +336,15 @@
 
 	subroutine simple_sedi_init_output
 
+! this opens two files, one for bottom sediments (2D), and one for
+! concentrations in water column (3D)
+
 	use simple_sediments
 
 	implicit none
 
-	integer, save :: nvar = 3
+	integer, save :: nvar2d = 3
+	integer, save :: nvar3d = 1
 	integer id
 	logical has_output_d
 
@@ -310,8 +352,10 @@
 
         call init_output_d('itmcon','idtcon',da_out)
         if( has_output_d(da_out) ) then
-          call shyfem_init_scalar_file('ssed',nvar,.true.,id)
+          call shyfem_init_scalar_file('ssed',nvar2d,.true.,id)
           da_out(4) = id
+          call shyfem_init_scalar_file('csed',nvar3d,.false.,id)
+          da_out(5) = id
         end if
 
 	end
@@ -320,6 +364,8 @@
 
 	subroutine simple_sedi_write_output(dtime)
 
+	use levels
+	use mod_conz, only: cnv
 	use simple_sediments
 
 	implicit none
@@ -331,46 +377,17 @@
 
         if( .not. next_output_d(da_out) ) return
 
+	idcbase = 850
+
         id = nint(da_out(4))
-	idcbase = 21
 
-        call shy_write_scalar_record(id,dtime,idcbase+1,1,conzs)	! [kg]
-        call shy_write_scalar_record(id,dtime,idcbase+2,1,conza)	! [kg/m**2]
-        call shy_write_scalar_record(id,dtime,idcbase+3,1,conzh)	! [m]
+        call shy_write_scalar_record(id,dtime,idcbase+1,1,conzs) ! [kg]
+        call shy_write_scalar_record(id,dtime,idcbase+2,1,conza) ! [kg/m**2]
+        call shy_write_scalar_record(id,dtime,idcbase+3,1,conzh) ! [m]
 
-	end
+        id = nint(da_out(5))
 
-!*****************************************************************
-
-	subroutine simple_sedi_bottom_stress(taubot)
-
-! must still integrate stress from waves
-
-	use basin
-
-	implicit none
-
-	real taubot(nkn)
-
-	integer k
-	real tc,tw,tm
-	real taucur(nkn)
-	real tauwave(nkn)
-
-	call current_bottom_stress(taucur)
-	call wave_bottom_stress(tauwave)
-
-	do k=1,nkn
-	  tc = taucur(k)
-	  tw = tauwave(k)
-	  if( tc+tw == 0. ) then
-	    tm = 0.
-	  else
-	    tm = tc * ( 1. + 1.2 * ( tw/(tc+tw) )**3.2 )
-	  end if
-	  taubot(k) = tm
-	  !if( k == 100 ) write(6,*) 'taubot: ',k,tc,tw,tm
-	end do
+        call shy_write_scalar_record(id,dtime,idcbase,nlvdi,cnv)
 
 	end
 
@@ -384,9 +401,9 @@
 
 	implicit none
 
-	integer k		!node
-	real flux		!sediment flux at node k [kg/m**2/s]
-	real conz(nlvdi)	!sediment concentration in water column [kg/m**3]
+	integer k	 !node
+	real flux	 !sediment flux at node k [kg/m**2/s]
+	real conz(nlvdi) !sediment concentration in water column [kg/m**3]
 
 	if( .not. bssedi ) then
 	  write(6,*) 'bssedi: ',bssedi

@@ -1,6 +1,28 @@
-c
-c $Id: basbox.f,v 1.14 2010-02-26 17:35:06 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c revision log :
 c
 c 07.05.2013    ggu     copied from bastreat
@@ -162,8 +184,8 @@ c there are nblink(ib) node pairs in boxinf, so n=1,nblink(ib)
 
 		call count_sections(nf,iaux2,ns)
 		call invert_list(nf,iaux2)
-		write(66,*) ns,nf,ib,ibn
-		write(66,*) (ipv(iaux2(i)),i=1,nf)
+		!write(66,*) ns,nf,ib,ibn
+		!write(66,*) (ipv(iaux2(i)),i=1,nf)
 
 		nt = nt + nf - ns + 1	!real nodes, no zeros
 		ntt = ntt + nf + 1
@@ -288,8 +310,8 @@ c*******************************************************************
 	  ie = i - 1
 	  id = id + 1
 	  nn = ie - is + 1
-	  write(68,*) id,nn,ib,ibn
-	  write(68,*) (ipv(list(j)),j=is,ie)
+	  !write(68,*) id,nn,ib,ibn
+	  !write(68,*) (ipv(list(j)),j=is,ie)
 	  write(69,*) id,nn,ib,ibn
 	  write(69,'((8i9))') (ipv(list(j)),j=is,ie)
 	  i = i + 1
@@ -345,8 +367,8 @@ c*******************************************************************
 	  end if
 	end do
 
-	write(67,*) nel,nbox,nu
-	write(67,*) (iarv(ie),ie=1,nel)
+	!write(67,*) nel,nbox,nu
+	!write(67,*) (iarv(ie),ie=1,nel)
 
 	write(69,*) nel,nbox,nu
 	write(69,'((8i9))') (iarv(ie),ie=1,nel)

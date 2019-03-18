@@ -1,6 +1,28 @@
-c
-c $Id: newcon.f,v 1.56 2010-03-22 15:29:31 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for concentration
 c
 c contents :
@@ -163,7 +185,7 @@ c 01.06.2011    ggu     wsink for stability integrated
 c 12.07.2011    ggu     run over nlv, not nlvddi, vertical_flux() for lmax>1
 c 15.07.2011    ggu     call vertical_flux() anyway (BUG)
 c 21.06.2012    ggu&ccf variable vertical sinking velocity integrated
-c 03.12.2013    ggu&deb bug fix for horizontal diffusion
+c 03.12.2013    ggu&dbf bug fix for horizontal diffusion
 c 15.05.2014    ggu     write min/max error only for levdbg >= 3
 c 10.07.2014    ggu     only new file format allowed
 c 20.10.2014    ggu     accept ids from calling routines
@@ -180,6 +202,8 @@ c 11.05.2018    ggu     compute only unique nodes (needed for zeta layers)
 c 30.05.2018    ggu     better debug output in conzstab (idtstb,itmstb)
 c 01.06.2018    ggu     stability of scalar revised - aa > 0 possible again
 c 01.06.2018    ggu     implicit nudging (relaxation) (ANT)
+c 11.10.2018    ggu     caux substituted with load,cobs,rtauv (bug inout)
+c 14.02.2019    ggu     check for negative scalar
 c
 c*********************************************************************
 
@@ -206,7 +230,9 @@ c shell for scalar (for parallel version)
         real difmol
 
         real, allocatable :: r3v(:,:)
-        real, allocatable :: caux(:,:)
+        real, allocatable :: load(:,:)
+        real, allocatable :: cobs(:,:)
+        real, allocatable :: rtauv(:,:)
         real, allocatable :: wsinkv(:,:)
 
 	double precision dtime
@@ -214,13 +240,18 @@ c shell for scalar (for parallel version)
         integer iwhat,ichanm
 	character*10 whatvar,whataux
 
-	allocate(r3v(nlvdi,nkn),caux(nlvdi,nkn))
+	allocate(r3v(nlvdi,nkn))
+	allocate(load(nlvdi,nkn))
+	allocate(cobs(nlvdi,nkn))
+	allocate(rtauv(nlvdi,nkn))
 	allocate(wsinkv(0:nlvdi,nkn))
 
-	r3v = 0.
 	robs = 0.
 	rload = 0.
-	caux = 0.
+	r3v = 0.
+	load = 0.
+	cobs = 0.
+	rtauv = 0.
 	wsinkv = 1.
 
 c--------------------------------------------------------------
@@ -251,11 +282,11 @@ c--------------------------------------------------------------
 
         call scal3sh(whatvar(1:iwhat)
      +				,scal,nlvdi
-     +                          ,r3v,caux,robs,caux
-     +				,rkpar,wsink,wsinkv,rload,caux
+     +                          ,r3v,cobs,robs,rtauv
+     +				,rkpar,wsink,wsinkv,rload,load
      +                          ,difhv,difv,difmol)
 
-	deallocate(r3v,caux,wsinkv)
+	deallocate(r3v,load,cobs,rtauv,wsinkv)
 
 c--------------------------------------------------------------
 c end of routine
@@ -293,7 +324,7 @@ c shell for scalar with nudging (for parallel version)
 
         real, allocatable :: r3v(:,:)
         real, allocatable :: wsinkv(:,:)
-	real, allocatable :: caux(:,:)
+	real, allocatable :: load(:,:)
 
 	integer ierr,l,k,lmax
 	real eps
@@ -302,13 +333,13 @@ c shell for scalar with nudging (for parallel version)
         integer iwhat,ichanm
 	character*10 whatvar,whataux
 
-	allocate(r3v(nlvdi,nkn),caux(nlvdi,nkn))
+	allocate(r3v(nlvdi,nkn),load(nlvdi,nkn))
 	allocate(wsinkv(0:nlvdi,nkn))
 
 	rload = 0.
 	r3v = 0.
 	wsinkv = 1.
-	caux = 0.
+	load = 0.
 
 c--------------------------------------------------------------
 c make identifier for variable
@@ -337,10 +368,10 @@ c--------------------------------------------------------------
         call scal3sh(whatvar(1:iwhat)
      +				,scal,nlvdi
      +                          ,r3v,sobs,robs,rtauv
-     +				,rkpar,wsink,wsinkv,rload,caux
+     +				,rkpar,wsink,wsinkv,rload,load
      +                          ,difhv,difv,difmol)
 
-	deallocate(r3v,caux)
+	deallocate(r3v,load)
 	deallocate(wsinkv)
 
 c--------------------------------------------------------------
@@ -380,7 +411,8 @@ c special version with factor for BC, variable sinking velocity and loads
         real difmol
 
         real, allocatable :: r3v(:,:)
-        real, allocatable :: caux(:,:)
+        real, allocatable :: cobs(:,:)
+        real, allocatable :: rtauv(:,:)
 
 	double precision dtime
 	real robs
@@ -388,11 +420,13 @@ c special version with factor for BC, variable sinking velocity and loads
 	character*20 whatvar,whataux
 
 	allocate(r3v(nlvdi,nkn))
-	allocate(caux(nlvdi,nkn))
+	allocate(cobs(nlvdi,nkn))
+	allocate(rtauv(nlvdi,nkn))
 
 	robs = 0.
 	r3v = 0.
-	caux = 0.
+	cobs = 0.
+	rtauv = 0.
 
 c--------------------------------------------------------------
 c make identifier for variable
@@ -428,11 +462,11 @@ c--------------------------------------------------------------
 
         call scal3sh(whatvar(1:iwhat)
      +				,scal,nlvdi
-     +                          ,r3v,caux,robs,caux
+     +                          ,r3v,cobs,robs,rtauv
      +				,rkpar,wsink,wsinkv,rload,load
      +                          ,difhv,difv,difmol)
 
-	deallocate(r3v,caux)
+	deallocate(r3v,cobs,rtauv)
 
 c--------------------------------------------------------------
 c end of routine
@@ -617,6 +651,14 @@ c-------------------------------------------------------------
 	  call make_scal_flux(what,rcv,cnv,sbflux,sbconz,ssurface)
 	  !call check_scal_flux(what,cnv,sbconz)
 
+	  if( what /= 'temp' ) then
+	    where( cnv < 1.e-15 ) cnv = 0.
+	    if( any(cnv < 0.) ) then
+	      write(6,*) 'negative scalar: ',what,isact
+     +		,count(cnv<0.),minval(cnv)
+	    end if
+	  end if
+
 	  if( btvd1 ) call tvd_grad_3d(cnv,gradxv,gradyv,saux,nlvddi)
 
           call conz3d_omp(
@@ -726,18 +768,18 @@ c isact	 actual inter time step
 c nlvddi	 dimension in z direction
 c nlv	 actual needed levels
 c
-c written 09.01.94 by ggu  (from scratch)
-c revised 19.01.94 by ggu  $$flux - flux conserving property
-c revised 20.01.94 by ggu  $$iclin - iclin not used to compute volume
-c revised 20.01.94 by ggu  $$lumpc - evaluate conz. nodewise
-c revised 03.02.94 by ggu  $$itot0 - exception for itot=0 or 3
-c revised 04.02.94 by ggu  $$fact3 - factor 3 missing in transport
-c revised 04.02.94 by ggu  $$azpar - azpar used to compute transport
-c revised 04.02.94 by ggu  $$condry - comute conz also in dry areas
-c revised 07.02.94 by ggu  $$istot - istot for fractional time step
-c revised 01.06.94 by ggu  restructured for 3-d model
-c revised 18.07.94 by ggu  $$htop - use htop instead of htopo for mass cons.
-c revised 09.04.96 by ggu  $$rvadj adjust rv in certain areas
+c 09.01.1994	ggu	(from scratch)
+c 19.01.1994	ggu	$$flux - flux conserving property
+c 20.01.1994	ggu	$$iclin - iclin not used to compute volume
+c 20.01.1994	ggu	$$lumpc - evaluate conz. nodewise
+c 03.02.1994	ggu	$$itot0 - exception for itot=0 or 3
+c 04.02.1994	ggu	$$fact3 - factor 3 missing in transport
+c 04.02.1994	ggu	$$azpar - azpar used to compute transport
+c 04.02.1994	ggu	$$condry - comute conz also in dry areas
+c 07.02.1994	ggu	$$istot - istot for fractional time step
+c 01.06.1994	ggu	restructured for 3-d model
+c 18.07.1994	ggu	$$htop - use htop instead of htopo for mass cons.
+c 09.04.1996	ggu	$$rvadj adjust rv in certain areas
 c
 c solution of purely diffusional part :
 c
@@ -1457,18 +1499,18 @@ c isact	 actual inter time step
 c nlvddi	 dimension in z direction
 c nlv	 actual needed levels
 c
-c written 09.01.94 by ggu  (from scratch)
-c revised 19.01.94 by ggu  $$flux - flux conserving property
-c revised 20.01.94 by ggu  $$iclin - iclin not used to compute volume
-c revised 20.01.94 by ggu  $$lumpc - evaluate conz. nodewise
-c revised 03.02.94 by ggu  $$itot0 - exception for itot=0 or 3
-c revised 04.02.94 by ggu  $$fact3 - factor 3 missing in transport
-c revised 04.02.94 by ggu  $$azpar - azpar used to compute transport
-c revised 04.02.94 by ggu  $$condry - comute conz also in dry areas
-c revised 07.02.94 by ggu  $$istot - istot for fractional time step
-c revised 01.06.94 by ggu  restructured for 3-d model
-c revised 18.07.94 by ggu  $$htop - use htop instead of htopo for mass cons.
-c revised 09.04.96 by ggu  $$rvadj adjust rv in certain areas
+c 09.01.1994	ggu	(from scratch)
+c 19.01.1994	ggu	$$flux - flux conserving property
+c 20.01.1994	ggu	$$iclin - iclin not used to compute volume
+c 20.01.1994	ggu	$$lumpc - evaluate conz. nodewise
+c 03.02.1994	ggu	$$itot0 - exception for itot=0 or 3
+c 04.02.1994	ggu	$$fact3 - factor 3 missing in transport
+c 04.02.1994	ggu	$$azpar - azpar used to compute transport
+c 04.02.1994	ggu	$$condry - comute conz also in dry areas
+c 07.02.1994	ggu	$$istot - istot for fractional time step
+c 01.06.1994	ggu	restructured for 3-d model
+c 18.07.1994	ggu	$$htop - use htop instead of htopo for mass cons.
+c 09.04.1996	ggu	$$rvadj adjust rv in certain areas
 c
 c solution of purely diffusional part :
 c
@@ -1602,7 +1644,7 @@ c-----------------------------------------------------------------
 	 if( openmp_is_master() ) then
           call init_output_d('itmstb','idtstb',da_out)
           if( has_output_d(da_out) ) then
-            call shyfem_init_scalar_file('stb',1,.true.,id)	!1 variable, 2d output
+            call shyfem_init_scalar_file('stb',1,.true.,id)	!1 var, 2d
             da_out(4) = id
           end if
 	  icall = 1
@@ -1839,7 +1881,7 @@ c	co contains flux due to point sources and nudging
 	  else
 	    ciadv = cviadv + chadv
           end if
-	  cadv = max(coadv,ciadv)
+	  cadv = max(coadv,ciadv)		!here we use the absolute value
 	  chigh(l,k) = chigh(l,k) + cadv
 	  clow(l,k) = clow(l,k) + chdiff
           cn(l,k) = cn(l,k) + cvdiff

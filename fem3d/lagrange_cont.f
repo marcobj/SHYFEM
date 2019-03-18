@@ -1,6 +1,28 @@
-c
-c $Id: lagrange_cont.f,v 1.5 2009-09-14 08:20:57 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c simulates continuous release over open boundaries
 c
 c revision log :
@@ -80,9 +102,9 @@ c continuous release - number of particles depends on volume flux
 	      end if
 	    end do
 
-	    if( iptot .ne. 0 ) then
-	      write(lunit,*) 'number of particles released: ',ibc,iptot
-	    end if
+	    !if( iptot .ne. 0 ) then
+	    !  write(lunit,*) 'number of particles released: ',ibc,iptot
+	    !end if
 
 	  end if
 
@@ -143,9 +165,9 @@ c continuous release - number of particles is independent of boundary length
 	      end if
 	    end do
 
-	    if( iptot .ne. 0 ) then
-	      write(lunit,*) 'number of particles released: ',iptot
-	    end if
+	    !if( iptot .ne. 0 ) then
+	    !  write(lunit,*) 'number of particles released: ',iptot
+	    !end if
 
 	  end if
 
@@ -238,9 +260,9 @@ c replaces the routines above
 	   end if
 	  end if
 
-	  if( pps .ne. 0 ) then
-	    write(lunit,*) 'particles released: ',bflux,ibc,pps,iptot
-	  end if
+	  !if( pps .ne. 0 ) then
+	  !  write(lunit,*) 'particles released: ',bflux,ibc,pps,iptot
+	  !end if
 
 	end do
 

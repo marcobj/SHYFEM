@@ -1,4 +1,124 @@
 
+13.03.2019	VERS_7_5_61
+
+	new routines for tidal potential
+	added customization for plottinf basin
+	clean arrays for para array read
+	bug fix for WRT computation
+	new friction ireib=10 (quadratic/linear)
+	various other small stuff
+
+16.02.2019	VERS_7_5_60
+
+	This a a first pre-release version for the community model.
+
+	All shyfem files now contain copyright notices. Source files
+	also mention the GPL, script files and other minor files
+	contain a short version of the copyright notice.
+
+	All files now contain a statement like the following:
+
+	Copyright (C) 1985-2018  Georg Umgiesser
+
+	For many files this is not true, because I am not the only
+	copyright holder. Therefore this line has to be customized.
+
+	I would therefore ask everybody to go through the files and
+	identify the files where they have contributed. Sometimes
+	the revision log is a good point to start from.
+
+	Please, in case you have contributed, add your name after mine,
+	or add a new line resembling the line above with your name.
+	If you are the main author, please put your name first, and if
+	I have not contributed at all, please delete my name. We can
+	have as many names as needed in the copyright notice.
+
+	Here is a (not complete) list of all the persons I can think
+	of that have contributed to the code and their contribution:
+
+	Andrea: lagrangian, WRT, ERSEM
+	Christian: sediments, lagrangian, tide, etc.
+	Michol: lagrangian, connectivity
+	Debora, William: non-hydrostatic
+	Francesca: toxi
+	Petras, Ali: aquabc, box model
+	Cosimo, Donata: eutro
+	Eric: OMP implementation
+	CMCC: MPI implementation
+
+	Sorry if I have forgotten someone and some topics. You will
+	know better, please correct me.
+
+	Please send me your input. Deadline is the end of February.
+	This gives me then time to finalize the version that should
+	become the starting point of the community model. Either send
+	me the new files, or do a "pull request" from git-hub.
+	
+14.02.2019	VERS_7_5_56
+
+	many bug fixes in sediment transport code (GGUZ0)
+	bug fix for scalar transport with negative loading and s<0
+	box model updated
+	clear handling of bottom shear stress
+	checks for zero layer case
+	bug fix for syncronization of last time step
+	custom reset in WRT computation
+	waves debuged (GGUZ0)
+
+18.01.2019	VERS_7_5_55
+
+	IMPORTANT: the vertical solver has been changed.
+	This can lead to inconsistencies with existing applications,
+	but it really should not. 
+	Please try this version and report back any problems.
+	This version will be slightly slower than the previsous one.
+	This is only because of the extra testing code inserted.
+	In the future this testing code will be removed again.
+	However, I need EVERYBODY to test this new code!!!
+
+	solver routines have been ajourned with copyright note
+	penta solver has been implemented
+
+27.12.2018	VERS_7_5_54
+
+	updates in manual
+
+21.12.2018	VERS_7_5_53
+
+	Christmas 2018 edition
+
+	last minute bug in vertical experimental penta solver
+	small bug in acquabc
+
+18.12.2018	VERS_7_5_52
+
+	nonhydrostatic code added
+	copyrights added
+	new routines to read and interpolate time series
+	linear arrays added to adapt to implicit do compiler error
+
+25.10.2018	VERS_7_5_51
+
+	new lagrangian routines with plotting (ccf)
+	new grid formats gr3 and msh (ccf)
+	small bug fixes (subrst.f)
+	examples for tutorial integrated
+	in femplot eliminate (1) array length
+
+16.10.2018	VERS_7_5_50
+
+	various bug fixes
+	sediment transport - adjust load for deposition
+	severe bug handled (caux used for different variables)
+	output of meteo variables
+	diagnostic tool ts_dia
+
+31.08.2018	VERS_7_5_49
+
+	adapted to new gfortran version 8
+	small bugs with new compiler solved
+	workaround in subext to avoid warning
+
 06.07.2018	VERS_7_5_48
 
 	customization for fonts in shyplot
@@ -841,4 +961,12 @@
 14-07-2011 - 6_1_27
 
 	plot dry areas
+
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
 

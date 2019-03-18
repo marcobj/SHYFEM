@@ -1,5 +1,13 @@
 #!/bin/sh
 #
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+#
 # compiles with different available compilers
 #
 #--------------------------------------------------------
@@ -8,10 +16,13 @@ compilers="GNU_GFORTRAN INTEL"
 #compilers="GNU_GFORTRAN"
 
 rules_arc_dir=./arc/rules
-rules_dist_dir=./femcheck
+rules_dist_dir=./femcheck/rules
 
 rules_save=$rules_arc_dir/Rules.save
-rules_dist=./femcheck/Rules.dist
+rules_dist=$rules_dist_dir/Rules.dist
+
+femdir=$( pwd )
+export FEMDIR=$femdir
 
 #--------------------------------------------------------
 
@@ -28,6 +39,7 @@ Clean_up()
 Clean_before()
 {
   rm -f *.out *.tmp
+  mkdir -p $rules_arc_dir
   mv --backup=numbered ./Rules.make $rules_save
   cp $rules_dist ./Rules.make
   [ -f allstdout.txt ] && rm allstdout.txt
@@ -47,6 +59,10 @@ Clean_after()
 SetUp()
 {
   mkdir -p $rules_arc_dir $rules_dist_dir
+  if [ $? -ne 0 ]; then
+    echo "Cannot create directory arc... aborting"
+    exit 1
+  fi
   [ -f $rules_dist ] || cp ./Rules.make $rules_dist
 }
 
@@ -68,6 +84,7 @@ WrapUp()
 
 Comp()
 {
+  echo "-----------------"
   Rules "$1"
 
   echo "start compiling in" `pwd`
@@ -85,9 +102,18 @@ Comp()
   else
     echo "no compilation errors"
   fi
+  echo "-----------------"
 
   cat stdout.out >> allstdout.txt
   cat stderr.out >> allstderr.txt
+
+  Regress
+}
+
+RulesReset()
+{
+  echo "resetting Rules.make file..."
+  cp $rules_dist ./Rules.make
 }
 
 Rules()
@@ -101,7 +127,24 @@ Rules()
   echo "setting macros: $1" >> allstderr.txt
 }
 
+Regress()
+{
+  [ "$regress" = "NO" ] && return
+
+  echo "running regression test..."
+  make regress >> allstdout.txt
+  cd femregress
+  make status
+  cd ..
+  echo "finished running regression test..."
+}
+
 #--------------------------------------------------------------------
+
+regress="NO"
+if [ "$1" = "-regress" ]; then
+  regress="YES"
+fi
 
 SetUp
 Clean_before
@@ -112,19 +155,31 @@ do
   echo "================================="
   echo "compiling with $comp"
   echo "================================="
+  RulesReset
   Rules "FORTRAN_COMPILER=$comp"
 
   make compiler_version > /dev/null 2>&1
 
-  [ $? -ne 0 ] && continue
-  echo "compiler $comp is available..."
+  if [ $? -ne 0 ]; then
+    echo "*** compiler $comp is not available..."
+    continue
+  else
+    echo "compiler $comp is available..."
+  fi
 
   Comp "ECOLOGICAL=NONE GOTM=true NETCDF=false SOLVER=SPARSKIT PARALLEL_OMP=false PARALLEL_MPI=NONE"
   #Comp "ECOLOGICAL=EUTRO GOTM=false SOLVER=PARDISO"
   Comp "ECOLOGICAL=EUTRO GOTM=false"
   #Comp "ECOLOGICAL=ERSEM GOTM=true NETCDF=true SOLVER=GAUSS"
-  #Comp "ECOLOGICAL=NONE GOTM=true NETCDF=true SOLVER=GAUSS"
+  Comp "ECOLOGICAL=NONE GOTM=true NETCDF=true SOLVER=SPARSKIT"
   Comp "ECOLOGICAL=AQUABC NETCDF=false PARALLEL_OMP=true"
+
+  [ "$regress" = "NO" ] && continue
+
+  Rules "ECOLOGICAL=NONE GOTM=true NETCDF=false SOLVER=SPARSKIT PARALLEL_OMP=false PARALLEL_MPI=NONE"
+
+  Comp "COMPILER_PROFILE=SPEED PARALLEL_OMP=true"
+  Comp "COMPILER_PROFILE=CHECK PARALLEL_OMP=false"
 done
 
 Clean_after

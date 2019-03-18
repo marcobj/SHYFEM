@@ -1,10 +1,18 @@
 #!/bin/bash
 #
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+#
 # checks various things
 #
 #--------------------------------------------------
 
-except="Makefile INSTALL-LIST README Rules.dist copyright_notice.txt"
+except="Makefile INSTALL-LIST README copyright_notice.txt"
 
 CheckExe()
 {

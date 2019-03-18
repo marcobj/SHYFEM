@@ -1,13 +1,37 @@
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c finite element model shyfem (version 3D)
 c
 c original version from march 1991
 c
 c revision log :
 c
-c revised 30.08.95      $$AUST - austausch coefficient introduced
-c revised 11.10.95      $$BCLBND - boundary condition for baroclinic runs
-c revised 04.08.97      $$ZEONV - new arrays for water level elementwise
+c 30.08.1995	ggu	$$AUST - austausch coefficient introduced
+c 11.10.1995	ggu	$$BCLBND - boundary condition for baroclinic runs
+c 04.08.1997	ggu	$$ZEONV - new arrays for water level elementwise
 c 19.03.1998	ggu	$$IPCCV close data items commented or deleted
 c 03.04.1998	ggu	$$DESCRP BUG overwriting descrp with boundary vals.
 c 30.04.1998    ggu     finally eliminated /semimp/, /trock/, /ffloat/
@@ -33,7 +57,7 @@ c 10.08.2003    ggu     big restructuring
 c 13.08.2003    ggu     some more restructuring
 c 14.08.2003    ggu     even more restructuring and cleaning up
 c 04.12.2003    ggu     integration of wave and sediment module
-c 06 03 2004    aac     lagrangian trajectories computation module
+c 06.03.2004    aac     lagrangian trajectories computation module
 c 03.09.2004    ggu     restart now in ht
 c 15.10.2004    ggu     gotm substituted by general turbulence closure
 c 02.12.2004    ggu     variable time step implemented
@@ -49,11 +73,11 @@ c 18.10.2006    ccf     radiation stress and waves included (with pipe)
 c 10.11.2006    ggu     initialize depth values after restart
 c 16.11.2006    ggu     turbulence values included
 c 02.04.2007    ggu     changes in algorithm (ASYM)
-c 31.05.2007    deb     new arrays bpresxv, bclevvar (debora)
+c 31.05.2007    dbf     new arrays bpresxv, bclevvar (debora)
 c 26.09.2007    ggu     deleted arrays rcv,rtv,rsv
 c 27.09.2007    ggu     deleted call to tstvol,tstvol1
-c 20.03.2008    acc     new call for ERSEM ecological model (BFM MODULE)
-c 07.04.2008    acc     new array bfm*bc introduced (file name for ersem)
+c 20.03.2008    aac     new call for ERSEM ecological model (BFM MODULE)
+c 07.04.2008    aac     new array bfm*bc introduced (file name for ersem)
 c 10.04.2008    ggu&ccf	upro, waveov, stokes, z0bk
 c 16.04.2008    ggu     evaporation mass flux (evapv)
 c 22.04.2008    ggu     gradx/yv non global due to parallelization
@@ -96,6 +120,8 @@ c 18.09.2015    ggu	new routine scalar, call to hydro()
 c 29.09.2015    ccf	inverted set_spherical() and handle_projection()
 c 10.10.2015    ggu	fluid mud routines handled differently
 c 05.10.2017    ggu	command line options introduced, subs rearranged
+c 12.02.2019    ccf	bottom shear stress in substress.f
+c 12.03.2019    ccf	include new computation of tide potential/analysis
 c
 c*****************************************************************
 
@@ -129,11 +155,12 @@ c----------------------------------------------------------------
 	use levels
 	use basin
 	use intp_fem_file
-	use tidef
+	use tide
 	use projection
 	use coordinates
 	use mod_subset
 	use mod_bfm
+        use mod_nohyd !DWNH
 !$	use omp_lib	!ERIC
 	use shympi
 
@@ -308,6 +335,7 @@ c-----------------------------------------------------------
 	call nonhydro_init
 	call init_wave		!waves
 	call initsed		!sediments
+        call init_bstress	!bottom shear stress
 
 c-----------------------------------------------------------
 c initialize modules
@@ -322,9 +350,11 @@ c-----------------------------------------------------------
 	call sp136(ic)
         call shdist(rdistv)
 	call tracer_init
+        call qhdist(qdistv) !DWNH
 	call bfm_init
 	call renewal_time
-
+        call lagrange
+	call tidepar_init
 	call submud_init
 
 	call cstsetup
@@ -398,6 +428,7 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
            call sedi                    !sediment transport
 	   call submud                  !fluid mud (ARON)
 	   call simple_sedi		!simplified sediment module
+           call bstress			!bottom shear stess
 
 	   call renewal_time
 	   call ecological_module	!ecological model
@@ -559,13 +590,13 @@ c*****************************************************************
 	use mod_hydro_baro
 	use mod_depth
 	use evgeom
-	use tidef
+	use tide
 	use coordinates
 	use basin, only : nkn,nel,ngr,mbw
 
 	implicit none
 
-	call tidef_init(nkn)
+	call tide_init(nkn)
 	call coordinates_init(nkn)
 
 	call mod_hydro_baro_init(nel)
@@ -596,6 +627,7 @@ c*****************************************************************
 	use mod_conz
 	use mod_waves
 	use mod_sediment
+	use mod_bstress
 	use mod_turbulence
 	use mod_sinking
 	!use mod_fluidmud
@@ -644,6 +676,7 @@ c*****************************************************************
 	call mod_turbulence_init(nkn,nlvddi)
 	call mod_waves_init(nkn,nel,nlvddi)
 	call mod_sedim_init(nkn,nlvddi)
+	call mod_bstress_init(nkn)
 
 	write(6,*) '3D arrays allocated: ',nkn,nel,ngr,nlvddi
 

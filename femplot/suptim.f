@@ -1,6 +1,28 @@
-c
-c $Id: suptim.f,v 1.8 2008-12-09 11:45:14 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1999,2005,2008,2010,2013-2014,2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c revision log :
 c
 c 12.02.1999  ggu     adapted to auto mode
@@ -10,8 +32,18 @@ c 06.12.2008  ggu     in oktime() set itact to actual time
 c 09.10.2010  ggu     in oktime() handle negative itfreq
 c 05.09.2013  ggu     new routine endtime()
 c 20.10.2014  ggu     completely restructured, old routines deleted
+c 18.12.2018  ggu     inlude file substituted with module timlim
 c
 c******************************************************
+
+	module timlim
+
+	implicit none
+
+        integer, save :: itmin,itmax,itfreq,nrec,idto,itact
+        double precision, save :: atime0,atimeact,atimemin,atimemax
+
+	end module timlim
 
 c******************************************************
 c******************************************************
@@ -36,6 +68,8 @@ c******************************************************
 
 c initializes ptime
 
+	use timlim
+
         implicit none
 
 	integer ihigh
@@ -43,7 +77,7 @@ c initializes ptime
 	double precision ahigh
 	parameter(ahigh=4000.*365.*86400.)
 
-	include 'timlim.h'
+	!include 'timlim.h'
 
 c the first 4 variables might be useless
 
@@ -72,9 +106,11 @@ c******************************************************
 
 c sets time limits
 
+	use timlim
+
         implicit none
 
-	include 'timlim.h'
+	!include 'timlim.h'
 
 	integer iauto
 	integer itanf,itend
@@ -124,9 +160,11 @@ c******************************************************
 
 	subroutine ptime_info
 
+	use timlim
+
 	implicit none
 
-	include 'timlim.h'
+	!include 'timlim.h'
 
 	write(6,*) '---------- ptime_info -----------'
 	write(6,*) 'itmin,itmax: ',itmin,itmax
@@ -147,11 +185,13 @@ c******************************************************
 
 	subroutine ptime_set_date_time(date,time)
 
+	use timlim
+
 	implicit none
 
 	integer date,time
 
-	include 'timlim.h'
+	!include 'timlim.h'
 
 	atime0 = 0.
 
@@ -168,11 +208,13 @@ c******************************************************
 
 	subroutine ptime_set_itime(it)
 
+	use timlim
+
 	implicit none
 
 	integer it
 
-	include 'timlim.h'
+	!include 'timlim.h'
 
 	atimeact = atime0 + it
 
@@ -182,11 +224,13 @@ c******************************************************
 
 	subroutine ptime_set_atime(atime)
 
+	use timlim
+
 	implicit none
 
 	double precision atime
 
-	include 'timlim.h'
+	!include 'timlim.h'
 
 	atimeact = atime
 
@@ -196,11 +240,13 @@ c******************************************************
 
 	subroutine ptime_set_dtime(dtime)
 
+	use timlim
+
 	implicit none
 
 	double precision dtime
 
-	include 'timlim.h'
+	!include 'timlim.h'
 
 	atimeact = atime0 + dtime
 
@@ -210,11 +256,13 @@ c******************************************************
 
 	subroutine ptime_get_itime(it)
 
+	use timlim
+
 	implicit none
 
 	integer it
 
-	include 'timlim.h'
+	!include 'timlim.h'
 
 	it = nint( atimeact - atime0 )
 
@@ -224,11 +272,13 @@ c******************************************************
 
 	subroutine ptime_get_atime(atime)
 
+	use timlim
+
 	implicit none
 
 	double precision atime
 
-	include 'timlim.h'
+	!include 'timlim.h'
 
 	atime = atimeact
 
@@ -236,14 +286,32 @@ c******************************************************
 
 c******************************************************
 
+	subroutine ptime_get_dtime(dtime)
+
+	use timlim
+
+	implicit none
+
+	double precision dtime
+
+	!include 'timlim.h'
+
+	dtime = atimeact - atime0
+
+	end
+
+c******************************************************
+
 	subroutine ptime_i2a(it,atime)
+
+	use timlim
 
 	implicit none
 
 	integer it
 	double precision atime
 
-	include 'timlim.h'
+	!include 'timlim.h'
 
 	atime = atime0 + it
 
@@ -257,11 +325,13 @@ c******************************************************
 
 c is time ok?
 
+	use timlim
+
         implicit none
 
 	logical ptime_ok
 
-	include 'timlim.h'
+	!include 'timlim.h'
 
 	integer it
         double precision, save :: atimeold = -1
@@ -302,11 +372,13 @@ c******************************************************
 
 c is time over max limit?
 
+	use timlim
+
         implicit none
 
 	logical ptime_end
 
-	include 'timlim.h'
+	!include 'timlim.h'
 
 	ptime_end = atimeact .gt. atimemax
 

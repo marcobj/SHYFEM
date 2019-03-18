@@ -1,6 +1,28 @@
-c
-c $Id: lagrange_larve.f,v 1.2 2008-11-03 10:42:26 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c simulates continuous release over open boundaries
 c
 c revision log :
@@ -9,7 +31,7 @@ c 12.12.2007    ggu	written from scratch
 c
 c*******************************************************************
 
-	subroutine lgr_larvae(it)
+	subroutine lgr_larvae
 
 c manages larvae
 
@@ -17,12 +39,12 @@ c manages larvae
 
 	implicit none
 
-	integer it
-
 	include 'param.h'
 
-	integer i,ie
+	integer i,ie,ii
 	real rlinit,x,y,z,rl
+        double precision xx,yy
+        double precision xi(3)
 
 	real getpar
 
@@ -33,25 +55,29 @@ c manages larvae
 	if( icall .eq. 0 ) then
 	  rlinit = 0.
 	  do i=1,nbdy
-	    lgr_ar(i)%c = rlinit
+	    lgr_ar(i)%custom(1) = rlinit
 	  end do
 	end if
 
 	icall = icall + 1
 
 	do i=1,nbdy
-          x  = lgr_ar(i)%x
-          y  = lgr_ar(i)%y
-	  ie = lgr_ar(i)%ie
-          z  = lgr_ar(i)%z		!rel. depth   0=surface  1=bottom
-	  rl = lgr_ar(i)%c
+          do ii=1,3
+            xi(ii) = lgr_ar(i)%actual%xi(ii)
+          end do
+	  ie = lgr_ar(i)%actual%ie
+          z  = lgr_ar(i)%actual%z	!rel. depth   0=surface  1=bottom
+	  rl = lgr_ar(i)%custom(1)
+          call xi2xy(abs(ie),xx,yy,xi)
+          x   = xx
+          y   = yy
 	  
 	  if( ie .gt. 0 ) then
 	    call treat_larva(x,y,z,ie,rl)
 	  end if
 
-	  lgr_ar(i)%c = rl
-          lgr_ar(i)%z = z
+	  lgr_ar(i)%custom(1) = rl
+          lgr_ar(i)%actual%z = z
 	end do
 
 c----------------------------------------------------------------

@@ -1,6 +1,28 @@
-c
-c $Id: basinf.f,v 1.20 2010-03-22 15:29:31 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c revision log :
 c
 c 06.04.1999	ggu	completely restructured
@@ -24,8 +46,9 @@ c 21.03.2017    ggu     new routine to compute area/vol on area code
 c 04.04.2018    ggu     new code for real area (m) and explicit stability
 c 04.04.2018    ggu     new code for nodal partition check and write
 c 13.04.2018    ggu     new routine to elab partition and write to file
+c 25.10.2018    ccf     grid output in gr3 and msh formats
 c
-c todo:
+c todo :
 c
 c reading grd file ngr is 1 too high
 c
@@ -37,6 +60,7 @@ c writes information and manipulates basin
 
 	use mod_depth
 	use mod_geom
+	use mod_geom_dynamic
 	use evgeom
 	use basin
 	use clo
@@ -52,10 +76,8 @@ c-----------------------------------------------------------------
 c read in basin
 c-----------------------------------------------------------------
 
-	call shympi_init(.false.)
-	!call shyfem_copyright('shybas - elaborating a BAS grid')
-
 	call basutil_init('BAS')
+	call shympi_init(.false.)
 
 	call clo_get_file(1,file)
         if( file == ' ' ) call clo_usage
@@ -70,6 +92,9 @@ c-----------------------------------------------------------------
 
 	call mod_geom_init(nkn,nel,ngr)
 	call set_geom
+
+	call mod_geom_dynamic_init(nkn,nel)
+	call setnod_bas
 
 	call mod_depth_init(nkn,nel)
 
@@ -122,6 +147,8 @@ c-----------------------------------------------------------------
 	if( bdelem ) call write_grd_with_elem_depth !for zeta levels
 	if( bnpart ) call write_nodal_partition		!nodal partition
 	if( lfile /= ' ' ) call bas_partition		!creates partition file
+	if( bgr3 ) call write_gr3_from_bas
+	if( bmsh ) call write_msh_from_bas
 
 c-----------------------------------------------------------------
 c end of routine
@@ -141,21 +168,24 @@ c*******************************************************************
 	implicit none
 
 	character*(*) file
-	logical is_grd_file
+	logical is_grd_file,filex
 
-	if( basin_is_basin(file) ) then
-	  write(6,*) 'reading BAS file ',trim(file)
+	if( .not. filex(file) ) then
+	  write(6,*) 'file not existing: ',trim(file)
+	  stop 'error stop read_command_line_file: no such file'
+	else if( basin_is_basin(file) ) then
+	  write(6,*) 'reading BAS file: ',trim(file)
 	  call basin_read(file)
 	  breadbas = .true.
 	else if( is_grd_file(file) ) then
-	  write(6,*) 'reading GRD file ',trim(file)
+	  write(6,*) 'reading GRD file: ',trim(file)
 	  call grd_read(file)
 	  call grd_to_basin
 	  call estimate_ngr(ngr)
 	  breadbas = .false.
 	else
 	  write(6,*) 'Cannot read this file: ',trim(file)
-	  stop 'error stop read_given_file: format not recognized'
+	  stop 'error stop read_command_line_file: unknown format'
 	end if
 
 	end
@@ -978,6 +1008,61 @@ c writes grd file extracting info from bas file
 
 c*******************************************************************
 
+	subroutine write_gr3_from_bas
+
+c writes grid in gr3 format from bas file
+c the gr3 format is used by WWMIII wave model
+
+	use basutil
+
+	implicit none
+
+	if (.not. breadbas) then
+	  write(*,*)
+	  write(*,*)'You need a bas file for creating a gr3 grid'
+	  stop 'error: write_gr3_from_bas'
+	end if
+
+        write(6,*) 'making unique depth...'
+	call make_unique_depth
+
+        call basin_to_grd
+        call gr3_write('bas.gr3')
+
+        write(6,*) 'The basin has been written to bas.gr3'
+        write(6,*) 'The boundary file been written to bas_bnd.gr3'
+
+	end
+
+c*******************************************************************
+
+	subroutine write_msh_from_bas
+
+c writes grid in msh (gmsh v.2) format from bas file
+c the msh format is used by WWM3 wave model
+
+	use basutil
+
+	implicit none
+
+	if (.not. breadbas) then
+	  write(*,*)
+	  write(*,*)'You need a bas file for creating a msh grid'
+	  stop 'error: write_msh_from_bas'
+	end if
+
+        write(6,*) 'making unique depth...'
+	call make_unique_depth
+
+        call basin_to_grd
+        call msh_write('bas.msh')
+
+        write(6,*) 'The basin has been written to bas.msh'
+
+	end
+
+c*******************************************************************
+
 	subroutine basqual
 
 c writes statistics on grid quality
@@ -1395,3 +1480,60 @@ c*******************************************************************
 
 c*******************************************************************
 
+        subroutine setnod_bas
+
+c sets (dynamic) array inodv
+c
+c inodv 
+c        0: internal node  
+c       >0: open boundary node
+c       -1: boundary node  
+c       -2: out of system
+c
+c if open boundary node, inodv(k) is number of boundary (ggu 15.11.2001)
+
+        use mod_geom_dynamic
+        use evgeom
+        use basin
+
+        implicit none
+
+        double precision, parameter :: winmax = 359.99
+        integer ie,ii,k,n
+        integer ibc,ibtyp
+        integer nbc,ndry
+        double precision winkv(nkn)
+
+c initialize array to hold angles
+
+        ndry = 0
+        winkv = 0.
+
+c sum angles
+
+        do ie=1,nel
+          if(iwegv(ie).eq.0) then !element is in system
+            do ii=1,3
+              k=nen3v(ii,ie)
+              winkv(k)=winkv(k)+ev(10+ii,ie)
+            end do
+          else
+            ndry = ndry + 1
+          end if
+        end do
+
+c set up inodv
+
+        do k=1,nkn
+          if(winkv(k).gt.winmax) then     !internal node
+            inodv(k)=0
+          else if(winkv(k).eq.0.) then  !out of system
+            inodv(k)=-2
+          else                          !boundary node
+            inodv(k)=-1
+          end if
+        end do
+
+        end
+
+c****************************************************************

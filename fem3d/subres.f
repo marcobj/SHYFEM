@@ -1,6 +1,28 @@
-c
-c $Id: subres.f,v 1.24 2008-10-10 09:29:54 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c residual currents
 c
 c contents :
@@ -379,8 +401,6 @@ c for 3D arrays call with nlvddi = nlvdi
 
 c parameter
 
-	include 'femtime.h'
-
 	character*(*) ext	!extension of file
 	integer id		!id number for variables to be written
 	integer nvar		!number of variables to be handled
@@ -396,6 +416,8 @@ c local
 	logical bdebug
 	integer i,k,l,nlev,nlvuse
 	integer nout,itc,nr
+	integer itanf,itend
+	double precision dtime
 	real high
 
 	high = 1.e+30
@@ -427,6 +449,11 @@ c-------------------------------------------------------------
 	ivect(5) = idtc
 	ivect(6) = itmc
 	ivect(8) = nlvddi
+
+	call get_first_dtime(dtime)
+	itanf = nint(dtime)
+	call get_last_dtime(dtime)
+	itend = nint(dtime)
 
 	if(itmc.lt.itanf) itmc=itanf
 	if(idtc.le.0) return
@@ -487,8 +514,6 @@ c for 3D arrays call with nlvddi = nlvdi
 
 c parameter
 
-	include 'femtime.h'
-
 	integer nlvddi		                !number of layers (nlvdi or 1)
 	real cvec(nlvddi,nkn,*)			!array with concentration
 	double precision cmed(nlvddi,nkn,*)	!average
@@ -500,11 +525,12 @@ c local
 	logical bdebug
 	integer nout,id
 	integer nvar,nr
-	integer idtc,itmc,itc
+	integer idtc,itmc,itc,it
 	integer i,k,l,nlev
 	real high
 	real c
 	double precision rr
+	double precision dtime
 	real, allocatable :: saux(:,:)
 
 	high = 1.e+30
@@ -533,6 +559,9 @@ c-------------------------------------------------------------
         end if
 
 c	if( bdebug ) write(6,*) it,nout,id,nvar,nr,idtc,itmc,itc,nlv
+
+	call get_act_dtime(dtime)
+	it = nint(dtime)
 
 	if( it .le. itmc ) return
 

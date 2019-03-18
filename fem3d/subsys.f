@@ -1,6 +1,28 @@
-c
-c $Id: subsys.f,v 1.98 2010-03-11 15:36:39 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines system dependent
 c
 c contents :
@@ -119,6 +141,8 @@ c 01.02.2016	ggu	some plot params shifted to para section (bbgray, etc.)
 c 22.02.2016	ggu	new file for initial conditions bfmini
 c 05.04.2016	ggu	new parameter iaicef for ice free areas
 c 26.05.2017	ggu	default of ishyff is 1 - no nos or ous files
+c 12.02.2019	ccf	introduced ibstrs for computing the bottom stess
+c 13.03.2019	ggu	new variables for plotting basin
 c
 c************************************************************************
 
@@ -544,6 +568,7 @@ c \input{P_friction.tex}
 	call addpar('ireib',0.)
 	call addpar('czdef',0.)
 	call addpar('iczv',1.)
+	call addpar('uvmin',0.2) !Minimum current speed for ireib=10
 
 cc------------------------------------------------------------------------
 
@@ -780,6 +805,13 @@ c		If 0 no loading tide is computed (Default 0).
 
 	call addpar('ltidec',0.)
 
+c |ibstrs|	Call parameter for the routine bstess. If equal to 1 it 
+c		computes (in function of currents and waves) and writes 
+c		the bottom shear stess into a .bstress.shy file.
+c		If 0 no bottom stess is computed (Default 0).
+
+	call addpar('ibstrs',0.)
+
 cc------------------------------------------------------------------------
 
 c DOCS	ST	Temperature and salinity
@@ -958,26 +990,33 @@ c $lagrg section
 c DOCS	START	P_lagrg
 c
 c This section describes the use of the Lagrangian Particle Module.
-c The lagrangian particles can be released inside a specified area with a
-c regular distribution. The area is defined in the file |lagra|.
-c The amount of particles released and the
-c time step is specified by nbdy and idtrl.
-c 
+c
+c The lagrangian particles can be released:
+c \begin{itemize}
+c \item inside the given areas (filename |lgrlin|). If this file is not 
+c      specified they are released over the whole domain. The amount of
+c      particles released and the time step are specified by |nbdy| and 
+c      |idtl|.
+c \item at selected times and location, e.g. along a drifter track
+c      (filename |lgrtrj|). |nbdy| particles are released at the times
+c      and location specified in the file.
+c \item as initial particle distribution (filename |lgrini|) at time
+c      |itlgin|. This file has the same format as the lagrangian output.
+c \item at the open boundaries either as particles per second or per
+c      volume flux (parameter |lgrpps|).
+c \end{itemize}
+c
+c |lgrlin| and |lgrtrj| are mutually exclusive. 
+c
 c The lagrangian module runs between the times |itlanf| and |itlend|. If one
 c or both are missing, the simulation extremes are substituted. Inside
-c the lagrangian simulation window the release of particles is controlled
-c by the parameters |idtl|, |itranf| and |itrend|. |itranf| gives the time
-c of the first release, |itrend| the time for the last release. If not
-c given they are set equal to the extremes of the lagrangian simulation.
-c |idtl| is giving the time step of release.
+c the lagrangian simulation window, the release of particles inside a given
+c area is controlled by the parameters |idtl|, |itranf| and |itrend|. 
+c |itranf| gives the time of the first release, |itrend| the time for 
+c the last release. If not given they are set equal to the extremes of 
+c the lagrangian simulation. |idtl| is giving the time step of release.
 c
-c Particles are released inside the given areas (filename |lagra|). If
-c this file is not specified they are released over the whole domain. There is
-c also a possibility release particles over open boundaries. However,
-c this is still experimental. Please see the file |lagrange_main.f|
-c for more details.
-c
-c The output frequency of the results can be contolled by 
+c The output frequency of the results can be controlled by 
 c |idtlgr| and |itmlgr|.
 c
 c Please find all details here below.
@@ -990,7 +1029,7 @@ c		should be run (default 0):
 c		\begin{description}
 c		\item[0] do nothing
 c		\item[1] surface lagrangian
-c		\item[2] 2d lagrangian (not implemented)
+c		\item[2] 2d lagrangian
 c		\item[3] 3d lagrangian
 c		\end{description}
 
@@ -1012,7 +1051,8 @@ c		(Default 0)
 
 c |rwhpar|	A horizontal diffusion can be defined for the lagrangian model.
 c		Its value can be specified in |rwhpar| and the units are 
-c		[m**2/s]. (Default 0)
+c		[m**2/s]. If |rwhpar| < 0 the diffusion parameter depends on
+c		the local diffusivity (see |idhtyp|) (Default 0)
 
 	call addpar('rwhpar',0.)	!diffusion for lagrangian model
 
@@ -1052,17 +1092,52 @@ c		\end{description}
 
         call addpar('ipvert',0.)
 
-c |linbot| Set the bottom layer for vertical releases (Default -1, bottom layer)
-c |lintop| Set the top layer for vertical releases (Default 1, surface layer)
+c |linbot|	Set the bottom layer for vertical releases (Default -1, bottom layer)
 
         call addpar('linbot',-1.)
+
+c |lintop|	Set the top layer for vertical releases (Default 1, surface layer)
         call addpar('lintop',1.)
 
-c |lagra|	File name that contains closed lines of the area where
+c |stkpar|	Calibration parameter for parameterizing the stokes drift 
+c		induced by waves (and wind). Only affect particle of the sea
+c		surface (layer = 1). The wind file is needed even in offline 
+c		mode (Default 0). 
+
+        call addpar('stkpar',0.)
+
+c |dripar|	Parameter to account for drifter inertia by multiplying
+c		the advective transports. Usually it assumes values between 
+c		0.9 and 1.2 (Default 1). 
+
+        call addpar('dripar',1.)
+
+c |lbeach|	Parameter to account for particles beaching on the shore. It 
+c		assumes values between 0 (no beaching) and 1 (Default 0).
+
+        call addpar('lbeach',0.)
+
+c |lgrlin|	File name that contains closed lines of the area where
 c		the particles have to be released. If not given, the particles
 c		are released over the whole domain.
 
-        call addfnm('lagra',' ')
+        call addfnm('lgrlin',' ')
+
+c |lgrtrj|	File name that contains a drifter trajectory with time 
+c		(yyyy-mm-dd::HH:MM:SS) and position (x and y) of release 
+c		of |nbdy| particles.
+
+        call addfnm('lgrtrj',' ')
+
+c |lgrini|	File name that contains initial particle distribution.
+c		It has the same format as the lagrangian output.
+
+        call addfnm('lgrini',' ')
+
+c |itlgin|	Time to use for the initialization of the particle 
+c		distribution from file (|lgrini|). 
+
+        call addpar('itlgin',-1.)
 
 cc To compute the transit time of the particles to leave
 cc a specified area. 'Artype' is the flag to detect the
@@ -1079,8 +1154,6 @@ cc still to be commented
         call addpar('ilarv',0.)
         call addpar('ised',0.)
 
-        call addfnm('lgrini',' ')
-        call addpar('itlgin',-1.)	!must still be handled better
 
 c DOCS	END
 
@@ -1097,10 +1170,10 @@ c $wrt section
 c DOCS  START   P_wrt
 c
 c Parameters for computing water renewal time.
-c During runtime if writes a .jas file with timeseries of total tracer
+c During runtime if writes a .jas file with time series of total tracer
 c concentration in the basin and WRT computed according to different methods.
 c Nodal values of computed WRT are written in the .wrt file.
-c Frequency distrubutions of WRTs are written in the .frq file.
+c Frequency distributions of WRTs are written in the .frq file.
 c
 c Please find all details here below.
 
@@ -1291,7 +1364,7 @@ cc undocumented parameters
 cc internally used parameters
 
 	call addpar('flag',0.)
-	call addpar('zconst',0.)
+	call addpar('zconst',-999.)	!set to flag
 	call addpar('volmin',1.)	!minimum volume to remain in el.
 
 cc debug
@@ -1389,7 +1462,7 @@ c		could be adopted setting |itdrag| = 3.
         call addpar('iwave',0.)
 
 c
-c |dtwave|	Time step for coulping with WWMIII. Needed only for
+c |dtwave|	Time step for coupling with WWMIII. Needed only for
 c		|iwave| $>$ 1 (default 0).
 
         call addpar('dtwave',0.)
@@ -1418,6 +1491,8 @@ c parameters for non hydrostatic model (experimental)
         call sctpar('nonhyd')             !sets default section
 
 	call addpar('inohyd',0.)	!for non-hydrostatic model
+                                        ! 0 hydrostatic
+                                        ! 1 nonhydrostatic
 
         call addpar('aqpar',0.5)
 
@@ -1426,9 +1501,11 @@ c parameters for non hydrostatic model (experimental)
         call addpar('ivwadv',0.)        !vert advection of vert momentum
         call addpar('inhflx',0.)        !flux upwind for horiz advect of w
 	call addpar('inhadj',0.)        !choice for correction of U,V,eta
+        call addpar('inhwrt',0.)        !output every inhwrt timesteps
         call addpar('inhbnd',0.)        !exclude NH dynamics for boundaries
-        call addpar('iwvel',1.)         !write vertical velocity
-        call addpar('iqpnv',1.)         !write NH pressure
+        call addpar('iwvel',0.)         !write vertical velocity
+        call addpar('iqpnv',0.)         !write NH pressure !DWNH
+        call addpar('nqdist',0.)        !distance for NH pressure terms
 
 	end
 
@@ -1776,6 +1853,32 @@ c		the grid (Default -1.0)
 	call addpar('bbgray',0.0)      !gray value for boundary
 	call addpar('bsgray',-1.0)     !gray value for plotting maps
 
+c The next two parameters handle the plotting of the lagrangian particles.
+c
+c |lgrtrj|	If equal 1 plot trajectories
+c		instead of particle position. (Default 0)
+
+	call addpar('lgrtrj',0.)	!lagrangian trajectories or position
+
+c |lgmean|	Plot mean positions/trajectories.
+c		With the value of 0 no mean pos/traj are created, 1
+c		plot mean pos/traj together with single values, 
+c		2 plot only mean pos/trajs, 3 as 2 but the first
+c		trajectory is plot in tichk line. (Default 0)
+
+	call addpar('lgmean',0.)	!lagrangian mean pos/trajs
+
+c The next parameters handle the plotting of the basin.
+
+c |ibox|	If set to 1 plots box information if the area code is
+c		used to indicate the box number. This parameter
+c		is only useful for the plotting of the box model. (Default 0)
+c |inumber|	If set to 1 plots node and element numbers on top
+c		of the grid. This is only useful in debug mode. (Default 0)
+
+        call addpar('ibox',0.)
+        call addpar('inumber',0.)
+
 c DOCS	END
 
 cc not documented
@@ -1981,7 +2084,9 @@ c		1 plots all isolines. (Default 0)
 c |isoinp|	Normally inside elements the values are interpolated.
 c		Sometimes it is usefull to just plot the value of the
 c		node without interpolation inside the element. This can
-c		be accomplished by setting |isoinp=0|. (Default 1)
+c		be accomplished by setting |isoinp=0|. Setting instead
+c		|isoinp| to a value of 2 plots a constant value in
+c		the element. (Default 1)
 
         call addpar('nisomx',20.)      !maximum number of isovalues allowed
         call addpar('nctick',0.)       !default number of ticks to use
@@ -2539,6 +2644,7 @@ cc for model aquabc (curonian)
         call addfnm('bioph',' ')
         call addfnm('biotemp',' ')
         call addfnm('bioload',' ')
+        call addfnm('bbs_lev',' ')
 
         end
 

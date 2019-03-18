@@ -1,6 +1,28 @@
-c
-c $Id: subn35.f,v 1.17 2009-02-04 15:26:54 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c parameter changing area routines
 c
 c contents :
@@ -15,11 +37,11 @@ c subroutine inarea		initializes chezy values
 c
 c revision log :
 c
-c revised on 31.08.88 by ggu  (writes real chezy on czv)
-c revised on 29.11.88 by ggu  (new chezy, iarv array)
-c revised on 12.04.90 by ggu  (href)
-c revised on 03.06.90 by ggu  (austausch)
-c revised on 26.06.97 by ggu  (implicit none, useless parts deleted)
+c 31.08.1988	ggu	(writes real chezy on czv)
+c 29.11.1988	ggu	(new chezy, iarv array)
+c 12.04.1990	ggu	(href)
+c 03.06.1990	ggu	(austausch)
+c 26.06.1997	ggu	(implicit none, useless parts deleted)
 c 25.05.1998	ggu	documentation started
 c 21.08.1998	ggu	xv eliminated
 c 25.05.1999	ggu	new routine bofric
@@ -39,6 +61,7 @@ c 10.04.2017    ggu     compute cd, normalized bottom stress and bottom stress
 c 09.05.2017    ggu     bug fix for computing bottom stress
 c 03.11.2017    mbj     new documentation for ireib
 c 26.04.2018    ggu     area code adjusted for mpi
+c 12.03.2019    mbj     new friction ireib=10
 c
 c***********************************************************
 c***********************************************************
@@ -188,6 +211,7 @@ c for some formulations no rcd might exists
 	real rfric,rcd,rr,ss,rho0
 
 	real getpar,cdf
+	real uvmin
 
 c-------------------------------------------------------------------
 c get variables
@@ -195,6 +219,7 @@ c-------------------------------------------------------------------
 
 	hzoff = getpar('hzoff')
 	ireib = nint(getpar('ireib'))
+	uvmin = getpar('uvmin')
 	rho0 = rowass
 
 c-------------------------------------------------------------------
@@ -289,6 +314,16 @@ c         ----------------------------------------------------------
 		!2. We need to apply mixing length for the 1st grid-cell 
 		!otherwise turbulence in gotm fully collapse since k-eps 
 		!is only valid for isotropic turbulence. 
+	  else if(ireib.eq.10) then 	!Hybrid quadratic-linear formulation 
+		!for more info see Bajo et al. 2019
+                if(uv > uvmin*hzg) then	!quadratic (uvmin=0.2 by default)
+                  rcd = rfric
+                  rr = rcd*uv/(hzg*hzg)
+                else			!linear
+                  rr = (rfric*uvmin)/hzg
+                  rcd = 0.
+                  if( uv > 0. ) rcd = rr*hzg*hzg/uv
+                end if
 	  else
 		write(6,*) 'unknown friction : ',ireib
 		stop 'error stop bottom_friction'
@@ -304,49 +339,6 @@ c         ----------------------------------------------------------
 c-------------------------------------------------------------------
 c end of routine
 c-------------------------------------------------------------------
-
-	end
-
-c***********************************************************
-
-	subroutine current_bottom_stress(bstressv)
-
-c computes bottom stress at nodes
-
-	use basin
-	use levels
-	use evgeom
-	use mod_diff_visc_fric
-	use mod_ts
-
-	implicit none
-
-	include 'pkonst.h'
-
-	real bstressv(nkn)
-
-	integer ie,k,ii,lmax
-	real area,rho,bnstress
-	real aux(nkn)
-
-	call bottom_friction	!bottom stress on elements (bnstressv)
-
-	bstressv = 0.
-	aux = 0.
-
-	do ie=1,nel
-	  lmax = ilhv(ie)
-	  area = ev(10,ie)
-	  bnstress = bnstressv(ie)
-	  do ii=1,3
-	    k = nen3v(ii,ie)
-            rho = rowass + rhov(lmax,k)
-	    bstressv(k) = bstressv(k) + rho * bnstress * area
-	    aux(k) = aux(k) + area
-	  end do
-	end do
-
-	where( aux > 0. ) bstressv = bstressv / aux
 
 	end
 

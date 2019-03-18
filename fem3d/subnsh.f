@@ -1,6 +1,28 @@
-c
-c $Id: subnsh.f,v 1.54 2010-03-22 15:29:31 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c utility routines for shyfem main routine
 c
 c contents :
@@ -79,8 +101,9 @@ c 10.11.2014    ggu     shyfem time management routines to new file subtime.f
 c 01.12.2014    ccf     handle new section waves for wave module
 c 24.09.2015    ggu     call initialization for irv before reading STR file
 c 26.05.2016    ggu     new check for sections: count_sections()
-c 16.06.2016    wjm     added check for section nonhyd 
+c 16.06.2016    wmk     added check for section nonhyd 
 c 11.05.2018    ggu     semi.h deleted and substituted with module
+c 15.11.2018    ccf     call to tide_vuf in do_befor
 c
 c************************************************************
 
@@ -261,6 +284,7 @@ c to do in time loop before time step
 
 	call modules(M_BEFOR)
 
+	call tide_vuf
         call tideforce       !tidal potential !ccf
 	call adjust_chezy
 
@@ -313,9 +337,9 @@ c read STR  parameter file for FE model
 c
 c iunit		unit number of file
 c
-c revised 20.01.94 by ggu !$$conz - impl. of concentration in bnd(12,.)
-c revised 07.04.95 by ggu !$$baroc - impl. of baroclinic salt/temp (21/22)
-c revised ...06.97 by ggu !complete revision
+c 20.01.1994	ggu	$$conz - impl. of concentration in bnd(12,.)
+c 07.04.1995	ggu	$$baroc - impl. of baroclinic salt/temp (21/22)
+c 01.06.1997	ggu	complete revision
 c 18.03.1998	ggu	use variable section instead name
 
 	use levels
@@ -375,9 +399,9 @@ c read loop over sections %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 			call nrdins(section)
 		else if(section.eq.'extra') then
 			call rdexta
-			!call section_deleted(section,'use section $extts')
 		else if(section.eq.'extts') then
-			call rdetsa
+			!call rdetsa
+			call section_deleted(section,'use section $extra')
 		else if(section.eq.'area') then
 			call rdarea
 		else if(section.eq.'name') then

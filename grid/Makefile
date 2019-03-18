@@ -1,6 +1,12 @@
+
+#------------------------------------------------------------------------
 #
-# $Id: Makefile,v 1.7 2009-04-21 10:23:05 georg Exp $
+#    Copyright (C) 1985-2018  Georg Umgiesser
 #
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+
 #---------------------------------------------
 
 DIR    = grid
@@ -25,7 +31,7 @@ OBJECTS =	gridma1.o gridma2.o \
 		gridnl.o \
 		menu.o stack.o screen.o
 
-OBUTIL =	general.o gustd.o debug.o color.o \
+OBUTIL =	general.o gustd.o debug.o color.o options.o \
 		 hash.o list.o args.o queue.o psgraph.o 
 
 OBJS   =	$(OBJECTS) $(OBUTIL)
@@ -239,7 +245,8 @@ gridma2.o: fund.h general.h graph.h grid.h grid_df.h grid_ex.h \
 gridnl.o: fund.h general.h gridnl.h list.h
 gridop.o: fund.h general.h generalx.h graph.h grid.h grid_df.h \
 		grid_ex.h grid_fp.h grid_ty.h gridhs.h gustd.h \
-		hash.h list.h menu.h queue.h screen.h xgraph.h 
+		hash.h list.h menu.h options.h queue.h screen.h \
+		xgraph.h 
 gridpl.o: fund.h general.h graph.h grid.h grid_df.h grid_ex.h \
 		grid_fp.h grid_ty.h gridhs.h hash.h list.h menu.h \
 		mouse.h queue.h screen.h 

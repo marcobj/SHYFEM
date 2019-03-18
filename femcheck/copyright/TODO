@@ -1,0 +1,24 @@
+
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+
+
+* scan command line
+*	grid
+*	mesh
+
+* sort
+* spline
+
+matrix
+imsl
+sparsekit
+
+* ersem
+* gotm
+

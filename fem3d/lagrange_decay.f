@@ -1,12 +1,34 @@
-c
-c $Id: lagrange_decay.f,v 1.1 2009-02-13 17:22:44 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c decay of particles
 c
 c revision log :
 c
 c 05.02.2009    ggu     copied from other files
-c 16.02.2012    mic&fra new way to kill particles...
+c 16.02.2012    mcg&fdp new way to kill particles...
 c 28.03.2014    ggu	new version of decay (for all particles)
 c
 c**********************************************************************
@@ -66,10 +88,10 @@ c applies decay to all particles
         if( ldecay .le. 0. ) return !FIXME
 
         do i=1,nbdy
-          age=it-lgr_ar(i)%tin
+          age=it-lgr_ar(i)%init%time
           tdd=exp(-age/ldecay)
           nmb=ggrand(2387)
-          if(nmb.gt.tdd) lgr_ar(i)%ie = 0	! set as if out of domain
+          if(nmb.gt.tdd) lgr_ar(i)%actual%ie = 0	! set as if out of domain
         end do
 
         end
@@ -106,14 +128,14 @@ c allora la particella sparisce dal calcolo
 
         if( tdecay .le. 0. ) return !FIXME
 
-        dt=it-lgr_ar(n)%tin
+        dt=it-lgr_ar(n)%init%time
         tdd=exp(dt/tdecay)
 
         rdc=1-(1/tdd)
 
         nmb=ggrand(2387)
 
-        if(nmb.le.rdc) lgr_ar(n)%ie = 0	! set as if out of domain
+        if(nmb.le.rdc) lgr_ar(n)%actual%ie = 0	! set as if out of domain
 
         end
 
@@ -140,13 +162,13 @@ c*********************************************************************
         save m
         data m / 150000 /	!mg/l
 
-        if(it.le.lgr_ar(i)%tin) return
+        if(it.le.lgr_ar(i)%init%time) return
 
-        time=it-lgr_ar(i)%tin       
+        time=it-lgr_ar(i)%init%time
         a=2*sqrt(pi*time*rwhpar)
         b=m/a
         di=b*exp(-1.)
-        lgr_ar(i)%c=di
+        lgr_ar(i)%custom(1)=di
 
         end 
                 
@@ -192,7 +214,7 @@ c particles older than tdead are eliminated
 	if( tdead .le. 0 ) return
 
 	t = it 
-	ts = lgr_ar(i)%tin  
+	ts = lgr_ar(i)%init%time
 
 	deltat = t-ts		!age of particle
 
@@ -202,7 +224,7 @@ c particles older than tdead are eliminated
 	if( psurv .le. 0 ) then	!particle is dead
 	  icount = icount+1 
 c	  write(77,*) it,i,icount,deltat
-	  lgr_ar(i)%ie = -lgr_ar(i)%ie
+	  lgr_ar(i)%actual%ie = -lgr_ar(i)%actual%ie
 	endif
 
 	end 

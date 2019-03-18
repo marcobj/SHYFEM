@@ -1,6 +1,28 @@
-c
-c $Id: subcst.f,v 1.19 2009-02-13 17:22:44 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines to set up constants
 c
 c contents :
@@ -16,12 +38,12 @@ c subroutine ckcori		set coriolis parameter
 c
 c revision log :
 c
-c revised 05.08.92 by ggu   $$ibtyp3 - implementation of ibtyp=3
-c revised 31.08.92 by ggu   $$impli - implicit time step
-c revised 23.11.92 by ggu   $$ibtyp11 - implementation of ibtyp=11,51
-c revised 27.10.93 by ggu   $$roger - implementation of ibtyp=70 (nsea)
-c revised 02.06.97 by ggu   $$EXTINW - extinw changed to ipint
-c revised 29.06.97 by ggu   no cstdim in file
+c 05.08.1992	ggu	$$ibtyp3 - implementation of ibtyp=3
+c 31.08.1992	ggu	$$impli - implicit time step
+c 23.11.1992	ggu	$$ibtyp11 - implementation of ibtyp=11,51
+c 27.10.1993	ggu	$$roger - implementation of ibtyp=70 (nsea)
+c 02.06.1997	ggu	$$EXTINW - extinw changed to ipint
+c 29.06.1997	ggu	no cstdim in file
 c 29.04.1998    ggu     module for semi-implicit time-step in own routine
 c 12.08.1998    ggu     new parameter dlat -> specify latitude for coriolis
 c 03.09.1998    ggu     call bocche to adjust depth at Venice inlets
@@ -97,7 +119,6 @@ c	call inlgr	!float tracking
 
 c other parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-	call putpar('zconst',flag)
 	call putpar('flag',flag)
 
 	end
@@ -108,9 +129,9 @@ c*******************************************************************
 
 c sets up and checks parameters read
 c
-c revised 07.04.95 by ggu !$$conzfl - conz compared to iflag (bug)
-c revised 07.04.95 by ggu !$$baroc - impl. of baroclinic salt/temp (21/22)
-c revised 13.06.97 by ggu !$$kranf - check if kranf <= krend
+c 07.04.1995	ggu	!$$conzfl - conz compared to iflag (bug)
+c 07.04.1995	ggu	!$$baroc - impl. of baroclinic salt/temp (21/22)
+c 13.06.1997	ggu	!$$kranf - check if kranf <= krend
 
 	use mod_bnd
 	use mod_bound_geom

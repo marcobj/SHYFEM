@@ -1,6 +1,28 @@
-c
-c $Id: subreg.f,v 1.17 2009-09-14 08:20:58 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for interpolation onto regular grid
 c
 c contents :
@@ -61,7 +83,7 @@ c 25.11.2004	ggu	new routines femintp and elemintp for interpolation
 c 14.03.2005	ggu	new routines for interpolation in element
 c 11.03.2009	ggu	new helper routine getgeoflag()
 c 12.06.2009	ggu	passing to double precision, intrid, bug bug_f_64bit
-c 26.01.2011	ggu&mb	handling extrapolation in am2av()
+c 26.01.2011	ggu&mbj	handling extrapolation in am2av()
 c 27.01.2011	ggu&ccf	bug fix in find_elem_from_old() BUG_27.01.2011
 c 31.03.2011	ggu	new routine elemmask()
 c 24.11.2011	ggu	new routine find_close_elem()

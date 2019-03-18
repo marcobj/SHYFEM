@@ -1,6 +1,28 @@
-c
-c $Id: subeos.f,v 1.15 2007-03-20 13:14:53 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c utility routines to read/write EOS file - file type 167
 c
 c contents :
@@ -538,7 +560,9 @@ c local
 	   if( nlv .le. 1 ) then
              read(iunit,end=99,err=99) (c(1,ie),ie=1,nel)
 	   else
-             read(iunit,end=99,err=99) ((c(l,ie),l=1,ilhv(ie)),ie=1,nel)
+             call linear2read(iunit,nlvddi,nel,ilhv,c,ierr)
+             if( ierr /= 0 ) goto 99
+             !read(iunit,end=99,err=99) ((c(l,ie),l=1,ilhv(ie)),ie=1,nel)
 	   end if
 	else
 	   write(6,*) 'version = ',nvers
@@ -592,7 +616,9 @@ c local
 	if( nlv .le. 1 ) then
 	  write(iunit) (c(1,ie),ie=1,nel)
 	else
-	  write(iunit) ((c(l,ie),l=1,ilhv(ie)),ie=1,nel)
+          call linear2write(iunit,nlvddi,nel,ilhv,c,ierr)
+	  if( ierr /= 0 ) stop 'error stop wreos'
+	  !write(iunit) ((c(l,ie),l=1,ilhv(ie)),ie=1,nel)
 	end if
 
 	ierr=0

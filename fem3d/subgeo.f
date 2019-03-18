@@ -1,6 +1,28 @@
-c
-c $Id: subgeo.f,v 1.6 2010-03-22 15:29:31 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c geometrical routines
 c
 c contents :
@@ -383,8 +405,6 @@ c test for .ne. 0 to find out on any intersection
 	integer parallelint
 
 	logical bdebug
-c	logical isdebug
-c	bdebug = isdebug()
 	bdebug = .false.
 
 c convert to double precision
@@ -511,7 +531,7 @@ c is polygon convex ?
 
 	logical isconvex
 	integer n
-	real x(1),y(1)
+	real x(n),y(n)
 
 	integer i
 	real xl,yl,xm,ym,xn,yn
@@ -552,7 +572,7 @@ c checks if point (x0,y0) is in convex polygon (border is inside)
 
         logical inconvex !true if (x0,y0) is inside closed line (return)
 	integer n        !total number of points in line
-	real x(1),y(1)   !coordinates of line
+	real x(n),y(n)   !coordinates of line
 	real x0,y0       !coordinates of point to check
 
 	integer i
@@ -587,8 +607,8 @@ c polygon 1 in convex polygon 2 ? (border is inside)
 
 	logical polyinpoly
 	integer n1,n2
-	real x1(1),y1(1)
-	real x2(1),y2(1)
+	real x1(n1),y1(n1)
+	real x2(n2),y2(n2)
 
 	integer i
 	logical inconvex
@@ -615,7 +635,7 @@ c shell for in-polygon check
 
         logical inpoly   !true if (x0,y0) is inside closed line (return)
 	integer n        !total number of points in line
-	real x(1),y(1)   !coordinates of line
+	real x(n),y(n)   !coordinates of line
 	real x0,y0       !coordinates of point to check
 
 	logical inpoly0	!old routine -> use classical winding number
@@ -645,7 +665,7 @@ c http://softsurfer.com/Archive/algorithm_0103/algorithm_0103.htm
 
         logical inpoly1  !true if (x0,y0) is inside closed line (return)
 	integer n        !total number of points in line
-	real x(1),y(1)   !coordinates of line
+	real x(n),y(n)   !coordinates of line
 	real x0,y0       !coordinates of point to check
 
 	integer i,iw
@@ -693,7 +713,7 @@ c use classical winding number
 
         logical inpoly0  !true if (x0,y0) is inside closed line (return)
 	integer n        !total number of points in line
-	real x(1),y(1)   !coordinates of line
+	real x(n),y(n)   !coordinates of line
 	real x0,y0       !coordinates of point to check
 
 	integer i
@@ -703,9 +723,7 @@ c use classical winding number
 
 	logical isconvex,inconvex
 	integer winding
-c	logical isdebug
 
-c	bdebug = isdebug()
 	bdebug = .false.
 
 	if(bdebug) write(6,*) 'debug is set in inpoly...'
@@ -779,7 +797,7 @@ c compute winding number for x0/y0 (integer)
 
 	integer winding
 	integer n
-	real x(1),y(1)
+	real x(n),y(n)
 	real x0,y0
 
 	integer i
@@ -789,9 +807,6 @@ c compute winding number for x0/y0 (integer)
 	double precision scal,cros,modu,arg
 	double precision totangle,angle
 	real pi2
-
-c	logical isdebug
-c	bdebug = isdebug()
 
 	bdebug = .false.
 

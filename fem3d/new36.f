@@ -1,6 +1,28 @@
-c
-c $Id: new36.f,v 1.7 2008-11-03 10:42:26 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c closing routines
 c
 c contents :
@@ -22,17 +44,17 @@ c function volag(mode,z)        determination of water volume in whole basin
 c
 c revision log :
 c
-c revised on 26.07.88 by ggu   (introduction of ic)
-c revised on 15.12.88 by ggu   (bfluss,bspec)
-c revised on 20.12.88 by ggu   (iop=6,7,8 using level out of lagoon)
-c revised on 14.03.90 by ggu   (completely restructured)
-c revised on 31.03.90 by ggu   (test : change chezy values ^^^^)
-c revised on 27.08.92 by ggu   $$0 - not used
-c revised on 27.08.92 by ggu   $$1 - for new algorithm (const. form func.)
-c revised on 31.08.92 by ggu   $$impli - implicit time step
-c revised on 24.09.92 by ggu   $$2 - special technital (fluxes) -> deleted
-c revised on 24.09.92 by ggu   $$3 - chezy closing
-c revised on 29.09.92 by ggu   $$4 - remove writing of vectors (NAN)
+c 26.07.1988	ggu	(introduction of ic)
+c 15.12.1988	ggu	(bfluss,bspec)
+c 20.12.1988	ggu	(iop=6,7,8 using level out of lagoon)
+c 14.03.1990	ggu	(completely restructured)
+c 31.03.1990	ggu	(test : change chezy values ^^^^)
+c 27.08.1992	ggu	$$0 - not used
+c 27.08.1992	ggu	$$1 - for new algorithm (const. form func.)
+c 31.08.1992	ggu	$$impli - implicit time step
+c 24.09.1992	ggu	$$2 - special technital (fluxes) -> deleted
+c 24.09.1992	ggu	$$3 - chezy closing
+c 29.09.1992	ggu	$$4 - remove writing of vectors (NAN)
 c 25.03.1998	ggu	integrated changes from technital version
 c 27.03.1998	ggu	utility routines for reading etc...
 c 27.03.1998	ggu	dead code deleted, xv(1) -> xv(3,1)
@@ -103,6 +125,7 @@ c vdate		velocity variable used in mode
 	use mod_bound_dynamic
 	use mod_diff_visc_fric
 	use mod_hydro_print
+	use mod_hydro
 	use basin
 	use shympi
 
@@ -430,6 +453,9 @@ c
 	zin=xv(3,kin)
 	zout=xv(3,kout)
         zref=xv(3,kref)
+	zin=znv(kin)
+	zout=znv(kout)
+        zref=znv(kref)
 	!u=xv(1,kref)
 	!v=xv(2,kref)
 	u=xv(1,kin)    !BUG FIX 27.5.2004
@@ -438,6 +464,8 @@ c
 c
 c	if section is associated to level boundary
 c
+	!ibndz = 0
+	ibtyp = 0
 	if(ibndz.gt.0) then
 		ibtyp=itybnd(ibndz)
 		if(iabs(ibtyp).eq.1) then
@@ -455,10 +483,12 @@ c
 c
 c	!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 	write(nb13,*)
-	write(nb13,'(1x,a,5i5)') 'j,iact,imode,istp,iclos :'
-     +				,j,iact,imode,istp,iclos
-	write(nb13,'(1x,a,4e12.4)') 'scal,scalo,zin,zout :'
-     +				,scal,scalo,zin,zout
+	write(nb13,'(1x,a,7i5)') 'j,iact,imode,istp,iclos :'
+     +				,j,iact,imode,istp,iclos,ibndz,ibtyp
+c	write(nb13,'(1x,a,4e12.4)') 'scal,scalo,zin,zout :'
+c     +				,scal,scalo,zin,zout
+	write(nb13,'(1x,a,2e10.2,6f7.3)') 'extra: ',scal,scalo
+     +				,zref,zout,zin,zdate
 	write(nb13,*)
 c	!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 c

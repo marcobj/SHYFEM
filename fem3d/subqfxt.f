@@ -1,6 +1,28 @@
-c
-c $Id: subqfxt.f,v 1.15 2009-11-18 16:50:37 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c heat flux module (file administration)
 c
 c contents :
@@ -36,6 +58,8 @@ c 26.10.2015    ggu     critical omp sections introduced (eliminated data race)
 c 07.04.2016    ggu     compute total evaporation
 c 04.05.2016    ccf     do not pass albedo into heat2t
 c 04.05.2016    ggu     include effect of ice cover
+c 21.07.2016    ivn     isolp = 1, 2 length scale solar penetration (Jerlov) 
+c 29.09.2016    ivn     bug fix for isolp = 1
 c
 c notes :
 c
@@ -164,6 +188,7 @@ c local
 
 	double precision ddq
 	double precision atime
+	character*20 aline
 
 	real, save, allocatable :: dtw(:)	!Warm layer temp. diff
 	real, save, allocatable :: tws(:)	!Skin temperature (deg C)
@@ -174,6 +199,7 @@ c local
 	real cd			!wind drag coefficient
 
 	integer itdrag
+
 c functions
 	real depnode,areanode,getpar
 	integer ifemopa
@@ -183,6 +209,8 @@ c save
 	save n93,icall
 	data n93,icall / 0 , 0 /
 	save bdebug,bwind
+
+	dq = 0.
 
 	call qflux_compute(yes)
 	if( yes .le. 0 ) return
@@ -254,6 +282,9 @@ c---------------------------------------------------------
 	im = ys(2)
 	ih = ys(4)
 
+	!call get_act_timeline(aline)
+	!write(177,*) dtime,'  ',aline
+	
 c---------------------------------------------------------
 c loop over nodes
 c---------------------------------------------------------
@@ -268,6 +299,8 @@ c---------------------------------------------------------
 	    evapv(k) = 0.
 	    cycle
 	  end if
+
+	  !write(177,*) 'node = ',k,iheat
 
 	  tm = temp(1,k)
 	  salt = saltv(1,k)
@@ -410,18 +443,18 @@ c*****************************************************************************
 
 	subroutine check_heat(k,tm,qsens,qlat,qlong,evap)
 
+	use mod_debug
+
 	implicit none
 
 	integer k
 	real tm,qsens,qlat,qlong,evap
 
-	logical is_r_nan
-
-	if( is_r_nan(tm) ) goto 98
-	if( is_r_nan(qsens) ) goto 98
-	if( is_r_nan(qlat) ) goto 98
-	if( is_r_nan(qlong) ) goto 98
-	if( is_r_nan(evap) ) goto 98
+	if( is_nan(tm) ) goto 98
+	if( is_nan(qsens) ) goto 98
+	if( is_nan(qlat) ) goto 98
+	if( is_nan(qlong) ) goto 98
+	if( is_nan(evap) ) goto 98
 
 	return
    98	continue
@@ -433,19 +466,19 @@ c*****************************************************************************
 
 	subroutine check_heat2(k,l,qs,qsbottom,qrad,albedo,tm,tnew)
 
+	use mod_debug
+
 	implicit none
 
 	integer k,l
 	real qs,qsbottom,qrad,albedo,tm,tnew
 
-	logical is_r_nan
-
-	if( is_r_nan(qs) ) goto 98
-	if( is_r_nan(qsbottom) ) goto 98
-	if( is_r_nan(qrad) ) goto 98
-	if( is_r_nan(albedo) ) goto 98
-	if( is_r_nan(tm) ) goto 98
-	if( is_r_nan(tnew) ) goto 98
+	if( is_nan(qs) ) goto 98
+	if( is_nan(qsbottom) ) goto 98
+	if( is_nan(qrad) ) goto 98
+	if( is_nan(albedo) ) goto 98
+	if( is_nan(tm) ) goto 98
+	if( is_nan(tnew) ) goto 98
 
 	if( abs(tm) .gt. 100. ) goto 97
 	if( abs(tnew) .gt. 100. ) goto 97

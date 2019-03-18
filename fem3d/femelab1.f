@@ -1,4 +1,28 @@
+
+!--------------------------------------------------------------------------
 !
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! elaborates fem files
 !
 ! revision log :
@@ -13,6 +37,7 @@
 ! 31.10.2016    ggu     new flag condense (bcondense)
 ! 16.05.2017    ggu&mbj better handling of points to extract
 ! 31.08.2017    ggu     new flag -grd to write grd from fem file
+! 01.03.2019    ccf     lmax in function of considered var (needed for split)
 !
 !******************************************************************
 
@@ -70,8 +95,24 @@ c writes info on fem file
 	real,allocatable :: hlv(:)
 	integer,allocatable :: ilhkv(:)
 	integer,allocatable :: ius(:)
+	integer,allocatable :: llmax(:)
 
 	integer ifileo
+
+!--------------------------------------------------------------------
+	INTERFACE
+	subroutine allocate_vars(nvar,np,lmax,hlv,hd,ilhkv
+     +			,data_profile,d3dext,data)
+	integer nvar,np,lmax
+	real, allocatable :: hlv(:)
+	real, allocatable :: hd(:)
+	integer, allocatable :: ilhkv(:)
+	real, allocatable :: data_profile(:)
+	real, allocatable :: d3dext(:,:)
+	real, allocatable :: data(:,:,:)
+	end
+	END INTERFACE
+!--------------------------------------------------------------------
 
 	bhuman = .true.		!convert time in written fem file to dtime=0
 	blayer = .false.
@@ -160,7 +201,22 @@ c--------------------------------------------------------------
 	  write(6,*) 'ntype:  ',ntype
 	end if
 
-	allocate(hlv(lmax))
+	nvar0 = nvar
+	lmax0 = lmax
+	nlvdi = lmax
+	np0 = np
+
+	call allocate_vars(nvar,np,lmax,hlv,hd,ilhkv
+     +			,data_profile,d3dext,data)
+
+	allocate(ius(nvar))
+	allocate(ivars(nvar))
+	allocate(strings(nvar))
+	allocate(strings_out(nvar))
+	allocate(facts(nvar))
+	allocate(dext(nvar))
+	allocate(llmax(nvar))
+
 	call fem_file_make_type(ntype,2,itype)
 
 	call fem_file_read_2header(iformat,iunit,ntype,lmax
@@ -195,21 +251,6 @@ c--------------------------------------------------------------
 	  call handle_extract(breg,np,regpar,iextract)
 	end if
 
-	nvar0 = nvar
-	lmax0 = lmax
-	nlvdi = lmax
-	np0 = np
-	allocate(ivars(nvar))
-	allocate(strings(nvar))
-	allocate(strings_out(nvar))
-	allocate(facts(nvar))
-	allocate(dext(nvar))
-	allocate(d3dext(nlvdi,nvar))
-	allocate(data(nlvdi,np,nvar))
-	allocate(data_profile(nlvdi))
-	allocate(hd(np))
-	allocate(ilhkv(np))
-	allocate(ius(nvar))
 	ius = 0
 
 c--------------------------------------------------------------
@@ -272,14 +313,35 @@ c--------------------------------------------------------------
 	  if( ierr .lt. 0 ) exit
 	  if( ierr .gt. 0 ) goto 99
 	  if( nvar .ne. nvar0 ) goto 96
-	  if( lmax .ne. lmax0 ) goto 96
-	  if( np .ne. np0 ) goto 96
+
 	  nrec = nrec + 1
 
 	  call dts_convert_to_atime(datetime,dtime,atime)
 	  call dts_format_abs_time(atime,dline)
 	  atlast = atime
 	  atnew = atime
+
+	  if( lmax .ne. lmax0 .or. np .ne. np0 ) then
+	    if( .not. bquiet ) then
+	      write(6,*) 
+	      write(6,*) '*** warning: parameters have changed'
+	      write(6,*) 'time: ',trim(dline)
+	      write(6,'(a)') ' parameter     old       new'
+	      write(6,1300) ' np     ',np0,np
+	      write(6,1300) ' lmax   ',lmax0,lmax
+	      write(6,1300) ' nvar   ',nvar0,nvar
+ 1300	      format(a,2i10)
+	      if( bverb .and. lmax > 1 ) then
+	       write(6,*) 'levels: ',lmax
+	       write(6,'(5f12.4)') hlv
+	      end if
+	    end if
+	    lmax0 = lmax
+	    nlvdi = lmax
+	    np0 = np
+	    call allocate_vars(nvar,np,lmax,hlv,hd,ilhkv
+     +			,data_profile,d3dext,data)
+	  end if
 
 	  call fem_file_read_2header(iformat,iunit,ntype,lmax
      +			,hlv,regpar,ierr)
@@ -296,7 +358,7 @@ c--------------------------------------------------------------
      +                          ,nvers,np,lmax,string,ierr)
 	    else
               call fem_file_read_data(iformat,iunit
-     +                          ,nvers,np,lmax
+     +                          ,nvers,np,llmax(iv)
      +                          ,string
      +                          ,ilhkv,hd
      +                          ,nlvdi,data(1,1,iv)
@@ -344,22 +406,23 @@ c--------------------------------------------------------------
 	    string = strings_out(iv)
 	    !write(6,*) iv,'  ',trim(string)
             if( boutput ) then
-	      !call custom_elab(nlvdi,np,string,iv,data(1,1,iv))
+	      !call custom_elab(nlvdi,np,string,iv,flag,data(1,1,iv))
 	      if( breg .and. bexpand ) then
 		call reg_set_flag(nlvdi,np,ilhkv,regpar,data(1,1,iv))
-		call reg_expand_shell(nlvdi,np,lmax,regexpand
+		call reg_expand_shell(nlvdi,np,llmax(iv),regexpand
      +					,regpar,ilhkv,data(1,1,iv))
 	      end if
 	      if( bcondense ) then
-		call fem_condense(np,lmax,data(1,1,iv),flag,data_profile)
+		call fem_condense(np,llmax(iv),data(1,1,iv),flag,
+     +				data_profile)
                 call fem_file_write_data(iformout,iout
-     +                          ,0,np_out,lmax
+     +                          ,0,np_out,llmax(iv)
      +                          ,string
      +                          ,ilhkv,hd
      +                          ,nlvdi,data_profile)
 	      else
                 call fem_file_write_data(iformout,iout
-     +                          ,0,np_out,lmax
+     +                          ,0,np_out,llmax(iv)
      +                          ,string
      +                          ,ilhkv,hd
      +                          ,nlvdi,data(1,1,iv))
@@ -367,8 +430,8 @@ c--------------------------------------------------------------
             end if
 	    if( bwrite ) then
 	      write(6,*) nrec,iv,ivars(iv),trim(strings(iv))
-	      do l=1,lmax
-                call minmax_data(l,lmax,np,flag,ilhkv,data(1,1,iv)
+	      do l=1,llmax(iv)
+                call minmax_data(l,llmax(iv),np,flag,ilhkv,data(1,1,iv)
      +					,dmin,dmax,dmed)
 	        write(6,1000) 'l,min,aver,max : ',l,dmin,dmed,dmax
  1000	        format(a,i5,3g16.6)
@@ -380,7 +443,7 @@ c--------------------------------------------------------------
 	    end if
 	    if( bsplit ) then
 	      call femsplit(iformout,ius(iv),dtime,nvers,np
-     +			,lmax,nlvdi,ntype
+     +			,llmax(iv),nlvdi,ntype
      +			,hlv,datetime,regpar,string
      +			,ilhkv,hd,data(:,:,iv))
 	    end if
@@ -481,8 +544,8 @@ c--------------------------------------------------------------
 	stop 'error stop femelab: strings'
    96	continue
 	write(6,*) 'nvar,nvar0: ',nvar,nvar0
-	write(6,*) 'lmax,lmax0: ',lmax,lmax0	!this might be relaxed
-	write(6,*) 'np,np0:     ',np,np0	!this might be relaxed
+	!write(6,*) 'lmax,lmax0: ',lmax,lmax0	!this might be relaxed
+	!write(6,*) 'np,np0:     ',np,np0	!this might be relaxed
 	write(6,*) 'cannot change number of variables'
 	stop 'error stop femelab'
    97	continue
@@ -696,9 +759,10 @@ c*****************************************************************
 	character*10 unit
 	integer, save :: iusold
 
+	call string2ivar(string,ivar)
+	call string_direction_and_unit(string,dir,unit)
+
 	if( ius == 0 ) then
-	  call string2ivar(string,ivar)
-	  call string_direction_and_unit(string,dir,unit)
 	  if( dir == 'y' ) then		!is second part of vector
 	    ius = iusold
 	  else
@@ -734,27 +798,33 @@ c*****************************************************************
 
 c*****************************************************************
 
-	subroutine custom_elab(nlvdi,np,string,iv,data)
+	subroutine custom_elab(nlvdi,np,string,iv,flag,data)
 
 	implicit none
 
 	integer nlvdi,np,iv
 	character*(*) string
+	real flag
 	real data(nlvdi,np)
 
-	real fact
+	real fact,offset
 
-	return
+	!return
 
-	if( string(1:13) /= 'wind velocity' ) return
-	if( iv < 1 .or. iv > 2 ) return
+	!if( string(1:13) /= 'wind velocity' ) return
+	if( string(1:11) /= 'water level' ) return
+	!if( iv < 1 .or. iv > 2 ) return
 
-	fact = 2.
+	fact = 1.
+	offset = 0.20
 
 	!write(6,*) iv,'  ',trim(string)
-	write(6,*) 'attention: wind speed changed by a factor of ',fact
+	!write(6,*) 'attention: wind speed changed by a factor of ',fact
+	write(6,*) 'custom_elab: ',offset,fact
 
-	data = fact * data
+	where( data /= flag ) 
+	  data = fact * data + offset
+	end where
 
 	end
 
@@ -871,6 +941,11 @@ c*****************************************************************
 	character*80 snode,scoord
 
 	integer iscanf
+
+	x0 = 0.
+	y0 = 0.
+	dx = 0.
+	dy = 0.
 
         call clo_get_option('nodei',snode)
         call clo_get_option('coord',scoord)
@@ -1131,6 +1206,34 @@ c*****************************************************************
 	do i=1,nvar
 	  write(6,*) i,'  ',trim(strings_out(i))
 	end do
+
+	end
+
+c*****************************************************************
+
+	subroutine allocate_vars(nvar,np,lmax,hlv,hd,ilhkv
+     +			,data_profile,d3dext,data)
+
+	implicit none
+
+	integer nvar,np,lmax
+	real, allocatable :: hlv(:)
+	real, allocatable :: hd(:)
+	integer, allocatable :: ilhkv(:)
+	real, allocatable :: data_profile(:)
+	real, allocatable :: d3dext(:,:)
+	real, allocatable :: data(:,:,:)
+
+	if( allocated(hlv) ) then
+	  deallocate(hlv,hd,ilhkv,data_profile,d3dext,data)
+	end if
+
+	allocate(hlv(lmax))
+	allocate(hd(np))
+	allocate(ilhkv(np))
+	allocate(data_profile(lmax))
+	allocate(d3dext(lmax,nvar))
+	allocate(data(lmax,np,nvar))
 
 	end
 

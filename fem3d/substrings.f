@@ -1,10 +1,35 @@
+
+!--------------------------------------------------------------------------
 !
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! handle strings for parameters
 !
 ! revision log :
 !
 ! 31.08.2017    ggu     deleted old versions of subroutines
 ! 07.10.2017    ggu     short name introduced, new generic routines
+! 16.02.2019    ggu     populate_strings declared as recursive
 !
 ! contents :
 !
@@ -83,6 +108,7 @@
 
 	end type entry
 
+        logical, save, private :: bpopulate = .true.    !must still populate?
         integer, save, private :: idlast = 0
         integer, save, private :: ndim = 0
 	type(entry), save, private, allocatable :: pentry(:)
@@ -705,7 +731,7 @@ c finds direction if vector
 !****************************************************************
 !****************************************************************
 
-	subroutine populate_strings
+	recursive subroutine populate_strings
 
 ! populates string information
 !
@@ -785,6 +811,15 @@ c finds direction if vector
 	call strings_add_new('type',76)
 	call strings_add_new('distance',77)
 	call strings_add_new('lgr',80)
+	call strings_add_new('lagrangian (general)',80)
+	call strings_add_new('lagage',81)
+	call strings_add_new('lagrangian age',81)
+	call strings_add_new('lagdep',82)
+	call strings_add_new('lagrangian depth',82)
+	call strings_add_new('lagtyp',83)
+	call strings_add_new('lagrangian type',83)
+	call strings_add_new('lagcus',84)
+	call strings_add_new('lagrangian custom',84)
 	call strings_add_new('ice cover',85)
 	call strings_add_new('time step',95)
 	call strings_add_new('timestep',95)
@@ -817,8 +852,8 @@ c finds direction if vector
 	call strings_add_new('weutro (shell fish)',730,10)
 	call strings_add_new('weutrosf',730,10)
 
-	call strings_add_new('suspended sediment concentration',800,90)
-	call strings_add_new('ssc',800,90)
+	call strings_add_new('suspended sediment concentration',800,50)
+	call strings_add_new('ssc',800,50)
 	call strings_add_new('erosion-deposition',891)
 	call strings_add_new('sederodep',891)
 	call strings_add_new('grainsize (average)',892)
@@ -827,6 +862,15 @@ c finds direction if vector
 	call strings_add_new('mud fraction',894)
 	call strings_add_new('mudfrac',894)
 	call strings_add_new('bedload transport',895)
+
+	call strings_add_new('suspended sediments',850)
+	call strings_add_new('sssc',850)
+	call strings_add_new('bed sediments [kg]',851)
+	call strings_add_new('bsedkg',851)
+	call strings_add_new('bed sediments [kg/m**2]',852)
+	call strings_add_new('bsedka',852)
+	call strings_add_new('bed sediments [m]',853)
+	call strings_add_new('bsedm',853)
 
 	call strings_add_new('var',-9)		!special treatment
 	call strings_add_new('ivar',-9)
@@ -873,6 +917,10 @@ c finds direction if vector
 	call strings_set_short(76,'type')
 	call strings_set_short(77,'distance')
 	call strings_set_short(80,'lgr')
+	call strings_set_short(81,'lagage')
+	call strings_set_short(82,'lagdep')
+	call strings_set_short(83,'lagtyp')
+	call strings_set_short(84,'lagcus')
 	call strings_set_short(85,'ice')
 	call strings_set_short(95,'timestep')
 	call strings_set_short(97,'timeot')
@@ -899,6 +947,11 @@ c finds direction if vector
 	call strings_set_short(893,'sbstress')
 	call strings_set_short(894,'mudfrac')
 	call strings_set_short(895,'bedload')
+
+	call strings_set_short(850,'sssc')
+	call strings_set_short(851,'bsedkg')
+	call strings_set_short(852,'bsedka')
+	call strings_set_short(853,'bsedm')
 
 !---------------------------------------------------------------------
 

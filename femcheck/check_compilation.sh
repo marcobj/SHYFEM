@@ -1,5 +1,13 @@
 #!/bin/sh
 #
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+#
 # checks if all programs are installed
 #
 #----------------------------------------------------
@@ -25,7 +33,11 @@ CheckCommand()
   name=$1
   command=$2
 
-  ($command) >> $log 2>&1 < ./fembin/CR
+  #echo "running $name ($command)"
+  ($command) >> $log 2>&1
+  #$command >> $log 2>&1 < ./fembin/CR
+  #$command  < ./fembin/CR
+  #$command
 
   status=$?
   #echo "status: $status"
@@ -53,18 +65,18 @@ CheckCommand shypre ./fem3d/shypre
 CheckCommand shyelab ./fem3d/shyelab 
 CheckCommand shybas ./fem3d/shybas 
 
-CheckCommand plotsim ./femplot/plotsim 
-
+CheckCommand shyplot ./femplot/shyplot 
+#CheckCommand plotsim ./femplot/plotsim 
+#CheckCommand gridr ./femspline/gridr 
 #CheckCommand ggg ./fem3d/ggg 		#fake error
 
 CheckCommand shyadj ./femadj/shyadj 
-CheckCommand gridr ./femspline/gridr 
 
 CheckCommand grid ./grid/grid 
 CheckCommand mesh ./mesh/mesh 
 CheckCommand exgrd ./mesh/exgrd 
 
-CheckCommand demopost ./post/demopost 
+#CheckCommand demopost ./post/demopost 
 
 CheckFile libcalp ./femlib/libcalp.a
 CheckFile libfem ./femlib/libfem.a

@@ -1,6 +1,28 @@
 
-c $Id: subbnds.f,v 1.18 2010-02-26 17:35:06 georg Exp $
-c
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c handles open boundary conditions for scalar variables
 c
 c contents :
@@ -143,6 +165,7 @@ c******************************************************************
 c reads new boundary condition
 
 	use intp_fem_file
+	use iso8601
 
 	implicit none
 
@@ -153,12 +176,30 @@ c reads new boundary condition
 	integer nbc,ibc,id
 	integer nbnds
 
+	integer date,time,ierr
+	double precision atime,atime0,dctime
+	character*80 string
+
 	nbc = nbnds()
 
 	do ibc=1,nbc
 	  id = ids(ibc)
 	  if( id .le. 0 ) cycle
 	  call iff_read_and_interpolate(id,dtime)
+	end do
+
+	return
+
+! debug code
+
+	string = '2018-12-31::22:40:00'
+	call convert_to_dtime(string,dctime)
+	if( dtime < dctime ) return
+
+	do ibc=1,nbc
+	  id = ids(ibc)
+	  if( id .le. 0 ) cycle
+	  call iff_info_on_data(id)
 	end do
 
 	end

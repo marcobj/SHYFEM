@@ -1,6 +1,28 @@
-c
-c $Id: subspk.f,v 1.4 2010-03-22 15:29:31 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c Sparskit solver routines
 c
 c revision log :
@@ -8,7 +30,7 @@ c
 c 05.06.2009    ggu     some routines cleaned
 c 22.03.2010    ggu     change of some parameters
 c 29.03.2012    ggu     introduce zero and one as double (bug, was int before)
-c 15.12.2015    ggu&deb adapted to new 3d framework
+c 15.12.2015    ggu&dbf adapted to new 3d framework
 c 13.01.2016    ggu&ivn bug in allocation of rvec and raux (n instead nndim)
 c 04.04.2016    ggu	make some big arrays allocatable and not on stack
 c 22.04.2018    ggu	eliminated redundant use and variables
@@ -179,7 +201,8 @@ c*************************************************************************
       
       if( nnzero .gt. nndim .or. ngl+1 .gt. 2*nndim ) goto 99
 
-      call csort (ngl,csr,jcsr,icsr,iwork,.true.)
+      !call csort (ngl,csr,jcsr,icsr,iwork,.true.)
+      call csort (ngl,csr,jcsr,icsr,.true.)	!new calling modus spk2
 
 !--------------------------------------------------
 

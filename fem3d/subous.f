@@ -1,6 +1,28 @@
-c
-c $Id: subous.f,v 1.3 2004/09/28 13:31:55 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c utility routines to read/write OUS file - file type 161
 c
 c contents :
@@ -994,8 +1016,12 @@ c reads data record of OUS file
 	    read(iunit,end=99,err=99) (ut(1,ie),ie=1,nel)
 	    read(iunit,end=99,err=99) (vt(1,ie),ie=1,nel)
 	  else
-	    read(iunit,end=99,err=99) ((ut(l,ie),l=1,ilhv(ie)),ie=1,nel)
-	    read(iunit,end=99,err=99) ((vt(l,ie),l=1,ilhv(ie)),ie=1,nel)
+	    call linear2read(iunit,nlvddi,nel,ilhv,ut,ierr)
+	    if( ierr /= 0 ) goto 99
+	    call linear2read(iunit,nlvddi,nel,ilhv,vt,ierr)
+	    if( ierr /= 0 ) goto 99
+	    !read(iunit,end=99,err=99) ((ut(l,ie),l=1,ilhv(ie)),ie=1,nel)
+	    !read(iunit,end=99,err=99) ((vt(l,ie),l=1,ilhv(ie)),ie=1,nel)
 	  end if
 	else
 	   stop 'error stop ous_read_record: internal error (1)'
@@ -1060,8 +1086,12 @@ c local
 	  write(iunit) (ut(1,ie),ie=1,nel)
 	  write(iunit) (vt(1,ie),ie=1,nel)
 	else
-	  write(iunit) ((ut(l,ie),l=1,ilhv(ie)),ie=1,nel)
-	  write(iunit) ((vt(l,ie),l=1,ilhv(ie)),ie=1,nel)
+	  call linear2write(iunit,nlvddi,nel,ilhv,ut,ierr)
+	  if( ierr /= 0 ) stop 'error stop ous_write_record'
+	  call linear2write(iunit,nlvddi,nel,ilhv,vt,ierr)
+	  if( ierr /= 0 ) stop 'error stop ous_write_record'
+	  !write(iunit) ((ut(l,ie),l=1,ilhv(ie)),ie=1,nel)
+	  !write(iunit) ((vt(l,ie),l=1,ilhv(ie)),ie=1,nel)
 	end if
 
 	ierr=0

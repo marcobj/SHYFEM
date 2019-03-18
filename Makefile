@@ -1,4 +1,12 @@
-# 
+
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+
 # general makefile for dir fem
 #
 #---------------------------------------------------------------
@@ -51,15 +59,15 @@ REGRESSDIR = femregress
 SUBDIRS   = `ls -dF * | grep  '/' | sed -e 's/\///'`
 FEMLIBS   = femcheck post hcbs
 FEMC      = grid mesh
-FEMPROG   = fem3d femplot femadj femspline
+FEMPROG   = fem3d femplot femadj
 FEMUTIL   = $(REGRESSDIR) femdoc fembin femlib femanim
 FEMOPT    = femgotm femersem
 FEMEXTRA  = 
 PARAMDIRS = fem3d femplot femadj #femspline
 
-SPECIAL   = Makefile Rules.make param.h README LASTTAR CHANGES
-SPECIAL   = Makefile Rules.make param.h \
-		BUG COMMIT FAQ LASTTAR LOG README VERSION
+SPECIAL   = Makefile Rules.make README CHANGES
+SPECIAL   = Makefile Rules.make \
+		BUG COMMIT FAQ LOG README VERSION
 
 VERSION = `head -1 $(FEMDIR)/VERSION | sed -e 's/  */ /g' | cut -f4 -d" "`
 COMMIT = `head -1 $(FEMDIR)/VERSION | sed -e 's/  */ /g' | cut -f5 -d" "`
@@ -122,9 +130,6 @@ list:
 
 depend:
 	@$(FEMBIN)/recursivemake $@ $(FEMDIRS)
-
-param:
-	@$(FEMBIN)/recursivemake $@ $(PARAMDIRS)
 
 directories:
 	@-mkdir -p tmp
@@ -203,6 +208,9 @@ first_time:
 version:
 	@echo $(VERSION) $(COMMIT)
 
+tag:
+	@echo $(VERSION)
+
 info: version
 	@echo "general:"
 	@echo "  version           = $(VERSNAME)"
@@ -256,7 +264,8 @@ advance_time:
 # installing
 #--------------------------------------------------------
 
-install: install_hard install_soft
+#install: install_hard install_soft
+install: install_soft
 
 install_soft: checkv
 	$(FEMBIN)/shyfem_install_soft.sh
@@ -280,11 +289,11 @@ ggu_help: help_ggu
 help_ggu:
 	@echo "rules_ggu_save     saves my Rules.make file"
 	@echo "rules_ggu_restore  restores my Rules.make file"
-	@echo "nemon              set special treatment nemunas server on"
-	@echo "nemoff             set special treatment nemunas server off"
 	@echo "rules_nemunas      copy Rules.make for nemunas server"
 	@echo "rules_lagoon       copy Rules.make for lagoon"
 	@echo "rules_carbonium    copy Rules.make for carbonium"
+	@echo "nemon              set special treatment nemunas server on"
+	@echo "nemoff             set special treatment nemunas server off"
 	@echo "git_nemunas        enable git for push on nemunas server"
 
 help_dev:
@@ -292,12 +301,14 @@ help_dev:
 	@echo "test_compile       compiles model with different configs"
 	@#echo "test_stable        compiles stable model with different configs"
 	@echo "regress            runs regression tests"
+	@echo "compile_regress    compiles model and runs regression tests"
 	@echo "check_var          does various checks on distribution"
 	@#echo "stable             makes stable distribution of last version"
 	@echo "compiler_version   info on compiler"
 	@echo "last_commit        name of last commit"
 	@echo "dist               prepares distribution (Rules.make)"
-	@echo "rules_save         copies back last saved Rules.make file"
+	@echo "rules_save         saves actual Rules.make file"
+	@echo "rules_restore      restores last saved Rules.make file"
 	@echo "rules_dist         substitutes Rules.make with Rules.dist file"
 	@echo "rules_new          copies Rules.make file to Rules.dist"
 	@echo "rules_diff         difference between Rules.make and Rules.dist"
@@ -307,6 +318,9 @@ help_dev:
 test_compile:
 	@femcheck/test_compile.sh
 
+compile_regress:
+	@femcheck/test_compile.sh -regress
+
 test_stable:
 	@femcheck/test_stable.sh
 
@@ -314,31 +328,33 @@ check_var:
 	@femcheck/check_var.sh
 
 regress:
-	if [ -d $(REGRESSDIR) ]; then cd $(REGRESSDIR); make regress; fi
+	if [ -d $(REGRESSDIR) ]; then SHYFEMDIR=$(PWD); \
+		cd $(REGRESSDIR); make regress; fi
 
 revision:
 	 $(FEMBIN)/revision_last.sh
 
-rules_ggu_save:
-	cp -f ./Rules.make arc/rules/Rules.ggu
-	cp -f femcheck/Rules.dist ./Rules.make
+rules_save:
+	mkdir -p arc/rules
+	cp -f ./Rules.make arc/rules/Rules.save
+	cp -f femcheck/rules/Rules.dist ./Rules.make
 
-rules_ggu_restore:
-	cp -f arc/rules/Rules.ggu ./Rules.make
+rules_restore:
+	cp -f arc/rules/Rules.save ./Rules.make
 
 rules_dist:
-	cp -f femcheck/Rules.dist ./Rules.make
+	cp -f femcheck/rules/Rules.dist ./Rules.make
 
 rules_new:
-	cp -f ./Rules.make femcheck/Rules.dist
+	cp -f ./Rules.make femcheck/rules/Rules.dist
 
 rules_diff:
-	@-diff femcheck/Rules.dist ./Rules.make || true
+	@-diff femcheck/rules/Rules.dist ./Rules.make || true
 
 dist: cleandist
 	mkdir -p arc/rules
 	mv --backup=numbered ./Rules.make arc/rules/Rules.save
-	cp -f femcheck/Rules.dist ./Rules.make
+	cp -f femcheck/rules/Rules.dist ./Rules.make
 	make doc; make clean
 
 stable:
@@ -377,11 +393,13 @@ compat:
 # special targets for ggu
 #---------------------------------------------------------------
 
-nemon:
-	fem3d/bin/nemunas_adjust.sh -nemunas
+rules_ggu_save:
+	mkdir -p arc/rules
+	cp -f ./Rules.make arc/rules/Rules.ggu
+	cp -f femcheck/rules/Rules.dist ./Rules.make
 
-nemoff:
-	fem3d/bin/nemunas_adjust.sh -original
+rules_ggu_restore:
+	cp -f arc/rules/Rules.ggu ./Rules.make
 
 rules_nemunas:
 	cp -f arc/rules/Rules.nemunas ./Rules.make
@@ -392,8 +410,14 @@ rules_lagoon:
 rules_carbonium:
 	cp -f arc/rules/Rules.carbonium ./Rules.make
 
+nemon:
+	fem3d/bin/nemunas_adjust.sh -nemunas
+
+nemoff:
+	fem3d/bin/nemunas_adjust.sh -original
+
 git_nemunas:
-	. arc/rules/nemunas-git.sh
+	. fem3d/bin/nemunas-git.sh
 
 #---------------------------------------------------------------
 # check if routines are executable

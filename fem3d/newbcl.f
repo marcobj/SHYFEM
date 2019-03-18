@@ -1,3 +1,28 @@
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c dd: newbcl.f,v 1.37 2010-03-08 17:46:45 georg Exp $
 c
 c baroclinic routines
@@ -12,8 +37,8 @@ c subroutine getts(l,k,t,s)             accessor routine to get T/S
 c
 c revision log :
 c
-c revised 30.08.95	$$AUST - austausch coefficient introduced
-c revised 11.10.95	$$BCLBND - boundary condition for barocliic runs
+c 30.08.1995	ggu	$$AUST - austausch coefficient introduced
+c 11.10.1995	ggu	$$BCLBND - boundary condition for barocliic runs
 c 19.08.1998    ggu     call to barcfi changed
 c 20.08.1998    ggu     can initialize S/T from file
 c 24.08.1998    ggu     levdbg used for debug
@@ -31,7 +56,7 @@ c 15.03.2005    ggu     new diagnostic routines implemented (diagnostic)
 c 15.03.2005    ggu     new 3d boundary conditions implemented
 c 05.04.2005    ggu     some changes in routine diagnostic
 c 07.11.2005    ggu     sinking velocity wsink introduced in call to scal3sh
-c 08.06.2007    ggu&deb restructured for new baroclinic version
+c 08.06.2007    ggu&dbf restructured for new baroclinic version
 c 04.10.2007    ggu     bug fix -> call qflux3d with dt real
 c 17.03.2008    ggu     new open boundary routines introduced
 c 08.04.2008    ggu     treatment of boundaries slightly changed
@@ -40,7 +65,7 @@ c 23.04.2008    ggu     call to bnds_set_def() changed
 c 12.06.2008    ggu     s/tdifhv deleted
 c 09.10.2008    ggu     new call to confop
 c 12.11.2008    ggu     new initialization, check_layers, initial nos file
-c 13.01.2009    ggu&deb changes in reading file in ts_next_record()
+c 13.01.2009    ggu&dbf changes in reading file in ts_next_record()
 c 13.10.2009    ggu     in rhoset bug computing pres
 c 13.11.2009    ggu     only initialize T/S if no restart, new rhoset_shell
 c 19.01.2010    ggu     different call to has_restart() 
@@ -54,10 +79,10 @@ c 07.11.2011    ggu     hybrid changed to resemble code in newexpl.f
 c 11.11.2011    ggu     restructured ts_next_record() and diagnostic()
 c 22.11.2011    ggu     bug fix in ts_file_open() -> bhashl
 c 02.12.2011    ggu     adapt ts_file_open() for barotropic version (ihashl)
-c 27.01.2012    deb&ggu changes for hybrid in ts_file_open,ts_next_record
+c 27.01.2012    dbf&ggu changes for hybrid in ts_file_open,ts_next_record
 c 10.02.2012    ggu     bug in call to ts_next_record (called with nlvddi)
 c 23.02.2012    ccf     do noy check depth structure
-c 09.03.2012    deb     bug fix in ts_next_record: ilhkv was real
+c 09.03.2012    dbf     bug fix in ts_next_record: ilhkv was real
 c 31.10.2012    ggu     open and next_record transfered to subtsuvfile.f
 c 05.09.2013    ggu     limit salinity to [0,...]
 c 25.03.2014    ggu     new offline
@@ -69,6 +94,7 @@ c 26.10.2015    ggu     bug fix for parallel code (what was not set)
 c 10.06.2016    ggu     not used routines deleted
 c 14.06.2016    ggu     open and write of file in own subroutine
 c 27.06.2016    ggu     bug fix: irho was not saved
+c 05.10.2018    ggu     new diagnostic routine ts_dia()
 c
 c*****************************************************************
 
@@ -78,7 +104,7 @@ c amministrates the baroclinic time step
 c
 c mode : =0 initialize  >0 normal call
 c
-c written 09.01.94 by ggu  (from scratch)
+c 09.01.1994	ggu	(from scratch)
 c
 	use mod_layer_thickness
 	use mod_ts
@@ -120,6 +146,8 @@ c local
 	real mass
 	real wsink
 	real robs
+	real, allocatable :: rho_aux1(:,:)
+	real, allocatable :: rho_aux2(:,:)
 	double precision dtime0,dtime
 	integer isact,l,k,lmax
 	integer kspec
@@ -203,6 +231,8 @@ c		--------------------------------------------
 		call get_first_dtime(dtime0)
 
 		if( .not. rst_use_restart(3) ) then   !no restart of T/S values
+		  saltv = 0.
+		  tempv = 0.
 		  call conini(nlvdi,saltv,salref,sstrat,hdkov)
 		  call conini(nlvdi,tempv,temref,tstrat,hdkov)
 
@@ -256,7 +286,9 @@ c		-> we iterate to the real solution
 		rhov = 0.		!rhov is rho^prime => 0
 		bpresv = 0.
 
+		call ts_dia('init before rhoset_shell')
 		call rhoset_shell
+		call ts_dia('init after rhoset_shell')
 
 c		--------------------------------------------
 c		initialize output files
@@ -276,6 +308,8 @@ c		--------------------------------------------
 c----------------------------------------------------------
 c normal call
 c----------------------------------------------------------
+
+	call ts_dia('begin normal call')
 
 	call get_act_dtime(dtime)
 	call get_act_timeline(aline)
@@ -311,6 +345,8 @@ c----------------------------------------------------------
 	        call bnds_read_new(what,idsalt,dtime)
 	  end if
 	  
+	  call ts_dia('before T/D')
+
 !$OMP TASK PRIVATE(what,dtime) FIRSTPRIVATE(thpar,wsink,robs,itemp) 
 !$OMP&     SHARED(idtemp,tempv,difhv,difv,difmol,tobsv,ttauv)
 !$OMP&     DEFAULT(NONE)
@@ -347,6 +383,8 @@ c----------------------------------------------------------
 !$OMP END TASK
 !$OMP TASKWAIT
 
+	  call ts_dia('after T/D')
+
 	end if
 
 	if( binfo ) then
@@ -376,7 +414,14 @@ c----------------------------------------------------------
 c compute rhov and bpresv
 c----------------------------------------------------------
 
+	call ts_dia('normal before rhoset_shell')
+	allocate(rho_aux1(nlvdi,nkn),rho_aux2(nlvdi,nkn))
+	rho_aux1 = rhov
+	call rhoset1
+	rho_aux2 = rhov
+	rhov = rho_aux1
 	call rhoset_shell
+	call ts_dia('normal after rhoset_shell')
 
 c----------------------------------------------------------
 c compute min/max
@@ -528,6 +573,115 @@ c functions
 	resid = dresid/nresid
 
 	return
+	end
+
+c********************************************************
+
+	subroutine rhoset1
+
+c computes rhov and bpresv
+c
+c 1 bar = 100 kPascal ==> factor 1.e-5
+c pres = rho0*g*(zeta-z) + bpresv
+c with bpresv = int_{z}^{zeta}(g*rho_prime)dz
+c and rho_prime = rho - rho_0 = sigma - sigma_0
+c
+c in bpresv() is bpresv as defined above
+c in rhov()   is rho_prime (=sigma_prime)
+c
+c brespv() and rhov() are given at node and layer interface
+
+	use mod_layer_thickness
+	use mod_ts
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+
+	implicit none
+
+c common
+	include 'pkonst.h'
+
+c local
+	logical bdebug,debug,bsigma
+	integer k,l,lmax
+	integer nresid,nsigma
+	integer iter,iter_max
+	real sigma0,rho0,pres,hsigma
+	real depth,hlayer,hh
+	real rhop,presbt,presbc,dpresc
+	real salt
+	real resid
+	real eps
+	double precision dresid
+c functions
+	real sigma
+
+	iter_max = 10
+	eps = 1.e-7
+
+	rho0 = rowass
+	sigma0 = rho0 - 1000.
+
+	debug=.false.
+	bdebug=.false.
+
+	call get_sigma(nsigma,hsigma)
+	bsigma = nsigma .gt. 0
+
+	if(debug) write(6,*) sigma0,rowass,rho0
+
+	do k=1,nkn
+	 iter = 0
+	 lmax = ilhkv(k)
+	 do
+	  iter = iter + 1
+	  depth = 0.
+	  presbc = 0.
+	  dresid = 0.
+	  do l=1,lmax
+	    bsigma = l .le. nsigma
+
+	    hlayer = hdkov(l,k)
+	    if( .not. bsigma ) hlayer = hldv(l)
+
+	    hh = 0.5 * hlayer
+	    depth = depth + hh
+	    rhop = rhov(l,k)			!rho^prime
+
+	    dpresc = rhop * grav * hh		!differential bc. pres.
+	    presbc = presbc + dpresc            !baroclinic pres. (mid-layer)
+	    presbt = rho0 * grav * depth	!barotropic pressure
+
+	    pres = 1.e-5 * ( presbt + presbc )	!pressure in bars (BUG)
+	
+	    salt = max(0.,saltv(l,k))
+	    rhop = sigma(salt,tempv(l,k),pres) - sigma0
+	    call set_rhomud(k,l,rhop)
+
+	    dresid = dresid + (rhov(l,k)-rhop)**2
+
+	    rhov(l,k) = rhop
+	    bpresv(l,k) = presbc
+
+	    depth = depth + hh
+	    presbc = presbc + dpresc		!baroclinic pres. (bottom-lay.)
+	  end do
+	  resid = dresid/lmax
+	  if( resid < eps ) exit
+	  if( iter > iter_max ) goto 99
+	 end do
+	end do
+
+	return
+   99	continue
+	write(6,*) 'error iterating rho'
+	write(6,*) 'k,lmax: ',k,lmax
+	write(6,*) 'resid,eps: ',resid,eps
+	write(6,*) '#  layer     salt    temp    rho'
+	do l=1,lmax
+	  write(6,*) l,saltv(l,k),tempv(l,k),rhov(l,k)
+	end do
+	stop 'error stop rhoset1: too many iterations'
 	end
 
 c*******************************************************************	
@@ -730,6 +884,8 @@ c writes output of T/S
 
 	integer id
 	logical next_output_d
+	
+
 
 	if( next_output_d(da_out) ) then
 	  id = nint(da_out(4))
@@ -768,5 +924,46 @@ c accessor routine to get T/S
 
 c******************************************************************
 c*******************************************************************	
+c*******************************************************************	
+
+	subroutine ts_dia(string)
+
+	use mod_ts
+
+	implicit none
+
+	character*(*) string
+
+	real tmin,tmax,smin,smax
+	character*20 aline
+	logical, save :: bwrite = .false.
+	logical, save :: bstop = .false.
+
+	tmin = minval(tempv)
+	tmax = maxval(tempv)
+	smin = minval(saltv)
+	smax = maxval(saltv)
+
+	if( tmin < -100 ) bstop = .true.
+	if( tmax >  100 ) bstop = .true.
+	if( smin < -100 ) bstop = .true.
+	if( smax >  100 ) bstop = .true.
+
+	call get_act_timeline(aline)
+
+	if( bwrite .or. bstop ) then
+	  write(6,*) 'ts_dia: ',trim(string),'  ',aline
+	  write(6,*) 'saltv: ',smin,smax
+	  write(6,*) 'tempv: ',tmin,tmax
+
+	  write(166,*) 'ts_dia: ',trim(string),'  ',aline
+	  write(166,*) 'saltv: ',smin,smax
+	  write(166,*) 'tempv: ',tmin,tmax
+	end if
+
+	if( bstop ) stop 'error stop ts_dia'
+
+	end
+
 c*******************************************************************	
 

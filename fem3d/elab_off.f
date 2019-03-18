@@ -1,9 +1,34 @@
+
+!--------------------------------------------------------------------------
 !
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! utility routines for shyelab: elab_off
 !
 ! revision log :
 !
 ! 24.05.2018    ccf     written from scratch
+! 12.11.2018    ggu     linear arrays introduced
 !
 !***************************************************************
 !***************************************************************
@@ -25,20 +50,24 @@
 
         integer it
 	integer ii,ie,l,k
+	integer i,nlin,nlink,nline
 
         double precision, allocatable :: ut(:,:)
         double precision, allocatable :: vt(:,:)
         double precision, allocatable :: ze(:)
         double precision, allocatable :: wn(:,:)
+        double precision, allocatable :: wnaux(:,:)
         double precision, allocatable :: zn(:)
         double precision, allocatable :: sn(:,:)
         double precision, allocatable :: tn(:,:)
+        double precision, allocatable :: rlin(:)
 
 ! allocate arrays
         allocate(ut(nlvdi,nel))
         allocate(vt(nlvdi,nel))
         allocate(ze(3*nel))
         allocate(wn(0:nlvdi,nkn))
+        allocate(wnaux(nlvdi,nkn))
         allocate(zn(nkn))
         allocate(sn(nlvdi,nkn))
         allocate(tn(nlvdi,nkn))
@@ -50,20 +79,45 @@
         ut(:,1:nel)  = cv3all(:,1:nel,3)
         vt(:,1:nel)  = cv3all(:,1:nel,4)
 	call make_vertical_velocity_off(ut,vt,wn)
+	wnaux(1:nlvdi,:) = wn(1:nlvdi,:)
 	sn = 0.
 	tn = 0.
+
+! set up linear arrays
+	call count_linear(nlvdi,nkn,1,ilhkv,nlink)
+	nlink = nlink + nkn				!account for wn(0:...)
+	call count_linear(nlvdi,nel,1,ilhv,nline)
+	allocate(rlin(max(nlink,nline)))
 
 ! write to output file
         write(idout) it,nkn,nel,3
         write(idout) (ilhv(ie),ie=1,nel)
         write(idout) (ilhkv(k),k=1,nkn)
-        write(idout) ((ut(l,ie),l=1,ilhv(ie)),ie=1,nel)
-        write(idout) ((vt(l,ie),l=1,ilhv(ie)),ie=1,nel)
+
+	nlin = nline
+	call dvals2linear(nlvdi,nel,1,ilhv,ut,rlin,nlin)
+        write(idout) (rlin(i),i=1,nlin)
+        !write(idout) ((ut(l,ie),l=1,ilhv(ie)),ie=1,nel)
+	nlin = nline
+	call dvals2linear(nlvdi,nel,1,ilhv,vt,rlin,nlin)
+        write(idout) (rlin(i),i=1,nlin)
+        !write(idout) ((vt(l,ie),l=1,ilhv(ie)),ie=1,nel)
+
         write(idout) (ze(ii),ii=1,3*nel)
-        write(idout) ((wn(l,k),l=1,ilhkv(k)),k=1,nkn)
+	nlin = nlink
+	call dvals2linear(nlvdi,nkn,1,ilhkv,wnaux,rlin,nlin)
+        write(idout) (rlin(i),i=1,nlin)
+        !write(idout) ((wn(l,k),l=1,ilhkv(k)),k=1,nkn)
         write(idout) (zn(k),k=1,nkn)
-        write(idout) ((sn(l,k),l=1,ilhkv(k)),k=1,nkn)
-        write(idout) ((tn(l,k),l=1,ilhkv(k)),k=1,nkn)
+
+	nlin = nlink
+	call dvals2linear(nlvdi,nkn,1,ilhkv,sn,rlin,nlin)
+        write(idout) (rlin(i),i=1,nlin)
+        !write(idout) ((sn(l,k),l=1,ilhkv(k)),k=1,nkn)
+	nlin = nlink
+	call dvals2linear(nlvdi,nkn,1,ilhkv,tn,rlin,nlin)
+        write(idout) (rlin(i),i=1,nlin)
+        !write(idout) ((tn(l,k),l=1,ilhkv(k)),k=1,nkn)
 
 	end subroutine off_output_hydro
 
@@ -99,7 +153,7 @@ c
 c wlnv (dvol)   aux array for volume difference
 c vv            aux array for area
 c
-c written on 27.08.91 by ggu  (from scratch)
+c 27.08.1991	ggu	(from scratch)
 c 14.08.1998    ggu     w = 0 at open boundary nodes
 c 20.08.1998    ggu     some documentation
 

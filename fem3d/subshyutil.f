@@ -1,4 +1,28 @@
+
+!--------------------------------------------------------------------------
 !
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! utility routines for shy file
 !
 ! revision log :
@@ -12,11 +36,15 @@
 ! 11.05.2018    ggu     bug fix and hydro init, use global layer number
 ! 24.05.2018    ccf     bug fix exchanging nlvdi with nlv ($BUGNLV)
 ! 03.07.2018    ggu     in shy_write_output_record() handle 2d arrays
+! 27.09.2018    ggu     new routines for writing constant layer structure
 !
 ! notes :
 !
 ! open scalar file with shyfem_init_scalar_file()
 ! write scalar records with shy_write_scalar_record()
+!
+! for constant layer structure (sediments, etc.) please use:
+!	shyfem_init_scalar_file_hlv()
 !
 !****************************************************************
 !****************************************************************
@@ -145,6 +173,8 @@
 
 	subroutine shy_copy_levels_to_shy(id)
 
+! copies level structure as specified in str to shy file
+
 	use levels
 	use shyfile
 	use shympi
@@ -168,11 +198,48 @@
 	  call shy_set_layerindex(id,ile,ilk)
 	else		!2d
 	  haux(1) = 10000.
-	  ile = 1.
-	  ilk = 1.
+	  ile = 1
+	  ilk = 1
 	  call shy_set_layers(id,haux)
 	  call shy_set_layerindex(id,ile,ilk)
 	end if
+
+	deallocate(ile,ilk)
+
+	end
+
+!****************************************************************
+
+	subroutine shy_set_levels_in_shy(id,nl0,hlv0)
+
+! sets constant level
+
+	use levels
+	use shyfile
+	use shympi
+
+	implicit none
+
+	integer id
+	integer nl0
+	real hlv0(nl0)
+
+	integer nk,ne,np,nl,nvar
+
+	integer, allocatable :: ile(:),ilk(:)
+
+	call shy_get_params(id,nk,ne,np,nl,nvar)
+	allocate(ile(ne),ilk(nk))	!is global size
+
+	if( nl /= nl0 ) then
+	  write(6,*) 'nl,nl0: ',nl,nl0
+	  stop 'error stop shy_set_levels_in_shy: nl /= nl0'
+	end if
+
+	ile = nl
+	ilk = nl
+	call shy_set_layers(id,hlv0)
+	call shy_set_layerindex(id,ile,ilk)
 
 	deallocate(ile,ilk)
 
@@ -292,6 +359,8 @@
 
         subroutine shyfem_init_scalar_file(type,nvar,b2d,id)
 
+! initializes scalar file with layer structure from str
+
         use levels
         use shympi
 
@@ -314,6 +383,73 @@
 
         call shy_make_output_name(trim(ext),file)
         call shy_open_output_file(file,npr,nl,nvar,ftype,id)
+        call shy_set_simul_params(id)
+        call shy_make_header(id)
+
+        end
+
+!****************************************************************
+!write shy header
+!copied from shyfem_init_scalar_file
+!nvar not used
+
+        subroutine shyfem_init_lgr_file(type,nvar,b2d,id)
+
+        use levels
+        use shympi
+
+        implicit none
+
+        character*(*) type      !type of file, e.g., hydro, ts, wave
+        integer nvar		!total number of scalars to be written
+        logical b2d		!2d fields
+        integer id		!id for file (return)
+
+        integer ftype,npr,nl
+        character*80 file,ext,aux
+
+        aux = adjustl(type)
+        ext = '.' // trim(aux) // '.shy'        !no blanks in ext
+        ftype = 3
+        npr = 1
+        nl = nlv_global
+        if( b2d ) nl = 1
+
+        call shy_make_output_name(trim(ext),file)
+        call shy_open_output_file(file,npr,nl,nvar,ftype,id)
+        call shy_set_simul_params(id)
+        call shy_make_header(id)
+
+        end
+
+!****************************************************************
+
+        subroutine shyfem_init_scalar_file_hlv(type,nvar,nl0,hlv0,id)
+
+! initializes scalar file with constant custom layer structure
+
+        use levels
+        use shympi
+
+        implicit none
+
+        character*(*) type      !type of file, e.g., hydro, ts, wave
+        integer nvar		!total number of scalars to be written
+	integer nl0		!total number of (constant) layers
+	real hlv0(nl0)		!layer structure
+        integer id		!id for file (return)
+
+        integer ftype,npr
+        character*80 file,ext,aux
+
+        aux = adjustl(type)
+        ext = '.' // trim(aux) // '.shy'        !no blanks in ext
+        ftype = 2
+        npr = 1
+
+        call shy_make_output_name(trim(ext),file)
+        call shy_open_output_file(file,npr,nl0,nvar,ftype,id)
+	call shy_set_levels_in_shy(id,nl0,hlv0)
         call shy_set_simul_params(id)
         call shy_make_header(id)
 
@@ -515,16 +651,90 @@ c-----------------------------------------------------
 	    call ivar2string(ivar,strings(irec),isub)
 	    if( irec == nvar ) exit
 	  end do
-	  do i=1,nrec
-	    call shy_back_record(id,ierr)
-	  end do
+	  call shy_back_records(id,nrec,ierr)
+	  if( ierr /= 0 ) goto 97
 	end if
 
 	return
+   97	continue
+	stop 'error stop shy_check_nvar: backspacing'
    99	continue
 	write(6,*) irec,nrec,nvar,ierr
 	if( nrec == 0 ) write(6,*) 'no valid records in file'
 	stop 'error stop shy_get_string_descriptions: reading record'
+	end
+
+!****************************************************************
+
+	subroutine shy_check_nvar(id,nvar)
+
+	use shyfile
+
+	implicit none
+
+	integer id
+	integer nvar
+
+	integer irec,nrec,ierr,i,isub
+	integer ftype
+	integer ivar,n,m,lmax,ivar_first
+	integer nkn,nel,npr,nlv
+	double precision dtime
+	character*80 string
+
+	if( id <= 0 ) return
+
+	call shy_get_ftype(id,ftype)
+
+	if( ftype == 1 ) then		!hydro
+	  if( nvar /= 4 ) then
+	    write(6,*) 'nvar = ',nvar
+	    write(6,*) 'nvar incompatible with ftype==1'
+	    stop 'error stop shy_check_nvar: nvar/=4'
+	  end if
+	  return
+	end if
+
+	irec = 0	!records with data
+	nrec = 0	!records read (also ivar<0)
+	ivar_first = -999
+
+	do
+	  call shy_skip_record(id,dtime,ivar,n,m,lmax,ierr)
+	  if( ierr /= 0 ) exit
+	  nrec = nrec + 1
+	  if( ivar == ivar_first ) exit
+	  if( ivar_first == -999 ) ivar_first = ivar
+	  if( ivar < 0 ) cycle
+	  irec = irec + 1
+	end do
+
+	if( ierr /= 0 ) then
+	  call shy_back_one(id,ierr)	!this skips over EOF
+	  if( ierr /= 0 ) goto 97
+	end if
+
+	call shy_back_records(id,nrec,ierr)
+	if( ierr /= 0 ) goto 97
+	if( irec == nvar ) return
+
+!	here error management
+
+	write(6,*) '*** extra variables found in file...'
+	write(6,*) '*** nvar declared: ',nvar
+	write(6,*) '*** nvar found:    ',irec
+	write(6,*) '*** resetting nvar to ',irec
+
+	call shy_get_params(id,nkn,nel,npr,nlv,nvar)
+	nvar = irec
+	call shy_set_params(id,nkn,nel,npr,nlv,nvar)
+
+	return
+   97	continue
+	stop 'error stop shy_check_nvar: backspacing'
+   99	continue
+	write(6,*) irec,nrec,nvar,ierr
+	stop 'error stop shy_check_nvar: internal error (1)'
 	end
 
 !****************************************************************
@@ -588,6 +798,7 @@ c-----------------------------------------------------
 	if( lmax > 1 .and. m > 1 ) then		!$BUGNLV
 	  stop 'error stop shy_write_output_record: nlvdi&m>1'
 	else if( lmax > 1 .and. lmax /= nlvdi ) then		!$BUGNLV
+	  write(6,*) 'lmax = ',lmax,'  nlvdi = ',nlvdi
 	  stop 'error stop shy_write_output_record: nlvdi/=lmax'
 	end if
 

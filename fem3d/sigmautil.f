@@ -1,6 +1,28 @@
-c
-c $Id: sigmautil.f,v 1.3 2009-09-14 08:20:58 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c sigma utilities for output files
 c
 c revision log :
@@ -10,8 +32,8 @@ c 14.11.2011	ggu	new sigma routines copied to this file
 c 02.12.2011	ggu	bug fix in init_sigma_info() for nlv == 1
 c 16.12.2011	ggu	check for non-initialized data structure (blockdata)
 c 19.12.2011	ggu	bug fix in init_sigma_info(): call set_sigma_info()
-c 27.01.2012	deb&ggu	changes to get_layer_thickness()
-c 27.01.2012	deb&ggu	new routine compute_sigma_info()
+c 27.01.2012	dbf&ggu	changes to get_layer_thickness()
+c 27.01.2012	dbf&ggu	new routine compute_sigma_info()
 c 17.05.2013	ggu	layer_thickness for elem and node, general routine
 c 17.05.2013	ggu	new routine get_bottom_of_layer()
 c 05.09.2013	ggu	new call interface to get_layer_thickness()

@@ -1,36 +1,35 @@
 
 /************************************************************************\
+ *
+ *    Copyright (C) 1985-2018  Georg Umgiesser
+ *
+ *    This file is part of SHYFEM.
+ *
+ *    SHYFEM is free software: you can redistribute it and/or modify
+ *    it under the terms of the GNU General Public License as published by
+ *    the Free Software Foundation, either version 3 of the License, or
+ *    (at your option) any later version.
+ *
+ *    SHYFEM is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ *    GNU General Public License for more details.
+ *
+ *    You should have received a copy of the GNU General Public License
+ *    along with SHYFEM. Please see the file COPYING in the main directory.
+ *    If not, see <http://www.gnu.org/licenses/>.
+ *
+ *    Contributions to this file can be found below in the revision log.
+ *
+\************************************************************************/
+
+
+/************************************************************************\
  *									*
  * exgrdvs.c - version description of exgrd                             *
  *									*
- * Copyright (c) 1995-2009 by Georg Umgiesser				*
- *									*
- * Permission to use, copy, modify, and distribute this software	*
- * and its documentation for any purpose and without fee is hereby	*
- * granted, provided that the above copyright notice appear in all	*
- * copies and that both that copyright notice and this permission	*
- * notice appear in supporting documentation.				*
- *									*
- * This file is provided AS IS with no warranties of any kind.		*
- * The author shall have no liability with respect to the		*
- * infringement of copyrights, trade secrets or any patents by		*
- * this file or any part thereof.  In no event will the author		*
- * be liable for any lost revenue or profits or other special,		*
- * indirect and consequential damages.					*
- *									*
- * Comments and additions should be sent to the author:			*
- *									*
- *			Georg Umgiesser					*
- *			ISDGM/CNR					*
- *			S. Polo 1364					*
- *			30125 Venezia					*
- *			Italy						*
- *									*
- *			Tel.   : ++39-41-5216875			*
- *			Fax    : ++39-41-2602340			*
- *			E-Mail : georg@lagoon.isdgm.ve.cnr.it		*
- *									*
  * Revision History:							*
+ * 02-Nov-2018: version 1.30 (copyright)				*
  * 14-Jan-2009: version 1.25 (SHYFEM tree)				*
  * 05-Nov-2008: version 1.24 (handle clockwise elements)		*
  * 01-Nov-2008: version 1.23 (handle extension .grd)                    *
@@ -44,16 +43,15 @@
 
 #include <stdio.h>
 
-char* SCopy  = "Copyright (c) Georg Umgiesser 1995 - 2009               ";
-char* SExgrd = "EXGRD - Extract Items from GRD Files - Version 1.25     ";
-char* SGeorg = "        1995-2009 (c) Georg Umgiesser - ISDGM/CNR       ";
+char* SCopy  = "Copyright (C) 1995-2018  Georg Umgiesser                ";
+char* SExgrd = "EXGRD - Extract Items from GRD Files - Version 1.30     ";
 
 void Logos( void )
 
 {
         fprintf(stderr,"\n");
 	fprintf(stderr,"%s\n",SExgrd);
-	fprintf(stderr,"%s\n",SGeorg);
+	fprintf(stderr,"%s\n",SCopy);
 	fprintf(stderr,"\n");
 }
 
@@ -69,6 +67,13 @@ todo
 -f	write to stdout
 -i	info
 -u	better algorithm
+
+===========================================================================
+
+version 1.30							02 Nov 2018
+
+copyright updated
+use getopt library from libc
 
 ===========================================================================
 

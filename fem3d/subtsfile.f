@@ -1,4 +1,28 @@
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for reading time series
 c
 c revision log :
@@ -6,6 +30,7 @@ c
 c 20.10.2014    ggu     integrating datetime into time series
 c 10.02.2015    ggu     length of line set to 2048
 c 15.05.2017    ggu     new version to also read time string
+c 15.10.2018    ggu     set nvar=0 in ts_get_file_info() to avoid segfault
 c
 c notes :
 c
@@ -58,8 +83,8 @@ c nvar <= 0 for error or no TS file
 	real, allocatable :: f(:)
 	character*80 varline
 
+	nvar = 0
 	call ts_open_file(file,nvar,datetime,varline,iunit)
-	!write(6,*) 'ggguuu: ',trim(file),nvar,datetime,iunit
 	if( nvar <= 0 ) return
 	if( iunit <= 0 ) return
 
@@ -279,7 +304,7 @@ c*************************************************************
 	!------------------------------------------------------
 
 	ierr = 4
-	nvar = iscanf(line(is:),f,nvar0)	!get values
+	nvar = iscanf(line(is:),f,nvar0)	!get values, maybe only counting
 
 	if( nvar < 0 ) nvar = -nvar-1		!read error in number -nvar
 	if( nvar <= 0 ) return			!no data found

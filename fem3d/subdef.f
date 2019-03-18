@@ -1,6 +1,28 @@
-c
-c $Id: subdef.f,v 1.11 2008-04-01 11:58:12 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c create default names
 c
 c contents :
@@ -28,7 +50,8 @@ c 03.05.2010	ggu	new routine ifem_choose_file() and add_extension()
 c 02.07.2011	ggu	idefna,idefop finally deleted
 c 13.07.2011    ggu     cleaned from old structures
 c 18.08.2011    ggu     bug fix in idefbas -> use status passed in
-c 09.05.2017    ggu     add_extension renamed to subst_extension, new add_extension
+c 09.05.2017    ggu     add_extension -> to subst_extension, new add_extension
+c 05.10.2018    ggu     avoid run time error in subst_extension()
 c
 c notes :
 c
@@ -515,12 +538,14 @@ c bforce	force substitution of extension, even if already there
 	nall = 1 + ichanm(name)
 
 	n = nall - 4		!here should be the dot
-	if( n .gt. 0 .and. name(n:n) .eq. '.' ) then	!has extension
+	if( n .gt. 0 ) then	!has extension
+	 if( name(n:n) .eq. '.' ) then	!has extension
 	  if( bforce ) then	!substitute extension
 	    nall = n
 	  else
 	    return		!leave extension
 	  end if
+	 end if
 	end if
 
         nstart=ichafs(ext)

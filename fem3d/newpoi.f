@@ -1,9 +1,33 @@
+
+!--------------------------------------------------------------------------
 !
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! module for solving poisson equation in 2d and 3d
 !
 ! revision log :
 !
-! 15.12.2015    ggu&deb&wmk     written from scratch
+! 15.12.2015    ggu&dbf&wmk     written from scratch
 !
 ! notes :
 !
@@ -111,9 +135,9 @@
 !
 ! semi-implicit scheme for 3d model
 !
-! written on 18.02.91 by ggu  (from scratch)
-! changed on 04.06.91 by ggu  (c=(1) : friction term has been corrected)
-! changed on 01.10.92 by ggu  (staggered FE - completely restructured)
+! 18.02.1991	ggu	(from scratch)
+! 04.06.1991	ggu	(c=(1) : friction term has been corrected)
+! 01.10.1992	ggu	(staggered FE - completely restructured)
 ! 12.01.2001    ggu     solve for znv and not level difference (ZNEW)
 
 	use mod_internal
@@ -269,9 +293,9 @@
 !
 ! semi-implicit scheme for 3d model
 !
-! written on 18.02.91 by ggu  (from scratch)
-! changed on 04.06.91 by ggu  (c=(1) : friction term has been corrected)
-! changed on 01.10.92 by ggu  (staggered FE - completely restructured)
+! 18.02.1991	ggu	(from scratch)
+! 04.06.1991	ggu	(c=(1) : friction term has been corrected)
+! 01.10.1992	ggu	(staggered FE - completely restructured)
 ! 12.01.2001    ggu     solve for znv and not level difference (ZNEW)
 
 	use mod_internal

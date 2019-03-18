@@ -1,6 +1,28 @@
-c
-c $Id: subfil.f,v 1.13 2009-03-12 08:31:46 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c file opening routines
 c
 c contents :
@@ -151,7 +173,7 @@ c----------------------------------------------------------------
 	inquire(file=file,exist=ex)
 	if(.not.ex.and.stat.eq.'old') then
 	  if( .not. bquiet ) then
-	    write(6,*) 'file does not exist : ',trim(file)
+	    write(6,*) 'file does not exist: ',trim(file)
 	  end if
 	  return
 	end if
@@ -372,7 +394,9 @@ c or it is 0 which means there was an error
 
 	do while(.not.found.and..not.error)
 		if( iu .eq. 5 ) iu = 7		!safeguard units 5 and 6
-		inquire(unit=iu,exist=exists)
+		!write(6,*) 'trying unit :',iu
+		!inquire(unit=iu,exist=exists)	!gfortran 6.3.1 compiler error
+		exists = .true.
 		error=.not.exists
 		if(error) then
 			write(6,*) 'no unit available to open file'

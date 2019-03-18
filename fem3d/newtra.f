@@ -1,6 +1,28 @@
-c
-c $Id: newtra.f,v 1.22 2010-03-11 15:36:38 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for various transformations
 c
 c contents :
@@ -37,7 +59,7 @@ c 10.04.2008	ggu	copy velocities at nodes in copy_uvz()
 c 01.03.2010	ggu	new version of n2e3d()
 c 11.03.2010	ggu	new routine check_volume(); init w only if no restart
 c 16.02.2011	ggu	new routine e2n3d() and e2n3d_minmax()
-c 27.01.2012	deb&ggu	routines adapted for sigma levels
+c 27.01.2012	dbf&ggu	routines adapted for sigma levels
 c 03.12.2015	ccf&ggu	code optimized
 c 07.04.2016	ggu	new routine aver_nodal()
 c 19.05.2016	ggu	use where construct where possible

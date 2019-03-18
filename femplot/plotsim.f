@@ -1,6 +1,28 @@
-c
-c $Id: plotsim.f,v 1.53 2010-03-11 15:33:09 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1999,2003-2005,2007-2011,2013-2014  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c revision log :
 c
 c 12.02.1999	ggu	adapted to auto mode
@@ -157,7 +179,7 @@ c	if( mode .eq. 4 )  call plobar
 	if( mode .eq. 9 )  call plonos('.oxy',15)
 	if( mode .eq. 10 ) call plonos('.nos',0)
 	if( mode .eq. 11 ) call plofem('.fem',21)	!wind
-	if( mode .eq. 12 ) call plolagr
+!	if( mode .eq. 12 ) call plolagr
 	if( mode .eq. 13 ) call plowave
 	if( mode .eq. 14 ) call plofem('.fem',20)	!pressure
 	if( mode .eq. 15 ) call ploeos('.eos',0)

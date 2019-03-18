@@ -1,6 +1,28 @@
-c
-c $Id: lagrange_back.f,v 1.2 2009-03-11 16:25:59 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c subroutines for lagrangian backtracing
 c
 c revision log :
@@ -85,8 +107,8 @@ c**********************************************************************
         do i=1,nback
           x  = x_back(i)
           y  = y_back(i)
-          z  = lgr_ar(i)%z
-          lb = lgr_ar(i)%l
+          z  = lgr_ar(i)%actual%z
+          lb = lgr_ar(i)%actual%l
 
           ie = ie_back(i)
 	  id = lgr_ar(i)%id
@@ -96,8 +118,8 @@ c**********************************************************************
 
           x_back(i) = x
           y_back(i) = y
-          lgr_ar(i)%z = z
-          lgr_ar(i)%l = lb
+          lgr_ar(i)%actual%z = z
+          lgr_ar(i)%actual%l = lb
 
           ie_back(i) = ie
         end do

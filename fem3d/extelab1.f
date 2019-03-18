@@ -1,6 +1,28 @@
-c
-c $Id: noselab.f,v 1.8 2008-11-20 10:51:34 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c revision log :
 c
 c 18.11.1998    ggu     check dimensions with dimnos
@@ -154,6 +176,7 @@ c--------------------------------------------------------------
 	if( ierr /= 0 ) goto 93
 
 	if( .not. bquiet ) then
+          write(6,*) 'file       : ',trim(file)
           write(6,*) 'nvers      : ',nvers
           write(6,*) 'knausm     : ',knausm
           write(6,*) 'lmax       : ',lmax
@@ -407,7 +430,9 @@ c--------------------------------------------------------------
 	  write(6,*) '  what.dim.node'
 	  write(6,*) 'what is one of the following:'
 	  call write_special_vars(niu,what,descrp)	!write hydro variables
-	  call write_vars(nvar-2,ivars(3:))		!write rest of variables
+	  if( nvar > 2 ) then
+	    call write_vars(nvar-2,ivars(3:))		!write rest of variables
+	  end if
 	  write(6,*) 'dim is 2d or 3d'
 	  write(6,*) '  2d for depth averaged variables'
 	  write(6,*) '  3d for output at each layer'

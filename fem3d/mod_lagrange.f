@@ -1,4 +1,28 @@
 
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 !==================================================================
         module mod_lagrange
 !==================================================================
@@ -16,52 +40,31 @@
         integer*8 :: bm_kind			!indicates size of bitmap
 
         integer, save :: nbdymax = 0		!max number of particles
+        integer, save :: ncust = 1		!number of custom properties
 
 	!---------------------------------------------
 	! particle info
 	!---------------------------------------------
 
-        type  :: lagr_entry
-          sequence
-          double precision :: xi(3)             !internal coordinate
-          double precision :: sv                !sinking velocity
-          real    :: xst                        !initial x-coordinate
-          real    :: yst                        !initial y-coordinate
-          real    :: zst                        !initial z-coordinate
-          real    :: x                          !x-coordinate
-          real    :: y                          !y-coordinate
-          real    :: z                          !z-coordinate
-          real    :: c                          !custom property for plot
-          real    :: tin                        !time of release
-          integer :: est                        !initial element number
-          integer :: id                         !id of particle
-          integer :: ty                         !type of particle
-          integer :: ie                         !element number
-          integer :: l                          !layer number
-          integer :: dummy                      !dummy argument for sequence
-          !integer(kind(bm_kind)) :: bitmap_in,bitmap_out  !uncomment for connectivity
-        end type lagr_entry
-
 	type :: lagr_body
           double precision :: xi(3)             !internal coordinate
-          double precision :: time		!
-	  integer :: ie
-	  integer :: l
-	  integer :: z
+          double precision :: time		!time in seconds
+	  real :: z				!z-coordinate
+	  integer :: ie				!element number
+	  integer :: l				!layer number
 	end type lagr_body
 
-	type :: lagr_entry_2
-	  integer :: id
-	  integer :: type
-	  type(lagr_body) :: init
-	  type(lagr_body) :: actual
-	  double precision :: sinking
-	  real, allocatable :: custom(:)
+	type :: lagr_entry
+	  double precision :: sinking		!sinking velocity
+	  real, allocatable :: custom(:)	!custom properties
+	  integer :: id				!id of particle
+	  integer :: type			!type of particle
+	  type(lagr_body) :: init		!initial properties
+	  type(lagr_body) :: actual		!run time properties
           !integer(kind(bm_kind)) :: bitmap_in,bitmap_out  !uncomment for connectivity
-	end type lagr_entry_2
+	end type lagr_entry
 	  
         type(lagr_entry), save, allocatable :: lgr_ar(:)
-        !type(lagr_entry_2), save, allocatable :: lgr_ar(:)
 
 	!---------------------------------------------
 	! parameters
@@ -71,6 +74,7 @@
 
         logical, save :: blgrdebug = .false.
         logical, save :: blgrsurf = .false.
+        logical, save :: blgr2d = .false.
         logical, save :: bconnect = .false.
         logical, save :: bcount = .false.	!counts particles in elements
         logical, save :: bsedim = .false.	!sediment 
@@ -79,14 +83,16 @@
         logical, save :: bcompress = .false.	!compress particle numbers 
         logical, save :: bvdiff = .true.	!compute vertical diffusion
         logical, save :: bhdiff = .true.	!compute horizontal diffusion
+        logical, save :: bbeach = .false.	!allow particle to beach on the shore
 
         integer, save :: ilagr                  !type of lagrangian simulation
         integer, save :: nbdy                   !total number of particles
         integer, save :: idbdy                  !max id used
-        integer, save :: lunit                  !unit for messages
         integer, save :: ipvert                 !vertical release
         integer, save :: linbot                 !bottom layer for vert release
         integer, save :: lintop                 !surface layer for vert release
+        real, save :: dripar                    !drifter parameter for inertia
+        real, save :: stkpar                    !stokes drift parameter
 
         integer, save :: artype                 !special element type
 
@@ -94,6 +100,7 @@
         real, save :: tdecay                    !decay time - do not use
         real, save :: fall                      !vertical sinking velocity
         real, save :: rwhpar                    !horizontal diffusivity
+        real, save :: lbeach                    !factor for particle beaching
 
 	!---------------------------------------------
 	! horizontal diffusivity

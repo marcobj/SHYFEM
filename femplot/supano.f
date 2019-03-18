@@ -1,6 +1,29 @@
-c
-c $Id: supano.f,v 1.25 2010-02-26 15:29:19 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 2000-2001,2003-2010,2012-2016  Georg Umgiesser
+!    Copyright (C) 2016  Christian Ferrarin
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for anotating plot
 c
 c contents :
@@ -1274,8 +1297,11 @@ c plots wind vector
 	real fact,afact
         real t,sc,r
         real wind(2)
+	double precision dtime
         integer it,nintp,nvar,nread
         character*80 file,text
+
+	integer, save :: idwind = 0
 
         real array(ndim)
         save array
@@ -1305,7 +1331,9 @@ c plots wind vector
           nintp = 2
           nvar = 2
 	  nread = 0
-          call exffil(file,nintp,nvar,nread,ndim,array)
+	  call ptime_get_dtime(dtime)
+	  call iff_ts_init(dtime,file,nintp,nvar,idwind)
+          !call exffil(file,nintp,nvar,nread,ndim,array)
           xwind = getpar('xwind')
           ywind = getpar('ywind')
           iwtype = nint(getpar('iwtype'))
@@ -1333,9 +1361,11 @@ c plots wind vector
 	call qtxts(12)
 	call qlwidth(lwwind)
 
-	call ptime_get_itime(it)
-        t = it
-        call exfintp(array,t,wind)
+	!call ptime_get_itime(it)
+        !t = it
+	call ptime_get_dtime(dtime)
+	call iff_ts_intp(idwind,dtime,wind)
+        !call exfintp(array,t,wind)
 
         if( iwtype .eq. 1 ) then
           u = wind(1)
@@ -1352,7 +1382,7 @@ c plots wind vector
           stop 'error stop legwind: impossible value for iwtype'
         end if
 
-        write(6,*) 'wind legend: ',it,x,y,s,d,u,v,scwind
+        write(6,*) 'wind legend: ',x,y,s,d,u,v,scwind
 	call spherical_fact(fact,afact)
 	!u = u / fact
         !call pfeil(x,y,u,v,scwind)

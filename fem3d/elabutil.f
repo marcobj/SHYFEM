@@ -1,4 +1,28 @@
+
+!--------------------------------------------------------------------------
 !
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! utility routines for shyelab: elabutil
 !
 ! revision log :
@@ -15,6 +39,7 @@
 ! 09.10.2017	ggu	new options, more uniform treatment
 ! 24.05.2018	ccf	add outformat option off
 ! 06.06.2018	ggu	new calling format of shy_write_aver()
+! 25.10.2018	ccf	lagrangian options
 !
 !************************************************************
 
@@ -64,8 +89,6 @@
 	logical, save :: bcondense		= .false.
 	logical, save :: bchform		= .false.
 	logical, save :: bgrd			= .false.
-        character*80, save :: snode		= ' '
-        character*80, save :: scoord		= ' '
 
 	logical, save :: bcheck			= .false.
         character*80, save :: scheck		= ' '
@@ -98,10 +121,13 @@
 	logical, save :: bmap 			= .false.
 
 	integer, save :: nnodes			= 0
-	integer, save, allocatable :: nodes(:)
-	integer, save, allocatable :: nodese(:)
+	integer, save, allocatable :: nodesi(:)		!internal nodes
+	integer, save, allocatable :: nodese(:)		!external nodes
 	logical, save :: bnode			= .false.
 	logical, save :: bnodes			= .false.
+	logical, save :: bcoord			= .false.
+        character*80, save :: snode		= ' '
+        character*80, save :: scoord		= ' '
 
 	integer, save :: istep			= 0
 	integer, save :: avermode		= 0
@@ -115,6 +141,9 @@
 
 	logical, save :: bopen			= .false.
 	logical, save :: bdate			= .false.
+	logical, save :: blgmean		= .false.
+	logical, save :: blgdens		= .false.
+	logical, save :: blg2d			= .false.
 
         character*80, save :: infile		= ' '
         integer, save, allocatable :: ieflag(:)
@@ -126,6 +155,7 @@
 	logical, save :: bextfile		= .false.
 	logical, save :: bfemfile		= .false.
 	logical, save :: btsfile		= .false.
+	logical, save :: blgrfile		= .false.
 	logical, save :: binputfile		= .false.
 
         character*10, save :: file_type		= ' '
@@ -200,6 +230,9 @@
 	else if( type == 'TS' ) then
           call clo_init(program,'time-series-file',version)
 	  btsfile = .true.
+	else if( type == 'LGR' ) then
+          call clo_init(program,'lgr-file',version)
+	  blgrfile = .true.
 	else
 	  write(6,*) 'type : ',trim(type)
 	  stop 'error stop elabutil_set_options: unknown type'
@@ -216,10 +249,11 @@
 	call elabutil_set_extract_options
 
 	call elabutil_set_fem_options
-	call elabutil_set_femreg_options
+	call elabutil_set_reg_options
 	call elabutil_set_shy_options
 	call elabutil_set_diff_options
 	call elabutil_set_hidden_shy_options
+	call elabutil_set_lgr_options
 
 	call elabutil_set_all_file_options
 
@@ -285,9 +319,9 @@
      +				// 'then all of second')
 
         call clo_add_option('proj projection',' '
-     +				,'projection of coordinates')
+     +                          ,'projection of coordinates')
         call clo_add_com('    projection is string consisting of '//
-     +				'mode,proj,params')
+     +                          'mode,proj,params')
         call clo_add_com('    mode: +1: cart to geo,  -1: geo to cart')
         call clo_add_com('    proj: 1:GB, 2:UTM, 3:CPP')
 
@@ -328,6 +362,11 @@
      +				//' to be extracted')
 	end if
 
+	if( bshowall .or. bshyfile .or. bfemfile ) then
+          call clo_add_option('coord coord',' ','extract coordinate')
+          call clo_add_com('    coord is x,y of point to extract')
+	end if
+
 	if( bshowall .or. btsfile ) then
           call clo_add_sep('time series options')
           call clo_add_option('convert',.false.
@@ -353,10 +392,8 @@
         call clo_add_option('grd',.false.
      +			,'write GRD file from data in FEM file')
         call clo_add_option('nodei node',' ','extract internal node')
-        call clo_add_option('coord coord',' ','extract coordinate')
         call clo_add_com('    node is internal numbering in fem file'
      +                  //' or ix,iy of regular grid')
-        call clo_add_com('    coord is x,y of point to extract')
         call clo_add_option('newstring sstring',' '
      +			,'substitute string description in fem-file')
         call clo_add_com('    sstring is comma separated strings,'
@@ -370,16 +407,16 @@
 
 !************************************************************
 
-	subroutine elabutil_set_femreg_options
+	subroutine elabutil_set_reg_options
 
 	use clo
 
 	logical bregopt
 
-	bregopt = bshowall .or. bfemfile .or. bshyfile
+	bregopt = bshowall .or. bfemfile .or. bshyfile .or. blgrfile
 	if( .not. bregopt ) return
 
-        call clo_add_sep('regular grid FEM file options')
+        call clo_add_sep('regular output file options')
 
         call clo_add_option('reg rstring',' ','regular interpolation')
         call clo_add_option('regexpand iexp',-1,'expand regular grid')
@@ -389,7 +426,7 @@
 	call clo_add_com('    if only dx,dy are given -> bounds computed')
 	call clo_add_com('    iexp>0 expands iexp cells, =0 whole grid')
 
-	end subroutine elabutil_set_femreg_options
+	end subroutine elabutil_set_reg_options
 
 !************************************************************
 
@@ -480,6 +517,30 @@
 	end subroutine elabutil_set_all_file_options
 
 !************************************************************
+
+        subroutine elabutil_set_lgr_options
+
+        use clo
+
+        if( .not. bshowall .and. .not. blgrfile ) return
+
+        call clo_add_sep('specific LGR file options')
+
+        call clo_add_option('lgmean',.false.,'extract mean position'
+     +                  //' and age in function')
+        call clo_add_com('     of particle type. It '
+     +                  //' write files lagrange_mean_traj.*')
+        call clo_add_option('lgdens',.false.,'compute distribution of'
+     +                  //' particle density and age')
+        call clo_add_com('     either on nodes or on'
+     +                  //' regular grid (using -reg option)')
+	call clo_add_option('lg2d',.false.,'sum particles vertically' 
+     +                  //' when computing the ')
+        call clo_add_com('     particle density/age')
+
+        end subroutine elabutil_set_lgr_options
+
+!************************************************************
 !************************************************************
 !************************************************************
 
@@ -521,6 +582,7 @@
 	if( bshowall .or. bshyfile ) then
           call clo_get_option('node',nodelist)
           call clo_get_option('nodes',nodefile)
+          call clo_get_option('coord',scoord)
 	end if
 
 	if( bshowall .or. btsfile ) then
@@ -537,7 +599,7 @@
           call clo_get_option('facts',factstring)
 	end if
 
-	if( bshowall .or. bfemfile .or. bshyfile ) then
+	if( bshowall .or. bfemfile .or. bshyfile .or. blgrfile ) then
           call clo_get_option('reg',regstring)
           call clo_get_option('regexpand',regexpand)
 	end if
@@ -569,6 +631,12 @@
           call clo_get_option('map',bmap)
 	end if
 
+	if( bshowall .or. blgrfile ) then
+          call clo_get_option('lgmean',blgmean)
+          call clo_get_option('lgdens',blgdens)
+          call clo_get_option('lg2d',blg2d)
+	end if
+
 !-------------------------------------------------------------------
 ! write copyright
 !-------------------------------------------------------------------
@@ -583,6 +651,7 @@
 	else if( type == 'FLX' ) then
 	else if( type == 'FEM' ) then
 	else if( type == 'TS' ) then
+	else if( type == 'LGR' ) then
 	else
 	  write(6,*) 'type : ',trim(type)
 	  stop 'error stop elabutil_get_options: unknown type'
@@ -591,7 +660,7 @@
         if( .not. bsilent ) then
 	  flow = ftype
 	  call to_lower(flow)
-	  text = trim(flow) // 'elab - Elaborate ' 
+	  text = trim(flow) // 'elab - elaborates ' 
      +				// trim(ftype) // ' files'
           call shyfem_copyright(trim(text))
 	end if
@@ -610,6 +679,7 @@
 
         bnode = nodelist .ne. ' '
         bnodes = nodefile .ne. ' '
+        bcoord = scoord .ne. ' '
 
 	barea = ( areafile /= ' ' )
 	bcheck = ( scheck /= ' ' )
@@ -625,7 +695,9 @@
         !btrans is added later
 	!if( bsumvar ) boutput = .false.
 
-        bneedbasin = b2d .or. baverbas .or. bnode .or. bnodes
+        bneedbasin = b2d .or. baverbas
+        bneedbasin = bneedbasin .or. bnode .or. bnodes
+        bneedbasin = bneedbasin .or. bcoord
 	bneedbasin = bneedbasin .or. outformat == 'gis'
 	bneedbasin = bneedbasin .or. ( type == 'OUS' .and. bsplit )
 

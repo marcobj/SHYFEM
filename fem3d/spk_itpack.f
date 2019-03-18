@@ -1,3 +1,32 @@
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) ITPACK
+!
+!    Please see this web page for copyright information:
+!
+!    https://web.ma.utexas.edu/CNA/ITPACK/
+!
+!    This file is part of SHYFEM.
+!
+!    The original file is called dsrc2c.f
+!
+!    The following parts have been changed from the original ITPACK routines:
+!
+!	PERROR has been renamed to PERROR1 (compatibility with new compilers)
+!	DAXPY DCOPY DDOT have been eliminated because provided by BLAS package
+!	call to ETIME routine (UNIX) has been eliminated (ggu)
+!
+!	TIMJ1 TIMI1 have been initialized (ggu)
+!	CHANGE OMEGAP IPSTAR have been initialized (ggu)
+!	CMOLD has been initialized (ggu)
+!	DI has been initialized (ggu)
+!
+!	argument length (1) of arrays has been changed to (*)
+!	in some cases real argument length has been introduced
+!
+!--------------------------------------------------------------------------
+
       SUBROUTINE JCG (NN,IA,JA,A,RHS,U,IWKSP,NW,WKSP,IPARM,RPARM,IERR)
 C       
 C     ITPACK 2C MAIN SUBROUTINE  JCG  (JACOBI CONJUGATE GRADIENT)   
@@ -147,9 +176,7 @@ C     ZETA   - STOPPING CRITERION
 C       
 C ... INITIALIZE COMMON BLOCKS
 C       
-	external perror
-
-      TIMJ1 = 0
+      TIMJ1 = 0	!ggu
       TIMI1 = 0
       LEVEL = IPARM(2)      
       NOUT = IPARM(4)       
@@ -537,9 +564,7 @@ C     ZETA   - STOPPING CRITERION
 C       
 C ... INITIALIZE COMMON BLOCKS
 C       
-	external perror
-
-      TIMJ1 = 0
+      TIMJ1 = 0	!ggu
       TIMI1 = 0
       LEVEL = IPARM(2)      
       NOUT = IPARM(4)       
@@ -908,9 +933,7 @@ C     ZETA   - STOPPING CRITERION
 C       
 C ... INITIALIZE COMMON BLOCKS
 C       
-	external perror
-
-      TIMJ1 = 0
+      TIMJ1 = 0	!ggu
       TIMI1 = 0
       LEVEL = IPARM(2)      
       NOUT = IPARM(4)       
@@ -1273,9 +1296,7 @@ C     ZETA   - STOPPING CRITERION
 C       
 C ... INITIALIZE COMMON BLOCKS
 C       
-	external perror
-
-      TIMJ1 = 0
+      TIMJ1 = 0	!ggu
       TIMI1 = 0
       LEVEL = IPARM(2)      
       NOUT = IPARM(4)       
@@ -1682,9 +1703,7 @@ C     ZETA   - STOPPING CRITERION
 C       
 C ... INITIALIZE COMMON BLOCKS
 C       
-	external perror
-
-      TIMJ1 = 0
+      TIMJ1 = 0	!ggu
       TIMI1 = 0
       LEVEL = IPARM(2)      
       NOUT = IPARM(4)       
@@ -2079,9 +2098,7 @@ C     ZETA   - STOPPING CRITERION
 C       
 C ... INITIALIZE COMMON BLOCKS
 C       
-	external perror
-
-      TIMJ1 = 0
+      TIMJ1 = 0	!ggu
       TIMI1 = 0
       LEVEL = IPARM(2)      
       NOUT = IPARM(4)       
@@ -2496,9 +2513,7 @@ C     ZETA   - STOPPING CRITERION
 C       
 C ... INITIALIZE COMMON BLOCKS
 C       
-	external perror
-
-      TIMJ1 = 0
+      TIMJ1 = 0	!ggu
       TIMI1 = 0
       LEVEL = IPARM(2)      
       NOUT = IPARM(4)       
@@ -3011,7 +3026,7 @@ C     DESCRIPTION OF VARIABLES IN COMMON BLOCKS IN SUBROUTINE SOR
 C       
 C ... SET INITIAL PARAMETERS NOT ALREADY SET    
 C       
-      CHANGE = .FALSE.      
+      CHANGE = .FALSE.	!ggu
       OMEGAP = OMEGA
       IPSTAR = 0  
 
@@ -3727,7 +3742,7 @@ C *** END  : ITPACK COMMON
 C       
 C     DESCRIPTION OF VARIABLES IN COMMON BLOCKS IN MAIN SUBROUTINE  
 C       
-      CMOLD = 0.D0
+      CMOLD = 0.D0	!ggu
 
       GO TO (10,20,30), IBMTH 
 C       
@@ -4501,7 +4516,7 @@ C
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
       INTEGER N,IER 
-      DOUBLE PRECISION TRI(2,1),D(N),E2(N)      
+      DOUBLE PRECISION TRI(2,N),D(N),E2(N)      
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -5431,8 +5446,8 @@ C          W1,W2  WORKSPACE VECTORS OF LENGTH N
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER IA(1),JA(1),NN
-      DOUBLE PRECISION A(1),V(NN),W1(NN),W2(NN) 
+      INTEGER IA(NN),JA(*),NN
+      DOUBLE PRECISION A(*),V(NN),W1(NN),W2(NN) 
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -5539,8 +5554,8 @@ C          RHS    RIGHT HAND SIDE OF MATRIX PROBLEM
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER IA(1),JA(1),NN
-      DOUBLE PRECISION A(1),U(NN),RHS(NN)       
+      INTEGER IA(NN),JA(*),NN
+      DOUBLE PRECISION A(*),U(NN),RHS(NN)       
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -5663,8 +5678,8 @@ C     THE PERMUTED ROWS IN COLUMN ORDER.
 C       
 C*********************************************************************
 C       
-      INTEGER NN,IA(1),JA(1),P(NN),NEWIA(NN),ISYM,IERR    
-      DOUBLE PRECISION A(1) 
+      INTEGER NN,IA(NN),JA(*),P(NN),NEWIA(NN),ISYM,IERR    
+      DOUBLE PRECISION A(*) 
 C       
 C ... INTERNAL VARIABLES    
 C       
@@ -5967,8 +5982,8 @@ C          RHS    RIGHT HAND SIDE OF MATRIX PROBLEM
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER IA(1),JA(1),NN
-      DOUBLE PRECISION A(1),U(NN),RHS(NN)       
+      INTEGER IA(NN),JA(*),NN
+      DOUBLE PRECISION A(*),U(NN),RHS(NN)       
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -6050,8 +6065,8 @@ C          RHS    RIGHT HAND SIDE OF MATRIX PROBLEM
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER IA(1),JA(1),NN
-      DOUBLE PRECISION A(1),U(NN),RHS(NN)       
+      INTEGER IA(NN),JA(*),NN
+      DOUBLE PRECISION A(*),U(NN),RHS(NN)       
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -6140,8 +6155,8 @@ C                 ON OUTPUT: CONTAINS A*U + RHS
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER IA(1),JA(1),NN
-      DOUBLE PRECISION A(1),U(NN),RHS(NN)       
+      INTEGER IA(NN),JA(*),NN
+      DOUBLE PRECISION A(*),U(NN),RHS(NN)       
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -6215,8 +6230,8 @@ C          W      ON RETURN W CONTAINS A*U
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER IA(1),JA(1),NN
-      DOUBLE PRECISION A(1),U(NN),W(NN) 
+      INTEGER IA(NN),JA(*),NN
+      DOUBLE PRECISION A(*),U(NN),W(NN) 
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -6537,8 +6552,8 @@ C                    VECTOR
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER IA(1),JA(1),NNB,NNR     
-      DOUBLE PRECISION A(1),UR(NNR),VB(NNB)     
+      INTEGER IA(NNR),JA(*),NNB,NNR     
+      DOUBLE PRECISION A(*),UR(NNR),VB(NNB)     
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -6612,8 +6627,8 @@ C          VR     OUTPUT: PRESENT ESTIMATE OF RED SOLUTION VECTOR
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER IA(1),JA(1),NNB,NNR     
-      DOUBLE PRECISION A(1),UB(NNB),VR(NNR)     
+      INTEGER IA(NNR),JA(*),NNB,NNR     
+      DOUBLE PRECISION A(*),UB(NNB),VR(NNR)     
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -6654,8 +6669,8 @@ C          FR,BR  OUTPUT: FORWARD AND BACKWARD RESIDUALS RESPECTIVELY
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER IA(1),JA(1),NN
-      DOUBLE PRECISION A(1),U(NN),RHS(NN),FR(NN),BR(NN)   
+      INTEGER IA(NN),JA(*),NN
+      DOUBLE PRECISION A(*),U(NN),RHS(NN),FR(NN),BR(NN)   
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -6848,8 +6863,8 @@ C          V      D.P. VECTOR OF LENGTH N
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER IA(1),JA(1),N 
-      DOUBLE PRECISION A(1),V(N)      
+      INTEGER IA(N),JA(*),N 
+      DOUBLE PRECISION A(*),V(N)      
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -7179,7 +7194,7 @@ C                                 ELEMENTS CAN BE ADDED
 C       
 C ... SPECIFICTIONS FOR ARGUMENTS     
 C       
-      INTEGER NZ,IA(1),JA(1),IWORK(NZ),N,LEVELL,NOUTT,IERR
+      INTEGER NZ,IA(N+1),JA(*),IWORK(NZ),N,LEVELL,NOUTT,IERR
       DOUBLE PRECISION A(NZ)
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
@@ -7294,8 +7309,8 @@ C*********************************************************************
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER NN,IA(1),JA(1),IW(NN),ISYM,LEVEL,NOUT,IER   
-      DOUBLE PRECISION A(1),RHS(NN),RW(NN),TOL  
+      INTEGER NN,IA(NN),JA(*),IW(NN),ISYM,LEVEL,NOUT,IER   
+      DOUBLE PRECISION A(*),RHS(NN),RW(NN),TOL  
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -7303,7 +7318,7 @@ C
       DOUBLE PRECISION DI   
 C       
       N = NN      
-      DI = 0.
+      DI = 0.	!ggu
 C       
 C        IF (N .GE. 1) GO TO 10       
 C           IER = 100       
@@ -7485,7 +7500,7 @@ C             DESTROYED.
 C       
 C***********************************************************************
 C       
-      INTEGER N,NZ,IA(1),JA(NZ),IWORK(NZ)       
+      INTEGER N,NZ,IA(N+1),JA(NZ),IWORK(NZ)       
       DOUBLE PRECISION A(NZ)
 C       
       INTEGER MAXTOP,NEXT,TOP,IDEG,NULINK,JAJ,HLINK,OHLINK,L,I,LINK,
@@ -7872,8 +7887,8 @@ C                    402 : NO DIAGONAL ELEMENT IN ROW I
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER IA(1),JA(1),NN,LEVEL,NOUT,IER     
-      DOUBLE PRECISION A(1),RHS(NN),U(NN),D(NN) 
+      INTEGER IA(NN),JA(*),NN,LEVEL,NOUT,IER     
+      DOUBLE PRECISION A(*),RHS(NN),U(NN),D(NN) 
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -8058,7 +8073,7 @@ C
       EXTERNAL ETIME
       DIMENSION TARRAY(2)
       REAL ETIME, TIMER
-c      TOTAL = ETIME (TARRAY)
+c      TOTAL = ETIME (TARRAY)	!ggu
       TOTAL = 0
       TIMER = TOTAL
 C
@@ -8142,8 +8157,8 @@ C                    OF THE DIAGONAL ENTRIES
 C       
 C ... SPECIFICATIONS FOR ARGUMENTS    
 C       
-      INTEGER IA(1),JA(1),N 
-      DOUBLE PRECISION A(1),RHS(N),U(N),D(N)    
+      INTEGER IA(N),JA(*),N 
+      DOUBLE PRECISION A(*),RHS(N),U(N),D(N)    
 C       
 C ... SPECIFICATIONS FOR LOCAL VARIABLES
 C       
@@ -8637,4 +8652,3 @@ C
       MAXFNN = MAXFN
       RETURN      
       END 
-

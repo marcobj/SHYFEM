@@ -1,6 +1,28 @@
+
+!--------------------------------------------------------------------------
 !
-! $Id: subscn.f,v 1.7 2009-01-26 15:04:57 georg Exp $
+!    Copyright (C) 1985-2018  Georg Umgiesser
 !
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! scanning procedures : scan string for numbers and convert them
 !
 ! contents :
@@ -48,6 +70,7 @@
 ! 15.05.2017	ggu	bug fix in istod -> do not change ioff on error
 ! 03.11.2017	ggu	bug fix -> tab was char(8), restructured with module
 ! 10.04.2018	ggu	ialfa now handles ndec < -1 gracefully
+! 20.02.2019	ggu	bug fix in ialfa (rounding, CHRIS)
 !
 !****************************************************************
 
@@ -882,8 +905,8 @@
 	if(ndec.gt.0) then
 		izf=ndec
 		ifact=10**ndec
-		izahli=(zahl*ifact)/ifact
-		izahlf=(zahl-izahli)*ifact
+		izahli=int((zahl*ifact)/ifact)		!CHRIS
+		izahlf=nint((zahl-izahli)*ifact)	!CHRIS
 	else
 		izf=0
 		izahli=zahl

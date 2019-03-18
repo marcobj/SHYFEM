@@ -1,5 +1,5 @@
 !
-!    Copyright (C) 1985-2017  Georg Umgiesser
+!    Copyright (C) 1985-2018  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -344,6 +344,16 @@ c 26.04.2018	ggu	version 7.5.46
 c 11.05.2018	ggu	version 7.5.47
 c 06.07.2018	ggu	version 7.5.48
 c 13.07.2018	ggu	version 7.4.1	stable release
+c 31.08.2018	ggu	version 7.5.49
+c 16.10.2018	ggu	version 7.5.50
+c 25.10.2018	ggu	version 7.5.51
+c 18.12.2018	ggu	version 7.5.52
+c 21.12.2018	ggu	version 7.5.53	Christmas 2018 edition
+c 27.12.2018	ggu	version 7.5.54
+c 18.01.2019	ggu	version 7.5.55	penta testing
+c 14.02.2019	ggu	version 7.5.55	San Valentine's release '
+c 16.02.2019	ggu	version 7.5.60	copyrighted release
+c 13.03.2019	ggu	version 7.5.61
 c
 c*****************************************************************
 
@@ -353,16 +363,16 @@ c*****************************************************************
 
 c DOCS	START	P_version
 c
-c \newcommand{\VERSION}{7.4.1}
-c \newcommand{\version}{7\_4\_1}
-c \newcommand{\COMMIT}{2018-07-20}
+c \newcommand{\VERSION}{7.5.61}
+c \newcommand{\version}{7\_5\_61}
+c \newcommand{\COMMIT}{2019-03-14}
 c
 c DOCS	END
 
         implicit none
 
-        character*10, parameter :: version = '7.4.1'
-        character*10, parameter :: commit  = '2018-07-20'
+        character*10, parameter :: version = '7.5.61'
+        character*10, parameter :: commit  = '2019-03-14'
         character*17, parameter :: text    = 'SHYFEM VERSION = '
 
         character*40, parameter :: string = text//version//'  '//commit
@@ -444,7 +454,7 @@ c writes copyright and version/dimension
         write(6,*) ' ----------------------------------------------'
         write(6,*)
         write(6,*) ' SHYFEM - Finite Element Model for coastal seas'
-        write(6,*) ' Copyright (c) The Shyfem Team 1985-2017'
+        write(6,*) ' Copyright (C) The Shyfem Team 1985-2018'
         write(6,*)
         write(6,*) ' version: ',vers
         write(6,*) ' commit : ',comm

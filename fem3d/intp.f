@@ -1,6 +1,28 @@
-c
-c $Id: intp.f,v 1.9 2008-11-03 10:42:25 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c closure routines
 c
 c revision log :
@@ -9,6 +31,7 @@ c 02.09.2004    ggu     new classification routine
 c 04.09.2004    ggu     franco added (zfranco)
 c 11.10.2008	ggu	franco passed in
 c 16.11.2012	ggu	if franco == 99 -> use PS as forecast (init_ps)
+c 23.11.2018	ggu	new routines to read and interpolate time series
 c
 c**********************************************************************
 
@@ -32,6 +55,8 @@ c**********************************************************************
 	integer iddt,itanf,itend
 	integer itcl,iclose,iclass,ih
 	integer itotal,ittot
+	integer, save :: idps = 0
+	integer, save :: idds = 0
 	real wmax,rmax
 	real t,value,dz,zlagoon,zlevel
 	real zdate,zmax
@@ -39,6 +64,7 @@ c**********************************************************************
 	real psv,dsv,rainv,windv
 	real psav(1),dsav(1)
 	real vals(ndim)
+	double precision dtime
 	character*4 class
 
 	real ps(ndim)
@@ -50,9 +76,6 @@ c**********************************************************************
 
 	integer icm
 	icm(t) = nint(100.*t)
-
-	call exffils('ps.dat',ndim,ps)
-	call exffils('ds.dat',ndim,ds)
 
         zfranco = 0.05    !allow for extra security
         zfranco = 0.10    !allow for extra security
@@ -77,11 +100,16 @@ c**********************************************************************
 	itotal = 0
 	ittot = 0
 
+	dtime = itanf
+	call iff_ts_init(dtime,'ps.dat',2,1,idps)
+	call iff_ts_init(dtime,'ds.dat',2,1,idds)
+
 	do it=itanf,itend,iddt
 	  t = it
+	  dtime = it
 	  iday = 1 + it/86400
-	  call exfintp(ps,t,psav)
-	  call exfintp(ds,t,dsav)
+	  call iff_ts_intp(idps,dtime,psav)
+	  call iff_ts_intp(idds,dtime,dsav)
 	  psv = psav(1)
 	  dsv = dsav(1)
 	  psv = psv + zrise
@@ -168,6 +196,7 @@ c gets previsioni
 	data n / 0 /
 
 	bdebug = .true.
+	bdebug = .false.
 	zfranc = zfranco
 	bps = zfranc .gt. .90		!use PS
 
@@ -185,6 +214,7 @@ c gets previsioni
 	      write(6,*) (pp(j,i),j=1,if)
 	    end do
 	  end if
+	  write(6,*) 'prev has been initialized... ', bps
 	end if
 	
 	if( bps ) zfranc = 0.
@@ -261,7 +291,7 @@ c initializes previsioni
 	  goto 1
     2	continue
 
-	write(6,*) 'init_prev: records read ',n
+	write(6,*) 'init_ps: records read ',n
 
 	close(iunit)
 
@@ -651,8 +681,6 @@ c raises water level of lagoon
 
 	real dz		!water level rise per time step [m]
 
-	include 'param.h'
-
         integer ie,ii,k
 
         do k=1,nkn
@@ -685,30 +713,26 @@ c leakage dz in [mm/h]
         real rnodes
         parameter( rnodes = 1852. / 3600. )     ! n. miles / hour
 
-	integer ndim
-	parameter (ndim=200)
+	double precision dtime
+	real aux(2)
 
-	real rain(ndim)
-	real wind(ndim)
-	save rain,wind
+	integer, save :: idrain = 0
+	integer, save :: idwind = 0
+	integer, save :: icall = 0
 
-	real t
+	dtime = it
 
-	integer icall
-	save icall
-	data icall / 0 /
+	call get_max(it,4,wmax,rmax)
 
 	if( icall .eq. 0 ) then
 	  icall = 1
-	  call exffils('rain.dat',ndim,rain)
-	  call exffils('wind.dat',ndim,wind)
+	  call iff_ts_init(dtime,'rain.dat',2,1,idrain)
+	  call iff_ts_init(dtime,'wind.dat',2,2,idwind)
 	end if
 
-	t = it
-	call exfintp(rain,t,r)
-	call exfintp(wind,t,w)
-
-	call get_max(it,4,wmax,rmax)
+	call iff_ts_intp(idrain,dtime,r)
+	call iff_ts_intp(idwind,dtime,aux)
+	w = aux(1)
 
 	w = w * rnodes			!convert from nodes to m/s
 	wmax = wmax * rnodes

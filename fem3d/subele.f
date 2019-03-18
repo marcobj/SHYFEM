@@ -1,6 +1,28 @@
-c
-c $Id: subele.f,v 1.15 2010-03-11 15:36:39 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for dealing with elements
 c
 c contents :
@@ -75,6 +97,7 @@ c 11.11.2011    ggu     error message for negative last layer
 c 29.03.2013    ggu     avoid call to areaele -> ev(10,ie)
 c 13.06.2013    ggu     new helper functions make_old_depth and copy_depth
 c 29.11.2013    ggu     new subroutine masscont()
+c 03.02.2019    ggu     in setdepth check for zero layer thickness
 c
 c****************************************************************
 
@@ -87,12 +110,9 @@ c computes total (average) depth of element ie
 
 	implicit none
 
-	include 'param.h'
-
 	integer ie	!number of element
 	integer mode	!-1: old zeta   0: no zeta   1: new zeta
 	real depele	!depth (return)
-
 
 	integer ii,n
 	real hmed
@@ -911,11 +931,11 @@ c	  -------------------------------------------------------
 	    k = nen3v(ii,ie)
 	    htot = hm3v(ii,ie)
 	    z = zenv(ii,ie)
-	    hsig = min(htot,hsigma) + z
+	    hsig = min(htot,hsigma) + z		!total depth of sigma layers
 	    zmed = zmed + z
 
 	    do l=1,nsigma
-	      hdkn(l,k) = - hsig * hldv(l)
+	      hdkn(l,k) = - hsig * hldv(l)	!these have already depth
 	    end do
 
 	    if( lmax .gt. nsigma ) then
@@ -937,6 +957,7 @@ c	  -------------------------------------------------------
 	  end do
 
 !	  in hdkn is volume of finite volume around k
+!	  in sigma layers hdkn already contains nodal depth
 
 c	  -------------------------------------------------------
 c	  element values
@@ -946,7 +967,7 @@ c	  -------------------------------------------------------
 	  ii = 0
 	  zmed = zmed / n
 	  htot = hev(ie)
-	  hsig = min(htot,hsigma) + zmed
+	  hsig = min(htot,hsigma) + zmed	!total depth of sigma layers
 
 	  do l=1,nsigma
 	    hden(l,ie) = - hsig * hldv(l)
@@ -967,6 +988,19 @@ c	  -------------------------------------------------------
 	    end if
 	  end if
 
+	  do l=1,lmax
+	    h = hden(l,ie)
+	    if( h <= 0. ) then
+	      write(6,*) 'error computing layer thickness'
+	      write(6,*) 'no layer depth in element: ',l,ie,h
+	      write(6,*) 'additional information available in fort.666'
+	      call check_set_unit(666)
+	      call check_elem(ie)
+	      call check_nodes_in_elem(ie)
+	      stop 'error stop setdepth: no layer in element'
+	    end if
+	  end do
+
 	end do
 
 	if( shympi_partition_on_elements() ) then
@@ -980,12 +1014,25 @@ c----------------------------------------------------------------
 
 	levmin = nsigma + 1
 	do k=1,nkn
-	  do l=levmin,levdim
+	  lmax = ilhkv(k)
+	  do l=levmin,lmax
 	    areafv = area(l,k)
 	    if( areafv .gt. 0. ) then
 	      hdkn(l,k) = hdkn(l,k) / areafv
 	    else
 	      exit
+	    end if
+	  end do
+	  do l=1,lmax
+	    h = hdkn(l,k)
+	    if( h <= 0. ) then
+	      write(6,*) 'error computing layer thickness'
+	      write(6,*) 'no layer depth in node: ',l,k,h
+	      write(6,*) 'additional information available in fort.666'
+	      call check_set_unit(666)
+	      call check_node(k)
+	      call check_elems_around_node(k)
+	      stop 'error stop setdepth: no layer in node'
 	    end if
 	  end do
 	end do

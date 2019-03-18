@@ -1,6 +1,30 @@
-c
-c $Id: suplin.f,v 1.5 2010-03-11 15:32:16 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 2009-2012,2014-2016  Georg Umgiesser
+!    Copyright (C) 2012  Debora Bellafiore
+!    Copyright (C) 2016  Christian Ferrarin
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for section plot (scalars)
 c
 c revision log :
@@ -19,7 +43,7 @@ c 24.08.2011    ggu     small changes to avoid run time error
 c 24.08.2011    ggu     plot real depth for zeta layers
 c 14.11.2011    ggu     hybrid levels introduced
 c 23.11.2011    ggu     in line_find_elements() adjust depth for hybrid
-c 27.01.2012    deb&ggu adjusted for hybrid coordinates
+c 27.01.2012    dbf&ggu adjusted for hybrid coordinates
 c 20.06.2012    ggu     plots bottom also for sigma layers (plot_bottom())
 c 22.10.2012    ggu     dxmin introduced to plot arrow every dxmin distance
 c 24.10.2012    ggu     bsmooth introduced for smooth bottom plotting
@@ -676,11 +700,11 @@ c************************************************************************
 	implicit none
 
 	integer i
-	real xy(1),ya(2)
+	real xy(*),ya(2)
 	integer ib
-	real xbot(1),ybot(1)
+	real xbot(ib+2),ybot(ib+2)
 
-	if( i .eq. 2 ) then
+	if( i .eq. 2 ) then	!first call
 	  ib = 1
 	  xbot(ib) = xy(i-1)
 	  ybot(ib) = ya(1)
@@ -705,8 +729,8 @@ c************************************************************************
 	implicit none
 
 	integer n
-	real xbot(1)
-	real ybot(1)
+	real xbot(n+2)
+	real ybot(n+2)
 	real yrmax
 
 	integer i
@@ -972,7 +996,7 @@ c computes projection line for nodes
 	integer n
 	integer isphe
 	integer nodes(n)
-	real xgv(1), ygv(1)
+	real xgv(*), ygv(*)
 	real dxy(2,n)			!direction of line (for projection)
 
 	integer i,i1,i2,k1,k2
@@ -1016,7 +1040,7 @@ c modes: 0=use normal vel   1=use tangent vel   as scalar velocity
 	integer n			!total number of nodes
 	integer nodes(n)		!node numbers
 	integer lnodes(n)		!total nuber of layers
-	integer ilhkv(1)		!number of layers in node
+	integer ilhkv(*)		!number of layers in node
 	real dxy(2,n)			!direction of line (for projection)
 	real vel(3,0:2*nlvdi,n)		!projected velocities along line (ret)
 	real val(0:2*nlvdi,n)		!scalar velocity for overlay (ret)
@@ -1088,7 +1112,7 @@ c computes flux through section
 	real xy(n)			!coordinates along section
 	integer lelems(n)		!total nuber of layers
 	real helems(2,n)		!depth elems
-	real hlv(*)			!depth structure
+	real hlv(nlvdi)			!depth structure
 	real val(0:2*nlvdi,n)		!scalar velocity for overlay (ret)
 	real flux			!computed flux (return)
 	real area
@@ -1160,8 +1184,8 @@ c inserts scalar values into matrix section
 	integer n
 	integer nodes(n)
 	integer lnodes(n)
-	integer ilhkv(1)		!number of layers in node
-	real sv(nlvdi,1)
+	integer ilhkv(*)		!number of layers in node
+	real sv(nlvdi,*)
 	real values(0:2*nlvdi,n)
 	real vmin,vmax
 
@@ -1212,7 +1236,7 @@ c finds length and max depth of line
 	integer nodes(n)
 	real helems(2,n)	!depth in chosen elements
 	integer lelems(n)	!maximum layer in element
-	real xgv(1), ygv(1)	!coordinates
+	real xgv(*), ygv(*)	!coordinates
 	integer isphe		!spherical coords?
 	real rlmax,rdmax	!length and depth (return)
 	integer llmax		!maximum layer
@@ -1285,15 +1309,15 @@ c deepest element is chosen
 	integer n
 	integer nodes(n)
 	integer nlv		!number of layers
-	integer nen3v(3,1)	!element index
-	real hev(1)		!depth in elements
-	real hm3v(3,1)		!depth in elements (on vertices)
-	real hlv(1)		!layer structure
+	integer nen3v(3,*)	!element index
+	real hev(*)		!depth in elements
+	real hm3v(3,*)		!depth in elements (on vertices)
+	real hlv(nlv)		!layer structure
 	integer elems(n)	!element number of chosen elements (return)
 	real helems(2,n)	!depth in chosen elements (return)
 	integer lelems(n)	!layers in element (return)
 	integer lnodes(n)	!layers in node (return)
-	real hkv(1)		!layer structure
+	real hkv(*)		!layer structure
 	integer bsmt		!factor for using smooth bottom
 
 	logical bsigma,berror,bsmooth
@@ -1450,7 +1474,7 @@ c sets hvmax and lvmax
 	implicit none
 
 	integer nlv
-	real hlv(1)
+	real hlv(nlv)
 	real rdmax		!max depth read
 	integer llmax		!max layer read
 	real hvmax		!max depth wanted
@@ -1558,7 +1582,7 @@ c************************************************************************
 	integer nlv
 	real hdep(2)		!depth on two nodes
 	real hvmax		!maximum depth
-	real hlv(1)
+	real hlv(nlv)
 	real ya(2,0:1)		!bottom depth of layers
 
 	logical blayer,blog,bsigma

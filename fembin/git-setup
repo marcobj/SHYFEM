@@ -1,5 +1,13 @@
 #!/bin/sh
 #
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+#
 # sets up git and clones from repository
 #
 #---------------------------------------------------------------
@@ -8,6 +16,7 @@ tool=meld
 tool=kdiff3
 tool=tkdiff
 tool=xxdiff
+tools="tkdiff xxdiff kdiff3 meld diff"
 github=https://github.com/SHYFEM-model/shyfem.git
 
 fullname="Georg Umgiesser"
@@ -29,6 +38,23 @@ GetString()
   echo "$answer"
 }
 
+ChooseDiffTool()
+{
+  for t in $tools
+  do
+    tool=$( which $t )
+    if [ -n "$tool" ]; then
+      echo "difftool found: $tool"
+      break
+    fi
+  done
+
+  if [ -z "$tool" ]; then
+    echo "error finding diff tool... setting to diff"
+    tool=diff
+  fi
+}
+
 #---------------------------------------------------------------
 
 (git --version) >> /dev/null 2>&1
@@ -40,6 +66,8 @@ if [ "$status" -ne 0 ]; then
 fi
 version=$( git --version )
 echo "$version"
+
+ChooseDiffTool
 
 orig=$( pwd )
 shydir=$orig/shyfem

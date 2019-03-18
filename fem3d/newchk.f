@@ -1,6 +1,28 @@
-c
-c $Id: newchk.f,v 1.40 2010-02-26 17:35:06 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for various checks
 c
 c contents :
@@ -1077,6 +1099,7 @@ c writes debug information on node k
 	write(iu,*) 'lmax,inodv:    ',lmax,inodv(k)
 	write(iu,*) 'xgv,ygv:       ',xgv(k),ygv(k)
 	write(iu,*) 'zov,znv:       ',zov(k),znv(k)
+	write(iu,*) 'hkv,hkv+znv:   ',hkv(k),hkv(k)+znv(k)
 	write(iu,*) 'hdkov:         ',(hdkov(l,k),l=1,lmax)
 	write(iu,*) 'hdknv:         ',(hdknv(l,k),l=1,lmax)
 	write(iu,*) 'areakv:        ',(areakv(l,k),l=1,lmax)
@@ -1114,6 +1137,7 @@ c writes debug information on element ie
 
 	integer iunit
 	integer ie
+	real zmed
 
 	include 'femtime.h'
 
@@ -1124,13 +1148,15 @@ c writes debug information on element ie
 
 	call check_get_unit(iu)
 	lmax = ilhv(ie)
+	zmed = sum(zenv(:,ie))/3.
 
 	write(iu,*) '-------------------------------- check_elem'
 	write(iu,*) 'it,idt,ie,ieext:  ',it,idt,ie,ieext(ie)
 	write(iu,*) 'lmax,iwegv,iwetv: ',lmax,iwegv(ie),iwetv(ie)
 	write(iu,*) 'area:             ',ev(10,ie)*12.
 	write(iu,*) 'nen3v  :          ',(nen3v(ii,ie),ii=1,3)
-	write(iu,*) 'hev:              ',hev(ie)
+	write(iu,*) 'hev,hev+zenv:     ',hev(ie),hev(ie)+zmed
+	write(iu,*) 'hm3v:             ',(hm3v(ii,ie),ii=1,3)
 	write(iu,*) 'zeov:             ',(zeov(ii,ie),ii=1,3)
 	write(iu,*) 'zenv:             ',(zenv(ii,ie),ii=1,3)
 	write(iu,*) 'zov:              ',(zov(nen3v(ii,ie)),ii=1,3)

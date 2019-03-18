@@ -1,6 +1,28 @@
-c
-c $Id: subtime.f,v 1.54 2010-03-22 15:29:31 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c time management routines
 c
 c contents :
@@ -77,6 +99,7 @@ c 29.03.2018    ggu     bug fix for syncronization step
 c 13.04.2018    ggu     hydro_stability includes explicit gravity wave
 c 13.04.2018    ggu     set_timestep now is working with mpi
 c 16.04.2018    ggu     write warning if time step is over recommended one
+c 09.02.2019    ggu     bug fix for syncronization of last time step
 c
 c**********************************************************************
 c**********************************************************************
@@ -393,7 +416,7 @@ c********************************************************************
 
         subroutine set_timestep
 
-c controls time step
+c controls time step and adjusts it
 
 	use shympi
 
@@ -407,6 +430,7 @@ c controls time step
         integer istot
 	integer idta(n_threads)
         double precision dt,dtnext,atime,ddts,dtsync,dtime,dt_recom
+        double precision dtmax
 	real dtr
         real ri,rindex,rindex1,sindex
 	real perc,rmax
@@ -518,7 +542,7 @@ c----------------------------------------------------------------------
 
 	!write(6,*) 'set_timestep: rindex ',rindex,dt
 
-	if( dt < 0 ) then
+	if( dt <= 0 ) then
 	  write(6,*) 'dt is negative after setting'
 	  write(6,*) dtr,isplit,idts,idtfrac,dt_orig
 	  write(6,*) dt,cmax,rindex,cmax/rindex
@@ -550,21 +574,26 @@ c----------------------------------------------------------------------
 c	syncronize time step
 c----------------------------------------------------------------------
 
+	dtmax = dt
 	dtime = t_act
 	dtsync = idts
         call sync_step(dtanf,dtsync,dtime,dt,bsync)
 
+	if( dt <= 0 ) stop 'error stop set_timestep: dt<=0'
+
 	if( dtime .gt. dtend ) then	!sync with end of sim
+	  dt = dtend - t_act
 	  dtime = dtend
-	  dt = dtend - dtime
 	  bsync = .true.
 	end if
 
 	!write(6,*) 'set_timestep: sync ',rindex,dt
 
-	if( dt < 0 ) then
+	if( dt <= 0 ) then
 	  write(6,*) 'dt is negative after syncronize'
-	  write(6,*) dtime,dtanf,dtend
+	  write(6,*) dtmax
+	  write(6,*) dtime,t_act
+	  write(6,*) dtanf,dtend
 	  write(6,*) dtr,isplit,idtfrac,dt_orig
 	  write(6,*) dt,cmax,rindex,cmax/rindex
 	  write(6,*) dtnext,bsync
@@ -904,6 +933,45 @@ c returns original real time step (in real seconds)
 	dt = idtorig/float(itunit)
 
 	end
+
+c********************************************************************
+c********************************************************************
+c********************************************************************
+
+	subroutine convert_to_dtime(aline,dtime)
+
+	implicit none
+
+	character*20 aline
+	double precision dtime
+
+	double precision atime,atime0
+
+	call convert_to_atime(aline,atime)
+
+        call get_absolute_ref_time(atime0)
+        dtime = atime - atime0
+
+	end subroutine convert_to_dtime
+
+c********************************************************************
+
+	subroutine convert_to_atime(aline,atime)
+
+	use iso8601
+
+	implicit none
+
+	character*20 aline
+	double precision atime
+
+	integer date,time,ierr
+
+        call string2date(aline,date,time,ierr)
+        if( ierr /= 0 ) stop 'error converting date'
+        call dts_to_abs_time(date,time,atime)
+
+	end subroutine convert_to_atime
 
 c********************************************************************
 c********************************************************************

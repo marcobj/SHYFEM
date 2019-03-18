@@ -1,4 +1,28 @@
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for sigma levels
 c
 c revision log :
@@ -11,7 +35,7 @@ c 11.11.2011    ggu     error check in set_hkv_and_hev()
 c 11.11.2011    ggu     in check_hsigma_crossing set zeta levels to const depth
 c 18.11.2011    ggu     restructured hybrid - adjustment to bashsigma
 c 12.12.2011    ggu     eliminated (stupid) compiler bug (getpar)
-c 27.01.2012    deb&ggu adapted for hybrid levels
+c 27.01.2012    dbf&ggu adapted for hybrid levels
 c 23.02.2012    ccf	bug fix in set_hybrid_depth (no call to get_sigma)
 c 05.09.2013    ggu	no set_sigma_hkv_and_hev()
 c

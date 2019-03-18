@@ -1,5 +1,13 @@
 #!/bin/sh
 #
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+#
 # creates *.tex documentation files from *.f files
 
 FEMDIR=..
@@ -25,7 +33,7 @@ Proc $BINDIR/subver.f
 Proc $BINDIR/bio3d.f
 Proc $BINDIR/sedi3d.f
 Proc $BINDIR/subwaves.f
-Proc $BINDIR/subtidef.f
+Proc $BINDIR/subtide.f
 
 #---------------------------------------------------------
 

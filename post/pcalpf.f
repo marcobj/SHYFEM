@@ -1,10 +1,42 @@
 
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
+!**************************************************************************
+
 c subroutine axis(xpage,ypage,ibcd,nchar,axlen,angle,firstv,deltav)
 c subroutine scale(array,axlen,npts,inc)
 c subroutine line(xarray,yarray,npts,inc,lintyp,inteq)
 c subroutine number(xpage,ypage,height,fpn,angle,ndec)
 
-c ggu 03.04.2009 CW -> avoid compiler warning
+c
+c revision log :
+c
+c 30.11.2001	ggu	CW -> avoid compiler warning
+c 03.04.2009	ggu	CW -> avoid compiler warning
+
+!**************************************************************************
 
       subroutine axis(xpage,ypage,ibcd,nchar,axlen,angle,firstv,deltav)
 
@@ -12,7 +44,7 @@ c ggu 03.04.2009 CW -> avoid compiler warning
 	!data isym/4h*10 /
 
       character symb*40
-      integer isym(40)          !ggu 03.04.2009 CW -> avoid compiler warning
+      integer isym(40)          !CW -> avoid compiler warning
       equivalence (symb,isym(1))
 
       do k=1,10
@@ -91,8 +123,7 @@ c set constants for annotation on cw or ccw side of axis
       return
       end
 
-
-
+!**************************************************************************
 
       subroutine scale(array,axlen,npts,inc)
 
@@ -156,8 +187,7 @@ c set constants for annotation on cw or ccw side of axis
 
       end
 
-
-
+!**************************************************************************
 
       subroutine line(xarray,yarray,npts,inc,lintyp,inteq)
 
@@ -223,13 +253,13 @@ c set constants for annotation on cw or ccw side of axis
       return
       end
 
-
+!**************************************************************************
 
       subroutine number(xpage,ypage,height,fpn,angle,ndec)
 
       character num*20,iar*10,minus*1,ipoint*1,blank*1
-      integer inum(20)          !ggu 30.11.2001 CW -> avoid compiler warning
-      equivalence (num,inum(1)) !ggu 30.11.2001 CW -> avoid compiler warning
+      integer inum(20)          !ggu CW -> avoid compiler warning
+      equivalence (num,inum(1)) !ggu CW -> avoid compiler warning
       data iar/'0123456789'/
       data minus/'-'/,ipoint/'.'/,blank/' '/
 
@@ -296,7 +326,10 @@ c     nchar=ii+1000
       nchar=ii
 
       !call symbol (xpage,ypage,height,num,angle,nchar)
-      call symbol (xpage,ypage,height,inum,angle,nchar) !!ggu 30.11.2001 CW
+      call symbol (xpage,ypage,height,inum,angle,nchar) !ggu CW
 
       return
       end
+
+!**************************************************************************
+

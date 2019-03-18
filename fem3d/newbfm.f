@@ -1,6 +1,28 @@
-c
-c $Id: newconz.f,v 1.7 2010-02-26 17:35:06 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for generic concentration
 c
 c contents :
@@ -9,7 +31,7 @@ c subroutine conz3sh
 c						shell for conz (new version)
 c revision log :
 c
-c 22.02.2016    ggu&eps     new bfm routines created from newconz
+c 22.02.2016    ggu&erp     new bfm routines created from newconz
 c 06.06.2016    ggu         initialization from file changed
 c 28.06.2016    ggu         initialize bfmv, new routine bfm_check()
 c

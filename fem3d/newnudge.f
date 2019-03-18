@@ -1,6 +1,28 @@
-c
-c $Id: baswork.f,v 1.20 2010-03-22 15:29:31 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c general framework to work on files needing basin
 c
 c revision log :
@@ -23,6 +45,7 @@ c 29.09.2015    ggu     finished nudging velocities
 c 04.11.2015    ggu     bug in velocitiy nudging fixed
 c 15.04.2016    ggu     started cleaning module
 c 09.04.2017    ccf     new format for nduge file, use more stations for nudging
+c 23.11.2018    ggu     new routines to read and interpolate time series
 c
 c****************************************************************
 
@@ -37,9 +60,10 @@ c****************************************************************
 
 	integer, save, private :: nkn_nudge = 0
 
-	logical, save :: bmulti = .true.	!nudge with more than one station
+	logical, save :: bmulti = .true.   !nudge with more than one station
 
 	integer, save :: idsurf = 0
+	integer, save :: idnudge = 0		!file id
 
 	integer, save :: nvars = 0
 	real, save :: tramp = 0.
@@ -121,6 +145,7 @@ c****************************************************************
 	integer nintp,nsize,ndim
 	integer k,i,node,ivar,ios
 	real ttau,sigma
+	double precision dtime
 	character*40 file_obs,file_stations
 	character*16 cname
 
@@ -158,7 +183,9 @@ c****************************************************************
 	nsize = 1
 	ndim = ndgdatdim
 
-	call exffil(file_obs,nintp,nvars,nsize,ndim,andg_data)
+	call get_act_dtime(dtime)
+	call iff_ts_init(dtime,file_obs,nintp,nvars,idnudge)
+	!call exffil(file_obs,nintp,nvars,nsize,ndim,andg_data)
 
 	ndg_use = 1
 
@@ -240,7 +267,8 @@ c****************************************************************
 	call get_act_timeline(aline)
 	t = dtime
 
-	call exfintp(andg_data,t,rint)
+	call iff_ts_intp(idnudge,dtime,rint)
+	!call exfintp(andg_data,t,rint)
 
 	talpha = 1.
 	if( tramp .gt. 0. ) then
@@ -356,7 +384,7 @@ c*******************************************************************
 	end do
 
 	write(6,*) 'max number of stations for one node: ',nsmax
-	do i=0,nsmax
+	do i=1,nsmax
 	  write(6,*) i,nsstats(i)
 	end do
 	

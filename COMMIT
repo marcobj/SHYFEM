@@ -1,5 +1,3429 @@
 ============================================================
 
+Thu Mar 14 16:46:48 CET 2019
+
+copyright for femplot
+
+ fembin/git-file                        | 23 +++++++++++++++++
+ femcheck/copyright/count_developers.pl | 46 +++++++++++++++++++++++++++++++++-
+ femcheck/copyright/count_developers.sh | 21 ++++++++++++++--
+ femplot/col.f                          |  2 +-
+ femplot/colortb.f                      | 10 ++++++--
+ femplot/colutils.f                     |  8 +++++-
+ femplot/line_nodes.f                   |  2 +-
+ femplot/mod_hydro_plot.f               | 15 ++++++++++-
+ femplot/mod_plot2d.f                   |  9 ++++++-
+ femplot/mod_plot3d.f                   |  9 ++++++-
+ femplot/plotsim.f                      |  2 +-
+ femplot/plotutil.f                     |  3 ++-
+ femplot/shyplot.f                      |  4 ++-
+ femplot/supano.f                       |  3 ++-
+ femplot/supbas.f                       |  2 +-
+ femplot/supcol.f                       |  2 +-
+ femplot/supcust.f                      |  2 +-
+ femplot/supdep.f                       |  4 ++-
+ femplot/supint.f                       |  3 ++-
+ femplot/supiso.f                       |  2 +-
+ femplot/suplag.f                       |  3 ++-
+ femplot/suplin.f                       |  4 ++-
+ femplot/suplin1.f                      |  2 +-
+ femplot/supmpi.f                       | 10 +++++++-
+ femplot/supout.f                       |  2 +-
+ femplot/suprgf.f                       |  2 +-
+ femplot/supsim.f                       |  4 ++-
+ femplot/suptim.f                       |  2 +-
+ femplot/suputi.f                       |  3 ++-
+ femplot/supver.f                       |  2 +-
+ femplot/taylor/taylor.f                |  3 +++
+ femplot/taylor/taylor_test.f           |  3 +++
+ femplot/util/col.f                     |  2 +-
+ femplot/util/lagxitest.f               |  2 +-
+ femplot/util/plotbug.f                 |  2 +-
+ femplot/util/plotcolb.f                |  2 +-
+ femplot/util/supcol.f                  |  2 +-
+ femplot/util/suputi.f                  |  5 ++--
+ femplot/util/testdash.f                |  2 +-
+ femplot/util/windrose.f                |  2 +-
+ post/democalp.f                        |  3 +++
+ post/pcalpf.f                          | 29 +++++++++++++--------
+ post/pf.f                              |  1 +
+ 43 files changed, 214 insertions(+), 50 deletions(-)
+
+============================================================
+
+Thu Mar 14 14:38:29 CET 2019
+
+copyright adjusted in femadj
+
+ fem3d/subsys.f                         |   32 +-
+ femadj/Makefile                        |    3 +-
+ femadj/adj4el.f                        |    7 +-
+ femadj/adj575.f                        |    7 +-
+ femadj/adj5el.f                        |    3 +-
+ femadj/adj7el.f                        |    3 +-
+ femadj/adjgrd.f                        |    3 +-
+ femadj/adjneu.f                        |    7 +-
+ femadj/adjplo.f                        |    3 +-
+ femadj/adjvar.f                        |    3 +-
+ femadj/mod_adj_grade.f                 |   10 +-
+ femadj/shyadj.f                        |    3 +-
+ femadj/subfil.f                        |  454 -------------
+ femadj/subgeo.f                        |  941 --------------------------
+ femadj/subscn.f                        | 1149 --------------------------------
+ femadj/subsrt.f                        |  243 -------
+ femadj/subssg.f                        |  331 ---------
+ femadj/subsss.f                        |  805 ----------------------
+ femadj/subssv.f                        |  129 ----
+ fembin/git-release                     |    2 +-
+ femcheck/copyright/count_developers.sh |    9 +-
+ femplot/supiso.f                       |   34 +-
+ femplot/supsim.f                       |    2 +-
+ 23 files changed, 87 insertions(+), 4096 deletions(-)
+ deleted:
+    femadj/subfil.f
+    femadj/subgeo.f
+    femadj/subscn.f
+    femadj/subsrt.f
+    femadj/subssg.f
+    femadj/subsss.f
+    femadj/subssv.f
+
+============================================================
+
+Wed Mar 13 18:29:49 CET 2019
+
+New version 7_5_61
+
+
+============================================================
+
+Wed Mar 13 18:28:52 CET 2019
+
+preparing new version
+
+ LOG                     |  40 ++++++++++++++++++++++++++++++++++++++++
+ RELEASE_NOTES           |   9 +++++++++
+ fem3d/Makefile          |   7 ++-----
+ fem3d/lagrange_dif.f    |   2 +-
+ fem3d/subver.f          |   7 ++++---
+ femdoc/femdoc.sh        |   2 +-
+ femdoc/final/shyfem.pdf | Bin 304617 -> 305551 bytes
+ femdoc/shyfem.tex       |   2 +-
+ 8 files changed, 58 insertions(+), 11 deletions(-)
+
+============================================================
+
+Wed Mar 13 17:37:47 CET 2019
+
+integrated new routines for tide
+
+ .gitignore          |   2 +
+ fem3d/Makefile      |  28 +-
+ fem3d/femtide.f     | 727 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/new3di.f      |   4 +-
+ fem3d/shyfem.f      |   8 +-
+ fem3d/spk_linpack.f | 488 ++++++++++++++++++++++++++++++++++-
+ fem3d/subdry.f      |   6 +-
+ fem3d/subnsh.f      |   8 +-
+ fem3d/subsys.f      |  20 +-
+ fem3d/subtide.f     | 511 ++++++++++++++++++++++++++++++++++++
+ fem3d/subtidef.f    | 366 --------------------------
+ fem3d/tide_utils.f  | 689 +++++++++++++++++++++++++++++++++++++++++++++++++
+ femplot/supsim.f    |  29 ++-
+ 13 files changed, 2487 insertions(+), 399 deletions(-)
+ new file:
+   fem3d/femtide.f
+   fem3d/subtide.f
+   fem3d/tide_utils.f
+ deleted:
+    fem3d/subtidef.f
+
+============================================================
+
+Tue Mar 12 18:40:16 CET 2019
+
+bug fixes in plotting and WRT
+
+ fem3d/newini.f     |  2 ++
+ fem3d/subnls.f     |  4 ++++
+ fem3d/subpar3.f    | 21 +++++++++++++++++++++
+ fem3d/subshyutil.f |  1 +
+ fem3d/subwrt.f     |  5 ++++-
+ femplot/supsim.f   |  4 ++--
+ 6 files changed, 34 insertions(+), 3 deletions(-)
+
+============================================================
+
+Tue Mar 12 11:06:27 CET 2019
+
+cleaning up pull request
+
+ fem3d/subn11.f | 8 ++++----
+ fem3d/subn35.f | 4 +++-
+ fem3d/subsys.f | 3 +--
+ 3 files changed, 8 insertions(+), 7 deletions(-)
+
+============================================================
+
+Tue Mar 12 10:50:29 CET 2019
+
+femelab changes
+
+ fem3d/femelab1.f | 25 +++++++++++++++----------
+ 1 file changed, 15 insertions(+), 10 deletions(-)
+
+============================================================
+
+Tue Mar 12 10:21:19 CET 2019
+
+old revision logs re-written
+
+ fem3d/aquabc_II_apara.f                   |  20 ++---
+ fem3d/aquabc_II_fem_interface.f           |  12 +--
+ fem3d/elab_off.f                          |   2 +-
+ fem3d/lagrange_dif.f                      |   8 +-
+ fem3d/lagrange_stk.f                      |   2 +
+ fem3d/new36.f                             |  22 +++---
+ fem3d/new3di.f                            |  38 ++++-----
+ fem3d/newbcl.f                            |   6 +-
+ fem3d/newbcl0.f                           |   4 +-
+ fem3d/newchao.f                           |   2 +-
+ fem3d/newcon.f                            |  48 ++++++------
+ fem3d/newcon_omp.f                        |  25 +++---
+ fem3d/newnohydro.f                        |   6 +-
+ fem3d/newpoi.f                            |  12 +--
+ fem3d/newrog.f                            |   6 +-
+ fem3d/sedi3d.f                            |  99 ++++++++++++------------
+ fem3d/shybas.f                            |   2 +-
+ fem3d/shyfem.f                            |   8 +-
+ fem3d/shypre.f                            |  20 ++---
+ fem3d/subcst.f                            |  18 ++---
+ fem3d/subdep.f                            |   4 +-
+ fem3d/subdry.f                            |  18 ++---
+ fem3d/subn11.f                            |  30 ++++----
+ fem3d/subn35.f                            |  10 +--
+ fem3d/subnev.f                            |   6 +-
+ fem3d/subnsa.f                            |   6 +-
+ fem3d/subnsh.f                            |   4 +-
+ fem3d/subpar3.f                           |  20 ++---
+ fem3d/subqfxt.f                           |   3 +-
+ fem3d/subwat.f                            |  20 ++---
+ femadj/adj7el.f                           |   3 +-
+ femcheck/copyright/count_developers.pl    | 123 ++++++++++++++++++++++++++++--
+ femcheck/copyright/count_developers.sh    | 108 ++++++++++++++++++--------
+ femcheck/copyright/revise_revision_log.pl | 105 +++++++++++++++++++++++--
+ femcheck/copyright/revise_revision_log.sh |  11 ++-
+ femplot/supbas.f                          |   2 +-
+ femplot/supver.f                          |   2 +-
+ 37 files changed, 541 insertions(+), 294 deletions(-)
+
+============================================================
+
+Thu Feb 28 15:58:50 CET 2019
+
+acronyms unified
+
+ fem3d/aquabc_II_fem_interface.f           |  12 +--
+ fem3d/bio3d.f                             |   8 +-
+ fem3d/lagrange_decay.f                    |   2 +-
+ fem3d/lagrange_inout.f                    |  10 +-
+ fem3d/lagrange_track.f                    |   2 +-
+ fem3d/mod_subset.f                        |   2 +-
+ fem3d/mod_system.f                        |   2 +-
+ fem3d/new3di.f                            |  22 ++--
+ fem3d/newbcl.f                            |   8 +-
+ fem3d/newbfm.f                            |   2 +-
+ fem3d/newcon.f                            |   2 +-
+ fem3d/newconz.f                           |   2 +-
+ fem3d/newexpl.f                           |   2 +-
+ fem3d/newfix.f                            |   2 +-
+ fem3d/newlevels.f                         |   4 +
+ fem3d/newnohydro.f                        |   4 +-
+ fem3d/newpoi.f                            |   2 +-
+ fem3d/newsig.f                            |   2 +-
+ fem3d/newtra.f                            |   2 +-
+ fem3d/shyfem.f                            |   6 +-
+ fem3d/sigmautil.f                         |   4 +-
+ fem3d/simsys_pard.f                       |   2 +-
+ fem3d/simsys_spk.f                        |   2 +-
+ fem3d/simsys_spkmpi.f                     |   2 +-
+ fem3d/subbnd.f                            |   2 +-
+ fem3d/subcoo.f                            |   2 +-
+ fem3d/subcus.f                            |   8 +-
+ fem3d/subdry.f                            |   2 +-
+ fem3d/subfind.f                           |   2 +-
+ fem3d/submask.f                           |   2 +-
+ fem3d/submeteo2.f                         |   2 +-
+ fem3d/subn11.f                            |   2 +-
+ fem3d/subnsh.f                            |   2 +-
+ fem3d/subpard.f                           |   2 +-
+ fem3d/subqfxf.f                           |   4 +-
+ fem3d/subqfxm1.f                          |   4 +-
+ fem3d/subqfxm3.f                          |   2 +-
+ fem3d/subqfxm6.f                          |   8 +-
+ fem3d/subqfxt.f                           |   3 +
+ fem3d/subreg.f                            |   2 +-
+ fem3d/subspk.f                            |   2 +-
+ fem3d/substress.f                         |   2 +-
+ fem3d/subtsuvfile.f                       |   2 +-
+ fem3d/subwat.f                            |  30 +++---
+ fem3d/subwrt.f                            |   2 +-
+ fem3d/weutro.f                            |  12 +--
+ fem3d/weutro_sedim.f                      |   2 +-
+ fem3d/weutro_shell.f                      |   4 +-
+ femcheck/copyright/Makefile               |   2 +-
+ femcheck/copyright/check_all.sh           |   3 +-
+ femcheck/copyright/count_developers.pl    | 168 ++++++++++++++++++++++++++++++
+ femcheck/copyright/count_developers.sh    | 105 +++++++++++++++++++
+ femcheck/copyright/revise_revision_log.pl |  91 ++++++++++++++++
+ femcheck/copyright/revise_revision_log.sh |  44 ++++++++
+ femcheck/copyright/subst_lines.pl         |  41 ++++++++
+ femplot/supdep.f                          |   2 +-
+ femplot/suplin.f                          |   2 +-
+ femplot/suputi.f                          |   2 +-
+ 58 files changed, 568 insertions(+), 105 deletions(-)
+ new file:
+   femcheck/copyright/count_developers.pl
+   femcheck/copyright/count_developers.sh
+   femcheck/copyright/revise_revision_log.pl
+   femcheck/copyright/revise_revision_log.sh
+   femcheck/copyright/subst_lines.pl
+
+============================================================
+
+Tue Feb 26 21:11:09 EET 2019
+
+test nvar in shyelab
+
+ fem3d/shyelab1.f   |    2 +
+ fem3d/subcus.f     |   28 ++++++++++++------
+ fem3d/submeteo2.f  |   50 ++++++++++++++++++++++++++++++--
+ fem3d/subshy.f     |   29 +++++++++++++++++++
+ fem3d/subshyutil.f |   80 ++++++++++++++++++++++++++++++++++++++++++++++++++--
+ 5 files changed, 174 insertions(+), 15 deletions(-)
+
+============================================================
+
+Mon Feb 25 16:16:34 CET 2019
+
+parr copyright adjusted
+
+ Makefile    | 11 ++++-------
+ fembin/parr |  5 ++++-
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+============================================================
+
+Mon Feb 25 13:49:36 CET 2019
+
+femspline moved
+
+ .gitignore                              |   2 +-
+ README                                  |  25 ++++----
+ fem3d/subscn.f                          |   5 +-
+ fembin/copy_shyfem.sh                   |  86 ++++++++++++++++++++++++++
+ {femspline => femutil/spline}/Makefile  |   0
+ {femspline => femutil/spline}/README    |   0
+ {femspline => femutil/spline}/circle.f  |   0
+ {femspline => femutil/spline}/gridr.f   |   0
+ {femspline => femutil/spline}/hash.f    |   0
+ {femspline => femutil/spline}/sgauss.f  |   0
+ {femspline => femutil/spline}/tsmooth.f |   0
+ femutil/unform/Makefile                 |  13 ++++
+ femutil/unform/test.f                   | 103 ++++++++++++++++++++++++++++++++
+ 13 files changed, 221 insertions(+), 13 deletions(-)
+ new file:
+   fembin/copy_shyfem.sh
+   femutil/unform/Makefile
+   femutil/unform/test.f
+ renamed:
+    femspline/Makefile -> femutil/spline/Makefile
+    femspline/README -> femutil/spline/README
+    femspline/circle.f -> femutil/spline/circle.f
+    femspline/gridr.f -> femutil/spline/gridr.f
+    femspline/hash.f -> femutil/spline/hash.f
+    femspline/sgauss.f -> femutil/spline/sgauss.f
+    femspline/tsmooth.f -> femutil/spline/tsmooth.f
+
+============================================================
+
+Sun Feb 24 19:38:45 CET 2019
+
+final copyright notices
+
+ BUG                             |  9 ++++++
+ CHANGES                         |  9 ++++++
+ COMMIT                          |  9 ++++++
+ COPYING                         |  3 ++
+ Dockerfile                      |  8 +++++
+ FAQ                             |  8 +++++
+ LGPL                            |  3 ++
+ LOG                             |  8 +++++
+ Makefile                        | 10 +++++-
+ README                          | 68 ++++++++++++++++++++++++-----------------
+ RELEASE_NOTES                   |  8 +++++
+ TODO                            |  9 ++++++
+ VERSION                         |  8 +++++
+ fem3d/gotmturb.i                | 15 +++++++++
+ fem3d/gotmturb.nml              | 14 +++++++++
+ fem3d/netcdf.inc                | 44 ++++++++++++++++++++++++++
+ fembin/git-setup                |  8 +++++
+ femcheck/copyright/check_all.sh | 14 ++++++++-
+ femgotm/README                  |  4 ++-
+ 19 files changed, 228 insertions(+), 31 deletions(-)
+
+============================================================
+
+Sun Feb 24 17:18:01 CET 2019
+
+cleaned arc directories
+
+ fem3d/arc/subsse.f            | 1772 -----------------------------------------
+ fembin/arc/cvsallrevs         |   52 --
+ fembin/arc/cvschangeall       |   32 -
+ fembin/arc/cvsdiff_old        |  120 ---
+ fembin/arc/femrun.1           |  109 ---
+ fembin/arc/gp.1               |  282 -------
+ fembin/arc/interpbathy.pl     |  211 -----
+ fembin/git-setup              |   40 +-
+ femcheck/arc/link_compiler.sh |  103 ---
+ femcheck/arc/setup.sh         |  139 ----
+ femdoc/arc/femdoc.pl          |  114 ---
+ femlib/perl/arc/date.pl       |  147 ----
+ femlib/perl/arc/datetest.pl   |   16 -
+ femlib/perl/arc/email.pl      |  144 ----
+ femlib/perl/arc/grd.pl        |  245 ------
+ femplot/arc/colors.f          |  108 ---
+ femplot/arc/conext.f          |  186 -----
+ femplot/arc/readout.f         |  160 ----
+ femplot/arc/round_test.f      |  232 ------
+ femplot/arc/supouv.f          |  334 --------
+ femplot/arc/testdash.sh       |   14 -
+ femplot/colutils.f            |  108 +++
+ femspline/README              |    3 -
+ femspline/arc/gridf.f         |  420 ----------
+ femspline/arc/grids.f         |  960 ----------------------
+ femspline/arc/grids_util.f    |  271 -------
+ femspline/arc/subgrd.f        |  520 ------------
+ grid/arc/gf.bat               |    1 -
+ grid/arc/gmake.bat            |    1 -
+ grid/arc/gmstd.bat            |    4 -
+ grid/arc/grid.prj             |   25 -
+ grid/arc/plot.bat             |    1 -
+ grid/arc/ps2hp.bat            |    1 -
+ grid/arc/setup.bat            |   15 -
+ post/arc/colorscale.f         |  415 ----------
+ post/arc/graph.h              |  110 ---
+ post/arc/pgraphf.c            |  248 ------
+ post/arc/psgraphu.f           |  136 ----
+ post/ps/arc/cb.ps             |  674 ----------------
+ post/ps/arc/cnr.ps            |   37 -
+ post/ps/arc/cnr_color.ps      |   42 -
+ post/ps/arc/colorbar.ps       |  761 ------------------
+ 42 files changed, 131 insertions(+), 9182 deletions(-)
+ deleted:
+    fem3d/arc/subsse.f
+    fembin/arc/cvsallrevs
+    fembin/arc/cvschangeall
+    fembin/arc/cvsdiff_old
+    fembin/arc/femrun.1
+    fembin/arc/gp.1
+    fembin/arc/interpbathy.pl
+    femcheck/arc/link_compiler.sh
+    femcheck/arc/setup.sh
+    femdoc/arc/femdoc.pl
+    femlib/perl/arc/date.pl
+    femlib/perl/arc/datetest.pl
+    femlib/perl/arc/email.pl
+    femlib/perl/arc/grd.pl
+    femplot/arc/conext.f
+    femplot/arc/readout.f
+    femplot/arc/round_test.f
+    femplot/arc/supouv.f
+    femplot/arc/testdash.sh
+    femspline/arc/gridf.f
+    femspline/arc/grids.f
+    femspline/arc/grids_util.f
+    femspline/arc/subgrd.f
+    grid/arc/gf.bat
+    grid/arc/gmake.bat
+    grid/arc/gmstd.bat
+    grid/arc/grid.prj
+    grid/arc/plot.bat
+    grid/arc/ps2hp.bat
+    grid/arc/setup.bat
+    post/arc/colorscale.f
+    post/arc/graph.h
+    post/arc/pgraphf.c
+    post/arc/psgraphu.f
+    post/ps/arc/cb.ps
+    post/ps/arc/cnr.ps
+    post/ps/arc/cnr_color.ps
+    post/ps/arc/colorbar.ps
+ renamed:
+    femplot/arc/colors.f -> femplot/colutils.f
+
+============================================================
+
+Fri Feb 22 12:53:18 CET 2019
+
+new aquabc with copyright
+
+ fem3d/aquabc_II.f90                  | 39 ++++++++++++++++++------------------
+ fem3d/aquabc_II_aout.h               |  4 +++-
+ fem3d/aquabc_II_apara.f              |  2 ++
+ fem3d/aquabc_II_co2sys.f90           |  3 ++-
+ fem3d/aquabc_II_fem_interface.f      |  4 +++-
+ fem3d/aquabc_II_ini.f90              | 27 ++++++++++++++++---------
+ fem3d/aquabc_II_pelagic_lib.f90      |  3 ++-
+ fem3d/aquabc_II_pelagic_model.f90    |  3 ++-
+ fem3d/aquabc_II_sediment_lib.f90     |  3 ++-
+ fem3d/aquabc_II_sediment_model_1.f90 |  3 ++-
+ fem3d/aquabc_II_svindex.f90          |  4 +++-
+ fem3d/aquabc_II_util.f               |  6 ++++--
+ fem3d/bc2fem.f                       | 11 ++++++----
+ 13 files changed, 68 insertions(+), 44 deletions(-)
+
+============================================================
+
+Fri Feb 22 12:51:17 CET 2019
+
+something on shyfem_dir
+
+ Makefile             | 3 ++-
+ fembin/shyfem_dir.sh | 7 +++++--
+ 2 files changed, 7 insertions(+), 3 deletions(-)
+
+============================================================
+
+Thu Feb 21 15:24:25 CET 2019
+
+for regression test
+
+ fem3d/submir.f           |  4 ++--
+ fembin/shyfem_dir.sh     | 18 +++++++++---------
+ fembin/shyfem_version.sh | 26 +++++++++++---------------
+ femcheck/test_compile.sh |  7 +++++++
+ 4 files changed, 29 insertions(+), 26 deletions(-)
+
+============================================================
+
+Wed Feb 20 11:36:12 CET 2019
+
+more bugs with different compiler options
+
+ fem3d/aquabc_II.f90             |   9 ++-
+ fem3d/gotm3d.f                  |  18 ++++++
+ fem3d/nc2fem.f                  | 105 ++++++++++++++++++++++---------
+ fem3d/netcdf.f                  |  26 +++++---
+ fem3d/sedi3d.f                  | 136 +++++++++++++++++++++++++++++-----------
+ fem3d/subgotm.f                 |  12 +++-
+ fem3d/suboff.f                  |   8 +--
+ fembin/kml2grd.pl               |   7 ++-
+ femcheck/copyright/check_all.sh |  44 ++++++++-----
+ femcheck/test_compile.sh        |   7 +++
+ femgotm/fem_gotm_interface.F90  |  23 +++----
+ 11 files changed, 281 insertions(+), 114 deletions(-)
+
+============================================================
+
+Sat Feb 16 23:23:00 CET 2019
+
+New version 7_5_60
+
+
+============================================================
+
+Sat Feb 16 23:21:58 CET 2019
+
+copyrighted edition
+
+ LOG                     |   8 ++++++++
+ RELEASE_NOTES           |  46 ++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/sedi3d.f          |  10 +++-------
+ fem3d/subver.f          |   7 ++++---
+ femdoc/final/shyfem.pdf | Bin 304616 -> 304617 bytes
+ 5 files changed, 61 insertions(+), 10 deletions(-)
+
+============================================================
+
+Sat Feb 16 22:33:19 CET 2019
+
+final files with copyright
+
+ fem3d/MPI_todo                       |  9 +++++++++
+ fem3d/Makefile                       |  8 +++++++-
+ fem3d/aquabc_II.f90                  | 25 +++++++++++++++++++++++++
+ fem3d/aquabc_II_aout.h               | 25 +++++++++++++++++++++++++
+ fem3d/aquabc_II_apara.f              | 25 +++++++++++++++++++++++++
+ fem3d/aquabc_II_co2sys.f90           | 25 +++++++++++++++++++++++++
+ fem3d/aquabc_II_fem_interface.f      | 25 +++++++++++++++++++++++++
+ fem3d/aquabc_II_ini.f90              | 25 +++++++++++++++++++++++++
+ fem3d/aquabc_II_pelagic_lib.f90      | 25 +++++++++++++++++++++++++
+ fem3d/aquabc_II_pelagic_model.f90    | 25 +++++++++++++++++++++++++
+ fem3d/aquabc_II_sediment_lib.f90     | 25 +++++++++++++++++++++++++
+ fem3d/aquabc_II_sediment_model_1.f90 | 25 +++++++++++++++++++++++++
+ fem3d/aquabc_II_svindex.f90          | 25 +++++++++++++++++++++++++
+ fem3d/aquabc_II_util.f               | 25 +++++++++++++++++++++++++
+ fem3d/area.h                         | 24 ++++++++++++++++++++++++
+ fem3d/atoxi.f                        | 27 ++++++++++++++++++++++++---
+ fem3d/atoxi3d.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/aux_array.h                    | 24 ++++++++++++++++++++++++
+ fem3d/basin.h                        | 24 ++++++++++++++++++++++++
+ fem3d/basutil.f                      | 24 ++++++++++++++++++++++++
+ fem3d/basutil_bathy.f                | 28 +++++++++++++++++++++++++---
+ fem3d/basutil_box.f                  | 28 +++++++++++++++++++++++++---
+ fem3d/basutil_hsigma.f               | 24 ++++++++++++++++++++++++
+ fem3d/basutil_interp.f               | 28 +++++++++++++++++++++++++---
+ fem3d/basutil_part.f                 | 24 +++++++++++++++++++++++-
+ fem3d/basutil_resol.f                | 24 ++++++++++++++++++++++++
+ fem3d/basutil_smooth.f               | 28 +++++++++++++++++++++++++---
+ fem3d/bc2fem.f                       | 24 ++++++++++++++++++++++++
+ fem3d/bclfix.h                       | 24 ++++++++++++++++++++++++
+ fem3d/bdist.f                        | 28 +++++++++++++++++++++++++---
+ fem3d/bfm_common.h                   | 24 ++++++++++++++++++++++++
+ fem3d/bilin.f                        | 26 +++++++++++++++++++++++++-
+ fem3d/bio3d.f                        | 28 +++++++++++++++++++++++++---
+ fem3d/bio3d_util.f                   | 28 +++++++++++++++++++++++++---
+ fem3d/bnd_aux.h                      | 24 ++++++++++++++++++++++++
+ fem3d/bound_dynamic.h                | 24 ++++++++++++++++++++++++
+ fem3d/bound_geom.h                   | 24 ++++++++++++++++++++++++
+ fem3d/bound_names.h                  | 24 ++++++++++++++++++++++++
+ fem3d/bsig.h                         | 24 ++++++++++++++++++++++++
+ fem3d/change.txt                     |  2 --
+ fem3d/check_debug.f                  | 24 ++++++++++++++++++++++++
+ fem3d/chezy.h                        | 24 ++++++++++++++++++++++++
+ fem3d/close.h                        | 28 +++++++++++++++++++++++++---
+ fem3d/common.h                       | 24 ++++++++++++++++++++++++
+ fem3d/common_amat.h                  | 24 ++++++++++++++++++++++++
+ fem3d/const_aux.h                    | 24 ++++++++++++++++++++++++
+ fem3d/conz.h                         | 24 ++++++++++++++++++++++++
+ fem3d/debug.f                        | 28 +++++++++++++++++++++++++---
+ fem3d/depth.h                        | 24 ++++++++++++++++++++++++
+ fem3d/diff_aux.h                     | 24 ++++++++++++++++++++++++
+ fem3d/diff_visc_fric.h               | 24 ++++++++++++++++++++++++
+ fem3d/donata.h                       | 25 +++++++++++++++++++++++++
+ fem3d/ecological_dummy.f             | 28 +++++++++++++++++++++++++---
+ fem3d/elab_check.f                   | 24 ++++++++++++++++++++++++
+ fem3d/elab_expand.f                  | 24 ++++++++++++++++++++++++
+ fem3d/elab_gis.f                     | 24 ++++++++++++++++++++++++
+ fem3d/elab_nc.f                      | 24 ++++++++++++++++++++++++
+ fem3d/elab_nc_dummy.f                | 24 ++++++++++++++++++++++++
+ fem3d/elab_off.f                     | 24 ++++++++++++++++++++++++
+ fem3d/elab_regular.f                 | 24 ++++++++++++++++++++++++
+ fem3d/elabtime.f                     | 24 ++++++++++++++++++++++++
+ fem3d/elabutil.f                     | 24 ++++++++++++++++++++++++
+ fem3d/etsinf.h                       | 24 ++++++++++++++++++++++++
+ fem3d/etsutil.f                      | 24 ++++++++++++++++++++++++
+ fem3d/ev.h                           | 24 ++++++++++++++++++++++++
+ fem3d/evmain.h                       | 24 ++++++++++++++++++++++++
+ fem3d/extelab.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/extelab1.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/extra.h                        | 24 ++++++++++++++++++++++++
+ fem3d/femcombine.f                   | 24 ++++++++++++++++++++++++
+ fem3d/femelab.f                      | 24 ++++++++++++++++++++++++
+ fem3d/femelab1.f                     | 24 ++++++++++++++++++++++++
+ fem3d/femintp.f                      | 24 ++++++++++++++++++++++++
+ fem3d/femtime.h                      | 24 ++++++++++++++++++++++++
+ fem3d/filetype.f                     | 24 ++++++++++++++++++++++++
+ fem3d/fluidmud.h                     | 24 ++++++++++++++++++++++++
+ fem3d/flxelab.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/flxelab1.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/genutil.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/geom.h                         | 24 ++++++++++++++++++++++++
+ fem3d/geom_aux.h                     | 24 ++++++++++++++++++++++++
+ fem3d/geom_dynamic.h                 | 24 ++++++++++++++++++++++++
+ fem3d/gotm3d.f                       | 26 +++++++++++++++++++++++++-
+ fem3d/gotm_aux.h                     | 24 ++++++++++++++++++++++++
+ fem3d/grd_extra.h                    | 24 ++++++++++++++++++++++++
+ fem3d/grdutil.f                      | 24 ++++++++++++++++++++++++
+ fem3d/haka0d.f                       | 24 ++++++++++++++++++++++++
+ fem3d/histo.h                        | 24 ++++++++++++++++++++++++
+ fem3d/hydro.h                        | 24 ++++++++++++++++++++++++
+ fem3d/hydro_baro.h                   | 24 ++++++++++++++++++++++++
+ fem3d/hydro_print.h                  | 24 ++++++++++++++++++++++++
+ fem3d/hydro_vel.h                    | 24 ++++++++++++++++++++++++
+ fem3d/internal.h                     | 24 ++++++++++++++++++++++++
+ fem3d/intp.f                         | 28 +++++++++++++++++++++++++---
+ fem3d/keps_util.f                    | 28 +++++++++++++++++++++++++---
+ fem3d/kepsd.f                        | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_back.f                | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_connect.f             | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_cont.f                | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_decay.f               | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_dif.f                 | 24 +++++++++++++++++++++++-
+ fem3d/lagrange_flux.f                | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_init.f                | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_inout.f               | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_larve.f               | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_main.f                | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_oil.f                 | 24 ++++++++++++++++++++++++
+ fem3d/lagrange_read.f                | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_sedim.f               | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_stk.f                 | 24 +++++++++++++++++++++++-
+ fem3d/lagrange_track.f               | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_util.f                | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_util_tr.f             | 28 +++++++++++++++++++++++++---
+ fem3d/lagrange_vertical.f            | 26 +++++++++++++++++++++++++-
+ fem3d/levels.h                       | 24 ++++++++++++++++++++++++
+ fem3d/lgrelab.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/lgrelab1.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/lgrinf.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/line_util.f                    | 24 ++++++++++++++++++++++++
+ fem3d/links.f                        | 28 +++++++++++++++++++++++++---
+ fem3d/links.h                        | 24 ++++++++++++++++++++++++
+ fem3d/loading.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/merc_water.f                   | 25 +++++++++++++++++++++++++
+ fem3d/mercury.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/meteo.h                        | 24 ++++++++++++++++++++++++
+ fem3d/meteo_aux.h                    | 24 ++++++++++++++++++++++++
+ fem3d/mkonst.h                       | 24 ++++++++++++++++++++++++
+ fem3d/mod_area.f                     | 24 ++++++++++++++++++++++++
+ fem3d/mod_bclfix.f                   | 24 ++++++++++++++++++++++++
+ fem3d/mod_bnd.f                      | 24 ++++++++++++++++++++++++
+ fem3d/mod_bnd_aux.f                  | 24 ++++++++++++++++++++++++
+ fem3d/mod_bndo.f                     | 24 ++++++++++++++++++++++++
+ fem3d/mod_bound_dynamic.f            | 24 ++++++++++++++++++++++++
+ fem3d/mod_bound_geom.f               | 24 ++++++++++++++++++++++++
+ fem3d/mod_conz.f                     | 24 ++++++++++++++++++++++++
+ fem3d/mod_depth.f                    | 24 ++++++++++++++++++++++++
+ fem3d/mod_diff_aux.f                 | 23 +++++++++++++++++++++++
+ fem3d/mod_diff_visc_fric.f           | 25 +++++++++++++++++++++++++
+ fem3d/mod_fluidmud.f                 | 24 ++++++++++++++++++++++++
+ fem3d/mod_geom.f                     | 24 ++++++++++++++++++++++++
+ fem3d/mod_geom_dynamic.f             | 24 ++++++++++++++++++++++++
+ fem3d/mod_gotm_aux.f                 | 23 +++++++++++++++++++++++
+ fem3d/mod_hydro.f                    | 24 ++++++++++++++++++++++++
+ fem3d/mod_hydro_baro.f               | 24 ++++++++++++++++++++++++
+ fem3d/mod_hydro_print.f              | 24 ++++++++++++++++++++++++
+ fem3d/mod_hydro_vel.f                | 24 ++++++++++++++++++++++++
+ fem3d/mod_internal.f                 | 24 ++++++++++++++++++++++++
+ fem3d/mod_lagrange.f                 | 24 ++++++++++++++++++++++++
+ fem3d/mod_layer_thickness.f          | 24 ++++++++++++++++++++++++
+ fem3d/mod_meteo.f                    | 24 ++++++++++++++++++++++++
+ fem3d/mod_nohyd.f                    | 24 ++++++++++++++++++++++++
+ fem3d/mod_nudging.f                  | 24 ++++++++++++++++++++++++
+ fem3d/mod_random.f                   | 24 ++++++++++++++++++++++++
+ fem3d/mod_roughness.f                | 24 ++++++++++++++++++++++++
+ fem3d/mod_shympi_dummy.f             | 24 ++++++++++++++++++++++++
+ fem3d/mod_shympi_node.f              | 24 ++++++++++++++++++++++++
+ fem3d/mod_shympi_node_internal.f     | 24 ++++++++++++++++++++++++
+ fem3d/mod_sinking.f                  | 24 ++++++++++++++++++++++++
+ fem3d/mod_subset.f                   | 28 +++++++++++++++++++++++++---
+ fem3d/mod_system.f                   | 24 ++++++++++++++++++++++++
+ fem3d/mod_tides.f                    | 24 ++++++++++++++++++++++++
+ fem3d/mod_ts.f                       | 26 +++++++++++++++++++++++++-
+ fem3d/mod_turbulence.f               | 24 ++++++++++++++++++++++++
+ fem3d/mod_tvd.f                      | 24 ++++++++++++++++++++++++
+ fem3d/mod_waves.f                    | 24 ++++++++++++++++++++++++
+ fem3d/modules.h                      | 24 ++++++++++++++++++++++++
+ fem3d/nbasin.h                       | 24 ++++++++++++++++++++++++
+ fem3d/nbound.h                       | 24 ++++++++++++++++++++++++
+ fem3d/nbvdim.h                       | 24 ++++++++++++++++++++++++
+ fem3d/nc2fem.f                       | 24 ++++++++++++++++++++++++
+ fem3d/nc_dim_coords.f                | 24 ++++++++++++++++++++++++
+ fem3d/nc_domain.f                    | 24 ++++++++++++++++++++++++
+ fem3d/nc_tutil.f                     | 24 ++++++++++++++++++++++++
+ fem3d/nc_util.f                      | 24 ++++++++++++++++++++++++
+ fem3d/netcdf.f                       | 26 +++++++++++++++++++++++++-
+ fem3d/netcdf_util.f                  | 28 +++++++++++++++++++++++++---
+ fem3d/new36.f                        | 28 +++++++++++++++++++++++++---
+ fem3d/new3di.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/newbcl.f                       | 25 +++++++++++++++++++++++++
+ fem3d/newbcl0.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/newbfm.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/newchao.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/newchk.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/newcon.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/newcon_omp.f                   | 26 +++++++++++++++++++++++++-
+ fem3d/newconz.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/newexpl.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/newfix.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/newini.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/newlevels.f                    | 24 ++++++++++++++++++++++++
+ fem3d/newnohydro.f                   | 26 +++++++++++++++++++++++++-
+ fem3d/newnudge.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/newpoi.f                       | 24 ++++++++++++++++++++++++
+ fem3d/newrog.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/newsig.f                       | 26 +++++++++++++++++++++++++-
+ fem3d/newstab.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/newtra.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/newtvd.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/nkonst.h                       | 24 ++++++++++++++++++++++++
+ fem3d/nlevel.h                       | 24 ++++++++++++++++++++++++
+ fem3d/nohyd.h                        | 24 ++++++++++++++++++++++++
+ fem3d/nohydlinks.h                   | 23 +++++++++++++++++++++++
+ fem3d/nos2shy.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/nosinf.h                       | 24 ++++++++++++++++++++++++
+ fem3d/nosutil.f                      | 24 ++++++++++++++++++++++++
+ fem3d/nudge.h                        | 24 ++++++++++++++++++++++++
+ fem3d/nudging.h                      | 24 ++++++++++++++++++++++++
+ fem3d/offinf.f                       | 24 ++++++++++++++++++++++++
+ fem3d/optintp.f                      | 26 +++++++++++++++++++++++++-
+ fem3d/ous2shy.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/ousinf.h                       | 24 ++++++++++++++++++++++++
+ fem3d/ousutil.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/param.h                        | 24 ++++++++++++++++++++++++
+ fem3d/pkonst.h                       | 24 ++++++++++++++++++++++++
+ fem3d/roughness.h                    | 24 ++++++++++++++++++++++++
+ fem3d/rstinf.f                       | 24 ++++++++++++++++++++++++
+ fem3d/scal_intp.f                    | 28 +++++++++++++++++++++++++---
+ fem3d/scalintp.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/sed_param.h                    | 25 +++++++++++++++++++++++++
+ fem3d/sedi3d.f                       | 25 +++++++++++++++++++++++++
+ fem3d/sedtrans05.f                   | 25 +++++++++++++++++++++++++
+ fem3d/shybas.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/shydiff.f                      | 24 +++++++++++++++++++++++-
+ fem3d/shyelab.f                      | 26 +++++++++++++++++++++++++-
+ fem3d/shyelab1.f                     | 24 +++++++++++++++++++++++-
+ fem3d/shyelab_area.f                 | 24 ++++++++++++++++++++++++
+ fem3d/shyelab_average.f              | 24 ++++++++++++++++++++++++
+ fem3d/shyelab_nodes.f                | 24 ++++++++++++++++++++++++
+ fem3d/shyelab_output.f               | 24 ++++++++++++++++++++++++
+ fem3d/shyelab_proj.f                 | 24 ++++++++++++++++++++++++
+ fem3d/shyelab_util.f                 | 24 ++++++++++++++++++++++++
+ fem3d/shyfem.f                       | 26 +++++++++++++++++++++++++-
+ fem3d/shypart.f                      | 26 +++++++++++++++++++++++++-
+ fem3d/shypre.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/shyproj.f                      | 24 +++++++++++++++++++++++-
+ fem3d/shyutil.f                      | 24 ++++++++++++++++++++++++
+ fem3d/sigma.h                        | 24 ++++++++++++++++++++++++
+ fem3d/sigmautil.f                    | 28 +++++++++++++++++++++++++---
+ fem3d/simsys_lp.f                    | 28 +++++++++++++++++++++++++---
+ fem3d/simsys_pard.f                  | 26 +++++++++++++++++++++++++-
+ fem3d/simsys_spk.f                   | 24 ++++++++++++++++++++++++
+ fem3d/simsys_spkmpi.f                | 24 ++++++++++++++++++++++++
+ fem3d/simul.h                        | 24 ++++++++++++++++++++++++
+ fem3d/sinking.h                      | 24 ++++++++++++++++++++++++
+ fem3d/sub2linear.f                   | 24 ++++++++++++++++++++++++
+ fem3d/subane.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subapn.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subbas.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subbfm.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subbit10.f                     | 24 ++++++++++++++++++++++++
+ fem3d/subbnd.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subbndo.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subbndo.h                      | 24 ++++++++++++++++++++++++
+ fem3d/subbnds.f                      | 26 ++++++++++++++++++++++++--
+ fem3d/subboxa.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subclo.f                       | 24 ++++++++++++++++++++++++
+ fem3d/subcmv.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subcon1.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subcoo.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subcoord.f                     | 24 +++++++++++++++++++++++-
+ fem3d/subcooutil.f                   | 24 ++++++++++++++++++++++++
+ fem3d/subcst.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subcus.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subdates.f                     | 24 ++++++++++++++++++++++++
+ fem3d/subdef.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subdep.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subdif.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subdry.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subdts.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subdts.h                       | 24 ++++++++++++++++++++++++
+ fem3d/subdum.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subele.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subeos.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subets.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subetsa.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subetsa.h                      | 24 ++++++++++++++++++++++++
+ fem3d/subetsm.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subext.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subexta.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subfemfile.f                   | 28 +++++++++++++++++++++++++---
+ fem3d/subfemintp.f                   | 24 ++++++++++++++++++++++++
+ fem3d/subfemutil.f                   | 28 +++++++++++++++++++++++++---
+ fem3d/subfil.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subfind.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subfloodfill.f                 | 24 ++++++++++++++++++++++++
+ fem3d/subflx.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subflx3d.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/subflxa.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subflxu.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subfvl.f                       | 26 +++++++++++++++++++++++++-
+ fem3d/subgeo.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subgotm.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subgotm_mud.f                  | 26 ++++++++++++++++++++++++--
+ fem3d/subgrd.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subgrd.h                       | 24 ++++++++++++++++++++++++
+ fem3d/subhisto.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/subint.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subintp.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subiso8601.f                   | 24 ++++++++++++++++++++++++
+ fem3d/sublapack.f                    | 24 ++++++++++++++++++++++++
+ fem3d/sublin.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/sublnka.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/sublnkd.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/sublnks.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/sublnku.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/sublp.f                        | 26 +++++++++++++++++++++++++-
+ fem3d/sublpl.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/sublst.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/submask.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/submet.f                       | 26 +++++++++++++++++++++++++-
+ fem3d/submeteo2.f                    | 28 +++++++++++++++++++++++++---
+ fem3d/submir.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/submod.f                       | 24 ++++++++++++++++++++++++
+ fem3d/submpi_assert.f                | 24 ++++++++++++++++++++++++
+ fem3d/submpi_basin.f                 | 24 ++++++++++++++++++++++++
+ fem3d/submpi_buffer.f                | 24 ++++++++++++++++++++++++
+ fem3d/submpi_custom.f                | 24 ++++++++++++++++++++++++
+ fem3d/submpi_ghost.f                 | 24 ++++++++++++++++++++++++
+ fem3d/submpi_time.f                  | 24 ++++++++++++++++++++++++
+ fem3d/submud.f                       | 25 +++++++++++++++++++++++++
+ fem3d/submud_dummy.f                 | 24 ++++++++++++++++++++++++
+ fem3d/subn11.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subn35.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subnetcdf_dummy.f              | 28 +++++++++++++++++++++++++---
+ fem3d/subnev.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subnls.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subnls.h                       | 24 ++++++++++++++++++++++++
+ fem3d/subnos.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subnosa.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subnsa.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subnsh.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subnsu.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subnsv.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subobc.h                       | 24 ++++++++++++++++++++++++
+ fem3d/suboff.f                       | 26 +++++++++++++++++++++++++-
+ fem3d/suboi.f                        | 28 +++++++++++++++++++++++++---
+ fem3d/subomp.f                       | 24 ++++++++++++++++++++++++
+ fem3d/subomp_dummy.f                 | 24 ++++++++++++++++++++++++
+ fem3d/subous.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subousa.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subout.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/suboutput.f                    | 28 +++++++++++++++++++++++++---
+ fem3d/suboutputd.f                   | 28 +++++++++++++++++++++++++---
+ fem3d/subpar3.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subpard.f                      | 26 +++++++++++++++++++++++++-
+ fem3d/subpenta.f                     | 24 ++++++++++++++++++++++++
+ fem3d/subproj.f                      | 24 +++++++++++++++++++++++-
+ fem3d/subqfx.h                       | 24 ++++++++++++++++++++++++
+ fem3d/subqfxf.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subqfxm.h                      | 25 +++++++++++++++++++++++++
+ fem3d/subqfxm1.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/subqfxm2.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/subqfxm3.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/subqfxm4.f                     | 27 +++++++++++++++++++++++++--
+ fem3d/subqfxm4.h                     | 25 ++++++++++++++++++++++++-
+ fem3d/subqfxm5.f                     | 25 ++++++++++++++++++++++++-
+ fem3d/subqfxm6.f                     | 25 +++++++++++++++++++++++++
+ fem3d/subqfxt.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subqfxu1.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/subqfxu2.f                     | 24 ++++++++++++++++++++++++
+ fem3d/subqfxu3.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/subqfxu4.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/subreg.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subres.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subrgf.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subrms.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subrnd.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subros.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subrst.f                       | 24 +++++++++++++++++++++++-
+ fem3d/subscn.f                       | 24 +++++++++++++++++++++++-
+ fem3d/subshy.f                       | 24 ++++++++++++++++++++++++
+ fem3d/subshyutil.f                   | 24 ++++++++++++++++++++++++
+ fem3d/subshyutil2.f                  | 24 ++++++++++++++++++++++++
+ fem3d/subspk.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subspl.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subsrt.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subssc.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subssed.f                      | 24 +++++++++++++++++++++++-
+ fem3d/subssf.f                       | 24 ++++++++++++++++++++++++
+ fem3d/subssg.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subssm.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subsss.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subsst.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subssv.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/substats.f                     | 24 ++++++++++++++++++++++++
+ fem3d/substress.f                    | 24 +++++++++++++++++++++++-
+ fem3d/substrings.f                   | 24 ++++++++++++++++++++++++
+ fem3d/subsys.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subtidef.f                     | 24 +++++++++++++++++++++++-
+ fem3d/subtime.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subtrace.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/subtsfile.f                    | 26 +++++++++++++++++++++++++-
+ fem3d/subtsuvfile.f                  | 27 +++++++++++++++++++++++++--
+ fem3d/subuti.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subvintp.f                     | 28 +++++++++++++++++++++++++---
+ fem3d/subvola.f                      | 28 +++++++++++++++++++++++++---
+ fem3d/subwat.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subwaves.f                     | 24 +++++++++++++++++++++++-
+ fem3d/subwrt.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/subxi.f                        | 28 +++++++++++++++++++++++++---
+ fem3d/testbndo.h                     | 24 ++++++++++++++++++++++++
+ fem3d/triint.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/ts.h                           | 24 ++++++++++++++++++++++++
+ fem3d/ts2nc.f                        | 28 +++++++++++++++++++++++++---
+ fem3d/tselab.f                       | 24 ++++++++++++++++++++++++
+ fem3d/tselab1.f                      | 24 ++++++++++++++++++++++++
+ fem3d/turbulence.h                   | 24 ++++++++++++++++++++++++
+ fem3d/tvd.h                          | 24 ++++++++++++++++++++++++
+ fem3d/unitutils.f                    | 24 ++++++++++++++++++++++++
+ fem3d/volcomp.h                      | 24 ++++++++++++++++++++++++
+ fem3d/waves.h                        | 24 ++++++++++++++++++++++++
+ fem3d/weutro.f                       | 28 +++++++++++++++++++++++++---
+ fem3d/weutro.h                       | 28 +++++++++++++++++++++++++---
+ fem3d/weutro_light.f                 | 28 +++++++++++++++++++++++++---
+ fem3d/weutro_sedim.f                 | 28 +++++++++++++++++++++++++---
+ fem3d/weutro_seed.f                  | 25 +++++++++++++++++++++++++
+ fem3d/weutro_shell.f                 | 28 +++++++++++++++++++++++++---
+ fem3d/weutro_ulva.f                  | 28 +++++++++++++++++++++++++---
+ fem3d/weutro_wdia.f                  | 28 +++++++++++++++++++++++++---
+ femcheck/copyright/check_all.sh      |  9 ++-------
+ 420 files changed, 10203 insertions(+), 578 deletions(-)
+ deleted:
+    fem3d/change.txt
+
+============================================================
+
+Sat Feb 16 22:09:20 CET 2019
+
+mostly copyright, but some compiler errors corrected
+
+ Makefile                                 |    4 +
+ examples/Makefile                        |    9 +
+ examples/mar_menor/2jpg.sh               |    8 +
+ examples/mar_menor/Makefile              |    9 +
+ examples/mar_menor/README                |    9 +
+ examples/mar_menor/apn_level.str         |    9 +
+ examples/mar_menor/apn_real.str          |    9 +
+ examples/mar_menor/apn_salt.str          |    9 +
+ examples/mar_menor/apn_vel.str           |    9 +
+ examples/mar_menor/apn_velcolriver.str   |    9 +
+ examples/mar_menor/apn_velriver.str      |    9 +
+ examples/mar_menor/apnbath.str           |    9 +
+ examples/mar_menor/make_sims.sh          |    8 +
+ examples/mar_menor/mm_hyd_00.sh          |    8 +
+ examples/mar_menor/mm_hyd_00.str         |    9 +
+ examples/mar_menor/mm_hyd_01.sh          |    8 +
+ examples/mar_menor/mm_hyd_01.str         |    9 +
+ examples/mar_menor/mm_hyd_02.sh          |    8 +
+ examples/mar_menor/mm_hyd_02.str         |    9 +
+ examples/mar_menor/mm_hyd_03.sh          |    8 +
+ examples/mar_menor/mm_hyd_03.str         |    9 +
+ examples/mar_menor/mm_hyd_11.sh          |    8 +
+ examples/mar_menor/mm_hyd_11.str         |    9 +
+ examples/mar_menor/mm_hyd_12.sh          |    8 +
+ examples/mar_menor/mm_hyd_12a.str        |    9 +
+ examples/mar_menor/mm_hyd_12b.str        |    9 +
+ examples/mar_menor/mm_hyd_13.sh          |    8 +
+ examples/mar_menor/mm_hyd_13.str         |    9 +
+ examples/mar_menor/mm_hyd_21.sh          |    8 +
+ examples/mar_menor/mm_hyd_21.str         |    9 +
+ examples/mar_menor/mm_hyd_22.sh          |    8 +
+ examples/mar_menor/mm_hyd_22.str         |    9 +
+ examples/mar_menor/mm_hyd_22a.sh         |    8 +
+ examples/mar_menor/mm_hyd_22a.str        |    9 +
+ examples/mar_menor/mm_hyd_22b.sh         |    8 +
+ examples/mar_menor/mm_hyd_22b.str        |    9 +
+ examples/mar_menor/mm_hyd_23.sh          |    8 +
+ examples/mar_menor/mm_hyd_23.str         |    9 +
+ examples/mar_menor/mm_hyd_31.sh          |    8 +
+ examples/mar_menor/mm_hyd_31.str         |    9 +
+ examples/mar_menor/mm_hyd_32.sh          |    8 +
+ examples/mar_menor/mm_hyd_32a.str        |    9 +
+ examples/mar_menor/mm_hyd_32b.str        |    9 +
+ examples/mar_menor/mm_hyd_41.sh          |    8 +
+ examples/mar_menor/mm_hyd_41.str         |    9 +
+ examples/mar_menor/mm_hyd_42.sh          |    8 +
+ examples/mar_menor/mm_hyd_42.str         |    9 +
+ examples/mar_menor/mm_hyd_43.sh          |    8 +
+ examples/mar_menor/mm_hyd_43.str         |    9 +
+ examples/mar_menor/run.sh                |    8 +
+ examples/mar_menor/util.sh               |    9 +
+ fem3d/aquabc_II_co2sys.f90               | 9756 +++++++++++++++---------------
+ fem3d/aquabc_II_sediment_lib.f90         | 2195 +++----
+ fem3d/aquabc_II_sediment_model_1.f90     | 8924 +++++++++++++--------------
+ fem3d/arc/subsse.f                       |   28 +-
+ fem3d/basutil.f                          |    4 +-
+ fem3d/bin/README                         |    9 +
+ fem3d/bin/check_h.sh                     |    8 +
+ fem3d/bin/check_header.pl                |    8 +
+ fem3d/bin/check_include.pl               |    8 +
+ fem3d/bin/check_revlog.pl                |    8 +
+ fem3d/bin/check_revlog.sh                |    8 +
+ fem3d/bin/clean.pl                       |    8 +
+ fem3d/bin/commonproc.pl                  |    8 +
+ fem3d/bin/compile.sh                     |    8 +
+ fem3d/bin/compile_test.sh                |    8 +
+ fem3d/bin/depend.sh                      |    8 +
+ fem3d/bin/depend_compile.sh              |    8 +
+ fem3d/bin/dependency.pl                  |    8 +
+ fem3d/bin/dependency.sh                  |    8 +
+ fem3d/bin/elab_freq.pl                   |    8 +
+ fem3d/bin/elab_freq1.pl                  |    8 +
+ fem3d/bin/ext.sh                         |    8 +
+ fem3d/bin/fct.pl                         |    8 +
+ fem3d/bin/fhead.pl                       |    8 +
+ fem3d/bin/find_pardlib.sh                |    8 +
+ fem3d/bin/fortinf.pl                     |    8 +
+ fem3d/bin/fortran.pm                     |    8 +
+ fem3d/bin/handle_common.sh               |    8 +
+ fem3d/bin/ht_struct.sh                   |    8 +
+ fem3d/bin/include.pl                     |    8 +
+ fem3d/bin/incstats.pl                    |    8 +
+ fem3d/bin/incstats.sh                    |    8 +
+ fem3d/bin/mkexport.sh                    |    8 +
+ fem3d/bin/mklahey.sh                     |    8 +
+ fem3d/bin/mklmake.pl                     |    8 +
+ fem3d/bin/nemunas-git.sh                 |    9 +
+ fem3d/bin/nemunas_adjust.pl              |    8 +
+ fem3d/bin/nemunas_adjust.sh              |    8 +
+ fem3d/bin/newstruct.pl                   |    8 +
+ fem3d/bin/newsubst.pl                    |    8 +
+ fem3d/bin/rcsauto.sh                     |    8 +
+ fem3d/bin/search.pl                      |    8 +
+ fem3d/bin/show_routines.pl               |    8 +
+ fem3d/bin/struct.pl                      |    8 +
+ fem3d/bin/struct_wasp.pl                 |    8 +
+ fem3d/bin/uncomment.pl                   |   10 +-
+ fem3d/bin/unix2other.pl                  |    8 +-
+ fem3d/elabutil.f                         |    2 +-
+ fem3d/info/INTERNAL_MEMO                 |    9 +
+ fem3d/info/TODO                          |    9 +
+ fem3d/info/WARNINGS                      |    9 +
+ fem3d/info/projections.txt               |    9 +
+ fem3d/new/all.zip                        |  Bin 5889 -> 0 bytes
+ fem3d/new/dlist.f                        |   24 +
+ fem3d/new/fall.f                         |   24 +
+ fem3d/new/heap.f                         |   28 +-
+ fem3d/new/heap2.f                        |   28 +-
+ fem3d/new/nosdiff_deb.f                  |   28 +-
+ fem3d/new/subcoo.f                       |   24 +
+ fem3d/new/vert_intp.f                    |   24 +
+ fem3d/new/wintrans.f                     |   24 +
+ fem3d/nos2shy.f                          |    2 +-
+ fem3d/ous2shy.f                          |    2 +-
+ fem3d/shybas.f                           |   15 +-
+ fem3d/shyelab.f                          |    2 +-
+ fem3d/shypre.f                           |    5 +-
+ fem3d/shyproj.f                          |    2 +-
+ fem3d/subfil.f                           |    2 +-
+ fem3d/substrings.f                       |    4 +-
+ fembin/2nc                               |    8 +
+ fembin/Makefile                          |    9 +
+ fembin/Update                            |    8 +
+ fembin/add_date.pl                       |    8 +
+ fembin/apnmake                           |    8 +
+ fembin/arc/cvsallrevs                    |    8 +
+ fembin/arc/cvschangeall                  |    8 +
+ fembin/arc/cvsdiff_old                   |    8 +
+ fembin/arc/femrun.1                      |    8 +
+ fembin/arc/gp.1                          |    8 +
+ fembin/arc/interpbathy.pl                |    8 +
+ fembin/ascii.sh                          |    8 +
+ fembin/atime.pl                          |    8 +
+ fembin/autoconfig                        |    8 +
+ fembin/aver                              |    8 +
+ fembin/average.pl                        |    8 +
+ fembin/background.pl                     |    8 +
+ fembin/background.sh                     |    8 +
+ fembin/basbathy                          |    8 +
+ fembin/bashskel.sh                       |    8 +
+ fembin/bastreat                          |    8 +
+ fembin/bathy.pl                          |    8 +
+ fembin/bline.pl                          |    8 +
+ fembin/boundbox                          |    8 +
+ fembin/check_debug.sh                    |    8 +
+ fembin/clean_symbolic_links.sh           |    8 +
+ fembin/cleansim.sh                       |    8 +
+ fembin/clo.sh                            |    8 +
+ fembin/coast.pl                          |    8 +
+ fembin/convert_date.pl                   |    8 +
+ fembin/convert_time_column.pl            |    8 +
+ fembin/copyto                            |    8 +
+ fembin/cvs/cvs-format-update.pl          |    8 +
+ fembin/cvs/cvs_utils.sh                  |   10 +-
+ fembin/cvs/cvschange                     |    8 +
+ fembin/cvs/cvscommit                     |    8 +
+ fembin/cvs/cvsdiff                       |    8 +
+ fembin/cvs/cvsgetrevs                    |    8 +
+ fembin/cvs/cvsrecreate                   |    8 +
+ fembin/cvs/cvsstatus                     |    8 +
+ fembin/cvs/cvstag                        |    8 +
+ fembin/d+.pl                             |    8 +
+ fembin/diffs                             |    8 +
+ fembin/dtinf.pl                          |    8 +
+ fembin/dxf2grd.pl                        |    8 +
+ fembin/epsextract.pl                     |    8 +
+ fembin/estimate_log.sh                   |    8 +
+ fembin/extimate.sh                       |    8 +
+ fembin/extract_lines.sh                  |    8 +
+ fembin/extract_release.pl                |    8 +
+ fembin/extractcol                        |    8 +
+ fembin/extractgrd.pl                     |    8 +
+ fembin/extractgrd1.pl                    |    8 +
+ fembin/fct.pl                            |    8 +
+ fembin/fembat                            |    8 +
+ fembin/fembatch                          |    8 +
+ fembin/fembatch_exp                      |    8 +
+ fembin/fempub.sh                         |    8 +
+ fembin/femrun                            |    8 +
+ fembin/femsubst.pl                       |    8 +
+ fembin/femsubst.sh                       |    8 +
+ fembin/filetype.sh                       |    8 +
+ fembin/find_pattern.sh                   |    8 +
+ fembin/fort76.pl                         |    8 +
+ fembin/fupdate                           |    8 +
+ fembin/gdiff                             |    8 +
+ fembin/get_procs.pl                      |    8 +
+ fembin/get_timestep.sh                   |    8 +
+ fembin/getheader.pl                      |    8 +
+ fembin/getheaders.sh                     |    8 +
+ fembin/getkey.pl                         |    8 +
+ fembin/getstrnodes.pl                    |    8 +
+ fembin/gifcrop                           |    8 +
+ fembin/git-commit                        |    8 +
+ fembin/git-diff                          |    8 +
+ fembin/git-file                          |    8 +
+ fembin/git-gui                           |    8 +
+ fembin/git-info                          |   11 +-
+ fembin/git-manual                        |    8 +
+ fembin/git-pack                          |    8 +
+ fembin/git-release                       |    8 +
+ fembin/git-release_notes.pl              |    8 +
+ fembin/git-setup                         |    8 +
+ fembin/git-tag                           |    8 +
+ fembin/git-tags                          |    8 +
+ fembin/git-tar                           |    8 +
+ fembin/git-util.sh                       |    8 +
+ fembin/git_info/git_info_branch.txt      |    9 +
+ fembin/git_info/git_info_general.txt     |    9 +
+ fembin/git_info/git_info_ignore.txt      |   15 +
+ fembin/git_info/git_info_stable.txt      |    9 +
+ fembin/git_info/git_info_stash.txt       |    9 +
+ fembin/git_info/git_info_version.txt     |    9 +
+ fembin/gmsh2grd.pl                       |    8 +
+ fembin/gmv.sh                            |    8 +
+ fembin/gp                                |    8 +
+ fembin/gp2d                              |    8 +
+ fembin/gp_modify.pl                      |    8 +
+ fembin/gp_shift_legend.pl                |    8 +
+ fembin/gpgnustyle.pl                     |    8 +
+ fembin/gps                               |    8 +
+ fembin/gps2eps                           |    8 +
+ fembin/gps2pdf                           |    8 +
+ fembin/gpsconv.pl                        |    8 +
+ fembin/gpsinsert                         |    8 +
+ fembin/gpsinsert.pl                      |    8 +
+ fembin/gpsmerge                          |    8 +
+ fembin/gpstoggle                         |    8 +
+ fembin/gpswrite                          |    8 +
+ fembin/gpswrite.pl                       |    8 +
+ fembin/gpv                               |    8 +
+ fembin/gpz                               |    8 +
+ fembin/grd2bnd.pl                        |    8 +
+ fembin/grd2gmsh.pl                       |    8 +
+ fembin/grd2nod.pl                        |    8 +
+ fembin/grd_area.pl                       |    8 +
+ fembin/grd_area.sh                       |    8 +
+ fembin/grd_bline.pl                      |    8 +
+ fembin/grd_check.pl                      |    8 +
+ fembin/grd_closest.pl                    |    8 +
+ fembin/grd_info.pl                       |    8 +
+ fembin/grd_modify.pl                     |    8 +
+ fembin/grd_smooth.pl                     |    8 +
+ fembin/grd_transl.pl                     |    8 +
+ fembin/grid.pl                           |    8 +
+ fembin/gtrans.sh                         |    8 +
+ fembin/gunzipall.sh                      |    8 +
+ fembin/h2t.pl                            |    8 +
+ fembin/header                            |    8 +
+ fembin/heat524.pl                        |    8 +
+ fembin/hh2g.pl                           |    8 +
+ fembin/histo                             |    8 +
+ fembin/hsb2gray                          |    8 +
+ fembin/hsb2gray.sh                       |    8 +
+ fembin/iterate1dir                       |    8 +
+ fembin/joincol                           |    8 +
+ fembin/keyword.pl                        |    8 +
+ fembin/kml2grd.pl                        |    8 +
+ fembin/logo/README                       |    9 +
+ fembin/mail_shyfem.sh                    |   42 +-
+ fembin/make_executable.sh                |    8 +
+ fembin/make_line_nodes.sh                |    8 +
+ fembin/make_param.pl                     |    8 +
+ fembin/makebline.pl                      |    8 +
+ fembin/memory                            |    8 +
+ fembin/mgrep                             |    8 +
+ fembin/mike2grd.pl                       |    8 +
+ fembin/minmax.pl                         |    8 +
+ fembin/mkdp.pl                           |    8 +
+ fembin/movaver                           |    8 +
+ fembin/nc_elab                           |    8 +
+ fembin/nod2grd.pl                        |    8 +
+ fembin/nodes2grd.pl                      |    8 +
+ fembin/nosadmin                          |    8 +
+ fembin/nosaver                           |    8 +
+ fembin/nosextr                           |    8 +
+ fembin/onedot                            |    8 +
+ fembin/ousextr                           |    8 +
+ fembin/param                             |    8 +
+ fembin/param.sh                          |    8 +
+ fembin/parr                              |    9 +
+ fembin/plotext                           |    8 +
+ fembin/plots                             |    8 +
+ fembin/procheaders.sh                    |    8 +
+ fembin/progs/clean_time.f                |   24 +
+ fembin/pscolor.pl                        |    8 +
+ fembin/psgnu                             |    9 +
+ fembin/pslands                           |    9 +
+ fembin/psmakebb.sh                       |    8 +
+ fembin/pspages                           |    8 +
+ fembin/pspages.pl                        |    8 +
+ fembin/psportr                           |    9 +
+ fembin/psresetbb.sh                      |    8 +
+ fembin/range                             |    8 +
+ fembin/rcsfirstrev                       |    8 +
+ fembin/rcsmakeid                         |    8 +
+ fembin/rcsmakeid.pl                      |    8 +
+ fembin/rdext                             |    8 +
+ fembin/rdflx                             |    8 +
+ fembin/rdvol                             |    8 +
+ fembin/recursivemake                     |    8 +
+ fembin/reduce                            |    8 +
+ fembin/regularize                        |    8 +
+ fembin/remotecopy                        |    8 +
+ fembin/remotedist                        |    8 +
+ fembin/remotemake                        |    8 +
+ fembin/remoteshell                       |    8 +
+ fembin/renumber                          |    8 +
+ fembin/restart.pl                        |    8 +
+ fembin/revision_getdate.pl               |    8 +
+ fembin/revision_last.sh                  |    8 +
+ fembin/revisionlog.pl                    |    8 +
+ fembin/revisionlog.sh                    |    8 +
+ fembin/revisionlog_adjust.pl             |    8 +
+ fembin/rms.pl                            |    8 +
+ fembin/rmsim                             |    8 +
+ fembin/rvdates.pl                        |    8 +
+ fembin/rvlog.pl                          |    8 +
+ fembin/s2s                               |    8 +
+ fembin/s2t                               |    8 +
+ fembin/scal_intp                         |    8 +
+ fembin/scalecol                          |    8 +
+ fembin/scalintp                          |    8 +
+ fembin/setparam                          |    8 +
+ fembin/setparam.pl                       |    9 +
+ fembin/shexample.sh                      |    8 +
+ fembin/shyfem_beta.sh                    |    8 +
+ fembin/shyfem_dir.sh                     |    8 +
+ fembin/shyfem_install.pl                 |    8 +
+ fembin/shyfem_install_hard.pl            |    8 +
+ fembin/shyfem_install_hard.sh            |    8 +
+ fembin/shyfem_install_soft.sh            |    8 +
+ fembin/shyfem_path.pl                    |    8 +
+ fembin/shyfem_profile.sh                 |    8 +
+ fembin/shyfem_version.pl                 |    8 +
+ fembin/shyfem_version.sh                 |    8 +
+ fembin/simnam                            |    8 +
+ fembin/splitcol                          |    8 +
+ fembin/strcheck.pl                       |    8 +
+ fembin/strcheck.sh                       |    8 +
+ fembin/strnodes                          |    8 +
+ fembin/strparse.pl                       |    8 +
+ fembin/strtitle                          |    8 +
+ fembin/subst_make.pl                     |    8 +
+ fembin/substcol.pl                       |    8 +
+ fembin/substkey                          |    8 +
+ fembin/subststr                          |    8 +
+ fembin/symlink                           |    8 +
+ fembin/testggu                           |    8 +
+ fembin/timediff                          |    8 +
+ fembin/tokenff.sh                        |    8 +
+ fembin/ts                                |    8 +
+ fembin/ts.pl                             |    8 +
+ fembin/watermark.pl                      |    8 +
+ fembin/wind2speed.pl                     |    8 +
+ fembin/xfem                              |    8 +
+ fembin/xrange.pl                         |    8 +
+ fembin/xy2grd.pl                         |    8 +
+ femcheck/copyright/check_all.pl          |    1 +
+ femcheck/copyright/check_all.sh          |   21 +-
+ femcheck/copyright/include_copyright.pl  |   27 +
+ femcheck/copyright/include_copyright.sh  |   18 +-
+ femcheck/test_compile.sh                 |   26 +
+ femdoc/basic.str                         |    4 +-
+ femdoc/example.str                       |    4 +-
+ femdoc/final/shyfem.pdf                  |  Bin 303562 -> 304616 bytes
+ femdummy/Makefile                        |    2 +
+ femersem/fem_extra/ERSEM-error           |   48 -
+ femersem/fem_extra/ERSEM-error.txt       |   57 +
+ femersem/fem_extra/ERSEM2.5e2.2-diff.txt |    9 +
+ femersem/fem_extra/README                |    9 +
+ femersem/fem_extra/bfm_change.pl         |    8 +
+ femersem/fem_extra/bfm_change.sh         |    8 +
+ femersem/fem_extra/bfm_iterate.sh        |    8 +
+ femgotm/README                           |    4 +
+ femplot/taylor/DATA                      |   56 -
+ femplot/taylor/DATA_TAYLOR               |   56 +
+ femplot/taylor/Makefile                  |    8 +-
+ 378 files changed, 13697 insertions(+), 10612 deletions(-)
+ new file:
+   fembin/git_info/git_info_ignore.txt
+ deleted:
+    fem3d/new/all.zip
+ renamed:
+    femersem/fem_extra/ERSEM-error -> femersem/fem_extra/ERSEM-error.txt
+    femplot/taylor/DATA -> femplot/taylor/DATA_TAYLOR
+
+============================================================
+
+Thu Feb 14 18:16:42 EET 2019
+
+New version 7_5_56
+
+
+============================================================
+
+Thu Feb 14 18:15:40 EET 2019
+
+last preparations before new version
+
+ LOG                                  |   58 ++++++++++++++++++++++++++++++++++
+ RELEASE_NOTES                        |   11 ++++++
+ fem3d/aquabc_II_ini.f90              |    1 +
+ fem3d/aquabc_II_sediment_model_1.f90 |    3 +-
+ fem3d/subpar3.f                      |    4 +-
+ fem3d/subver.f                       |    7 ++--
+ 6 files changed, 78 insertions(+), 6 deletions(-)
+
+============================================================
+
+Thu Feb 14 17:39:14 EET 2019
+
+more bugs in sediment transport
+
+ fem3d/newcon.f     |    9 +++++++++
+ fem3d/newcon_omp.f |    3 +++
+ fem3d/sedi3d.f     |    2 ++
+ fem3d/sedtrans05.f |    5 +++++
+ 4 files changed, 19 insertions(+), 0 deletions(-)
+
+============================================================
+
+Thu Feb 14 15:32:36 EET 2019
+
+phi error in sediments fixed (hack)
+
+ fem3d/sedi3d.f  |    5 +++++
+ fem3d/subssed.f |   26 +++++++++++++++++++++-----
+ 2 files changed, 26 insertions(+), 5 deletions(-)
+
+============================================================
+
+Thu Feb 14 12:12:47 CET 2019
+
+still cleaning
+
+ femcheck/copyright/Makefile     |  11 +-
+ femcheck/copyright/check_all.pl |  33 +++
+ femcheck/copyright/check_all.sh |  47 +++
+ femplot/arc/colbar.ps           | 616 ----------------------------------------
+ 4 files changed, 90 insertions(+), 617 deletions(-)
+ new file:
+   femcheck/copyright/check_all.pl
+ deleted:
+    femplot/arc/colbar.ps
+
+============================================================
+
+Thu Feb 14 10:04:08 CET 2019
+
+some cleaning up
+
+ femadj/arc/adjext.f             |  98 -------
+ femadj/arc/subgrd_1.f           | 589 ----------------------------------------
+ femcheck/Makefile               |   1 +
+ femcheck/copyright/Makefile     |   8 +
+ femcheck/copyright/check_all.sh |  43 +++
+ 5 files changed, 52 insertions(+), 687 deletions(-)
+ new file:
+   femcheck/copyright/Makefile
+   femcheck/copyright/check_all.sh
+ deleted:
+    femadj/arc/adjext.f
+    femadj/arc/subgrd_1.f
+
+============================================================
+
+Wed Feb 13 19:15:44 EET 2019
+
+subdates
+
+ fem3d/subdates.f |   48 +++++++++++++++++++++++++++++-------------------
+ fem3d/subwrt.f   |    1 +
+ 2 files changed, 30 insertions(+), 19 deletions(-)
+
+============================================================
+
+Wed Feb 13 18:38:16 EET 2019
+
+aquabc updates
+
+ fem3d/Makefile                       |   43 +-
+ fem3d/aquabc_II.f90                  | 2971 +++++++-----
+ fem3d/aquabc_II.h                    |   21 -
+ fem3d/aquabc_II_aout.h               |    2 +-
+ fem3d/aquabc_II_ased_ini.f90         |  292 -
+ fem3d/aquabc_II_co2sys.f90           | 9754 +++++++++++++++++-----------------
+ fem3d/aquabc_II_fem_interface.f      | 2646 ++++++----
+ fem3d/aquabc_II_ini.f90              |  890 ++++
+ fem3d/aquabc_II_pelagic_lib.f90      | 1583 ++++--
+ fem3d/aquabc_II_pelagic_model.f90    | 6250 ++++++++++++----------
+ fem3d/aquabc_II_sediment_lib.f90     | 1056 ++++-
+ fem3d/aquabc_II_sediment_model_1.f90 | 6976 ++++++++++++++++---------
+ fem3d/aquabc_II_svindex.f90          |   35 +
+ fem3d/aquabc_II_util.f               |  757 ++-
+ fembin/mkdp.pl                       |    2 +-
+ femersem/src/Makefile                |    2 +
+ 16 files changed, 19661 insertions(+), 13619 deletions(-)
+ new file:
+   fem3d/aquabc_II_ini.f90
+   fem3d/aquabc_II_svindex.f90
+ deleted:
+    fem3d/aquabc_II.h
+    fem3d/aquabc_II_ased_ini.f90
+
+============================================================
+
+Wed Feb 13 17:01:08 EET 2019
+
+small fixes
+
+ fem3d/nc2fem.f     |   36 +++++++++++++++++++++++++++++++++++-
+ fem3d/newcon_omp.f |    6 +++++-
+ fem3d/subfemintp.f |   11 ++++++++++-
+ fem3d/subreg.f     |    7 ++++++-
+ fem3d/subssed.f    |   24 ++++++++++++++++++------
+ fem3d/substrings.f |   18 ++++++++++++++++--
+ 6 files changed, 90 insertions(+), 12 deletions(-)
+
+============================================================
+
+Tue Feb 12 17:39:15 EET 2019
+
+mkdp for aquabc (use lowercase)
+
+ fem3d/Makefile |  136 ++++++++++++++++++++++++++++----------------------------
+ fembin/mkdp.pl |   14 +++---
+ 2 files changed, 76 insertions(+), 74 deletions(-)
+
+============================================================
+
+Tue Feb 12 13:34:59 CET 2019
+
+new files for bottom stress, waves and sediments
+
+ fem3d/Makefile         |  33 ++++--
+ fem3d/lagrange_sedim.f | 285 ++++++++++++++++++++-----------------------------
+ fem3d/lgrelab1.f       |  21 ++--
+ fem3d/sedi3d.f         |   4 +-
+ fem3d/shyfem.f         |   5 +
+ fem3d/subboxa.f        |   2 +-
+ fem3d/subn35.f         |  43 --------
+ fem3d/subssed.f        |  38 +------
+ fem3d/substress.f      | 269 ++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/substrings.f     |  10 +-
+ fem3d/subsys.f         |   8 ++
+ fem3d/subwaves.f       | 192 +--------------------------------
+ 12 files changed, 447 insertions(+), 463 deletions(-)
+ new file:
+   fem3d/substress.f
+
+============================================================
+
+Tue Feb 12 13:38:44 EET 2019
+
+time in nc2fem
+
+ Rules.make       |    2 +-
+ fem3d/nc_tutil.f |   10 ++++++++--
+ 2 files changed, 9 insertions(+), 3 deletions(-)
+
+============================================================
+
+Tue Feb 12 12:24:50 EET 2019
+
+copyright, netcdf enhancements, custom dates
+
+ Rules.make                             |    2 +-
+ fem3d/Makefile                         |    1 +
+ fem3d/nc2fem.f                         |   33 ++++---
+ fem3d/nc_dim_coords.f                  |    2 +
+ fem3d/nc_tutil.f                       |   72 +++------------
+ fem3d/shyelab1.f                       |    4 +-
+ fem3d/subdates.f                       |   91 +++++++++---------
+ fem3d/subshyutil.f                     |    2 +-
+ fem3d/subssed.f                        |   29 +++---
+ fem3d/subwrt.f                         |  165 +++-----------------------------
+ femplot/Makefile                       |    8 ++-
+ femplot/arc/colors.f                   |   26 +++++-
+ femplot/arc/conext.f                   |   24 +++++
+ femplot/arc/level.h                    |    8 --
+ femplot/arc/plotf.zip                  |  Bin 34268 -> 0 bytes
+ femplot/arc/readout.f                  |   26 +++++-
+ femplot/arc/round_test.f               |   24 +++++
+ femplot/arc/supouv.f                   |   26 +++++-
+ femplot/arc/testdash.sh                |    8 ++
+ femplot/color/Makefile                 |    9 ++
+ femplot/color/extra/Makefile           |    9 ++
+ femplot/color/extra/prep.sh            |    8 ++
+ femplot/color/matplotlib/Makefile      |    9 ++
+ femplot/color/oceanlib/prep.pl         |    8 ++
+ femplot/color/oceanlib/prep.sh         |    8 ++
+ femplot/color/oceanlib_txt/prep_txt.f  |   24 +++++
+ femplot/color/oceanlib_txt/prep_txt.pl |    8 ++
+ femplot/color/oceanlib_txt/prep_txt.sh |    8 ++
+ femplot/color/read_colormap.f          |   24 +++++
+ femplot/color/seawifs/colortb.c        |   25 +++++
+ femplot/color/seawifs/supsct.f         |   26 +++++-
+ femplot/info/README                    |    9 ++
+ femplot/info/TODO                      |    9 ++
+ femplot/section.txt                    |    9 ++
+ femplot/taylor/Makefile                |    8 ++-
+ femplot/taylor/taylor.f                |   28 +++++-
+ femplot/taylor/taylor.txt              |    9 ++
+ femplot/taylor/taylor_test.f           |   28 +++++-
+ femplot/util/Makefile                  |    8 ++-
+ femplot/util/col.f                     |   28 +++++-
+ femplot/util/lagxitest.f               |   24 +++++
+ femplot/util/plotbug.f                 |   24 +++++
+ femplot/util/plotcolb.f                |   26 +++++-
+ femplot/util/supcol.f                  |   28 +++++-
+ femplot/util/suputi.f                  |   28 +++++-
+ femplot/util/testdash.f                |   28 +++++-
+ femplot/util/windrose.f                |   28 +++++-
+ post/psgraph.c                         |    7 +-
+ 48 files changed, 711 insertions(+), 335 deletions(-)
+ deleted:
+    femplot/arc/level.h
+    femplot/arc/plotf.zip
+
+============================================================
+
+Mon Feb 11 17:44:40 EET 2019
+
+error in Rules.make
+
+ Rules.make |   11 ++++++++++-
+ 1 files changed, 10 insertions(+), 1 deletions(-)
+
+============================================================
+
+Mon Feb 11 17:43:31 EET 2019
+
+copyright and cleaning
+
+ Rules.make                                     |    2 +-
+ femcheck/INSTALL-LIST                          |    9 +
+ femcheck/arc/link_compiler.sh                  |    8 +
+ femcheck/arc/setup.sh                          |    8 +
+ femcheck/copyright/TODO                        |    9 +
+ femcheck/copyright/check_copyright.pl          |    8 +
+ femcheck/copyright/check_copyright.sh          |   12 +-
+ femcheck/copyright/check_copyright_iter.sh     |    8 +
+ femcheck/copyright/count_uppercase.pl          |    8 +
+ femcheck/copyright/cx_scripts.sh               |   57 ++++
+ femcheck/copyright/find_routines.pl            |    8 +
+ femcheck/copyright/include_copyright.pl        |   10 +
+ femcheck/copyright/include_copyright.sh        |   11 +
+ femcheck/copyright/no_comment.pl               |    8 +
+ femcheck/parallel/Makefile                     |    9 +
+ femcheck/parallel/hw_mix.f                     |   24 ++
+ femcheck/parallel/hw_mix.sh                    |    8 +
+ femcheck/parallel/hw_mpi.f                     |   24 ++
+ femcheck/parallel/hw_mpi.sh                    |    8 +
+ femcheck/parallel/hw_omp.f                     |   24 ++
+ femcheck/parallel/hw_omp.sh                    |    8 +
+ femcheck/rules/Rules.dist                      |    9 +
+ femdoc/GridGeneration.txt                      |    9 +
+ femdoc/INFO_develop                            |    9 +
+ femdoc/LAGRANGE                                |    9 +
+ femdoc/LOG                                     |    9 +
+ femdoc/Makefile                                |    9 +
+ femdoc/ModelApplication.txt                    |    9 +
+ femdoc/PostProcessing.txt                      |    9 +
+ femdoc/RCS/discret.tex,v                       |  339 ------------------------
+ femdoc/README                                  |    9 +
+ femdoc/arc/femdoc.pl                           |    8 +
+ femdoc/arc/gt2000.rno.gz                       |  Bin 21154 -> 0 bytes
+ femdoc/basic.str                               |    9 +
+ femdoc/data_requirement.txt                    |    9 +
+ femdoc/example.str                             |    9 +
+ femdoc/femdoc.pl                               |    8 +
+ femdoc/femdoc.sh                               |    8 +
+ femdoc/help.txt                                |    9 +
+ femdoc/howto_use_grid.txt                      |    9 +
+ femdoc/manual_lagoon.zip                       |  Bin 81659 -> 0 bytes
+ femdoc/manual_layout.txt                       |    9 +
+ femdoc/material/Isa.txt                        |  120 ---------
+ femdoc/material/comments_on_manual.txt         |  129 +++++++++
+ femdoc/meshing.txt                             |    9 +
+ femdoc/mwr/Makefile                            |    9 +
+ femdoc/mwr/abbrev.pl                           |    8 +
+ femdoc/mwr/discret.tex                         |   23 ++
+ femdoc/mwr/georg.txt                           |    9 +
+ femdoc/mwr/math.tex                            |   24 ++
+ femdoc/todo.txt                                |    9 +
+ femdoc/watermark/watermark.pl                  |    8 +
+ 52 files changed, 656 insertions(+), 461 deletions(-)
+ new file:
+   femcheck/copyright/cx_scripts.sh
+ deleted:
+    femdoc/RCS/discret.tex,v
+    femdoc/arc/gt2000.rno.gz
+    femdoc/manual_lagoon.zip
+ renamed:
+    femdoc/material/Isa.txt -> femdoc/material/comments_on_manual.txt
+
+============================================================
+
+Mon Feb 11 01:00:30 EET 2019
+
+copyright
+
+ femadj/arc/adjext.f                     |   28 ++-
+ femadj/arc/subgrd_1.f                   |   28 ++-
+ femadj/bugs/README                      |    9 +
+ femadj/info/TODO                        |    9 +
+ femanim/Makefile                        |    9 +
+ femanim/makeanim.sh                     |    8 +
+ femanim/rename-petras.pl                |    8 +
+ femanim/rename.pl                       |    8 +
+ femcheck/Makefile                       |   10 +
+ femcheck/README                         |    9 +
+ femcheck/check_compilation.sh           |    8 +
+ femcheck/check_software.sh              |    8 +
+ femcheck/check_var.sh                   |    8 +
+ femcheck/configure.pl                   |    8 +
+ femcheck/configure.sh                   |    8 +
+ femcheck/copyright/check_copyright.sh   |   16 +-
+ femcheck/copyright/include_copyright.pl |    6 +-
+ femcheck/find_changed.sh                |    8 +
+ femcheck/find_routines.sh               |    8 +
+ femcheck/identify_compiler.sh           |    8 +
+ femcheck/install-all.sh                 |    8 +
+ femcheck/test_compile.sh                |    8 +
+ femcheck/test_stable.sh                 |    8 +
+ femdummy/Makefile                       |    9 +
+ femlib/Makefile                         |    9 +
+ femlib/perl/ColorObjetc.pm              |    9 +
+ femlib/perl/ForFile.pm                  |    8 +
+ femlib/perl/GD.pm                       |    8 +
+ femlib/perl/address.pm                  |    8 +
+ femlib/perl/arc/csv.pm.1                |  430 -------------------------------
+ femlib/perl/arc/date.pl                 |   10 +-
+ femlib/perl/arc/datetest.pl             |    8 +
+ femlib/perl/arc/email.pl                |    8 +
+ femlib/perl/arc/grd.pl                  |    8 +
+ femlib/perl/ascii.pm                    |    8 +
+ femlib/perl/bibtex.pm                   |    8 +
+ femlib/perl/codepage/arc/ascii.pl       |    8 +
+ femlib/perl/codepage/arc/proc_iso.pl    |    8 +
+ femlib/perl/csv.pm                      |    8 +
+ femlib/perl/date.pm                     |    8 +
+ femlib/perl/grd.pm                      |    8 +
+ femlib/perl/grdline.pm                  |    8 +
+ femlib/perl/html.pm                     |    8 +
+ femlib/perl/html3.pm                    |    8 +
+ femlib/perl/info.txt                    |    9 +
+ femlib/perl/mail.pm                     |    8 +
+ femlib/perl/message.pm                  |    8 +
+ femlib/perl/missing.pm                  |    8 +
+ femlib/perl/mtree.pm                    |    8 +
+ femlib/perl/spam.pm                     |    8 +
+ femlib/perl/spline.pm                   |    8 +-
+ femlib/perl/str.pm                      |    8 +
+ femlib/perl/ts_util.pl                  |    8 +
+ mesh/Makefile                           |    8 +-
+ mesh/bugs/README                        |   10 +-
+ mesh/info/README                        |    9 +
+ mesh/info/TODO                          |    9 +
+ 57 files changed, 493 insertions(+), 447 deletions(-)
+ deleted:
+    femlib/perl/arc/csv.pm.1
+
+============================================================
+
+Mon Feb 11 00:13:04 EET 2019
+
+more bugs GGUZ0, updates in shyelab and femelab
+
+ fem3d/femelab1.f       |  103 ++++++++++++++++++++++++++++++++++++++---------
+ fem3d/shyelab_area.f   |    8 ++-
+ fem3d/shyelab_output.f |   27 +++++++++++-
+ fem3d/subnsh.f         |    2 +-
+ fem3d/subwaves.f       |   10 ++++-
+ 5 files changed, 121 insertions(+), 29 deletions(-)
+
+============================================================
+
+Sun Feb 10 20:00:36 EET 2019
+
+still more on copyright...
+
+ femcheck/copyright/check_copyright_iter.sh |   18 ++++++++-
+ femcheck/copyright/include_copyright.pl    |    8 +++-
+ femcheck/copyright/include_copyright.sh    |   52 +++++++++++++++++++++++----
+ femspline/arc/gridf.f                      |   24 +++++++++++++
+ femspline/arc/grids.f                      |   26 +++++++++++++-
+ femspline/arc/grids_util.f                 |   24 +++++++++++++
+ femspline/arc/subgrd.f                     |   28 +++++++++++++--
+ grid/Makefile                              |    8 ++++-
+ grid/info/BUGS                             |    9 +++++
+ grid/info/GRIDLOG                          |    9 +++++
+ grid/info/INFORMAT                         |    9 +++++
+ grid/info/INTERNAL                         |    9 +++++
+ grid/info/TODO                             |    9 +++++
+ hcbs/Makefile                              |    8 ++++-
+ post/Makefile                              |    8 ++++-
+ post/arc/colorscale.f                      |   24 +++++++++++++
+ post/arc/graph.h                           |   29 +++++++++++++--
+ post/arc/pgraphf.c                         |   52 +++++++++++++--------------
+ post/arc/psgraphu.f                        |   24 +++++++++++++
+ post/info/CALCOMP                          |    9 +++++
+ post/info/EPS                              |    8 ++++
+ post/info/LOG                              |    9 +++++
+ 22 files changed, 354 insertions(+), 50 deletions(-)
+
+============================================================
+
+Sun Feb 10 17:30:38 EET 2019
+
+more on copyright
+
+ femcheck/copyright/check_copyright.sh      |   67 ++++++++++++++++++----------
+ femcheck/copyright/check_copyright_iter.sh |   41 +++++++++++++++++
+ femcheck/copyright/include_copyright.pl    |   43 +++++++++++++++---
+ femcheck/copyright/include_copyright.sh    |    8 +++-
+ femutil/auxiliary/map_influence.f          |   28 ++++++++++-
+ femutil/auxiliary/mkgeom.f                 |   28 ++++++++++-
+ femutil/auxiliary/mkgeomr.f                |   28 ++++++++++-
+ femutil/auxiliary/qflux_test.f             |   24 ++++++++++
+ femutil/auxiliary/test_modulus.f           |   24 ++++++++++
+ femutil/auxiliary/whdf.f                   |   26 ++++++++++-
+ femutil/auxiliary/zinit.f                  |   28 ++++++++++-
+ femutil/dstruc/Makefile                    |    9 ++++
+ femutil/dstruc/compact.pl                  |    8 +++
+ femutil/dstruc/hash.f                      |   24 ++++++++++
+ femutil/dstruc/heap.f                      |   28 ++++++++++-
+ femutil/dstruc/queue.f                     |   24 ++++++++++
+ femutil/dstruc/sort.f                      |   24 ++++++++++
+ femutil/dstruc/spline.f                    |   24 ++++++++++
+ femutil/dstruc/stack.f                     |   24 ++++++++++
+ femutil/dstruc/tree.f                      |   24 ++++++++++
+ femutil/femfiles/Makefile                  |    9 ++++
+ femutil/femfiles/profile.f                 |   24 ++++++++++
+ femutil/femfiles/subdts.f                  |   28 ++++++++++-
+ femutil/femfiles/subfemfile.f              |   28 ++++++++++-
+ femutil/femfiles/subfil.f                  |   28 ++++++++++-
+ femutil/mpi/Makefile                       |    9 ++++
+ femutil/mpi/mpi_test.f                     |   24 ++++++++++
+ femutil/mpi/simple_xy_wr.f90               |   25 ++++++++++
+ femutil/stab/Makefile                      |    9 ++++
+ femutil/stab/nudge.f                       |   24 ++++++++++
+ femutil/stab/nudge.sh                      |    8 +++
+ femutil/var/Makefile                       |    9 ++++
+ femutil/var/array_assign.f                 |   24 ++++++++++
+ 33 files changed, 726 insertions(+), 57 deletions(-)
+ new file:
+   femcheck/copyright/check_copyright_iter.sh
+
+============================================================
+
+Sat Feb  9 22:55:20 EET 2019
+
+continued adding copyright to files
+
+ femadj/Makefile                         |    8 ++-
+ femcheck/copyright/check_copyright.sh   |    9 +++
+ femcheck/copyright/copyright_short.txt  |    5 ++
+ femcheck/copyright/include_copyright.pl |  101 ++++++++++++++++++++++---------
+ femcheck/copyright/include_copyright.sh |   30 +++++++---
+ femspline/Makefile                      |    8 ++-
+ femspline/README                        |    9 +++
+ femutil/Makefile                        |    9 +++
+ 8 files changed, 141 insertions(+), 38 deletions(-)
+ new file:
+   femcheck/copyright/copyright_short.txt
+
+============================================================
+
+Sat Feb  9 22:54:06 EET 2019
+
+bug fix for dt=0 in last time step
+
+ fem3d/Makefile   |   18 +++++++++-------
+ fem3d/subbnds.f  |    8 ++----
+ fem3d/subnsh.f   |    2 +-
+ fem3d/subres.f   |   17 +++++++++++----
+ fem3d/subtime.f  |   56 +++++++++++++++++++++++++++++++++++++++++++++++++----
+ fem3d/subtrace.f |    3 --
+ 6 files changed, 77 insertions(+), 27 deletions(-)
+
+============================================================
+
+Fri Feb  8 17:45:12 EET 2019
+
+other bugs and box computations adjourned
+
+ fem3d/basutil_box.f |   12 +-
+ fem3d/bdist.f       |    1 -
+ fem3d/new3di.f      |    4 +-
+ fem3d/newbcl.f      |  116 ++++++++++++++
+ fem3d/newnohydro.f  |   18 +--
+ fem3d/subbnds.f     |   21 +++
+ fem3d/subboxa.f     |  441 ++++++++++++++++++++++++++++-----------------------
+ fem3d/subcus.f      |  117 ++++++++++++++
+ fem3d/subfemintp.f  |   49 ++++++
+ fem3d/subqfxm5.f    |    6 +-
+ fem3d/subsys.f      |    9 +-
+ fem3d/subwaves.f    |    4 +
+ fem3d/subwrt.f      |   16 ++-
+ 13 files changed, 578 insertions(+), 236 deletions(-)
+
+============================================================
+
+Tue Feb  5 11:39:18 EET 2019
+
+sedi3d updated
+
+ fem3d/sedi3d.f     |  407 ++++++++++++++++++++++++++++++++++++----------------
+ fem3d/sedtrans05.f |   25 +++-
+ 2 files changed, 297 insertions(+), 135 deletions(-)
+
+============================================================
+
+Tue Feb  5 10:43:39 EET 2019
+
+bug in subgotm
+
+ fem3d/subgotm.f  |    2 +-
+ fembin/git-setup |   12 +++++++++---
+ 2 files changed, 10 insertions(+), 4 deletions(-)
+
+============================================================
+
+Mon Feb  4 17:16:25 CET 2019
+
+unifying git commands
+
+ fembin/git-commit                    | 139 +++++++++++++++++++++++
+ fembin/git-diff                      | 118 +++++++++++++++++++
+ fembin/git-file                      | 148 ++++++++++++++++++++++++
+ fembin/git-gui                       |  60 ++++++++++
+ fembin/git-info                      |  27 +++++
+ fembin/git-manual                    |  54 +++++++++
+ fembin/git-pack                      |  24 ++++
+ fembin/git-release                   | 185 ++++++++++++++++++++++++++++++
+ fembin/git-release.sh                | 185 ------------------------------
+ fembin/git-tag                       | 213 +++++++++++++++++++++++++++++++++++
+ fembin/git-tags                      |  78 +++++++++++++
+ fembin/git-tar                       |  53 +++++++++
+ fembin/git-util.sh                   |  69 ++++++++++++
+ fembin/git_info/git_info_general.txt |  20 ++--
+ fembin/git_info/git_info_version.txt |   8 +-
+ fembin/gitcommit                     | 139 -----------------------
+ fembin/gitdiff                       | 118 -------------------
+ fembin/gitfileversion                | 148 ------------------------
+ fembin/gitgui.sh                     |  60 ----------
+ fembin/gitinfo                       |  27 -----
+ fembin/gitmanual                     |  50 --------
+ fembin/gitpack                       |  24 ----
+ fembin/gittag                        | 213 -----------------------------------
+ fembin/gittags                       |  76 -------------
+ fembin/gittar                        |  51 ---------
+ 25 files changed, 1182 insertions(+), 1105 deletions(-)
+ new file:
+   fembin/git-manual
+   fembin/git-tar
+   fembin/git-util.sh
+ deleted:
+    fembin/gitmanual
+    fembin/gittar
+ renamed:
+    fembin/gitcommit -> fembin/git-commit
+    fembin/gitdiff -> fembin/git-diff
+    fembin/gitfileversion -> fembin/git-file
+    fembin/gitgui.sh -> fembin/git-gui
+    fembin/gitinfo -> fembin/git-info
+    fembin/gitpack -> fembin/git-pack
+    fembin/git-release.sh -> fembin/git-release
+    fembin/gittag -> fembin/git-tag
+    fembin/gittags -> fembin/git-tags
+
+============================================================
+
+Sun Feb  3 21:38:41 EET 2019
+
+more debugging with sediments
+
+ fem3d/Makefile        |    4 +
+ fem3d/debug.f         |  169 +++++++++++++++++++++++++++++++++++++++----------
+ fem3d/gotm3d.f        |    2 -
+ fem3d/mod_roughness.f |   25 ++++++--
+ fem3d/new3di.f        |   17 ++---
+ fem3d/newchk.f        |    6 ++-
+ fem3d/newini.f        |    9 +--
+ fem3d/sedi3d.f        |   32 ++++++----
+ fem3d/sedtrans05.f    |   32 ++++++++--
+ fem3d/subele.f        |   39 +++++++++--
+ fem3d/subgeo.f        |    7 --
+ fem3d/subgotm.f       |   25 +++++--
+ fem3d/subqfxt.f       |   31 +++++-----
+ fem3d/subwaves.f      |    4 +-
+ fembin/extimate.sh    |   11 +++-
+ fembin/gitgui.sh      |    4 +-
+ 16 files changed, 297 insertions(+), 120 deletions(-)
+
+============================================================
+
+Fri Feb  1 15:52:30 EET 2019
+
+more on sediments
+
+ fem3d/sedtrans05.f |   36 ++++++++++++++++++++++++++----------
+ 1 files changed, 26 insertions(+), 10 deletions(-)
+
+============================================================
+
+Fri Feb  1 15:06:15 EET 2019
+
+small bugs for sediments fixed
+
+ Rules.make                |    6 ++--
+ fem3d/newcon.f            |    4 +-
+ fem3d/newcon_omp.f        |    8 +++++-
+ fem3d/subrnd.f            |    1 +
+ fem3d/subwaves.f          |   50 ++++++++++++++++++++++++++++----------------
+ fembin/gmv.sh             |   13 ++++++-----
+ femcheck/rules/Rules.dist |    6 ++--
+ 7 files changed, 54 insertions(+), 34 deletions(-)
+
+============================================================
+
+Wed Jan 30 16:47:11 EET 2019
+
+compiler warnings
+
+ COMMIT                    |   12 +++
+ fem3d/subclo.f            |    4 +
+ fembin/git-release.sh     |   19 +++++-
+ fembin/gp_shift_legend.pl |  167 +++++++++++++++++++++++++++++----------------
+ fembin/minmax.pl          |   37 ++++++++++-
+ 5 files changed, 178 insertions(+), 61 deletions(-)
+
+============================================================
+
+Wed Jan 30 16:45:18 EET 2019
+
+compiler warnings eliminated
+
+ Rules.make                |    1 +
+ fem3d/femelab1.f          |    5 +++++
+ fem3d/sub2linear.f        |    2 ++
+ fembin/gmv.sh             |   22 ++++++++++++++++++----
+ femcheck/rules/Rules.dist |    1 +
+ 5 files changed, 27 insertions(+), 4 deletions(-)
+
+============================================================
+
+Wed Jan 30 15:42:37 CET 2019
+
+some processing routines changed
+
+ fem3d/subclo.f            |   4 ++
+ fembin/git-release.sh     |  19 +++++-
+ fembin/gp_shift_legend.pl | 167 ++++++++++++++++++++++++++++++----------------
+ fembin/minmax.pl          |  37 +++++++++-
+ 4 files changed, 166 insertions(+), 61 deletions(-)
+
+============================================================
+
+Fri Jan 18 18:25:27 CET 2019
+
+more to make a release
+
+ fembin/git-release.sh       | 13 +++++++++++++
+ fembin/git-release_notes.pl | 33 +++++++++++++++++++++++++++++++++
+ 2 files changed, 46 insertions(+)
+ new file:
+   fembin/git-release_notes.pl
+
+============================================================
+
+Fri Jan 18 16:19:47 CET 2019
+
+New version 7_5_55
+
+
+============================================================
+
+Fri Jan 18 16:18:12 CET 2019
+
+prepared for new penta solver
+
+ LOG                                   |   9 ++++++
+ RELEASE_NOTES                         |  14 +++++++++
+ fem3d/new3di.f                        |  17 ++++++-----
+ fem3d/subver.f                        |   7 +++--
+ fembin/git-release.sh                 |   8 ++++-
+ fembin/git_info/git_info_general.txt  |   1 +
+ fembin/git_info/git_info_version.txt  |   1 +
+ femcheck/copyright/check_copyright.pl |   5 +--
+ femcheck/copyright/check_copyright.sh |  56 ++++++++++++++++++++++++++++------
+ femdoc/final/shyfem.pdf               | Bin 303570 -> 303562 bytes
+ 10 files changed, 94 insertions(+), 24 deletions(-)
+
+============================================================
+
+Thu Jan 17 17:06:18 CET 2019
+
+more on penta
+
+ fem3d/new3di.f       |  71 ++++++++++---
+ fem3d/spk_itaux.f    |  16 +--
+ fem3d/subpenta.f     | 293 ++++++++++++++++++++++++++++++++++++++++++++++-----
+ femlib/perl/html3.pm |   2 +
+ 4 files changed, 339 insertions(+), 43 deletions(-)
+
+============================================================
+
+Fri Jan  4 23:28:34 CET 2019
+
+more on copyright and matrices
+
+ fem3d/subinv.f                        | 2435 ---------------------------------
+ femcheck/copyright/count_uppercase.pl |   37 +
+ 2 files changed, 37 insertions(+), 2435 deletions(-)
+ new file:
+   femcheck/copyright/count_uppercase.pl
+ deleted:
+    fem3d/subinv.f
+
+============================================================
+
+Fri Jan  4 21:50:27 CET 2019
+
+copyright and matrix routines
+
+ LGPL                                  |  504 ++++++
+ fem3d/Makefile                        |    3 +-
+ fem3d/matrix47.f                      |  129 --
+ fem3d/spk_blas.f                      | 2729 +++++++++++++++++++++++++++++++++
+ fem3d/spk_blas1_mod.f                 |  474 ------
+ fem3d/spk_coo.f                       |  824 +++++-----
+ fem3d/spk_ilut.f                      |  137 +-
+ fem3d/spk_itaux.f                     |  451 +++---
+ fem3d/spk_iters.f                     |   52 +-
+ fem3d/spk_itpack.f                    |   66 +-
+ fem3d/spk_linpack.f                   | 1180 ++++++++++++++
+ fem3d/spk_matvec.f                    |   50 +-
+ fem3d/subblas.f                       |  300 ----
+ fem3d/sublp.f                         |  590 +++++++
+ fem3d/subpard.f                       |    3 +-
+ fem3d/subspk.f                        |    3 +-
+ fem3d/subver.f                        |    2 +-
+ femcheck/copyright/check_copyright.pl |   44 +
+ femcheck/copyright/find_routines.pl   |   19 +
+ femcheck/copyright/no_comment.pl      |    9 +
+ femdoc/final/shyfem.pdf               |  Bin 303568 -> 303570 bytes
+ femdoc/watermark/watermark.pl         |    9 +
+ 22 files changed, 5907 insertions(+), 1671 deletions(-)
+ new file:
+   LGPL
+   fem3d/spk_blas.f
+   fem3d/spk_linpack.f
+   fem3d/sublp.f
+   femcheck/copyright/check_copyright.pl
+   femcheck/copyright/find_routines.pl
+   femcheck/copyright/no_comment.pl
+ deleted:
+    fem3d/matrix47.f
+    fem3d/spk_blas1_mod.f
+    fem3d/subblas.f
+
+============================================================
+
+Thu Dec 27 21:54:04 CET 2018
+
+New version 7_5_54
+
+
+============================================================
+
+Thu Dec 27 21:27:06 CET 2018
+
+manual updated
+
+ fem3d/submeteo2.f       |   6 ++--
+ fem3d/subsys.f          |  12 +++----
+ fembin/mail_shyfem.sh   |   1 +
+ femdoc/3d_layers.tex    |  94 ++++++++++++++++++++++++++++++++++++++++++------
+ femdoc/final/shyfem.pdf | Bin 301519 -> 303568 bytes
+ femdoc/git.tex          |   6 ++--
+ 6 files changed, 96 insertions(+), 23 deletions(-)
+
+============================================================
+
+Wed Dec 26 13:31:18 CET 2018
+
+some documentation on git
+
+ femdoc/final/shyfem.pdf | Bin 297632 -> 301519 bytes
+ femdoc/git.tex          | 110 ++++++++++++++++++++++++++++++++++++++++++++++++
+ femdoc/lagrangian.tex   |   5 ++-
+ femdoc/shyfem.tex       |   5 ++-
+ 4 files changed, 116 insertions(+), 4 deletions(-)
+ new file:
+   femdoc/git.tex
+
+============================================================
+
+Mon Dec 24 18:26:40 CET 2018
+
+various utilities for making a release
+
+ Makefile              |   3 +
+ TODO                  |   9 +++
+ fembin/git-release.sh | 149 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ femlib/perl/html3.pm  | 107 +++++++++++++++++++++++++-----------
+ 4 files changed, 237 insertions(+), 31 deletions(-)
+ new file:
+   fembin/git-release.sh
+
+============================================================
+
+Fri Dec 21 13:17:22 CET 2018
+
+New version 7_5_53
+
+
+============================================================
+
+Fri Dec 21 13:16:08 CET 2018
+
+Christmas 2018 edition
+
+ LOG                        |   6 ++++++
+ RELEASE_NOTES              |   7 +++++++
+ fem3d/Makefile             |  26 +++++++++++++++++---------
+ fem3d/aquabc_II_co2sys.f90 |   3 ++-
+ fem3d/new3di.f             |   1 +
+ fem3d/sublapack.f          |   4 ++++
+ fem3d/subver.f             |   7 ++++---
+ femdoc/final/shyfem.pdf    | Bin 297620 -> 297632 bytes
+ 8 files changed, 41 insertions(+), 13 deletions(-)
+
+============================================================
+
+Wed Dec 19 17:34:48 CET 2018
+
+error in subpenta and call to it
+
+ fem3d/new3di.f   |  8 ++++----
+ fem3d/subpenta.f | 52 ++++++++++++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 54 insertions(+), 6 deletions(-)
+
+============================================================
+
+Wed Dec 19 13:41:32 CET 2018
+
+more on coo routines
+
+ Makefile        |   3 +-
+ fem3d/Makefile  |  42 +---
+ fem3d/spk_coo.f | 695 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/subcoo.f  | 694 -------------------------------------------------------
+ 4 files changed, 707 insertions(+), 727 deletions(-)
+ new file:
+   fem3d/spk_coo.f
+
+
+============================================================
+
+Tue Dec 18 17:58:57 CET 2018
+
+New version 7_5_52
+
+============================================================
+
+Tue Dec 18 17:57:54 CET 2018
+
+nonhydrostatic code added
+
+ LOG                           |  42 ++++++++++++++++++++++++
+ RELEASE_NOTES                 |   7 ++++
+ fem3d/Makefile                |  19 +++++++++--
+ fem3d/basutil_interp.f        |   2 ++
+ fem3d/newnohydro.f            |  15 ++++++---
+ fem3d/subver.f                |   7 ++--
+ femcheck/check_compilation.sh |   1 +
+ femcheck/test_compile.sh      |   4 ++-
+ femdoc/final/shyfem.pdf       | Bin 297629 -> 297620 bytes
+ femplot/Makefile              |   2 +-
+ femplot/supano.f              |  17 +++++++---
+ femplot/suptim.f              |  74 +++++++++++++++++++++++++++++++++++-------
+ femplot/timlim.h              |  33 -------------------
+ grid/Makefile                 |   3 +-
+ 14 files changed, 163 insertions(+), 63 deletions(-)
+ deleted:
+    femplot/timlim.h
+
+============================================================
+
+Thu Nov 29 18:24:59 CET 2018
+
+something on closures
+
+ fem3d/new36.f  | 16 ++++++++++++----
+ fem3d/subbnd.f | 17 +++++++++++++++++
+ fem3d/subn11.f |  4 +++-
+ 3 files changed, 32 insertions(+), 5 deletions(-)
+
+============================================================
+
+Fri Nov 23 18:18:24 CET 2018
+
+minor code for interpoaltion of time series files
+
+ fem3d/intp.f             |  50 ++++++++++---------
+ fem3d/newnudge.f         |  12 +++--
+ fem3d/subfemintp.f       | 127 ++++++++++++++++++++++++++++++++++++++++++++---
+ femcheck/test_compile.sh |   8 ++-
+ 4 files changed, 162 insertions(+), 35 deletions(-)
+
+============================================================
+
+Mon Nov 12 21:37:31 CET 2018
+
+some changes on matrix routines
+
+ fem3d/new3di.f          |  23 +-
+ fem3d/newcra.f          | 806 ------------------------------------------------
+ fem3d/subblas.f         | 300 ++++++++++++++++++
+ fem3d/sublapack.f       |   0
+ fem3d/subpenta.f        | 350 +++++++++++++++++++++
+ fem3d/subsrt.f          | 183 +++++++++--
+ femcheck/copyright/TODO |  10 +-
+ 7 files changed, 835 insertions(+), 837 deletions(-)
+ new file:
+   fem3d/subblas.f
+   fem3d/sublapack.f
+   fem3d/subpenta.f
+ deleted:
+    fem3d/newcra.f
+
+============================================================
+
+Mon Nov 12 15:47:04 CET 2018
+
+linear arrays for more files
+
+ fem3d/Makefile     |  13 +++---
+ fem3d/elab_off.f   |  40 +++++++++++++++---
+ fem3d/sub2linear.f | 119 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ fem3d/subeos.f     |   8 +++-
+ fem3d/subets.f     |   8 +++-
+ fem3d/submod.f     |   2 +-
+ fem3d/subnos.f     |   8 +++-
+ fem3d/subnsh.f     |   4 +-
+ fem3d/suboff.f     |  85 +++++++++++++++++++++++++++++++++-----
+ fem3d/subous.f     |  16 +++++--
+ 10 files changed, 268 insertions(+), 35 deletions(-)
+
+============================================================
+
+Mon Nov 12 11:42:12 CET 2018
+
+linear arrays to avoid gfrotran8 compiler errors
+
+ fem3d/sub2linear.f | 35 ++++++++++++++++++++++++++---------
+ fem3d/subext.f     |  9 +++++++--
+ fem3d/subshy.f     |  9 +++++----
+ 3 files changed, 38 insertions(+), 15 deletions(-)
+
+============================================================
+
+Fri Nov  9 18:14:26 CET 2018
+
+linear routines for ext and shy files (compiler warning)
+
+ fem3d/Makefile     |  6 ++--
+ fem3d/sub2linear.f | 98 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/subext.f     | 81 ++++----------------------------------------
+ fem3d/subshy.f     | 28 +++++++++++-----
+ 4 files changed, 128 insertions(+), 85 deletions(-)
+ new file:
+   fem3d/sub2linear.f
+
+============================================================
+
+Fri Nov  9 10:14:26 CET 2018
+
+custom routine in femelab
+
+ fem3d/femelab1.f | 24 +++++++++++++++---------
+ 1 file changed, 15 insertions(+), 9 deletions(-)
+
+============================================================
+
+Fri Nov  9 10:12:01 CET 2018
+
+bug change for reading str file
+
+ fem3d/subgeo.f | 14 +++++++-------
+ fem3d/subnls.f | 46 ++++++++++++++++++++++++++++++----------------
+ 2 files changed, 37 insertions(+), 23 deletions(-)
+
+============================================================
+
+Sat Nov  3 23:38:32 CET 2018
+
+copyright for ERSEM (BFM)
+
+ femersem/README                 |  9 +++++++++
+ femersem/fem_extra/README       |  8 ++++++--
+ femersem/src/share/femtobfm.F90 | 25 +++++++++++++++++++++++++
+ 3 files changed, 40 insertions(+), 2 deletions(-)
+
+============================================================
+
+Sat Nov  3 00:03:34 CET 2018
+
+copyright notice for GOTM
+
+ femcheck/copyright/TODO        |   6 +-
+ femgotm/Makefile               |   1 +
+ femgotm/Makefile.1             | 160 -----------------------------------------
+ femgotm/Makefile.2             | 115 -----------------------------
+ femgotm/README                 |  23 +++++-
+ femgotm/dissipationeq.F90      |   2 +-
+ femgotm/fem_gotm_interface.F90 |  26 +++++++
+ femgotm/tkeeq.F90              |   2 +-
+ femgotm/turbulence.F90         |   2 +-
+ 9 files changed, 54 insertions(+), 283 deletions(-)
+ deleted:
+    femgotm/Makefile.1
+    femgotm/Makefile.2
+
+============================================================
+
+Fri Nov  2 23:07:39 CET 2018
+
+copyright for grid, mesh, exgrd, getopt from libc
+
+ grid/Makefile  |   2 +-
+ grid/gridop.c  | 156 ++++++---------------------------------------------------
+ grid/gridvs.c  |  16 ++++--
+ grid/options.c |  50 ++++++++++++++++++
+ grid/options.h |  47 +++++++++++++++++
+ mesh/exgrdop.c |   5 +-
+ mesh/exgrdvs.c |  15 ++++--
+ mesh/meshop.c  |   5 +-
+ mesh/meshvs.c  |  15 ++++--
+ 9 files changed, 149 insertions(+), 162 deletions(-)
+ new file:
+   grid/options.c
+   grid/options.h
+
+============================================================
+
+Wed Oct 31 11:53:20 CET 2018
+
+copyright adjusted for grid and mesh
+
+ grid/args.c     | 52 +++++++++++++++++++++++++---------------------------
+ grid/args.h     | 29 +++++++++++++++++++++++++----
+ grid/assert.c   | 53 +++++++++++++++++++++++++----------------------------
+ grid/assert.h   | 30 +++++++++++++++++++++++++-----
+ grid/color.c    | 52 +++++++++++++++++++++++++---------------------------
+ grid/color.h    | 29 +++++++++++++++++++++++++----
+ grid/debug.c    | 52 +++++++++++++++++++++++++---------------------------
+ grid/debug.h    | 29 +++++++++++++++++++++++++----
+ grid/event.c    | 25 +++++++++++++++++++++++++
+ grid/event32.c  | 25 +++++++++++++++++++++++++
+ grid/eventque.h | 25 +++++++++++++++++++++++++
+ grid/events.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/events.h   | 29 +++++++++++++++++++++++++----
+ grid/evtest.c   | 25 +++++++++++++++++++++++++
+ grid/fund.h     | 29 +++++++++++++++++++++++++----
+ grid/general.c  | 53 +++++++++++++++++++++++++----------------------------
+ grid/general.h  | 30 +++++++++++++++++++++++++-----
+ grid/generalx.h | 29 +++++++++++++++++++++++++----
+ grid/gevents.c  | 52 +++++++++++++++++++++++++---------------------------
+ grid/ggraph.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gkeybd.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gmouse.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/graph.c    | 52 +++++++++++++++++++++++++---------------------------
+ grid/graph.h    | 29 +++++++++++++++++++++++++----
+ grid/grid.c     | 52 +++++++++++++++++++++++++---------------------------
+ grid/grid.h     | 29 +++++++++++++++++++++++++----
+ grid/grid_df.h  | 29 +++++++++++++++++++++++++----
+ grid/grid_ex.h  | 29 +++++++++++++++++++++++++----
+ grid/grid_fp.h  | 29 +++++++++++++++++++++++++----
+ grid/grid_ty.h  | 29 +++++++++++++++++++++++++----
+ grid/gridbu.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridco.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridfi.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridge.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridhs.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridhs.h   | 29 +++++++++++++++++++++++++----
+ grid/gridky.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridky.h   | 29 +++++++++++++++++++++++++----
+ grid/gridlo.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridma1.c  | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridma2.c  | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridmu.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridmu.h   | 29 +++++++++++++++++++++++++----
+ grid/gridnl.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridnl.h   | 29 +++++++++++++++++++++++++----
+ grid/gridop.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridpl.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridps.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridut.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gridvs.c   | 53 +++++++++++++++++++++++++----------------------------
+ grid/gridwi.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/gustd.c    | 52 +++++++++++++++++++++++++---------------------------
+ grid/gustd.h    | 29 +++++++++++++++++++++++++----
+ grid/hash.c     | 53 +++++++++++++++++++++++++----------------------------
+ grid/hash.h     | 30 +++++++++++++++++++++++++-----
+ grid/keybd.c    | 52 +++++++++++++++++++++++++---------------------------
+ grid/keybd.h    | 29 +++++++++++++++++++++++++----
+ grid/list.c     | 52 +++++++++++++++++++++++++---------------------------
+ grid/list.h     | 29 +++++++++++++++++++++++++----
+ grid/menu.c     | 53 +++++++++++++++++++++++++----------------------------
+ grid/menu.h     | 30 +++++++++++++++++++++++++-----
+ grid/mouse.c    | 52 +++++++++++++++++++++++++---------------------------
+ grid/mouse.h    | 29 +++++++++++++++++++++++++----
+ grid/nextevnt.c | 25 +++++++++++++++++++++++++
+ grid/psgraph.c  | 52 +++++++++++++++++++++++++---------------------------
+ grid/psgraph.h  | 29 +++++++++++++++++++++++++----
+ grid/queue.c    | 52 +++++++++++++++++++++++++---------------------------
+ grid/queue.h    | 29 +++++++++++++++++++++++++----
+ grid/screen.c   | 53 +++++++++++++++++++++++++----------------------------
+ grid/screen.h   | 30 +++++++++++++++++++++++++-----
+ grid/short.c    | 25 +++++++++++++++++++++++++
+ grid/stack.c    | 53 +++++++++++++++++++++++++----------------------------
+ grid/stack.h    | 30 +++++++++++++++++++++++++-----
+ grid/tevents.c  | 52 +++++++++++++++++++++++++---------------------------
+ grid/tstcol.c   | 25 +++++++++++++++++++++++++
+ grid/tstev.c    | 25 +++++++++++++++++++++++++
+ grid/tstgr.c    | 25 +++++++++++++++++++++++++
+ grid/tstgrx.c   | 25 +++++++++++++++++++++++++
+ grid/xevents.c  | 52 +++++++++++++++++++++++++---------------------------
+ grid/xgraph.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/xgraph.h   | 29 +++++++++++++++++++++++++----
+ grid/xkeybd.c   | 52 +++++++++++++++++++++++++---------------------------
+ grid/xmouse.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/args.c     | 52 +++++++++++++++++++++++++---------------------------
+ mesh/args.h     | 29 +++++++++++++++++++++++++----
+ mesh/assert.c   | 53 +++++++++++++++++++++++++----------------------------
+ mesh/assert.h   | 30 +++++++++++++++++++++++++-----
+ mesh/backg.c    | 52 +++++++++++++++++++++++++---------------------------
+ mesh/backg.h    | 29 +++++++++++++++++++++++++----
+ mesh/debug.c    | 52 +++++++++++++++++++++++++---------------------------
+ mesh/debug.h    | 29 +++++++++++++++++++++++++----
+ mesh/elips.c    | 52 +++++++++++++++++++++++++---------------------------
+ mesh/exgrd.c    | 52 +++++++++++++++++++++++++---------------------------
+ mesh/exgrd.h    | 29 +++++++++++++++++++++++++----
+ mesh/exgrdop.c  | 52 +++++++++++++++++++++++++---------------------------
+ mesh/exgrdop.h  | 29 +++++++++++++++++++++++++----
+ mesh/exgrdvs.c  | 52 +++++++++++++++++++++++++---------------------------
+ mesh/fund.h     | 29 +++++++++++++++++++++++++----
+ mesh/general.c  | 53 +++++++++++++++++++++++++----------------------------
+ mesh/general.h  | 30 +++++++++++++++++++++++++-----
+ mesh/grd.h      | 29 +++++++++++++++++++++++++----
+ mesh/grdhs.c    | 52 +++++++++++++++++++++++++---------------------------
+ mesh/grdhs.h    | 29 +++++++++++++++++++++++++----
+ mesh/grdio.c    | 52 +++++++++++++++++++++++++---------------------------
+ mesh/grdio.h    | 29 +++++++++++++++++++++++++----
+ mesh/grdut.c    | 52 +++++++++++++++++++++++++---------------------------
+ mesh/grdut.h    | 29 +++++++++++++++++++++++++----
+ mesh/gustd.c    | 52 +++++++++++++++++++++++++---------------------------
+ mesh/gustd.h    | 29 +++++++++++++++++++++++++----
+ mesh/hash.c     | 53 +++++++++++++++++++++++++----------------------------
+ mesh/hash.h     | 30 +++++++++++++++++++++++++-----
+ mesh/heap.c     | 52 +++++++++++++++++++++++++---------------------------
+ mesh/heap.h     | 29 +++++++++++++++++++++++++----
+ mesh/intgrd.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/list.c     | 52 +++++++++++++++++++++++++---------------------------
+ mesh/list.h     | 29 +++++++++++++++++++++++++----
+ mesh/maskgrd.c  | 52 +++++++++++++++++++++++++---------------------------
+ mesh/mesh.c     | 52 +++++++++++++++++++++++++---------------------------
+ mesh/mesh.h     | 29 +++++++++++++++++++++++++----
+ mesh/mesh.prj   | 22 ----------------------
+ mesh/meshbd.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/meshbd.h   | 29 +++++++++++++++++++++++++----
+ mesh/meshck.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/meshck.h   | 29 +++++++++++++++++++++++++----
+ mesh/meshcv.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/meshcv.h   | 29 +++++++++++++++++++++++++----
+ mesh/meshfi.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/meshfi.h   | 29 +++++++++++++++++++++++++----
+ mesh/meshgd.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/meshgd.h   | 29 +++++++++++++++++++++++++----
+ mesh/meshge.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/meshge.h   | 29 +++++++++++++++++++++++++----
+ mesh/meshhs.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/meshhs.h   | 29 +++++++++++++++++++++++++----
+ mesh/meshin.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/meshin.h   | 29 +++++++++++++++++++++++++----
+ mesh/meshop.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/meshop.h   | 29 +++++++++++++++++++++++++----
+ mesh/meshty.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/meshty.h   | 29 +++++++++++++++++++++++++----
+ mesh/meshut.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/meshut.h   | 29 +++++++++++++++++++++++++----
+ mesh/meshvs.c   | 52 +++++++++++++++++++++++++---------------------------
+ mesh/nlist.c    | 52 +++++++++++++++++++++++++---------------------------
+ mesh/nlist.h    | 29 +++++++++++++++++++++++++----
+ mesh/nmblist.c  | 52 +++++++++++++++++++++++++---------------------------
+ mesh/nmblist.h  | 29 +++++++++++++++++++++++++----
+ mesh/options.c  | 52 +++++++++++++++++++++++++---------------------------
+ mesh/options.h  | 29 +++++++++++++++++++++++++----
+ mesh/queue.c    | 52 +++++++++++++++++++++++++---------------------------
+ mesh/queue.h    | 29 +++++++++++++++++++++++++----
+ mesh/spgrd.c    | 52 +++++++++++++++++++++++++---------------------------
+ mesh/spgrdnl.c  | 25 +++++++++++++++++++++++++
+ mesh/spgrdnl.h  | 25 +++++++++++++++++++++++++
+ mesh/spgrdop.c  | 52 +++++++++++++++++++++++++---------------------------
+ mesh/spgrdop.h  | 29 +++++++++++++++++++++++++----
+ mesh/spgrdut.c  | 52 +++++++++++++++++++++++++---------------------------
+ mesh/spgrdut.h  | 25 +++++++++++++++++++++++++
+ mesh/spgrdvs.c  | 52 +++++++++++++++++++++++++---------------------------
+ mesh/stack.c    | 52 +++++++++++++++++++++++++---------------------------
+ mesh/stack.h    | 29 +++++++++++++++++++++++++----
+ 161 files changed, 4000 insertions(+), 2561 deletions(-)
+ deleted:
+    mesh/mesh.prj
+
+============================================================
+
+Tue Oct 30 23:46:49 CET 2018
+
+copyright in femdoc
+
+ femcheck/copyright/TODO        |  15 +++++++++++++++
+ femdoc/3d_layers.tex           |  24 ++++++++++++++++++++++++
+ femdoc/Release_notes_7.0.tex   |  25 +++++++++++++++++++++++++
+ femdoc/Release_notes_7.0v2.tex |  25 +++++++++++++++++++++++++
+ femdoc/Release_notes_7.0v3.tex |  25 +++++++++++++++++++++++++
+ femdoc/Release_notes_7.1v1.tex |  25 +++++++++++++++++++++++++
+ femdoc/Roadmap_Shyfem.tex      |  25 +++++++++++++++++++++++++
+ femdoc/abbrev.bib              |  25 +++++++++++++++++++++++++
+ femdoc/barocl.tex              |  24 ++++++++++++++++++++++++
+ femdoc/basic_minimal.tex       |  24 ++++++++++++++++++++++++
+ femdoc/basic_usage.tex         |  24 ++++++++++++++++++++++++
+ femdoc/bathy_interp.tex        |  23 +++++++++++++++++++++++
+ femdoc/bio3d.tex               |  25 +++++++++++++++++++++++++
+ femdoc/bio3d_st.tex            |  25 +++++++++++++++++++++++++
+ femdoc/bio3d_t.tex             |  25 +++++++++++++++++++++++++
+ femdoc/bound_cond.tex          |  23 +++++++++++++++++++++++
+ femdoc/compatibility.tex       |  24 ++++++++++++++++++++++++
+ femdoc/compilation.tex         |  24 ++++++++++++++++++++++++
+ femdoc/creating_mesh.tex       |  24 ++++++++++++++++++++++++
+ femdoc/disclaimer.tex          |  24 ++++++++++++++++++++++++
+ femdoc/discret.tex             |  24 +++++++++++++++++++++++-
+ femdoc/download.tex            |  24 ++++++++++++++++++++++++
+ femdoc/equat.tex               |  24 ++++++++++++++++++++++++
+ femdoc/fem3d.tex               |  24 ++++++++++++++++++++++++
+ femdoc/final/shyfem.pdf        | Bin 297632 -> 297629 bytes
+ femdoc/grd_format.tex          |  24 ++++++++++++++++++++++++
+ femdoc/grid_convert.tex        |  24 ++++++++++++++++++++++++
+ femdoc/grid_else.tex           |  24 ++++++++++++++++++++++++
+ femdoc/grid_overview.tex       |  24 ++++++++++++++++++++++++
+ femdoc/grid_prg.tex            |  24 ++++++++++++++++++++++++
+ femdoc/grid_reduce.tex         |  23 +++++++++++++++++++++++
+ femdoc/header.tex              |  24 +++++++++++++++++++++++-
+ femdoc/installation.tex        |  24 ++++++++++++++++++++++++
+ femdoc/lag.bib                 |  24 ++++++++++++++++++++++++
+ femdoc/lagra.bib               |  25 +++++++++++++++++++++++++
+ femdoc/lagrangian.tex          |  25 +++++++++++++++++++++++++
+ femdoc/meteo_forcing.tex       |  25 +++++++++++++++++++++++++
+ femdoc/model_how_to_run.tex    |  24 ++++++++++++++++++++++++
+ femdoc/over_what.tex           |  24 ++++++++++++++++++++++++
+ femdoc/pre_basin.tex           |  24 ++++++++++++++++++++++++
+ femdoc/restart.tex             |  24 ++++++++++++++++++++++++
+ femdoc/running_shyfem.tex      |  24 ++++++++++++++++++++++++
+ femdoc/sdg.tex                 |  25 +++++++++++++++++++++++++
+ femdoc/sedi.bib                |  25 +++++++++++++++++++++++++
+ femdoc/sediment.tex            |  25 +++++++++++++++++++++++++
+ femdoc/shyfem.tex              |  24 ++++++++++++++++++++++++
+ femdoc/software.tex            |  24 ++++++++++++++++++++++++
+ femdoc/steele.tex              |  25 +++++++++++++++++++++++++
+ femdoc/summary_installing.tex  |  24 ++++++++++++++++++++++++
+ femdoc/turbulence.tex          |  24 ++++++++++++++++++++++++
+ femdoc/usage.tex               |  24 ++++++++++++++++++++++++
+ femdoc/var_time_step.tex       |  24 ++++++++++++++++++++++++
+ femdoc/wind_forcing.tex        |  24 ++++++++++++++++++++++++
+ 53 files changed, 1250 insertions(+), 2 deletions(-)
+ new file:
+   femcheck/copyright/TODO
+
+============================================================
+
+Tue Oct 30 14:17:00 CET 2018
+
+copyright post finished
+
+ fem3d/bin/check_h.sh                  | 17 ++++++++
+ fembin/revisionlog.pl                 |  3 ++
+ femcheck/copyright/check_copyright.sh | 26 +++++++++++++
+ hcbs/xhcbs.f                          |  6 ++-
+ post/colorbar.f                       | 73 +++++++++++++++++------------------
+ post/democalp.f                       | 24 ++++++++++++
+ post/pcalpf.f                         | 24 ++++++++++++
+ post/pf.f                             | 25 ++++++++++++
+ post/psdemo.f                         | 70 ++++++++++++++++-----------------
+ 9 files changed, 193 insertions(+), 75 deletions(-)
+ new file:
+   fem3d/bin/check_h.sh
+   femcheck/copyright/check_copyright.sh
+
+============================================================
+
+Mon Oct 29 23:41:16 CET 2018
+
+copyright started in post
+
+ femcheck/copyright/include_copyright.pl | 25 ++++++++++++----
+ femcheck/copyright/include_copyright.sh |  2 +-
+ post/colorutil.c                        | 52 ++++++++++++++++-----------------
+ post/colorutil.h                        | 29 +++++++++++++++---
+ post/demopost.c                         | 52 ++++++++++++++++-----------------
+ post/general.c                          | 52 +++++++++++++++------------------
+ post/general.h                          | 30 +++++++++++++++----
+ post/gustd.c                            | 52 ++++++++++++++++-----------------
+ post/gustd.h                            | 29 +++++++++++++++---
+ post/layout.c                           | 25 ++++++++++++++++
+ post/pc.c                               | 25 ++++++++++++++++
+ post/pcalp.c                            | 52 ++++++++++++++++-----------------
+ post/pgraph.c                           | 52 ++++++++++++++++-----------------
+ post/pgraph.h                           | 29 +++++++++++++++---
+ post/psgraph.c                          | 52 ++++++++++++++++-----------------
+ post/psgraph.h                          | 29 +++++++++++++++---
+ post/psgraphf.c                         | 52 ++++++++++++++++-----------------
+ post/pspost.h                           | 29 +++++++++++++++---
+ post/pspost.tex                         | 24 ++++++++++++++-
+ 19 files changed, 443 insertions(+), 249 deletions(-)
+
+============================================================
+
+Mon Oct 29 22:35:04 CET 2018
+
+copyright in hcbs
+
+ .gitignore                              |   2 +
+ femcheck/copyright/include_copyright.pl |  29 +++-
+ hcbs/Makefile                           |   4 +-
+ hcbs/general.c                          |  52 +++---
+ hcbs/general.h                          |  29 +++-
+ hcbs/generalx.h                         |  29 +++-
+ hcbs/graph.h                            |  29 +++-
+ hcbs/gustd.c                            |  52 +++---
+ hcbs/gustd.h                            |  29 +++-
+ hcbs/ttt.f                              | 270 -----------------------------
+ hcbs/tvis.f                             | 292 ++++++++++++++++++++++++++++++++
+ hcbs/xgraph.c                           |  52 +++---
+ hcbs/xgraph.h                           |  29 +++-
+ hcbs/xgraphf.c                          |  52 +++---
+ hcbs/xhcbs.f                            |  69 ++++----
+ 15 files changed, 576 insertions(+), 443 deletions(-)
+ renamed:
+    hcbs/ttt.f -> hcbs/tvis.f
+
+============================================================
+
+Sun Oct 28 22:55:07 CET 2018
+
+cleaned femspline
+
+ fem3d/subspl.f          |   22 +-
+ femspline/Makefile      |   17 +-
+ femspline/basin.h       |   37 --
+ femspline/circle.f      |   29 +-
+ femspline/gauss.f       |   39 --
+ femspline/gridr.f       |   26 +-
+ femspline/hash.f        |   26 +-
+ femspline/param_dummy.h |   22 -
+ femspline/pkonst.h      |   11 -
+ femspline/sgauss.f      |   29 +-
+ femspline/smooth.f      |    6 -
+ femspline/sort.f        |  148 -----
+ femspline/spline.f      |  139 -----
+ femspline/sss.f         |   33 --
+ femspline/subfil.f      |  280 ---------
+ femspline/subgrd.f      | 1447 -----------------------------------------------
+ femspline/subgrd.h      |   13 -
+ femspline/subrnd.f      |  315 -----------
+ femspline/subscn.f      |  675 ----------------------
+ femspline/subsss.f      | 1296 ------------------------------------------
+ femspline/test.pl       |    7 -
+ femspline/triint.f      |  357 ------------
+ femspline/tsmooth.f     |   57 ++
+ femspline/ven.f         |   17 -
+ 24 files changed, 178 insertions(+), 4870 deletions(-)
+ new file:
+   femspline/tsmooth.f
+ deleted:
+    femspline/basin.h
+    femspline/gauss.f
+    femspline/param_dummy.h
+    femspline/pkonst.h
+    femspline/smooth.f
+    femspline/sort.f
+    femspline/spline.f
+    femspline/sss.f
+    femspline/subfil.f
+    femspline/subgrd.f
+    femspline/subgrd.h
+    femspline/subrnd.f
+    femspline/subscn.f
+    femspline/subsss.f
+    femspline/test.pl
+    femspline/triint.f
+    femspline/ven.f
+
+============================================================
+
+Sat Oct 27 19:31:14 CEST 2018
+
+copyright finished in femadj
+
+ femadj/Makefile        | 15 +++++++-------
+ femadj/adj4el.f        | 28 ++++++++++++++++++++++---
+ femadj/adj575.f        | 28 ++++++++++++++++++++++---
+ femadj/adj5el.f        | 32 ++++++++++++++++++++++-------
+ femadj/adj7el.f        | 28 ++++++++++++++++++++++---
+ femadj/adjgrd.f        | 32 ++++++++++++++++++++++++-----
+ femadj/adjneu.f        | 40 ++++++++++++++++++++++--------------
+ femadj/adjplo.f        | 42 ++++++++++++++++++++++----------------
+ femadj/adjvar.f        | 46 ++++++++++++++++++++++++-----------------
+ femadj/grade.h         | 12 -----------
+ femadj/mod_adj_grade.f | 55 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ femadj/nbstatic.h      | 21 -------------------
+ femadj/param.h         | 52 -----------------------------------------------
+ femadj/shyadj.f        | 39 +++++++++++++++++++++++------------
+ femadj/subfil.f        | 28 ++++++++++++++++++++++---
+ femadj/subgeo.f        | 28 ++++++++++++++++++++++---
+ femadj/subscn.f        | 24 +++++++++++++++++++++-
+ femadj/subsrt.f        | 28 ++++++++++++++++++++++---
+ femadj/subssg.f        | 28 ++++++++++++++++++++++---
+ femadj/subsss.f        | 28 ++++++++++++++++++++++---
+ femadj/subssv.f        | 28 ++++++++++++++++++++++---
+ 21 files changed, 466 insertions(+), 196 deletions(-)
+ deleted:
+    femadj/grade.h
+    femadj/nbstatic.h
+    femadj/param.h
+
+============================================================
+
+Sat Oct 27 18:58:41 CEST 2018
+
+copyright in femplot finished
+
+ femcheck/copyright/include_copyright.pl |   3 +-
+ femcheck/copyright/include_copyright.sh |  22 ++
+ femplot/Makefile                        |   4 +-
+ femplot/col.f                           |  28 +-
+ femplot/colortb.f                       |  24 ++
+ femplot/legend.h                        |  24 ++
+ femplot/line_nodes.f                    |  28 +-
+ femplot/mkonst.h                        |  24 ++
+ femplot/mod_hydro_plot.f                |  24 ++
+ femplot/mod_plot2d.f                    |  24 ++
+ femplot/mod_plot3d.f                    |  24 ++
+ femplot/pkonst.h                        |  24 ++
+ femplot/plotsim.f                       |  28 +-
+ femplot/plotutil.f                      |  24 ++
+ femplot/sbscan.f                        | 261 ------------------
+ femplot/shyplot.f                       |  24 ++
+ femplot/simul.h                         |  24 ++
+ femplot/subrgf.f                        | 449 ------------------------------
+ femplot/supano.f                        |  28 +-
+ femplot/supbas.f                        |  28 +-
+ femplot/supcol.f                        |  28 +-
+ femplot/supcust.f                       |  24 ++
+ femplot/supdep.f                        |  28 +-
+ femplot/supint.f                        |  28 +-
+ femplot/supiso.f                        |  28 +-
+ femplot/suplag.f                        |  26 +-
+ femplot/suplin.f                        |  28 +-
+ femplot/suplin1.f                       |  28 +-
+ femplot/supmpi.f                        |  24 ++
+ femplot/supout.f                        |  28 +-
+ femplot/supout.h                        |  24 ++
+ femplot/suprgf.f                        | 471 ++++++++++++++++++++++++++++++++
+ femplot/supsim.f                        |  28 +-
+ femplot/suptim.f                        |  28 +-
+ femplot/suputi.f                        |  28 +-
+ femplot/supver.f                        |  28 +-
+ femplot/timlim.h                        |  24 ++
+ 37 files changed, 1257 insertions(+), 763 deletions(-)
+ new file:
+   femcheck/copyright/include_copyright.sh
+ deleted:
+    femplot/sbscan.f
+ renamed:
+    femplot/subrgf.f -> femplot/suprgf.f
+
+============================================================
+
+Sat Oct 27 18:12:13 CEST 2018
+
+more on copyright
+
+ femcheck/copyright/include_copyright.pl |  48 ++++---
+ femcheck/copyright/supdep.f             | 213 --------------------------------
+ 2 files changed, 33 insertions(+), 228 deletions(-)
+ deleted:
+    femcheck/copyright/supdep.f
+
+============================================================
+
+Fri Oct 26 18:10:06 CEST 2018
+
+femplot cleaned
+
+ fem3d/shypart.f                         |   4 +-
+ fem3d/subver.f                          |   2 +-
+ femcheck/copyright/copyright_notice.txt |  21 +
+ femcheck/copyright/include_copyright.pl |  77 +++
+ femcheck/copyright/supdep.f             | 213 ++++++++
+ femcheck/copyright_notice.txt           |  18 -
+ femcheck/test_compile.sh                |   2 +-
+ femplot/Makefile                        |  44 +-
+ femplot/aux_array.h                     |  26 -
+ femplot/basin.h                         |  43 --
+ femplot/color.h                         |  44 --
+ femplot/depth.h                         |  22 -
+ femplot/ev.h                            |  18 -
+ femplot/evmain.h                        |  18 -
+ femplot/geom.h                          |  23 -
+ femplot/hydro.h                         |  19 -
+ femplot/hydro_plot.h                    |  20 -
+ femplot/hydro_print.h                   |  26 -
+ femplot/hydro_vel.h                     |  16 -
+ femplot/levels.h                        |  18 -
+ femplot/nbasin.h                        |   5 -
+ femplot/nlevel.h                        |   5 -
+ femplot/param.h                         |  52 --
+ femplot/plot_aux.h                      |  18 -
+ femplot/plot_aux_3d.h                   |  16 -
+ femplot/shyplot.f                       |   2 +-
+ femplot/util/Makefile                   | 155 ++++++
+ femplot/util/col.f                      | 921 ++++++++++++++++++++++++++++++++
+ femplot/{ => util}/lagxitest.f          |   0
+ femplot/{ => util}/plotbug.f            |   0
+ femplot/{ => util}/plotcolb.f           |   0
+ femplot/util/supcol.f                   | 620 +++++++++++++++++++++
+ femplot/util/suputi.f                   | 329 ++++++++++++
+ femplot/{ => util}/testdash.f           |   2 +-
+ femplot/{ => util}/windrose.f           |   0
+ 35 files changed, 2346 insertions(+), 453 deletions(-)
+ new file:
+   femcheck/copyright/copyright_notice.txt
+   femcheck/copyright/include_copyright.pl
+   femcheck/copyright/supdep.f
+   femplot/util/Makefile
+   femplot/util/col.f
+   femplot/util/supcol.f
+   femplot/util/suputi.f
+ deleted:
+    femcheck/copyright_notice.txt
+    femplot/aux_array.h
+    femplot/basin.h
+    femplot/color.h
+    femplot/depth.h
+    femplot/ev.h
+    femplot/evmain.h
+    femplot/geom.h
+    femplot/hydro.h
+    femplot/hydro_plot.h
+    femplot/hydro_print.h
+    femplot/hydro_vel.h
+    femplot/levels.h
+    femplot/nbasin.h
+    femplot/nlevel.h
+    femplot/param.h
+    femplot/plot_aux.h
+    femplot/plot_aux_3d.h
+ renamed:
+    femplot/lagxitest.f -> femplot/util/lagxitest.f
+    femplot/plotbug.f -> femplot/util/plotbug.f
+    femplot/plotcolb.f -> femplot/util/plotcolb.f
+    femplot/testdash.f -> femplot/util/testdash.f
+    femplot/windrose.f -> femplot/util/windrose.f
+
+============================================================
+
+Thu Oct 25 16:58:17 CEST 2018
+
+New version 7_5_51
+
+ LOG                     |  21 +++++++++++++++++++++
+ RELEASE_NOTES           |   8 ++++++++
+ fem3d/Makefile          |   1 +
+ fem3d/subrst.f          |   3 ++-
+ fem3d/substrings.f      |   5 +++++
+ fem3d/subver.f          |   7 ++++---
+ femdoc/final/shyfem.pdf | Bin 326661 -> 297632 bytes
+ femplot/Makefile        |   3 ++-
+ femplot/sbscan.f        |   2 +-
+ femplot/subrgf.f        |   4 ++--
+ femplot/supcol.f        |   2 +-
+ femplot/supdep.f        |   4 ++--
+ femplot/supiso.f        |   2 +-
+ femplot/suplag.f        |  36 ++++++++++++++++++------------------
+ femplot/suplin.f        |  36 ++++++++++++++++++------------------
+ femplot/supout.f        |  12 ++++++------
+ femplot/supsim.f        |   2 +-
+ femplot/windrose.f      |   4 ++--
+ 18 files changed, 95 insertions(+), 57 deletions(-)
+
+============================================================
+
+Wed Oct 24 13:51:32 CEST 2018
+
+examples Makefile changed
+
+ examples/Makefile           | 30 ++++++++++++++++++++++++++++++
+ examples/mar_menor/Makefile | 17 ++++++++++++++---
+ 2 files changed, 44 insertions(+), 3 deletions(-)
+ new file:
+   examples/Makefile
+
+============================================================
+
+Wed Oct 24 11:15:04 CEST 2018
+
+changes in examples
+
+ Dockerfile                                         |   2 +-
+ examples/make_figs.sh                              | 143 ---------------------
+ examples/make_sims.sh                              |  29 -----
+ examples/mar_menor/2jpg.sh                         |  58 +++++++++
+ examples/{ => mar_menor}/GRID/MM_coarse.grd        |   0
+ examples/{ => mar_menor}/GRID/MM_coarse_smooth.grd |   0
+ examples/{ => mar_menor}/INPUT/S_MarMenor.txt      |   0
+ examples/{ => mar_menor}/INPUT/T_MarMenor.txt      |   0
+ examples/{ => mar_menor}/INPUT/colormap.dat        |   0
+ examples/{ => mar_menor}/INPUT/gotmturb.nml        |   0
+ examples/{ => mar_menor}/INPUT/level_Mar_Menor.dat |   0
+ examples/{ => mar_menor}/INPUT/qflux09.txt         |   0
+ examples/{ => mar_menor}/INPUT/rain09.txt          |   0
+ examples/mar_menor/INPUT/river.txt                 |   4 +
+ .../river.txt => mar_menor/INPUT/river_orig.txt}   |   0
+ examples/{ => mar_menor}/INPUT/wind09.txt          |   0
+ examples/{ => mar_menor}/INPUT/wind_scir.txt       |   0
+ examples/{ => mar_menor}/Makefile                  |   5 +-
+ examples/mar_menor/README                          |  48 +++++++
+ examples/{ => mar_menor}/apn_level.str             |   0
+ examples/{ => mar_menor}/apn_real.str              |   0
+ examples/{ => mar_menor}/apn_salt.str              |   0
+ examples/{ => mar_menor}/apn_vel.str               |   0
+ examples/{ => mar_menor}/apn_velcolriver.str       |   2 +-
+ examples/{ => mar_menor}/apn_velriver.str          |   0
+ examples/{ => mar_menor}/apnbath.str               |   2 +-
+ examples/mar_menor/make_sims.sh                    |  48 +++++++
+ examples/mar_menor/mm_hyd_00.sh                    |  12 ++
+ examples/{ => mar_menor}/mm_hyd_00.str             |   0
+ examples/mar_menor/mm_hyd_01.sh                    |  23 ++++
+ examples/{ => mar_menor}/mm_hyd_01.str             |   0
+ examples/mar_menor/mm_hyd_02.sh                    |  22 ++++
+ examples/{ => mar_menor}/mm_hyd_02.str             |   0
+ examples/mar_menor/mm_hyd_03.sh                    |  26 ++++
+ examples/{ => mar_menor}/mm_hyd_03.str             |   0
+ examples/mar_menor/mm_hyd_11.sh                    |  26 ++++
+ examples/{ => mar_menor}/mm_hyd_11.str             |   0
+ examples/mar_menor/mm_hyd_12.sh                    |  50 +++++++
+ examples/{ => mar_menor}/mm_hyd_12a.str            |   2 +-
+ examples/{ => mar_menor}/mm_hyd_12b.str            |   2 +-
+ examples/mar_menor/mm_hyd_13.sh                    |  28 ++++
+ examples/{ => mar_menor}/mm_hyd_13.str             |   0
+ examples/mar_menor/mm_hyd_21.sh                    |  29 +++++
+ examples/{ => mar_menor}/mm_hyd_21.str             |   0
+ examples/mar_menor/mm_hyd_22.sh                    |  18 +++
+ examples/{ => mar_menor}/mm_hyd_22.str             |   0
+ examples/mar_menor/mm_hyd_22a.sh                   |  18 +++
+ examples/{ => mar_menor}/mm_hyd_22a.str            |   0
+ examples/mar_menor/mm_hyd_22b.sh                   |  18 +++
+ examples/{ => mar_menor}/mm_hyd_22b.str            |   0
+ examples/mar_menor/mm_hyd_23.sh                    |  18 +++
+ examples/{ => mar_menor}/mm_hyd_23.str             |   0
+ examples/mar_menor/mm_hyd_31.sh                    |  17 +++
+ examples/{ => mar_menor}/mm_hyd_31.str             |   0
+ examples/mar_menor/mm_hyd_32.sh                    |  54 ++++++++
+ examples/{ => mar_menor}/mm_hyd_32a.str            |   0
+ examples/{ => mar_menor}/mm_hyd_32b.str            |   0
+ examples/mar_menor/mm_hyd_41.sh                    |  21 +++
+ examples/{ => mar_menor}/mm_hyd_41.str             |   0
+ examples/mar_menor/mm_hyd_42.sh                    |  19 +++
+ examples/{ => mar_menor}/mm_hyd_42.str             |   0
+ examples/mar_menor/mm_hyd_43.sh                    |  19 +++
+ examples/{ => mar_menor}/mm_hyd_43.str             |   2 +-
+ examples/{ => mar_menor}/run.sh                    |   3 +-
+ examples/mar_menor/util.sh                         | 130 +++++++++++++++++++
+ 65 files changed, 718 insertions(+), 180 deletions(-)
+ new file:
+   examples/mar_menor/2jpg.sh
+   examples/mar_menor/INPUT/river.txt
+   examples/mar_menor/README
+   examples/mar_menor/make_sims.sh
+   examples/mar_menor/mm_hyd_00.sh
+   examples/mar_menor/mm_hyd_01.sh
+   examples/mar_menor/mm_hyd_02.sh
+   examples/mar_menor/mm_hyd_03.sh
+   examples/mar_menor/mm_hyd_11.sh
+   examples/mar_menor/mm_hyd_12.sh
+   examples/mar_menor/mm_hyd_13.sh
+   examples/mar_menor/mm_hyd_21.sh
+   examples/mar_menor/mm_hyd_22.sh
+   examples/mar_menor/mm_hyd_22a.sh
+   examples/mar_menor/mm_hyd_22b.sh
+   examples/mar_menor/mm_hyd_23.sh
+   examples/mar_menor/mm_hyd_31.sh
+   examples/mar_menor/mm_hyd_32.sh
+   examples/mar_menor/mm_hyd_41.sh
+   examples/mar_menor/mm_hyd_42.sh
+   examples/mar_menor/mm_hyd_43.sh
+   examples/mar_menor/util.sh
+ deleted:
+    examples/make_figs.sh
+    examples/make_sims.sh
+ renamed:
+    examples/GRID/MM_coarse.grd -> examples/mar_menor/GRID/MM_coarse.grd
+    examples/GRID/MM_coarse_smooth.grd -> examples/mar_menor/GRID/MM_coarse_smooth.grd
+    examples/INPUT/S_MarMenor.txt -> examples/mar_menor/INPUT/S_MarMenor.txt
+    examples/INPUT/T_MarMenor.txt -> examples/mar_menor/INPUT/T_MarMenor.txt
+    examples/INPUT/colormap.dat -> examples/mar_menor/INPUT/colormap.dat
+    examples/INPUT/gotmturb.nml -> examples/mar_menor/INPUT/gotmturb.nml
+    examples/INPUT/level_Mar_Menor.dat -> examples/mar_menor/INPUT/level_Mar_Menor.dat
+    examples/INPUT/qflux09.txt -> examples/mar_menor/INPUT/qflux09.txt
+    examples/INPUT/rain09.txt -> examples/mar_menor/INPUT/rain09.txt
+    examples/INPUT/river.txt -> examples/mar_menor/INPUT/river_orig.txt
+    examples/INPUT/wind09.txt -> examples/mar_menor/INPUT/wind09.txt
+    examples/INPUT/wind_scir.txt -> examples/mar_menor/INPUT/wind_scir.txt
+    examples/Makefile -> examples/mar_menor/Makefile
+    examples/apn_level.str -> examples/mar_menor/apn_level.str
+    examples/apn_real.str -> examples/mar_menor/apn_real.str
+    examples/apn_salt.str -> examples/mar_menor/apn_salt.str
+    examples/apn_vel.str -> examples/mar_menor/apn_vel.str
+    examples/apn_velcolriver.str -> examples/mar_menor/apn_velcolriver.str
+    examples/apn_velriver.str -> examples/mar_menor/apn_velriver.str
+    examples/apnbath.str -> examples/mar_menor/apnbath.str
+    examples/mm_hyd_00.str -> examples/mar_menor/mm_hyd_00.str
+    examples/mm_hyd_01.str -> examples/mar_menor/mm_hyd_01.str
+    examples/mm_hyd_02.str -> examples/mar_menor/mm_hyd_02.str
+    examples/mm_hyd_03.str -> examples/mar_menor/mm_hyd_03.str
+    examples/mm_hyd_11.str -> examples/mar_menor/mm_hyd_11.str
+    examples/mm_hyd_12a.str -> examples/mar_menor/mm_hyd_12a.str
+    examples/mm_hyd_12b.str -> examples/mar_menor/mm_hyd_12b.str
+    examples/mm_hyd_13.str -> examples/mar_menor/mm_hyd_13.str
+    examples/mm_hyd_21.str -> examples/mar_menor/mm_hyd_21.str
+    examples/mm_hyd_22.str -> examples/mar_menor/mm_hyd_22.str
+    examples/mm_hyd_22a.str -> examples/mar_menor/mm_hyd_22a.str
+    examples/mm_hyd_22b.str -> examples/mar_menor/mm_hyd_22b.str
+    examples/mm_hyd_23.str -> examples/mar_menor/mm_hyd_23.str
+    examples/mm_hyd_31.str -> examples/mar_menor/mm_hyd_31.str
+    examples/mm_hyd_32a.str -> examples/mar_menor/mm_hyd_32a.str
+    examples/mm_hyd_32b.str -> examples/mar_menor/mm_hyd_32b.str
+    examples/mm_hyd_41.str -> examples/mar_menor/mm_hyd_41.str
+    examples/mm_hyd_42.str -> examples/mar_menor/mm_hyd_42.str
+    examples/mm_hyd_43.str -> examples/mar_menor/mm_hyd_43.str
+    examples/run.sh -> examples/mar_menor/run.sh
+
+============================================================
+
+Tue Oct 16 16:19:03 CEST 2018
+
+New version 7_5_50
+
+
+============================================================
+
+Tue Oct 16 16:17:20 CEST 2018
+
+prepare new version
+
+ LOG                     |  42 ++++++++++++++++++++++++++++++++++++++++++
+ RELEASE_NOTES           |   8 ++++++++
+ fem3d/suboutputd.f      |   2 +-
+ femdoc/final/shyfem.pdf | Bin 293581 -> 293572 bytes
+ 4 files changed, 51 insertions(+), 1 deletion(-)
+
+============================================================
+
+Mon Oct 15 18:47:20 EEST 2018
+
+bug fix for time series opening
+
+ Makefile           |    4 +++-
+ fem3d/elab_check.f |    2 +-
+ fem3d/extelab1.f   |    1 +
+ fem3d/subtsfile.f  |    5 +++--
+ 4 files changed, 8 insertions(+), 4 deletions(-)
+
+============================================================
+
+Mon Oct 15 15:10:04 CEST 2018
+
+nug fix for shyelab_nodes.f
+
+ fem3d/shyelab_nodes.f | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+============================================================
+
+Mon Oct 15 14:46:57 CEST 2018
+
+-coord option also for shy files
+
+ fem3d/elabutil.f         |  22 +++++---
+ fem3d/genutil.f          |   8 +--
+ fem3d/shyelab_nodes.f    | 127 +++++++++++++++++++++++++++++++++++++++++------
+ femcheck/check_var.sh    |   2 +-
+ femcheck/test_compile.sh |   4 +-
+ femplot/supout.f         |   1 +
+ 6 files changed, 134 insertions(+), 30 deletions(-)
+
+============================================================
+
+Fri Oct 12 14:31:42 CEST 2018
+
+last minute changes...
+
+ fem3d/newcon_omp.f | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+============================================================
+
+Fri Oct 12 14:28:00 CEST 2018
+
+zconst adjourned
+
+ Rules.make                | 8 ++++++--
+ fem3d/extelab1.f          | 4 +++-
+ fem3d/subcst.f            | 1 -
+ fem3d/subn11.f            | 9 +++++++--
+ fem3d/subsys.f            | 2 +-
+ femcheck/rules/Rules.dist | 8 ++++++--
+ 6 files changed, 23 insertions(+), 9 deletions(-)
+
+============================================================
+
+Fri Oct 12 15:21:36 EEST 2018
+
+resolved intel bug (load inout)
+
+ Rules.make                |    3 ++-
+ fem3d/newcon.f            |   45 ++++++++++++++++++++++++++++-----------------
+ fem3d/newcon_omp.f        |   36 +++++++++++++++++++-----------------
+ femcheck/rules/Rules.dist |    3 ++-
+ 4 files changed, 51 insertions(+), 36 deletions(-)
+
+============================================================
+
+Tue Oct  9 14:50:28 CEST 2018
+
+copyright homogenized
+
+ fem3d/shypre.f  | 22 ++++++++++++++++------
+ femadj/shyadj.f |  2 --
+ grid/gridop.c   |  4 +---
+ mesh/exgrdop.c  | 15 +++++----------
+ mesh/meshop.c   |  4 +---
+ 5 files changed, 23 insertions(+), 24 deletions(-)
+
+============================================================
+
+Mon Oct  8 19:32:48 EEST 2018
+
+forgotten stuff...
+
+ fem3d/bin/nemunas-git.sh |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+ new file:
+   fem3d/bin/nemunas-git.sh
+
+============================================================
+
+Mon Oct  8 19:31:15 EEST 2018
+
+general solution for netcdf library
+
+ Rules.make                |    2 --
+ fem3d/Makefile            |    6 ++++++
+ fembin/gitcommit          |    1 +
+ femcheck/rules/Rules.dist |    2 --
+ 4 files changed, 7 insertions(+), 4 deletions(-)
+
+============================================================
+
+Sat Oct  6 14:43:59 CEST 2018
+
+new Rules.make file
+
+ .gitignore                |   2 +-
+ Makefile                  |  40 ++-
+ fembin/gitcommit          |  18 ++
+ femcheck/Rules.dist       | 732 ---------------------------------------------
+ femcheck/rules/Rules.dist | 744 ++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 787 insertions(+), 749 deletions(-)
+ renamed:
+    femcheck/Rules.dist -> femcheck/rules/Rules.dist
+
+============================================================
+
+Fri Oct  5 18:18:00 EEST 2018
+
+wrong Rules.make
+
+ Rules.make |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
+
+============================================================
+
+Fri Oct  5 18:07:50 EEST 2018
+
+debug for CHECK compiler settings
+
+ Rules.make         |   44 ++++++++++++++++++++++++++---------------
+ fem3d/debug.f      |    7 ++++-
+ fem3d/elab_check.f |    4 +-
+ fem3d/newbcl.f     |   54 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ fem3d/subdef.f     |    7 ++++-
+ fem3d/subqfxm5.f   |   13 ++++++++---
+ fem3d/subqfxt.f    |    8 +++++++
+ fem3d/subwrt.f     |    3 ++
+ fembin/gitgui.sh   |    3 +-
+ 9 files changed, 116 insertions(+), 27 deletions(-)
+
+============================================================
+
+Wed Oct  3 16:56:01 EEST 2018
+
+meteo output
+
+ fem3d/submeteo2.f   |   73 ++++++++++++++++++++++++++++++++++++++++++++------
+ fem3d/suboutputd.f  |    9 +++---
+ femcheck/Rules.dist |    7 +++-
+ 3 files changed, 74 insertions(+), 15 deletions(-)
+
+============================================================
+
+Fri Sep 28 18:19:39 EEST 2018
+
+compiler errors for 6.3 fixed
+
+ Rules.make                    |    4 +++-
+ fem3d/mod_conz.f              |    3 +++
+ fem3d/newcon_omp.f            |   32 +++++++++++++++++++-------------
+ fem3d/newconz.f               |    4 ++++
+ fem3d/shybas.f                |    4 ++--
+ fem3d/shypre.f                |    8 +++++---
+ fem3d/subfil.f                |    4 +++-
+ femcheck/check_compilation.sh |   13 ++++++++-----
+ 8 files changed, 47 insertions(+), 25 deletions(-)
+
+============================================================
+
+Fri Sep 28 16:19:44 CEST 2018
+
+minor
+
+ femplot/supsim.f | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+============================================================
+
+Fri Sep 28 16:16:08 CEST 2018
+
+writing constant layer shy files
+
+ Rules.make         |  3 +-
+ fem3d/subshyutil.f | 82 ++++++++++++++++++++++++++++++++++++++++++++++++++++--
+ fem3d/subsys.f     |  1 +
+ femplot/supsim.f   | 13 ++++++---
+ 4 files changed, 92 insertions(+), 7 deletions(-)
+
+============================================================
+
+Fri Aug 31 17:37:02 CEST 2018
+
+New version 7_5_49
+
+
+============================================================
+
+Fri Aug 31 17:33:56 CEST 2018
+
+forgotten release notes
+
+ RELEASE_NOTES | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+============================================================
+
+Fri Aug 31 17:30:50 CEST 2018
+
+new version
+
+ fem3d/shyelab_proj.f    |   1 +
+ fem3d/subver.f          |   7 ++++---
+ femdoc/final/shyfem.pdf | Bin 293584 -> 293581 bytes
+ 3 files changed, 5 insertions(+), 3 deletions(-)
+
+============================================================
+
+Fri Aug 31 17:24:09 CEST 2018
+
+small bug closing file with negative unit
+
+ fem3d/subfemintp.f | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+============================================================
+
+Fri Aug 31 14:48:51 CEST 2018
+
+bug in reading ext file
+
+ fem3d/subext.f | 1 +
+ 1 file changed, 1 insertion(+)
+
+============================================================
+
+Fri Aug 31 13:50:06 CEST 2018
+
+adjusted for new gfortran version
+
+ LOG                      |  12 +++
+ fem3d/bio3d.f            |   9 +-
+ fem3d/keps_util.f        |   4 +-
+ fem3d/kepsd.f            |   2 +
+ fem3d/line_util.f        |   4 +-
+ fem3d/newnudge.f         |   2 +-
+ fem3d/shyelab_nodes.f    |  15 ++-
+ fem3d/shyelab_proj.f     |   4 +-
+ fem3d/spk_itpack.f       |  62 ++++++------
+ fem3d/subext.f           | 121 +++++++++++++++++++---
+ fem3d/subgeo.f           |   2 +-
+ fem3d/submeteo2.f        |   6 +-
+ fem3d/subnev.f           |   5 +
+ fem3d/subrst.f           |   2 +-
+ femadj/subgeo.f          | 255 ++++++++++++++++++++++++++++++++++++++++++-----
+ femcheck/test_compile.sh |   1 +
+ femplot/col.f            |   5 +-
+ femspline/gridr.f        |   6 +-
+ 18 files changed, 418 insertions(+), 99 deletions(-)
+
+============================================================
+
 Fri Jul 20 16:43:47 CEST 2018
 
 projection for shyelab
@@ -17191,3 +20615,12 @@ A COMMIT
 M makefile
 
 ============================================================
+
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+

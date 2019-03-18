@@ -1,4 +1,4 @@
-
+.DS_Store
 #-----------------------------------------------
 
 arc
@@ -14,7 +14,7 @@ private
 bugs
 
 femmpi
-rules
+#rules
 stable
 femdoc/old/
 
@@ -144,6 +144,7 @@ fem3d/nos2shy
 fem3d/ous2shy
 fem3d/shydiff
 fem3d/tselab
+fem3d/femtide
 
 fem3d/basmpi
 fem3d/shympi
@@ -162,11 +163,13 @@ femplot/plotcolb
 femplot/windrose
 femplot/plot.ps
 
-femspline/gridr
+femutil/spline/gridr
 grid/grid
 mesh/exgrd
 mesh/mesh
 post/demopost
+hcbs/xhcbs
+hcbs/tvis
 
 femcheck/CHECKLOG
 femcheck/test.c
@@ -233,8 +236,13 @@ fembin/ts2nc
 fembin/nc2fem
 fembin/shyproj
 fembin/tselab
+fembin/femtide
 
 fembin/grid
 fembin/mesh
 fembin/exgrd
 
+#-----------------------------------------------
+
+# compiled examples
+Output

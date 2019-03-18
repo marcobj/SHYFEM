@@ -1,4 +1,28 @@
 
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 !***************************************************************
 !
 ! these routines read line(s) defining area where averaging will be done
@@ -19,7 +43,7 @@
 
         implicit none
 
-	integer is,ie,nn
+	integer is,ie,nn,il
         integer		  :: np
 	real, allocatable :: xx(:),yy(:)
 	integer, allocatable :: ifl(:)
@@ -41,18 +65,20 @@
         allocate(ikf(nkn),ief(nel))
 
 	ie = 0
+	il = 0
 	do
 	  is = ie + 1
 	  call get_next_line(np,ifl,is,ie,nn)
-	write(6,*) nn,is,ie
 	  if( nn == 0 ) exit
+	  il = il + 1
+	  write(6,*) 'reading line: ',il,nn,is,ie
           call check_elements(nn,xx(is:ie),yy(is:ie),ief,ikf)
 	  where( ikf == 1 ) ikflag = 1
 	  where( ief == 1 ) ieflag = 1
 	  where( ief == 0 .and. ieflag < 0 ) ieflag = 0
 	end do
 
-	!call write_grd_with_flags('flags.grd',ikflag,ieflag)
+	call write_grd_with_flags('flags.grd',ikflag,ieflag)
 
 	baverbas = .true.
 

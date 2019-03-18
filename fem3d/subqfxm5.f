@@ -1,5 +1,28 @@
-! $Id: subqfxm5.f,v 1.2 2014-06-11 08:20:58 chris Exp $
+
+!--------------------------------------------------------------------------
 !
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! heat flux module (COARE 2.5 and 3.0)
 ! It also computes momentum fluxes due to wind and rainfall.
 !
@@ -22,12 +45,13 @@
 !	computes momentum fluxes due to wind and rain
 ! subroutine tw_skin(rad,qrad,tw,hb,usw,dt,dtw,tws)
 !	computes sea surface skin temperature
-
+!
 ! revision log :
 !
 ! 11.06.2014    ccf     heat module from COARE integrated
 ! 22.01.2016    ggu     bug fix for COARE integrated (L gets infinite)
-
+! 05.10.2018    ggu     do not compute Ch and Ce (not needed, divide by 0)
+!
 !***********************************************************************
 
 	subroutine heatcoare(airt,airp,ws,rh,cloud,sst,prec,rad,
@@ -704,6 +728,7 @@
 	real 	:: hsb,hlb,qout,dels,qcol,alq,xlamx
 	real 	:: tau,dwat,dtmp,alfac,RF
 	real 	:: Ch,Ce
+	real	:: aux1,aux2,aux
 	character*20 :: aline
 
 	integer :: iunit
@@ -738,7 +763,9 @@
 	Le   = (2.501-.00237*sst)*1.e6 
 	visa = 1.326e-5*(1+6.542e-3*airt+8.301e-6*airt*airt - 
      +		4.84e-9*airt*airt*airt) 
-	Al   = 2.1e-5*(sst+3.2)**0.79 
+	aux = sst+3.2
+	if( aux < 0. ) aux = 0.
+	Al   = 2.1e-5*(aux)**0.79 	!GGUZ0 FIXME
 	bigc = 16.*grav*cpw*(rhow*visw)**3/(tcw*tcw*rhoa*rhoa)
 	wetc = 0.622*Le*Qs/(rgas*(sst+kelv)**2) 
 	
@@ -899,9 +926,12 @@
 !	compute transfer coeffs relative to ut @meas. ht
 !	------------------------------------------------
 
+	!write(177,*) 'Ce0: ',usr,qsr,dq-dqer*jcool,ut
+	!call flush(177)
+
 	Cd=tau/rhoa/ut/max(.1,du) 
-	Ch=-usr*tsr/ut/(dt-dter*jcool) 
-	Ce=-usr*qsr/(dq-dqer*jcool)/ut 
+	!Ch=-usr*tsr/ut/(dt-dter*jcool) 		!possible divide by 0
+	!Ce=-usr*qsr/(dq-dqer*jcool)/ut 		!possible divide by 0
 
 !       ------------------------------------------------
 !       prepare output variables

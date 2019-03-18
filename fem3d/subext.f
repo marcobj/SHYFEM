@@ -1,6 +1,28 @@
-c
-c $Id: subext.f,v 1.7 2001/11/16 07:35:43 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c utility routines to read/write EXT file - file type 71
 c
 c contents :
@@ -13,6 +35,8 @@ c 14.09.2015	ggu	some more helper routines
 c 05.10.2015	ggu	handle error in backspace smoothly
 c 05.10.2017	ggu	file 7 substituted with EXT file in output
 c 20.10.2017	ggu	completely restructured for version 7
+c 30.08.2018	ggu	new version 8 to avoid implicit do
+c 09.11.2018	ggu	more general version of linear routines
 c
 c notes :
 c
@@ -52,6 +76,12 @@ c
 c	u,v,z		for record 0 barotropic velocity and water level
 c
 c format of file:
+c
+c version 8
+c
+c	as version 7, but records are written as
+c
+c	atime,ivar,m,lm,nlin,vals(1:nlin)
 c
 c version 7
 c
@@ -100,7 +130,7 @@ c*********************************************************
         implicit none
 
         integer, save :: ext_type = 947336
-        integer, save :: ext_maxvers = 7
+        integer, save :: ext_maxvers = 8
 
 !==================================================================
         contains
@@ -182,7 +212,7 @@ c*********************************************************
 	else if(nvers.ge.3.and.nvers.le.6) then
 	  read(iunit,iostat=ierr)  it
 	  atime = it
-	else if(nvers.ge.7.and.nvers.le.7) then
+	else if(nvers.ge.7.and.nvers.le.8) then
 	  read(iunit,iostat=ierr)  atime,ivar
 	else
 	  stop 'error stop ext_peek_record: internal error (1)'
@@ -384,6 +414,8 @@ c*********************************************************
 
 	integer i,j,l,it,lm
 	real xv(knausm,3)
+        integer nlin
+        real, allocatable :: rlin(:)
 
 	real rdrc7
 
@@ -396,14 +428,33 @@ c*********************************************************
 	  vals(1,:,1) = xv(:,1)
 	  vals(1,:,2) = xv(:,2)
 	  vals(1,:,3) = xv(:,3)
-	else
+        else if( nvers == 7 ) then
 	  read(iunit,iostat=ierr) atime,ivar,m,lm
-     +				,(((vals(l,j,i)
-     +				,l=1,min(lm,ilhkv(j)))
-     +				,j=1,knausm)
-     +				,i=1,m)
+          if( ierr /= 0 ) return
+	  if( m > 3 ) goto 99
+          backspace(iunit)
+	  call count_linear(lm,knausm,m,ilhkv,nlin)
+	  allocate(rlin(nlin))
+	  read(iunit,iostat=ierr) atime,ivar,m,lm,(rlin(i),i=1,nlin)
+          call linear2vals(lm,knausm,m,ilhkv,vals,rlin,nlin)
+!	  read(iunit,iostat=ierr) atime,ivar,m,lm
+!     +				,(((vals(l,j,i)
+!     +				,l=1,min(lm,ilhkv(j)))
+!     +				,j=1,knausm)
+!     +				,i=1,m)
+        else
+	  nlin = knausm*lmax*3
+	  allocate(rlin(nlin))
+	  read(iunit,iostat=ierr) atime,ivar,m,lm,nlin,(rlin(i),i=1,nlin)
+          if( ierr /= 0 ) return
+	  if( m > 3 ) goto 99
+          call linear2vals(lm,knausm,m,ilhkv,vals,rlin,nlin)
 	end if
 
+	return
+   99	continue
+	write(6,*) 'm = ',m
+	stop 'error stop ext_read_record: m > 3'
 	end
 
 c*********************************************************
@@ -480,10 +531,12 @@ c*********************************************************
 	integer, intent(in) :: ilhkv(knausm)
 	integer, intent(in) :: ivar,m
 	double precision, intent(in) :: atime
-	real, intent(in) :: vals(lmax,knausm,3)
+	real, intent(in) :: vals(lmax,knausm,m)
 	integer, intent(out) :: ierr
 
 	integer i,j,l,lm
+        integer nlin
+        real, allocatable :: rlin(:)
 
 	if( ivar == 0 ) then
 	  lm = 1
@@ -492,11 +545,16 @@ c*********************************************************
      +				,j=1,knausm)
      +				,i=1,m)
 	else
-	  write(iunit,iostat=ierr) atime,ivar,m,lmax
-     +				,(((vals(l,j,i)
-     +				,l=1,min(lmax,ilhkv(j)))
-     +				,j=1,knausm)
-     +				,i=1,m)
+!	  write(iunit,iostat=ierr) atime,ivar,m,lmax
+!     +				,(((vals(l,j,i)
+!     +				,l=1,min(lmax,ilhkv(j)))
+!     +				,j=1,knausm)
+!     +				,i=1,m)
+	  nlin = lmax*knausm*m
+	  allocate(rlin(nlin))
+          call vals2linear(lmax,knausm,m,ilhkv,vals,rlin,nlin)
+	  write(iunit,iostat=ierr) atime,ivar,m,lmax,nlin
+     +                                  ,(rlin(i),i=1,nlin)
 	end if
 
 	end

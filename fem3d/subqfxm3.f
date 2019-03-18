@@ -1,6 +1,28 @@
-c
-c $Id: subqfxm3.f,v 1.1 2009-09-14 08:20:58 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c heat flux module (AREG)
 c
 c contents :
@@ -491,7 +513,7 @@ c ---     LEa = L*rho*Ce*|V|*[esat(Ts)-r*esat(Ta)]0.622/pstd
 c
 c      ELAT = airden*evap*heatlat(sst)
       elat = rhom*evap*heatlat(sst)
-c      print*,'deb elat','rhom ',rhom,'ev ',evap,heatlat(sst),'sst ',sst
+c      print*,'dbf elat','rhom ',rhom,'ev ',evap,heatlat(sst),'sst ',sst
 c --- evap is now (and ONLY NOW) the EVAPORATION RATE (m/s)
       evap = elat/(rho0*heatlat(sst))
 c

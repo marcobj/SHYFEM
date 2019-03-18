@@ -1,6 +1,28 @@
-c
-c $Id: bio3d.f,v 1.33 2008-10-10 09:29:54 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c bio3d - EUTRO in SHYFEM
 c
 c contents :
@@ -43,12 +65,12 @@ c 23.04.2008    ggu     call to bnds_set_def() changed
 c 09.10.2008    ggu     new call to confop
 c 08.05.2014    ggu     bug in call to inicfil for es -> must be inic2fil
 c 21.10.2014    ggu     converted to new boundary treatment
-c 17.05.2015    dmc     Insert benthic feeders (esh(:,:), eseed(:,:) 
-c 17.06.2016    dmc     light from shyfem get_light (Watt/m2) 
-c 17.06.2016    dmc     link to shyfem 7_5_13 
+c 17.05.2015    dmk     Insert benthic feeders (esh(:,:), eseed(:,:) 
+c 17.06.2016    dmk     light from shyfem get_light (Watt/m2) 
+c 17.06.2016    dmk     link to shyfem 7_5_13 
 c 23.06.2016    ggu     bug fix: forgot to initialize eload
 c 14.09.2016    ggu     small bug fix for shy output
-c 16.09.2016    dmc     comments on eseed. Seeding is set in weutro_seed.f
+c 16.09.2016    dmk     comments on eseed. Seeding is set in weutro_seed.f
 c 05.10.2016    ggu     init conditions can now be set from file (bioin,biosin)
 c
 c notes :
@@ -1037,8 +1059,8 @@ c computes total mass of state variables (only where v1v is not 0)
 	parameter( nstate = 9 )
 
 	real e(nlvdi,nkndi,nstate)	!state vector
-	real v1v(1)
-	double precision mass(1)
+	real v1v(nkn)
+	double precision mass(nstate)
 
 
 	integer k,lmax,l,i
@@ -1046,9 +1068,7 @@ c computes total mass of state variables (only where v1v is not 0)
 
 	real volnode
 
-	do i=1,nstate
-	  mass(i) = 0.
-	end do
+	mass = 0.
 
 	do k=1,nkn		!loop on nodes
 	  if( v1v(k) .ne. 0 ) then
@@ -1081,7 +1101,6 @@ c****************************************************************
 
         integer i,k,n
         logical berror
-
 
         integer icall
         save icall

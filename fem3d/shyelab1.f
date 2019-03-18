@@ -1,6 +1,28 @@
+
+!--------------------------------------------------------------------------
 !
-! $Id: noselab.f,v 1.8 2008-11-20 10:51:34 georg Exp $
+!    Copyright (C) 1985-2018  Georg Umgiesser
 !
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! revision log :
 !
 ! 18.11.1998    ggu     check dimensions with dimnos
@@ -22,7 +44,6 @@
 ! 05.10.2017    ggu     implement silent option
 ! 07.10.2017    ggu     new names for -split option of hydro file
 ! 11.05.2018    ggu     call shympi_init later (after basin)
-! 20.07.2018    dbf     inserted option for projection
 !
 !**************************************************************
 
@@ -88,7 +109,7 @@
  	real, parameter :: cthresh = 20.
  	!real, parameter :: cthresh = 0.
 
-	integer iapini
+	integer iapini,i
 	integer ifem_open_file
 	logical concat_cycle_a
 
@@ -185,6 +206,8 @@
 	  goto 76	!relax later
 	end if
 
+        call shy_check_nvar(id,nvar)
+
 	allocate(ieflag(nel))
 	allocate(ikflag(nkn))
 	allocate(cv2(nndim))
@@ -277,11 +300,11 @@
 	boutput = boutput .or. btrans
 
 	if( bsumvar ) then
-	  call shyelab_init_output(id,idout,1,(/10/))
+	  call shyelab_init_output(id,idout,ftype,1,(/10/))
 	else if( bmap ) then
-	  call shyelab_init_output(id,idout,1,(/75/))
+	  call shyelab_init_output(id,idout,ftype,1,(/75/))
 	else
-	  call shyelab_init_output(id,idout,nvar,ivars)
+	  call shyelab_init_output(id,idout,ftype,nvar,ivars)
 	end if
 
 !--------------------------------------------------------------
@@ -294,7 +317,7 @@
 	it = dtime
 	atfirst = atime
 	atlast = atime - 1	!do as if atlast has been read
-	call custom_dates_init(it,datefile)
+	call custom_dates_init(atime,datefile)
 
 	cv3 = 0.
 	cv3all = 0.
@@ -359,10 +382,10 @@
 	 ! initialize record header for output
 	 !--------------------------------------------------------------
 
-	 call shyelab_header_output(id,idout,dtime,nvar)
+	 call shyelab_header_output(idout,ftype,dtime,nvar)
 
 	 it = dtime
-	 call custom_dates_over(it,bforce)
+	 call custom_dates_over(atime,bforce)
 
 	 !--------------------------------------------------------------
 	 ! loop over single variables
@@ -377,6 +400,7 @@
 	  nn = n * m
 
 	  cv3(:,:) = cv3all(:,:,iv)
+
 
 	  if( iv == 1 ) nelab = nelab + 1
 
@@ -755,7 +779,7 @@
 	  id_out = shy_init(name)
 	  if( id_out <= 0 ) goto 99
           call shy_clone(id_in,id_out)
-	  call shy_convert_1var(id_out)
+       	  call shy_convert_1var(id_out)
           call shy_write_header(id_out,ierr)
 	  if( ierr /= 0 ) goto 98
 	  iusplit(ivar) = id_out

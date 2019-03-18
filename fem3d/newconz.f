@@ -1,6 +1,28 @@
-c
-c $Id: newconz.f,v 1.7 2010-02-26 17:35:06 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for generic concentration
 c
 c contents :
@@ -23,7 +45,7 @@ c 09.11.2015    ggu     newly structured in init, compute and write
 c 06.06.2016    ggu     initialization from file changed
 c 10.06.2016    ggu     some more re-formatting
 c 08.09.2016    ggu     new decay function implemented (chapra), cleaned
-c 13.02.2017    mic     idecay has new meaning!!! (incompatible)
+c 13.02.2017    mcg     idecay has new meaning!!! (incompatible)
 c 13.04.2017    ggu     contau deprecated... use taupar (array)
 c
 c*********************************************************************
@@ -124,6 +146,10 @@ c-------------------------------------------------------------
 	    call conz_init_file(dtime,nvar,nlvdi,nlv,nkn,cdefs,conzv)
 	  end if
 	end if
+
+	do i=1,nvar
+	  call massconc(+1,cnv,nlvdi,massv(i))
+	end do
 
 	call tracer_write_init
 	call tracer_write

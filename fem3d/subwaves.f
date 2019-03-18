@@ -1,6 +1,28 @@
+
+!--------------------------------------------------------------------------
 !
-! $Id: subwaves.f,v 1.1 2006/10/18 15:35:13 georg Exp $
+!    Copyright (C) 1985-2018  Georg Umgiesser
 !
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! waves subroutines
 !
 ! revision log :
@@ -16,6 +38,9 @@
 ! 10.03.2016	ggu	in parametric wave module fix segfault (allocatable)
 ! 15.04.2016	ggu	parametric wave module cleaned
 ! 12.04.2017	ggu	routines integrated to compute bottom stress, new module
+! 01.02.2019	ggu	bug fix in parwaves: do not compute H/P for wind == 0
+! 10.02.2019	ggu	bug fix for FPE (GGUZ0)
+! 12.02.2019	ccf	stress computed in substress.f
 !
 !**************************************************************
 c DOCS  START   S_wave
@@ -135,6 +160,8 @@ c**************************************************************
 	  iwwm = 1	!wind from SHYFEM
 	elseif ( iwave .eq. 4 .or. iwave .eq. 5 ) then
 	  iwwm = 2	!wind from WWM
+	elseif ( iwave .eq. 1 ) then
+	  call parwaves
 	else
 	  iwwm = 0	!no SHYFEM-WWM coupling
 	end if
@@ -248,7 +275,6 @@ c local
 	double precision tmpval
 	integer itdrag
 	integer it
-	logical bstress
 	logical bwind
 	save bwind
 	real wfact,wspeed
@@ -274,8 +300,6 @@ c local
 	allocate(SXX3D(nlv,nkn))
 	allocate(SYY3D(nlv,nkn))
 	allocate(SXY3D(nlv,nkn))
-
-	bstress = .false.			!compute and write bottom stress
 
 !       -----------------------------------------------
 !       Opens output file for waves
@@ -1068,16 +1092,17 @@ c --- aux variable
 
 c --- local variable
 
-	logical debug,bstress
+	logical debug
         real depele             !element depth function [m]
         real hbr		!limiting wave height [m]
         real dep,depe
         real gh,gx,hg
 	real wis,wid
+	real wmin,wmax
 	real wx,wy,fice
         real auxh,auxh1,auxt,auxt1
         integer ie,icount,ii,k
-	integer id,nvar
+	integer id,nvar,czero,hzero
 	double precision dtime
 
         real, parameter :: g = 9.81		!gravity acceleration [m2/s]
@@ -1104,7 +1129,6 @@ c------------------------------------------------------
 
 	debug = .true.
 	debug = .false.
-	bstress = .false.			!compute and write bottom stress
 
 c ----------------------------------------------------------
 c Initialization
@@ -1139,8 +1163,6 @@ c         Initialize output
 c         --------------------------------------------------
 
 	  nvar = 3
-	  if( bstress ) nvar = 4
-
           call init_output_d('itmwav','idtwav',da_wav)
           if( has_output_d(da_wav) ) then
 	    call shyfem_init_scalar_file('wave',nvar,.true.,id)
@@ -1214,29 +1236,35 @@ c         -----------------------------------------------------------------
 
 	  wis = winds(ie)
 	  wid = windd(ie)
-          gh = (g*dep)/(wis**2.)
-          gx = (g*fet(ie))/(wis**2.)
-          hg = dep / (g*wis**2.)
-          auxh = ah2*gh**eh1
-          auxh1 = ah2*hg**eh1
-          auxt = at2*gh**et1
-          auxt1 = ah2*gx**eh1
 
 c         -----------------------------------------------------------------
 c	  method of SPM
 c         -----------------------------------------------------------------
 
-          waeh(ie) = (tanh(auxh))**eh4
-          waeh(ie) = (ah3*gx**eh3) / waeh(ie)
-          waeh(ie) = (tanh(waeh(ie)))**eh2
-          waeh(ie) = ah1*tanh(auxh)*waeh(ie)
-          waeh(ie) = waeh(ie) * wis**2 / g
+	  if( wis > 0. ) then
+            gh = (g*dep)/(wis**2.)
+            gx = (g*fet(ie))/(wis**2.)
+            hg = dep / (g*wis**2.)
+            auxh = ah2*gh**eh1
+            auxh1 = ah2*hg**eh1
+            auxt = at2*gh**et1
+            auxt1 = ah2*gx**eh1
+
+            waeh(ie) = (tanh(auxh))**eh4
+            waeh(ie) = (ah3*gx**eh3) / waeh(ie)
+            waeh(ie) = (tanh(waeh(ie)))**eh2
+            waeh(ie) = ah1*tanh(auxh)*waeh(ie)
+            waeh(ie) = waeh(ie) * wis**2 / g
           
-          waep(ie) = (tanh(auxt))**et4
-          waep(ie) = (at3*gx**et3) / waep(ie)
-          waep(ie) = (tanh(waep(ie)))**et2
-          waep(ie) = at1*tanh(auxt)*waep(ie)
-          waep(ie) = waep(ie) * wis / g
+            waep(ie) = (tanh(auxt))**et4
+            waep(ie) = (at3*gx**et3) / waep(ie)
+            waep(ie) = (tanh(waep(ie)))**et2
+            waep(ie) = at1*tanh(auxt)*waep(ie)
+            waep(ie) = waep(ie) * wis / g
+	  else
+	    waeh(ie) = 0.
+	    waep(ie) = 0.
+	  end if
 
 c          waeh(ie) = 0.283 * tanh(0.530*(gh**(3./4.)))*
 c     %            tanh((0.00565*(gx**0.5))/
@@ -1283,6 +1311,12 @@ c         -----------------------------------------------------------------
 
         end do
 
+	!wmin = minval(winds)
+	!wmax = maxval(winds)
+	!czero = count( winds == 0. )
+	!hzero = count( waeh == 0. )
+	!write(6,*) 'wmin/wmax: ',wmin,wmax,czero,hzero
+
 c       -------------------------------------------------------------------
 c       copy to global values and write of results (file WAV)
 c       -------------------------------------------------------------------
@@ -1290,8 +1324,6 @@ c       -------------------------------------------------------------------
         call e2n2d(waeh,waveh,v1v)
         call e2n2d(waep,wavep,v1v)
         call e2n2d(waed,waved,v1v)
-
-	if( bstress ) call simple_sedi_bottom_stress(v1v)	!FIXME
 
 	wavepp = wavep
 
@@ -1301,7 +1333,6 @@ c       -------------------------------------------------------------------
 	  call shy_write_scalar_record(id,dtime,231,1,waveh)
 	  call shy_write_scalar_record(id,dtime,232,1,wavep)
 	  call shy_write_scalar_record(id,dtime,233,1,waved)
-	  if( bstress ) call shy_write_scalar_record(id,dtime,60,1,v1v)
 	end if
 
 c       -------------------------------------------------------------------
@@ -1569,135 +1600,6 @@ c******************************************************************
 c******************************************************************
 c******************************************************************
 
-	subroutine compute_wave_bottom_stress(h,p,depth,z0,tau)
-
-	implicit none
-
-	real h,p	!wave height and period
-	real depth	!depth of water column
-	real z0		!bottom roughness
-	real tau	!stress at bottom (return)
-
-	include 'pkonst.h'
-
-	real omega,zeta,a,eta,fw,uw
-	real, parameter :: pi = 3.14159
-
-	tau = 0.
-	if( p == 0. ) return
-
-        omega = 2.*pi/p
-        zeta = omega * omega * depth / grav
-        if( zeta .lt. 1. ) then
-          eta = sqrt(zeta) * ( 1. + 0.2 * zeta )
-        else
-          eta = zeta * ( 1. + 0.2 * exp(2.-2.*zeta) )
-        end if
-
-        uw = pi * h / ( p * sinh(eta) )
-        a = uw * p / (2.*pi)
-        if( a .gt. 0. ) then
-          fw = 1.39 * (z0/a)**0.52
-        else
-          fw = 0.
-        end if
-
-        tau = 0.5 * rowass * fw * uw * uw
-
-	end
-
-c******************************************************************
-
-        subroutine make_stress(waeh,waep,z0,tcv,twv,tmv)
-
-c computes stress parameters
-
-	use mod_hydro_baro
-	use basin, only : nkn,nel,ngr,mbw
-
-        implicit none
-
-        real waeh(nel)	!wave height [m]
-        real waep(nel)	!wave period [s]
-        real z0
-        real tcv(nel)
-        real twv(nel)
-        real tmv(nel)
-
-        real pi,karm,rho,g
-        real depth,ux,uy,uc2
-        real h,p
-        real aux,cd
-        real omega,zeta,eta
-        real uw,a,fw
-        real tc,tw,tm
-
-        integer ie
-
-        real depele
-        logical is_r_nan
-
-        pi = 3.14159
-        karm = 0.4
-        rho = 1025.
-        g = 9.81
-
-        do ie = 1,nel
-
-          depth = depele(ie,+1)
-          ux = unv(ie)/depth
-          uy = vnv(ie)/depth
-          uc2 = ux*ux + uy*uy
-          h = waeh(ie)
-          p = waep(ie)
-
-          aux = (z0 + 0.5 * depth) / z0
-          aux = log(aux)
-          cd = karm/aux
-          cd = cd*cd
-
-          tc = rho * cd * uc2
-
-	  if( p .ne. 0. ) then
-            omega = 2.*pi/p
-            zeta = omega * omega * depth / g
-            if( zeta .lt. 1. ) then
-              eta = sqrt(zeta) * ( 1. + 0.2 * zeta )
-            else
-              eta = zeta * ( 1. + 0.2 * exp(2.-2.*zeta) )
-            end if
-            !k = eta / depth
-
-            uw = pi * h / ( p * sinh(eta) )
-            a = uw * p / (2.*pi)
-            if( a .gt. 0. ) then
-              fw = 1.39 * (z0/a)**0.52
-            else
-              fw = 0.
-            end if
-
-            tw = 0.5 * rho * fw * uw * uw
-            tm = tc * ( 1. + 1.2 * ( tw/(tc+tw) )**3.2 )
-	  else
-	    tw = 0.
-	    tm = tc
-	  end if
-
-          if( is_r_nan(tw) ) then
-            write(6,*) "*** nan in stress..."
-            write(6,*) ie,tc,tw,tm
-            write(6,*) uw,eta,a,fw,depth,h,p
-          end if
-
-          tcv(ie) = tc
-          twv(ie) = tw
-          tmv(ie) = tm
-        end do
-
-        end
-
-c******************************************************************
-
         subroutine get_wave_values(k,wh,wmp,wpp,wd)
 
 c returns significant wave heigh, wave periods (mean and peak) and 
@@ -1719,46 +1621,6 @@ c mean wave direction
         wd  = waved(k)
 
         end subroutine get_wave_values
-
-!*********************************************************************
-
-	subroutine wave_bottom_stress(tau)
-
-! computes bottom stress from waves (on nodes)
-
-	use basin
-	use mod_parwaves
-	use mod_waves
-
-	implicit none
-
-	real tau(nkn)
-
-	integer ie
-	real h,p,depth
-	real tauele(nel)
-	real v1v(nkn)
-
-	real depele
-
-	if( iwave == 0 ) then
-	  tau = 0.
-	  return
-	else if( iwave > 1 ) then
-	  write(6,*) 'not yet ready for iwave > 1'
-	  stop 'error stop wave_bottom_stress: not ready'
-	end if
-
-	do ie=1,nel
-	  h = waeh(ie)
-	  p = waep(ie)
-	  depth = depele(ie,1)
-	  call compute_wave_bottom_stress(h,p,depth,z0,tauele(ie))
-	end do
-
-        call e2n2d(tauele,tau,v1v)
-
-	end
 
 !*********************************************************************
 

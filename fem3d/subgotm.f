@@ -1,6 +1,28 @@
-c
-c $Id: subgotm.f,v 1.12 2008-12-18 16:28:51 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c gotm module
 c
 c contents :
@@ -20,6 +42,7 @@ c 16.02.2011    ggu     write n2max to info file, profiles in special node
 c 29.03.2013    ggu     avoid call to areaele -> ev(10,ie)
 c 25.03.2014    ggu     new offline
 c 03.12.2015    ccf     levdbg introduced for checka
+c 03.02.2019    ggu     in gotm_shell check for 0layer and z0s/bmin (GGUZ0)
 c
 c**************************************************************
 
@@ -45,7 +68,7 @@ c administers turbulence closure
 	  iturb = nint(getpar('iturb'))
 	  if( iturb .le. 0 ) iturb = -1
 	  if( iturb .lt. 0 ) return
-	  write(*,*) 'starting turbulence model: ',iturb
+	  write(*,*) 'starting turbulence model: iturb = ',iturb
 	end if
 
 	if( iturb .eq. 1 ) then		!Gotm
@@ -223,20 +246,19 @@ c---------------------------------------------------------------
 	real h(nlvdi)
 	double precision depth		!total depth [m]
 	double precision z0s,z0b	!surface/bottom roughness length [m]
-	double precision rlmax
+	double precision rlmax,dz0
 	integer nltot
 	logical bwrite
 
-	real charnock_val		!emp. Charnok constant (1955)
-	parameter(charnock_val=1400.)	!default value = 1400.
-	double precision z0s_min	!minimum value of z0s
-	parameter(z0s_min=0.02)
+	double precision, parameter :: dz0min = 1.1	!min value for dz0=d/z0
+	real, parameter :: charnock_val=1400.	!emp. Charnock constant
+
 	real ubot,vbot,rr
 
 	real dtreal
 	real getpar
 
-	logical bwave,has_waves
+	logical bwave,has_waves,bgotm
 	save bwave
 
 	character*80 fn	
@@ -263,6 +285,14 @@ c------------------------------------------------------
 	if( icall .lt. 0 ) return
 
 	if( icall .eq. 0 ) then
+
+	  call has_gotm(bgotm)
+	  if( .not. bgotm ) then
+	    write(6,*) 'the model has been compiled without GOTM support'
+	    write(6,*) 'please eneable GOTM=true in the Rules.make file'
+	    write(6,*) 'or set iturb to another value'
+	    stop 'error stop gotm_shell: no GOTM support'
+	  end if
 
 	  czdef = getpar('czdef')
 	  bwave = has_waves()
@@ -333,6 +363,7 @@ c------------------------------------------------------
 	    nlev = nlvdi
 	    call dep3dnod(k,+1,nlev,h)
 
+	    if( count( h(1:nlev) <= 0. ) > 0 ) goto 97
             if( nlev .eq. 1 ) goto 1
 
 c           ------------------------------------------------------
@@ -370,18 +401,22 @@ c           ------------------------------------------------------
 	    else
 	      z0s = charnock_val*u_taus**2/g
 	    end if
-	    z0s = max(z0s,z0s_min)
+	    z0s = max(z0s,z0smin)			!GGUZ0
 
 c           ------------------------------------------------------
 c           compute bottom friction velocity (m/s)
 c           ------------------------------------------------------
 
 	    z0b = z0bk(k)
+	    z0b = max(z0bmin,z0b)			!GGUZ0
 	    u_taub = sqrt( taub(k) )
 
 	    ubot = uprv(nlev,k)
   	    vbot = vprv(nlev,k)
-	    rr = 0.4/(log((z0b+hh(1)/2)/z0b))
+	    dz0 = hh(1)/z0b
+	    if( dz0 < dz0min ) dz0 = dz0min		!GGUZ0
+	    rr = 0.4/( log( 0.5*(1.+dz0) ) )
+	    !rr = 0.4/(log((z0b+hh(1)/2)/z0b))
             u_taub = rr*sqrt( ubot*ubot + vbot*vbot )
 
 c           ------------------------------------------------------
@@ -490,6 +525,12 @@ c------------------------------------------------------
 c end of routine
 c------------------------------------------------------
 
+	return
+   97	continue
+	write(6,*) 'layers without depth...'
+	write(6,*) k,nlev
+	write(6,*) h(1:nlev)
+	stop 'error stop gotm_shell: no layer'
 	end
 
 c**************************************************************

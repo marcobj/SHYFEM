@@ -1,4 +1,28 @@
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c netcdf utility routines
 c
 c revision log :
@@ -1672,12 +1696,16 @@ c checks if variable is 3d
 
 	logical btime
 	integer var_id,ndims
-	integer, allocatable :: dim_id(:)
+	integer retval
+	integer, allocatable :: dim_ids(:)
 
 	call nc_get_var_id(ncid,name,var_id)
 
-	ndims = 0
-	call nc_get_var_ndims(ncid,var_id,ndims,dim_id)
+        retval = nf_inq_varndims(ncid,var_id,ndims)
+        call nc_handle_err(retval)
+	allocate(dim_ids(ndims))
+
+	call nc_get_var_ndims(ncid,var_id,ndims,dim_ids)
 
 	call nc_has_time_dimension(ncid,name,btime)
 	if( btime ) ndims = ndims - 1
@@ -1699,16 +1727,20 @@ c checks if variable name has time dimension
 	logical btime
 
 	integer var_id,ndims,time_id
-	integer, allocatable :: dim_id(:)
+	integer retval
+	integer, allocatable :: dim_ids(:)
 	character*80 tname,time_d,time_v
 
-	call nc_get_var_id(ncid,name,var_id)
-	ndims = 0
-	call nc_get_var_ndims(ncid,var_id,ndims,dim_id)
-	allocate(dim_id(ndims))
-	call nc_get_var_ndims(ncid,var_id,ndims,dim_id)
+	integer nf_inq_varndims
 
-	time_id = dim_id(ndims)				!time is always last
+	call nc_get_var_id(ncid,name,var_id)
+        retval = nf_inq_varndims(ncid,var_id,ndims)
+        call nc_handle_err(retval)
+        allocate(dim_ids(ndims))
+
+	call nc_get_var_ndims(ncid,var_id,ndims,dim_ids)
+
+	time_id = dim_ids(ndims)			!time is always last
         call nc_get_dim_name(ncid,time_id,tname)
 	call nc_get_time_name(time_d,time_v)
 
@@ -2545,6 +2577,27 @@ c*****************************************************************
 	  units = 'degC'
 	  cmin = -10.
 	  cmax = 100.
+	else if( ivar .eq. 99 ) then	! wrt
+	  name = 'water_renewal_time'
+	  what = 'long_name'
+	  std = 'water_renewal_time'
+	  units = '1'
+	  cmin = 0.
+	  cmax = 500.
+	else if( ivar .eq. 81 ) then	! particle age
+	  name = 'particle_age'
+	  what = 'long_name'
+	  std = 'lagrangian_particle_age'
+	  units = 'day'
+	  cmin = 0.
+	  cmax = 50000.
+	else if( ivar .eq. 84 ) then	! particle density
+	  name = 'particle_density'
+	  what = 'long_name'
+	  std = 'lagrangian_particle_concentration'
+	  units = 'num km-2'
+	  cmin = 0.
+	  cmax = 50000.
 	else
 	  write(6,*) 'unknown variable: ',ivar
 	  stop 'error stop descr_var'

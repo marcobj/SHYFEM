@@ -1,6 +1,30 @@
-c
-c $Id: supsim.f,v 1.23 2009-11-18 17:16:00 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 2002-2005,2007-2015,2017-2019  Georg Umgiesser
+!    Copyright (C) 2011  Debora Bellafiore
+!    Copyright (C) 2012  Christian Ferrarin
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c utility routines for plotsim
 c
 c contents :
@@ -70,6 +94,7 @@ c 14.09.2015    ggu	prepared for plotting velocities given in fem file
 c 06.11.2015    ggu	set valref to 1 if vel field == 0
 c 21.03.2017    ggu	new parameter valmax introduced
 c 13.02.2018    ggu	new routine for plotting boxes (plobox)
+c 13.03.2019    ggu	in plobas use parameters from STR file
 c
 c notes :
 c
@@ -764,7 +789,7 @@ c interprets element type as boxes and plots
 	integer iamax,iamin
 	integer ia,ie,ii,k,k2,i2
 	integer i,n,k1
-	real x,y
+	real x,y,a
 	real pmin,pmax,flag
 	real pa(nel)
 	character*80 string
@@ -772,8 +797,9 @@ c interprets element type as boxes and plots
 	integer, allocatable :: connect(:,:,:)
 	double precision, allocatable :: xa(:)
 	double precision, allocatable :: ya(:)
+	double precision, allocatable :: area(:)
 
-	real getpar
+	real getpar,area_elem
 
 	call set_plotleg(0)
 
@@ -790,12 +816,15 @@ c interprets element type as boxes and plots
 	allocate(na(0:iamax))
 	allocate(xa(0:iamax))
 	allocate(ya(0:iamax))
+	allocate(area(0:iamax))
 	connect = 0
 	na = 0
 	xa = 0.
 	ya = 0.
+	area = 0.
 	do ie=1,nel
 	  ia = iarv(ie)
+	  area(ia) = area(ia) + area_elem(ie)
 	  do ii=1,3
 	    k = nen3v(ii,ie)
 	    x = xgv(k)
@@ -837,9 +866,10 @@ c interprets element type as boxes and plots
 	  if( na(ia) > 0 ) then
 	    x = xa(ia)
 	    y = ya(ia)
+	    a = area(ia)
 	    write(string,'(i10)') ia
 	    string = adjustl(string)
-	    write(6,*) ia,x,y,trim(string)
+	    write(6,*) ia,x,y,a,trim(string)
 	    call qtext(x,y,trim(string))
 	  end if
 	end do
@@ -1481,12 +1511,18 @@ c**********************************************************
 	logical bnumber,belem,bbox
         real pmin,pmax
 
-	bnumber = .true.	! plot node and element numbers
-	bnumber = .false.
-	belem = .true.		! plot bathymetry on elements
-	belem = .false.
-	bbox = .true.		! plot boxes
-	bbox = .false.		!
+	real getpar
+
+	!bnumber = .true.	! plot node and element numbers
+	!bnumber = .false.
+	!belem = .true.		! plot bathymetry on elements
+	!belem = .false.
+	!bbox = .true.		! plot boxes
+	!bbox = .false.		!
+
+	belem = ( nint(getpar('isoinp')) == 2 )
+	bnumber = ( nint(getpar('inumber')) /= 0 )
+	bbox = ( nint(getpar('ibox')) /= 0 )
 
 	call reset_dry_mask
 	call adjust_no_plot_area
@@ -1499,7 +1535,7 @@ c only boundary line
 	call bash(2)
 	call qend
 
-c grid
+c grid with black
 
 	call qstart
 	call bash(0)
@@ -1523,7 +1559,7 @@ c bathymetry (gray or color)
 	  call ploval(nkn,hkv,'basin')
 	end if
 
-c bathymetry with grid
+c bathymetry with grid (black)
 
 	call qstart
 	call bash(0)
@@ -1571,7 +1607,7 @@ c partition
 
 	call plot_partition
 
-c boundary line with regular grid
+c boundary line with regular overview grid
 
 	call qstart
 	call bash(0)
@@ -1586,28 +1622,28 @@ c here only debug (node and element numbers)
 	call qstart
 	call bash(0)
 	call bash(3)
-	call basin_number(1)
+	call basin_number(1)	!external node
 	call bash(2)
 	call qend
 
 	call qstart
 	call bash(0)
 	call bash(3)
-	call basin_number(2)
+	call basin_number(2)	!external element
 	call bash(2)
 	call qend
 
 	call qstart
 	call bash(0)
 	call bash(3)
-	call basin_number(-1)
+	call basin_number(-1)	!internal node
 	call bash(2)
 	call qend
 
 	call qstart
 	call bash(0)
 	call bash(3)
-	call basin_number(-2)
+	call basin_number(-2)	!internal element
 	call bash(2)
 	call qend
 
@@ -1884,7 +1920,7 @@ c sets values on boundary to val
 
 	implicit none
 
-	real a(1)
+	real a(nkn)
 	real val
 
 	integer k

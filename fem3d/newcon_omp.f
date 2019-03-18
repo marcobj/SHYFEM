@@ -1,11 +1,50 @@
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c revision log :
 c
+c 09.01.1994	ggu	(from scratch)
+c 19.01.1994	ggu	$$flux - flux conserving property
+c 20.01.1994	ggu	$$iclin - iclin not used to compute volume
+c 20.01.1994	ggu	$$lumpc - evaluate conz. nodewise
+c 03.02.1994	ggu	$$itot0 - exception for itot=0 or 3
+c 04.02.1994	ggu	$$fact3 - factor 3 missing in transport
+c 04.02.1994	ggu	$$azpar - azpar used to compute transport
+c 04.02.1994	ggu	$$condry - comute conz also in dry areas
+c 07.02.1994	ggu	$$istot - istot for fractional time step
+c 01.06.1994	ggu	restructured for 3-d model
+c 18.07.1994	ggu	$$htop - use htop instead of htopo for mass cons.
+c 09.04.1996	ggu	$$rvadj adjust rv in certain areas
 c 20.05.2015    erp     transformed for OMP
 c 30.09.2015    ggu     routine cleaned, no reals in conz3d
 c 20.11.2015    ggu&erp chunk size introduced, omp finalized
 c 20.10.2016    ccf     pass rtauv for differential nudging
 c 11.05.2018    ggu     compute only unique nodes (needed for zeta layers)
+c 11.10.2018    ggu     code adjusted for sediment deposition (negative loads)
+c 01.02.2019    ggu     bug fix for conz==0 with negative loading
+c 14.02.2019    ggu     bug fix for conz<0 with negative loading
 c
 c**************************************************************
 
@@ -52,19 +91,6 @@ c isact	 actual inter time step
 c nlvddi	 dimension in z direction
 c nlv	 actual needed levels
 c
-c written 09.01.94 by ggu  (from scratch)
-c revised 19.01.94 by ggu  $$flux - flux conserving property
-c revised 20.01.94 by ggu  $$iclin - iclin not used to compute volume
-c revised 20.01.94 by ggu  $$lumpc - evaluate conz. nodewise
-c revised 03.02.94 by ggu  $$itot0 - exception for itot=0 or 3
-c revised 04.02.94 by ggu  $$fact3 - factor 3 missing in transport
-c revised 04.02.94 by ggu  $$azpar - azpar used to compute transport
-c revised 04.02.94 by ggu  $$condry - comute conz also in dry areas
-c revised 07.02.94 by ggu  $$istot - istot for fractional time step
-c revised 01.06.94 by ggu  restructured for 3-d model
-c revised 18.07.94 by ggu  $$htop - use htop instead of htopo for mass cons.
-c revised 09.04.96 by ggu  $$rvadj adjust rv in certain areas
-c
 c solution of purely diffusional part :
 c
 c dC/dt = a*laplace(C)    with    c(x,0+)=delta(x)
@@ -106,7 +132,8 @@ c DPGGU -> introduced double precision to stabilize solution
 	real,dimension(nlvddi,nkn),intent(in) :: co1,cbound
 	real,dimension(nlvddi,nel),intent(in) :: difhv
 	real,dimension(nlvddi,nkn),intent(in) :: gradxv,gradyv
-	real,dimension(nlvddi,nkn),intent(in) :: cobs,rtauv,load
+	real,dimension(nlvddi,nkn),intent(in) :: cobs,rtauv
+	real,dimension(nlvddi,nkn),intent(inout) :: load		!LLL
 	real,dimension(0:nlvddi,nkn),intent(in) :: difv,wsinkv
         !double precision,dimension(nlvddi,nkn),intent(out) :: cn
         
@@ -706,7 +733,8 @@ c*****************************************************************
 	
 	integer,intent(in) :: k,nlvddi
 	real,intent(in) :: rload
-	real,dimension(nlvddi,nkn),intent(in) :: cn1,cbound,load
+	real,dimension(nlvddi,nkn),intent(in) :: cn1,cbound
+	real,dimension(nlvddi,nkn),intent(inout) :: load 		!LLL
 	double precision, intent(in) :: dt
 	double precision, intent(in) :: ad,aa
 
@@ -717,7 +745,7 @@ c*****************************************************************
 
 	integer :: l,ilevel,lstart,i,ii,ie,n,ibase
 	double precision :: mflux,qflux,cconz
-	double precision :: loading,aux
+	double precision :: loading,aux,cload
 
 	double precision, parameter :: d_tiny = tiny(1.d+0)
 	double precision, parameter :: r_tiny = tiny(1.)
@@ -729,8 +757,9 @@ c*****************************************************************
       	  ilevel = ilhkv(k)
 
 	  do l=1,ilevel
+
             !mflux = cbound(l,k)		!mass flux has been passed
-	    cconz = cbound(l,k)		!concentration has been passed
+	    cconz = cbound(l,k)			!concentration has been passed
 	    qflux = mfluxv(l,k)
 	    if( qflux .lt. 0. .and. is_boundary(k) ) cconz = cn1(l,k)
 	    mflux = qflux * cconz
@@ -738,15 +767,24 @@ c*****************************************************************
             cn(l,k) = cn(l,k) + dt * mflux	!explicit treatment
 
 	    loading = rload*load(l,k)
-            if( loading .eq. 0. ) then
-	      !nothing
-	    else if( loading .gt. 0. ) then    		!treat explicit
-              cn(l,k) = cn(l,k) + dt * loading
-            else !if( loading .lt. 0. ) then		!treat quasi implicit
-	      if( cn1(l,k) > 0. ) then
-                cdiag(l) = cdiag(l) - dt * loading/cn1(l,k)
+            if( loading == 0 ) then			!no loading
+              !nothing
+            else if ( loading < 0.d0 ) then		!excess deposition
+	      cload = 0.
+	      if( cn(l,k) > 0. ) then
+                cload = - dt * loading
+                cload = cn(l,k) * ( 1. - exp(-cload/cn(l,k)) )
+	      else if( cn(l,k) < 0. ) then
+	        cn(l,k) = 0.
 	      end if
+              if( cload > cn(l,k) ) goto 98
+              loading = -cload / dt
+              if( rload > 0. ) load(l,k) = loading / rload
+              cn(l,k) = cn(l,k) + dt*loading
+            else					!erosion
+              cn(l,k) = cn(l,k) + dt*loading
             end if
+ 
 	  end do
 
 ! ----------------------------------------------------------------
@@ -789,6 +827,10 @@ c*****************************************************************
 ! ----------------------------------------------------------------
 
 	return
+   98	continue
+	write(6,*) 'error computing loading: ',l,k
+	write(6,*) 'loading,cload,cn(l,k): ',loading,cload,cn(l,k)
+	stop 'error stop conz3d_nodes: internal error (1)'
    99	continue
 	write(6,*) k,l,ilevel
 	write(6,*) nkn_inner,nkn_local,nkn

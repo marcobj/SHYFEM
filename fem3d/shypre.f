@@ -1,20 +1,42 @@
-c
-c $Id: vp.f,v 1.11 2009-05-21 09:24:00 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c pre-processing routine
 c
 c revision log :
 c
-c revised on  30.08.88  by ggu  (itief in common, no rdpara)
-c revised on  22.11.88  by ggu  (new version 3, itief passed as actual param)
-c revised on  24.11.88  by ggu  (sp13f., descrr...)
-c revised on  30.11.88  by ggu  (back to sp13u.)
-c revised on  31.07.90  by ggu  (open all files explicitly)
-c revised on  08.10.94  by ggu  (newly designed -> use subroutines)
-c revised on  09.10.94  by ggu  (read from .grd files)
-c revised on  16.03.95  by ggu  (double precision in clockw)
-c revised on  06.03.96  by ggu  renumber also iarv in renel
-c revised on  08.09.97  by ggu  introduce raux,neaux for compiler warnings
+c 30.08.1988	ggu	(itief in common, no rdpara)
+c 22.11.1988	ggu	(new version 3, itief passed as actual param)
+c 24.11.1988	ggu	(sp13f., descrr...)
+c 30.11.1988	ggu	(back to sp13u.)
+c 31.07.1990	ggu	(open all files explicitly)
+c 08.10.1994	ggu	(newly designed -> use subroutines)
+c 09.10.1994	ggu	(read from .grd files)
+c 16.03.1995	ggu	(double precision in clockw)
+c 06.03.1996	ggu	renumber also iarv in renel
+c 08.09.1997	ggu	introduce raux,neaux for compiler warnings
 c 20.03.1998    ggu     automatic optimization of bandwidth introduced
 c 08.05.1998    ggu     always process whole file (idepth = 0)
 c 18.05.1998    ggu     always process depths elementwise
@@ -126,18 +148,26 @@ c
 	hflag = -999.
 
 	itief=0		!0=read by element  1=read by node
-c
+
+c--------------------------------------------------------
+c get name of basin
+c--------------------------------------------------------
+
+	call shypre_init(grdfile)
+
+c--------------------------------------------------------
 c open error file
-c
+c--------------------------------------------------------
+
 	ner=ifileo(ner,errfil,'form','new')
 	if(ner.le.0) then
 		write(6,*) 'Cannot open error file'
 		stop 'error stop : shypre'
 	end if
-c
-c get name of basin
-c
-	call shypre_init(grdfile)
+
+c--------------------------------------------------------
+c set parameters
+c--------------------------------------------------------
 
 	bwrite = .not. bquiet
 	bww = .not. bsilent
@@ -147,7 +177,9 @@ c
 	call delete_extension(basnam,'.grd')
 	call putfnm('basnam',grdfile)
 
+c--------------------------------------------------------
 c always process whole file
+c--------------------------------------------------------
 
 	idepth = 0
 
@@ -1638,7 +1670,6 @@ c**********************************************************
 c**********************************************************
 c**********************************************************
 
-
 	subroutine shypre_init(grdfile)
 
 	use clo
@@ -1684,7 +1715,7 @@ c**********************************************************
 	if( bsilent ) bquiet = .true.
 
 	if( .not. bquiet ) then
-	  call shyfem_copyright('shypre - preprocessing of FEM grid')
+          call shyfem_copyright('shypre - pre-processing of GRD grid')
 	end if
 
 	end

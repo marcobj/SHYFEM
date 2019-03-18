@@ -1,4 +1,28 @@
+
+!--------------------------------------------------------------------------
 !
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! utility routines for shybas: basutil
 !
 ! revision log :
@@ -27,6 +51,8 @@
 	logical, save :: bxyz
 	logical, save :: bdepth
 	logical, save :: bunique
+	logical, save :: bgr3
+	logical, save :: bmsh
 	logical, save :: bdelem
 	logical, save :: bnpart
 
@@ -122,6 +148,10 @@
      +		,'writes grd file with nodal partition to be visualized')
         call clo_add_option('part grd-file',' '
      +		,'uses lines contained in grd-file to create partition')
+        call clo_add_option('gr3',.false.
+     +		,'writes grid in gr3 format (for WWMIII model')
+        call clo_add_option('msh',.false.
+     +		,'writes grid in msh (gmsh v. 2) format (for WW3 model')
 
         call clo_add_sep('what to do:')
 
@@ -187,6 +217,8 @@
         call clo_get_option('delem',bdelem)
         call clo_get_option('npart',bnpart)
         call clo_get_option('part',lfile)
+        call clo_get_option('gr3',bgr3)
+        call clo_get_option('msh',bmsh)
 
         call clo_get_option('quality',bquality)
         call clo_get_option('resol',bresol)
@@ -221,8 +253,8 @@
         call ap_set_names(' ',infile)
 
         if( .not. bquiet ) then
-	  if( type == 'BAS' ) then
-            call shyfem_copyright('shybas - Elaborate BAS files')
+	  if( type == 'BAS' .or. type == 'GRD' ) then
+	    call shyfem_copyright('shybas - elaborates GRD/BAS files')
 	  else
 	    write(6,*) 'type : ',trim(type)
 	    stop 'error stop basutil_get_options: unknown type'

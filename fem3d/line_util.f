@@ -1,4 +1,28 @@
 
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c*******************************************************************
 
 	subroutine check_elements(n,x,y,ieflag,ikflag)
@@ -147,7 +171,7 @@ c checks if one of the line points is in element given by xe,ye
 	implicit none
 
 	integer n
-	real x(1),y(1)
+	real x(n),y(n)
 	real xe(3),ye(3)
 	integer inside		!0: no point inside (return)
 
@@ -205,7 +229,7 @@ c returns min/max coordinates of polygon
         implicit none
 
         integer n
-        real x(1),y(1)
+        real x(n),y(n)
         real xmin,xmax
         real ymin,ymax
 
@@ -234,7 +258,7 @@ c returns center of gravity of polygon
         implicit none
 
         integer n
-        real x(1),y(1)
+        real x(n),y(n)
         real xm,ym
 
         integer i

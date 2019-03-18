@@ -1,6 +1,28 @@
-c
-c $Id: new3di.f,v 1.35 2010-03-11 15:36:38 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c assembling linear system routine
 c
 c contents :
@@ -104,19 +126,19 @@ c $$rtmax	use maximal friction coefficient of rdt (=1./dt)
 c
 c revision log :
 c
-c revised 01.07.93 	$$UVBARO - u/vov introduced for	iteration on rad cond
-c revised 03.11.93 	$$cmplerr - compiler warnings hydro
-c revised 05.11.93 	$$fric - normal friction
-c revised 05.11.93 	$$crador - crador call commented
-c revised 05.11.93 	subroutine crador in file newcra.f
-c revised 05.11.93 	$$VBARO-ERR - unv(ie)=vov(ie)
-c revised 28.08.95 	$$BAROC_AREA - do baroc only for iarv(ie) = 0
-c revised 30.08.95      $$AUST - austausch coefficient introduced
-c revised 01.09.95      $$AWEIGH - area weighting of austausch coefficient
-c revised 06.03.96 	$$BAROC_AREA0 - introduced baroc0
-c revised 06.03.96 	$$VERT_AUST_ADJUST - adjustment of vert. aust. coef.
-c revised 06.06.96 	$$BCHAO - modifications for vel. profile (temp.)
-c revised 10.06.96 	$$UVPADV - modifications for advective term
+c 01.07.1993	ggu	$$UVBARO - u/vov introduced for	iteration on rad cond
+c 03.11.1993	ggu	$$cmplerr - compiler warnings hydro
+c 05.11.1993	ggu	$$fric - normal friction
+c 05.11.1993	ggu	$$crador - crador call commented
+c 05.11.1993	ggu	subroutine crador in file newcra.f
+c 05.11.1993	ggu	$$VBARO-ERR - unv(ie)=vov(ie)
+c 28.08.1995	ggu	$$BAROC_AREA - do baroc only for iarv(ie) = 0
+c 30.08.1995	ggu	$$AUST - austausch coefficient introduced
+c 01.09.1995	ggu	$$AWEIGH - area weighting of austausch coefficient
+c 06.03.1996	ggu	$$BAROC_AREA0 - introduced baroc0
+c 06.03.1996	ggu	$$VERT_AUST_ADJUST - adjustment of vert. aust. coef.
+c 06.06.1996	ggu	$$BCHAO - modifications for vel. profile (temp.)
+c 10.06.1996	ggu	$$UVPADV - modifications for advective term
 c 14.08.1998	ggu	set w = 0 at open boundary nodes
 c 20.08.1998	ggu	some documentation for sp256w
 c 08.04.1999    ggu     equilibrium tide introduced (zeqv)
@@ -144,7 +166,7 @@ c 31.05.2006    ggu     new friction type ireib=7
 c 18.10.2006    ccf     radx,rady for radiation stress introduced
 c 28.11.2006    ggu     in u/vadv is now difference and not absolute transport
 c 02.04.2007    ggu     new algorithm (look for ASYM)
-c 08.06.2007    ggu&deb restructured for new explicit terms
+c 08.06.2007    ggu&dbf restructured for new explicit terms
 c 28.09.2007    ggu	deleted chao, semi-lagrange to newexp.f, no indov
 c 24.06.2008    ggu	bpresv deleted
 c 10.10.2008	ggu&mbj	prepared for pardiso -> modify system (gguexclude)
@@ -177,6 +199,8 @@ c 10.03.2016    ggu	in sp256v_intern() b/cpres in double precision
 c 11.03.2016    ggu	most variables passed in double precision
 c 31.10.2016    ggu	parallel part modified
 c 24.03.2017    ggu	new treatment for afix in sp256v_intern()
+c 19.12.2018    ggu	error in experimental code with penta solver
+c 18.01.2019    ggu	finished implementing and testing penta solver
 c
 c******************************************************************
 
@@ -184,7 +208,7 @@ c******************************************************************
 
 c administrates one hydrodynamic time step for system to solve
 c
-c written on 27.07.88 by ggu   (from sp159f)
+c 27.07.1988	ggu	(from sp159f)
 
 	use mod_depth
 	use mod_bound_dynamic
@@ -219,6 +243,7 @@ c written on 27.07.88 by ggu   (from sp159f)
         real epseps
         parameter (epseps = 1.e-6)
 
+        integer iwvel !DWNH
 	kspecial = 0
 	bdebout = .false.
 
@@ -229,6 +254,7 @@ c set parameter for hydro or non hydro
 c-----------------------------------------------------------------
 
 	call nonhydro_get_flag(bnohyd)
+        iwvel = nint(getpar('iwvel')) !DWNH
 	call get_act_dtime(dtime)
 
 	azpar = getpar('azpar')
@@ -328,7 +354,10 @@ c-----------------------------------------------------------------
 
 	call hydro_vertical(dzeta)		!compute vertical velocities
 
-	if (bnohyd) call nh_handle_output(dtime)
+	!if (bnohyd) call nh_handle_output(dtime)
+	if (bnohyd .or. (iwvel .eq. 1)) then
+	  call nh_handle_output(dtime)!DWNH
+	end if
 
 c-----------------------------------------------------------------
 c correction for zeta
@@ -378,9 +407,9 @@ c vqv		flux boundary condition vector
 c
 c semi-implicit scheme for 3d model
 c
-c written on 18.02.91 by ggu  (from scratch)
-c changed on 04.06.91 by ggu  (c=(1) : friction term has been corrected)
-c changed on 01.10.92 by ggu  (staggered FE - completely restructured)
+c 18.02.1991	ggu	(from scratch)
+c 04.06.1991	ggu	(c=(1) : friction term has been corrected)
+c 01.10.1992	ggu	(staggered FE - completely restructured)
 c 12.01.2001    ggu     solve for znv and not level difference (ZNEW)
 
 	use mod_nudging
@@ -404,7 +433,7 @@ c 12.01.2001    ggu     solve for znv and not level difference (ZNEW)
 	include 'mkonst.h'
 	include 'pkonst.h'
 
-        integer afix            !chao deb
+        integer afix            !chao dbf
 	logical bcolin
 	logical bdebug
 	integer kn(3)
@@ -501,9 +530,9 @@ c	------------------------------------------------------
 
 	ilevel=ilhv(ie)
 	aj=ev(10,ie)
-        afix=1-iuvfix(ie)      !chao deb
+        afix=1-iuvfix(ie)      !chao dbf
 
-        delta=ddt*ddt*az*am*grav*afix         !ASYM_OPSPLT        !chao deb
+        delta=ddt*ddt*az*am*grav*afix         !ASYM_OPSPLT        !chao dbf
 
 c	------------------------------------------------------
 c	compute contribution from H^x and H^y
@@ -650,6 +679,7 @@ c******************************************************************
 	real vismol,rrho0
 	real dt
 
+	double precision rmsdif,rmsmax
 	double precision tempo
 	double precision openmp_get_wtime
 	!integer openmp_get_num_threads,openmp_get_thread_num
@@ -690,7 +720,7 @@ c computation of explicit part (sets arrays fxv(l,ie),fyv(l,ie)
 c-------------------------------------------------------------
 
 	call bottom_friction	!set bottom friction
-        call set_explicit       !new HYDRO deb
+        call set_explicit       !new HYDRO dbf
 	!call set_yaron
 
 c-------------------------------------------------------------
@@ -705,16 +735,23 @@ c-------------------------------------------------------------
 	do ie=1,nel,nchunk
 
 !$OMP TASK FIRSTPRIVATE(ie,bcolin,baroc,az,am,af,at,radv
-!$OMP& 	   ,vismol,rrho0,dt) PRIVATE(ies,iend)
+!$OMP& 	   ,vismol,rrho0,dt) PRIVATE(ies,iend,rmsdif,rmsmax)
 !$OMP&     SHARED(nel,nchunk)	 DEFAULT(NONE)
 	 
+	  rmsmax = 0.
  	  iend = ie+nchunk-1
  	  if(iend .gt. nel) iend = nel
 
  	  do ies=ie,iend
 	    call sp256v_intern(ies,bcolin,baroc,az,am,af,at,radv
-     +			,vismol,rrho0,dt)
+     +			,vismol,rrho0,dt,rmsdif)
+	    rmsmax = max(rmsmax,rmsdif)
 	  end do
+
+	  if( rmsmax > 1.D-10 ) then
+	    write(6,*) 'rmsmax: ',rmsmax
+	    stop 'error stop hydro_transports: rms too high'
+	  end if
 
 !$OMP END TASK
 
@@ -740,15 +777,15 @@ c-------------------------------------------------------------
 c******************************************************************
 
 	subroutine sp256v_intern(ie,bcolin,baroc,az,am,af,at,radv
-     +			,vismol,rrho0,dt)
+     +			,vismol,rrho0,dt,rmsdif)
 
 c assembles vertical system matrix
 c
 c semi-implicit scheme for 3d model
 c
-c written on 18.02.91 by ggu  (from scratch)
+c 18.02.1991	ggu	(from scratch)
 c
-	use tidef
+	use tide
 	use mod_meteo
 	use mod_waves
 	use mod_fluidmud
@@ -773,6 +810,7 @@ c
 	real radv			!non-linear contribution
 	real vismol,rrho0
 	real dt
+	double precision rmsdif
 
 c parameters
 	double precision drittl
@@ -783,8 +821,9 @@ c common
 c local
 
 	logical bbaroc,barea0                  !$$BAROC_AREA0
+	logical bnewpenta
 
-        integer afix             !chao deb
+        integer afix             !chao dbf
 	logical bfirst,blast
 	logical debug,bdebug
         logical bdebggu
@@ -817,6 +856,7 @@ c local
 	!real vis
 	real rraux,cdf,dtafix
 	real ss
+	logical b2d
 	logical, parameter :: debug_mpi = .false.
 
 	double precision b(3),c(3)
@@ -826,14 +866,18 @@ c local
 	double precision taux,tauy,rdist
 	double precision vis
 	double precision uuadv,uvadv,vuadv,vvadv
-        
+
 c-----------------------------------------
 	real hact(0:nlvdi+1)
 	real rhact(0:nlvdi+1)
 	real alev(0:nlvdi)
 c-----------------------------------------
 	double precision rmat(10*nlvdi)
+	double precision smat(-2:2,2*nlvdi)
+	double precision s2dmat(-1:1,2)		!for 2D
 	double precision rvec(6*nlvdi)		!ASYM (3 systems to solve)
+	double precision rvecp(6*nlvdi)		!ASYM (3 systems to solve)
+	double precision solv(6*nlvdi)		!ASYM (3 systems to solve)
 	double precision ppx,ppy
 c-----------------------------------------
 c function
@@ -846,6 +890,7 @@ c-------------------------------------------------------------
 c initialization and baroclinic terms
 c-------------------------------------------------------------
 
+	bnewpenta = .true.
 	bdebug=.false.
 	debug=.false.
         barea0 = .false.     ! baroclinic only with ia = 0 (HACK - do not use)
@@ -864,6 +909,7 @@ c-------------------------------------------------------------
 	ngl=2*ilevel
 	mbb=2
 	if(ngl.eq.2) mbb=1
+	b2d = (ngl == 2)
 
 c-------------------------------------------------------------
 c compute barotropic terms (wind, atmospheric pressure, water level
@@ -924,6 +970,13 @@ c-------------------------------------------------------------
 	do ii=1,ngl*5
 	  rmat(ii)=0.
 	end do
+	if( b2d ) then
+	  s2dmat = 0.
+	else
+	  smat(:,1:ngl) = 0.
+	end if
+	rvec = 0.
+	solv = 0.
 
 c-------------------------------------------------------------
 c compute layer thicknes and store in hact and rhact
@@ -1103,13 +1156,31 @@ c	------------------------------------------------------
 	rmat(locssp(jv,ju,ngl,mbb)) =  gamma  + vuadv
 	rmat(locssp(ju,jv,ngl,mbb)) = -gamma  + uvadv
 
+	if( b2d ) then
+	  s2dmat(0,ju) = 1. + aa + uuadv
+	  s2dmat(0,jv) = 1. + aa + vvadv
+	  s2dmat(-1,jv) =  gamma  + vuadv
+	  s2dmat(+1,ju) = -gamma  + uvadv
+	  !s2dmat(-1,jv) = -gamma  + vuadv
+	  !s2dmat(+1,ju) =  gamma  + uvadv
+	else
+	  smat(0,ju) = 1. + aa + uuadv
+	  smat(0,jv) = 1. + aa + vvadv
+	  smat(-1,jv) =  gamma  + vuadv
+	  smat(+1,ju) = -gamma  + uvadv
+	end if
+
 	if(.not.blast) then
 		rmat(locssp(ju,ju+2,ngl,mbb)) = -bb
 		rmat(locssp(jv,jv+2,ngl,mbb)) = -bb
+		smat(+2,ju) = -bb
+		smat(+2,jv) = -bb
         end if
 	if(.not.bfirst) then
 		rmat(locssp(ju,ju-2,ngl,mbb)) = -cc
 		rmat(locssp(jv,jv-2,ngl,mbb)) = -cc
+		smat(-2,ju) = -cc
+		smat(-2,jv) = -cc
         end if
 
 c	------------------------------------------------------
@@ -1138,9 +1209,32 @@ c-------------------------------------------------------------
 c solution of vertical system (we solve 3 systems in one call)
 c-------------------------------------------------------------
 
+	rmsdif = 0.
+	if( bnewpenta ) rvecp = rvec
+
         !call gelb(rvec,rmat,ngl,1,mbb,mbb,epseps,ier)
         !call dgelb(rvec,rmat,ngl,1,mbb,mbb,epseps,ier)
         call dgelb(rvec,rmat,ngl,3,mbb,mbb,epseps,ier)		!ASYM_OPSPLT
+
+	if( bnewpenta ) then
+
+	if( b2d ) then
+	  call tria_multi(ngl,3,s2dmat,rvecp,solv)
+	else
+	  call penta_fact(ngl,smat)
+	  call penta_solve(ngl,smat,rvecp,solv)
+	  call penta_solve(ngl,smat,rvecp(ngl+1),solv(ngl+1))
+	  call penta_solve(ngl,smat,rvecp(2*ngl+1),solv(2*ngl+1))
+	end if
+
+	rmsdif = sum((rvec-solv)**2)
+	rmsdif = sqrt(rmsdif/ngl)
+	if( rmsdif > 0.001 ) then
+	  write(6,*) 'rmsdif: ',ie,b2d,ngl,ilevel,rmsdif
+	end if
+	rvec = solv
+
+	end if
 
 	if(ier.ne.0) then
 	  call vel_matrix_error(ier,ie,ilevel,rvec,rmat,hact,alev)
@@ -1151,7 +1245,7 @@ c-------------------------------------------------------------
 c compute u^hat (negative sign because ppx/ppy was -F^x/-F^y)
 c-------------------------------------------------------------
 
-        afix=1-iuvfix(ie)       !chao deb
+        afix=1-iuvfix(ie)       !chao dbf
 
 	if( afix /= 0. ) then
 	  dtafix = dt * afix
@@ -1240,7 +1334,7 @@ c******************************************************************
 
 c post processing of time step
 c
-c written on 23.07.1997 by ggu  (from scratch)
+c 23.07.1997	ggu	(from scratch)
 c
 	use mod_internal
 	use mod_depth
@@ -1259,7 +1353,7 @@ c
 	integer ie,ii,l,kk
 	integer ilevel
 	integer ju,jv
-        integer afix            !chao deb
+        integer afix            !chao dbf
 	real dt,azpar,ampar
 	double precision az,am,beta
 	double precision bz,cz,um,vm
@@ -1291,7 +1385,7 @@ c-------------------------------------------------------------
 
 	ilevel=ilhv(ie)
 
-        afix=1-iuvfix(ie)       !chao deb
+        afix=1-iuvfix(ie)       !chao dbf
 
 c	------------------------------------------------------
 c	compute barotropic pressure term
@@ -1318,8 +1412,8 @@ c	------------------------------------------------------
 	  du = beta * ( ddxv(ju,ie)*bz + ddyv(ju,ie)*cz )	!ASYM_OPSPLT_CH
 	  dv = beta * ( ddxv(jv,ie)*bz + ddyv(jv,ie)*cz )	!ASYM_OPSPLT_CH
 
-	  utlnv(l,ie) = utlnv(l,ie) - du*afix   !chao deb
-	  vtlnv(l,ie) = vtlnv(l,ie) - dv*afix   !chao deb
+	  utlnv(l,ie) = utlnv(l,ie) - du*afix   !chao dbf
+	  vtlnv(l,ie) = vtlnv(l,ie) - dv*afix   !chao dbf
 
 	end do
 
@@ -1374,7 +1468,7 @@ c
 c wlnv (dvol)   aux array for volume difference
 c vv            aux array for area
 c
-c written on 27.08.91 by ggu  (from scratch)
+c 27.08.1991	ggu	(from scratch)
 c 14.08.1998	ggu	w = 0 at open boundary nodes
 c 20.08.1998	ggu	some documentation
 

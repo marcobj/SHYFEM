@@ -1,6 +1,12 @@
+
+#------------------------------------------------------------------------
 #
-# $Id: Makefile,v 1.9 2009-04-21 10:20:50 georg Exp $
+#    Copyright (C) 1985-2018  Georg Umgiesser
 #
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+
 #--------------------------------------------- 
 
 DIR	= femadj
@@ -29,8 +35,7 @@ LIBIPS  = $(DIRLIB)/lib$(LIBPOST).a
 
 #--------------------------------------------- macros
 
-OBJS	=	subsrt.o subssv.o subsss.o subfil.o subgeo.o \
-		subscn.o
+OBJS =
 
 ADJOBJS	=	adj4el.o adj5el.o adj7el.o adj575.o \
 		adjplo.o adjgrd.o adjneu.o adjvar.o \
@@ -142,20 +147,19 @@ strip:
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
 ../femlib/mod/mod_adj_grade.mod: mod_adj_grade.o
+../femlib/mod/mod_adj_static.mod: mod_adj_grade.o
 ../femlib/mod/scan_string.mod: subscn.o
 adj4el.o: ../femlib/mod/basin.mod ../femlib/mod/mod_adj_grade.mod
 adj575.o: ../femlib/mod/basin.mod ../femlib/mod/mod_adj_grade.mod
-adj5el.o: ../femlib/mod/basin.mod ../femlib/mod/mod_adj_grade.mod \
-		param.h 
+adj5el.o: ../femlib/mod/basin.mod ../femlib/mod/mod_adj_grade.mod
 adj7el.o: ../femlib/mod/basin.mod ../femlib/mod/mod_adj_grade.mod
-adjgrd.o: nbstatic.h
+adjgrd.o: ../femlib/mod/mod_adj_static.mod
 adjneu.o: ../femlib/mod/basin.mod ../femlib/mod/mod_adj_grade.mod \
-		../femlib/mod/mod_depth.mod param.h 
-adjplo.o: ../femlib/mod/basin.mod ../femlib/mod/mod_adj_grade.mod \
-		param.h 
+		../femlib/mod/mod_depth.mod 
+adjplo.o: ../femlib/mod/basin.mod ../femlib/mod/mod_adj_grade.mod
 adjvar.o: ../femlib/mod/basin.mod ../femlib/mod/mod_adj_grade.mod \
-		nbstatic.h param.h 
+		../femlib/mod/mod_adj_static.mod 
 shyadj.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/mod_adj_grade.mod \
-		../femlib/mod/mod_depth.mod param.h 
+		../femlib/mod/mod_depth.mod 
 

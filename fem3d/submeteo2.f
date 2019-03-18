@@ -1,6 +1,28 @@
-c
-c $Id: submeteo.f,v 1.7 2010-02-26 17:35:06 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c handle meteo files with new fem format
 c
 c revision log :
@@ -24,10 +46,11 @@ c 04.05.2015    ggu	bug in ice eliminated
 c 12.05.2015    ggu	introduced ia_icefree for icefree elements
 c 08.01.2016    ggu	bug fix in meteo_convert_wind_data() - no wind bug
 c 10.03.2016    ggu	check for pressure to be in reasonable bounds
-c 23.07.2016    ivf	new heat formulation for iheat==8
+c 23.07.2016    ivn	new heat formulation for iheat==8
 c 09.09.2016    ggu	new variable ihtype to choose between rh, wbt, dpt
 c 16.09.2016    ggu	allow for Pa and mbar in pressure
 c 12.01.2017    ccf	bug fix in determining pressure units
+c 03.10.2018    ggu	better output of meteo variables (output_meteo_data)
 c
 c notes :
 c
@@ -108,9 +131,9 @@ c		\begin{description}
 c		\item[0] constant value given in |dragco|. 
 c		\item[1] Smith and Banke (1975) formula
 c		\item[2] Large and Pond (1981) formula
-c		\item[3] Spatio/temporally varing in function of wave. Need
+c		\item[3] Spatial/temporal varying in function of wave. Need
 c		the coupling with WWMIII.
-c		\item[4] Spatio/temporally varing in function of heat flux. 
+c		\item[4] Spatial/temporal varying in function of heat flux. 
 c		Only for |iheat| = 6. 
 c		\end{description}
 c		(Default 0)
@@ -120,7 +143,7 @@ c               of |iwtype| = 2 this value is of no interest, since the
 c               stress is specified directly. (Default 2.5E-3)
 c |wsmax|       Maximum wind speed allowed in [m/s]. This is in order to avoid
 c               errors if the wind data is given in a different format
-c               from the one spwecified by |iwtype|. (Default 50)
+c               from the one specified by |iwtype|. (Default 50)
 c |wslim|	Limit maximum wind speed to this value [m/s]. This provides
 c		an easy way to exclude strong wind gusts that might
 c		blow up the simulation. Use with caution. 
@@ -146,8 +169,11 @@ c DOCS  END
 
 	integer, save :: idwind,idheat,idrain,idice
 
-	integer, parameter :: nfreq = 0		!debug output
+	integer, save :: nfreq = 0			!debug output
+	double precision, save :: itmmet = -1		!minimum meteo output
+	double precision, save :: idtmet = 0		!dt of meteo output
 	double precision, save, private :: da_out(4) = 0
+	double precision, save, private :: da_met(4) = 0
 
 	integer, save :: iwtype,itdrag
 	integer, save :: irtype
@@ -368,17 +394,11 @@ c DOCS  END
 	end if
 
 !------------------------------------------------------------------
-! debug output
+! output
 !------------------------------------------------------------------
 
-	if( nfreq .gt. 0 .and. mod(icall,nfreq) .eq. 0 ) then
-	  nvarm = 4		!total number of vars that are written
-	  nlev = 1
-	  call scalar_output_file(da_out,'meteo',nvarm,20,nlev,ppv)
-	  call scalar_output_file(da_out,'meteo',nvarm,28,nlev,metws)
-	  call scalar_output_file(da_out,'meteo',nvarm,23,nlev,mettair)
-	  call scalar_output_file(da_out,'meteo',nvarm,85,nlev,metice)
-	end if
+	call output_debug_data
+	call output_meteo_data
 
 !------------------------------------------------------------------
 ! end of routine
@@ -388,6 +408,66 @@ c DOCS  END
    99	continue
 	stop 'error stop meteo_regular: need wind data for heat module'
 	end subroutine meteo_forcing_fem
+
+!*********************************************************************
+!*********************************************************************
+!*********************************************************************
+
+	subroutine output_debug_data
+
+	use mod_meteo
+
+	integer nvarm,nlev
+	integer, save :: icall = 0
+
+	icall = icall + 1
+
+	if( nfreq .gt. 0 ) then
+         if( mod(icall,nfreq) .eq. 0 ) then
+	  nvarm = 4		!total number of vars that are written
+	  nlev = 1
+	  call scalar_output_file(da_out,'meteo',nvarm,20,nlev,ppv)
+	  call scalar_output_file(da_out,'meteo',nvarm,28,nlev,metws)
+	  call scalar_output_file(da_out,'meteo',nvarm,23,nlev,mettair)
+	  call scalar_output_file(da_out,'meteo',nvarm,85,nlev,metice)
+         end if
+	end if
+
+	end subroutine output_debug_data
+
+!*********************************************************************
+
+	subroutine output_meteo_data
+
+	use mod_meteo
+
+	integer id
+	integer,save :: nvar = 1
+	double precision dtime
+	logical, save :: b2d = .true.
+
+	logical has_output_d,next_output_d
+
+	if( da_met(4) < 0 ) return
+
+	if( da_met(4) == 0 ) then
+	  call set_output_frequency_d(itmmet,idtmet,da_met)
+	  if( .not. has_output_d(da_met) ) da_met(4) = -1	!no output
+	  if( da_met(4) < 0 ) return
+
+          call shyfem_init_scalar_file('meteo',nvar,b2d,id)
+          da_met(4) = id
+	end if
+
+        if( .not. next_output_d(da_met) ) return
+
+	call get_act_dtime(dtime)
+        id = nint(da_met(4))
+
+        call shy_write_scalar_record(id,dtime,85,1,metice)
+	!call shy_write_scalar_record(id,dtime,28,1,metws)
+
+	end subroutine output_meteo_data
 
 !*********************************************************************
 !*********************************************************************
@@ -615,7 +695,7 @@ c DOCS  END
             do k=1,n
 	      wspeed = sfact * wx(k)
 	      wdir = wy(k)
-              call convert_wind(wspeed,wdir,wx(k),wy(k))
+              call convert_wind_xy(wspeed,wdir,wx(k),wy(k))
 	      ws(k) = wspeed
 	    end do
 	  else				!data is wind velocity [m/s]
@@ -1202,7 +1282,7 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 
 !*********************************************************************
 
-        subroutine convert_wind(s,d,u,v)
+        subroutine convert_wind_xy(s,d,u,v)
 
         implicit none
 
@@ -1222,7 +1302,29 @@ c convert ice data (delete ice in ice free areas, compute statistics)
         u = s*cos(rad*dir)
         v = s*sin(rad*dir)
 
-        end subroutine convert_wind
+        end subroutine convert_wind_xy
+
+!*********************************************************************
+
+        subroutine convert_wind_sd(u,v,s,d)
+
+        implicit none
+
+        real u,v,s,d
+
+        real dir
+        real pi,rad,rrad
+        parameter(pi=3.14159,rad=pi/180.,rrad=1./rad)
+
+	s = sqrt(u*u+v*v)
+	d = 0.
+	if( s > 0 ) d = atan2(v/s,u/s)
+
+        d = 180. + 90. - d * rrad
+        if( d < 0. ) d = d + 360.
+        if( d > 360. ) d = d - 360.
+	
+        end subroutine convert_wind_sd
 
 !*********************************************************************
 
@@ -1390,6 +1492,27 @@ c interpolates files spatially - to be deleted
         end do
 
         end
+
+!*********************************************************************
+
+	subroutine test_wind_conversion
+
+	implicit none
+
+	real u,v,s,d
+
+	u = 1.
+	v = 1.
+	call convert_wind_sd(u,v,s,d)
+	write(6,*) u,v,s,d
+
+	end
+
+!*********************************************************************
+
+!	program test_main_meteo
+!	call test_wind_conversion
+!	end
 
 !*********************************************************************
 

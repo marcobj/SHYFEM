@@ -1,6 +1,28 @@
-c
-c $Id: supiso.f,v 1.12 2010-02-26 15:29:19 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 2001,2003-2005,2008-2011,2013,2018-2019  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for plotting isoline and colering area
 c
 c contents :
@@ -23,6 +45,7 @@ c 23.02.2010    ggu     restructured and commented, use generic color table
 c 18.08.2011    ggu     use isoinp to decide if interpolate or not in element
 c 29.10.2013    ggu     new routine pldif (plotting isolines between areas)
 c 18.04.2018    ggu     use bplot to decide what element to plot
+c 14.03.2019    ggu     allow for plotting constant element value
 c
 c****************************************************
 
@@ -37,7 +60,9 @@ c val           array with values
 c nval          dimension of val
 c dis           distance of isolines (dis>0)
 c mode		0: isolines with dis  1: isolines in /isolin/
-c		2: color  3: color on element values
+c		2: color on nodes  3: color on elements
+c
+c for all values of mode except 3 values are given on nodes
 
 	use basin
 	use color
@@ -53,7 +78,7 @@ c argument
 c local
 	character*80 line
 	real f(3),x(3),y(3)
-	real dist,flag
+	real dist,flag,faver
 	integer ie,ii,kn
 	integer inull
 	integer isolin
@@ -77,6 +102,7 @@ c--------------------------------------------------------------------
 	end if
 
 	call get_flag(flag)
+	fnull = flag
 
 c--------------------------------------------------------------------
 c find isolines to be plotted
@@ -105,14 +131,20 @@ c	  -----------------------------------------
 	  !call set_color_table(-1)
 	  do ie=1,nel
 	    if( .not. bplot(ie) ) cycle
-	    call set_fxy_vals(ie,flag,val,f,x,y,inull)
+	    call set_fxy_vals(ie,flag,val,f,x,y,faver,inull)
 	    if( mode .eq. 3 ) then				!element values
 	      f = val(ie)
 	      call plcol(x,y,f,ciso,fiso,isoanz+1,fnull)
-	    else if( isoinp .gt. 0 ) then			!interpolate
+	    else if( isoinp .eq. 1 ) then			!interpolate
 	      call plcol(x,y,f,ciso,fiso,isoanz+1,fnull)
+	    else if( isoinp .eq. 2 ) then			!plot const elem
+	      f = faver
+	      call plcol(x,y,f,ciso,fiso,isoanz+1,fnull)
+	    else if( isoinp .eq. 0 ) then			!plot const node
+	      call plnode(x,y,f,ciso,fiso,isoanz+1,fnull)
 	    else
-	      call plnode(x,y,f,ciso,fiso,isoanz+1,fnull)	!plot node
+	      write(6,*) 'mode = ',mode,'  isoinp = ',isoinp
+	      stop 'error stop isoline: mode and isoinp not compatible'
 	    end if
 	  end do
 	  call set_color_table(icsave)
@@ -126,7 +158,7 @@ c	  -----------------------------------------
 
 	  do ie=1,nel
 	    if( .not. bplot(ie) ) cycle
-	    call set_fxy_vals(ie,flag,val,f,x,y,inull)
+	    call set_fxy_vals(ie,flag,val,f,x,y,faver,inull)
 	    if( inull .eq. 0 ) then
 	      call pliso(f,x,y,dist,isoanz,flag,fiso)
 	    end if
@@ -144,7 +176,7 @@ c--------------------------------------------------------------------
 	  call make_single_isolines(isolin)		!set nriso,riso
           do ie=1,nel
 	    if( .not. bplot(ie) ) cycle
-	    call set_fxy_vals(ie,flag,val,f,x,y,inull)
+	    call set_fxy_vals(ie,flag,val,f,x,y,faver,inull)
 	    if( inull .eq. 0 ) then
 	      if( isoinp .gt. 0 ) then
 		call pliso(f,x,y,0.,nriso,flag,riso)
@@ -873,7 +905,7 @@ c fnull		null value -> do not interpolate
 	integer ncol
 	real fnull
 	real x(3),y(3),z(3)
-	real color(1),rlev(1)
+	real color(ncol),rlev(ncol-1)
 
 	integer idebug,ip,ii
 	real xp(4),yp(4)
@@ -1042,7 +1074,7 @@ c fills area of polygon given by xp,yp with color
 
 c***************************************************************
 
-	subroutine set_fxy_vals(ie,flag,val,f,x,y,inull)
+	subroutine set_fxy_vals(ie,flag,val,f,x,y,faver,inull)
 
 c returns x,y,val of element, and indication of flag values
 
@@ -1052,21 +1084,27 @@ c returns x,y,val of element, and indication of flag values
 
         integer ie              !element for which info is needed
         real flag               !value of flag
-        real val(nkn)             !nodal value to be extracted
+        real val(nkn)           !nodal value to be extracted
         real f(3),x(3),y(3)     !return values of val,x,y
+	real faver		!average value of f
         integer inull           !total number of flags found
 
 	integer ii,kn
 
 	inull = 0
+	faver = 0.
 
 	do ii=1,3
 	    kn=nen3v(ii,ie)
 	    f(ii)=val(kn)
 	    if( f(ii) .eq. flag ) inull = inull + 1
+	    faver = faver + f(ii)
 	    x(ii)=xgv(kn)
 	    y(ii)=ygv(kn)
 	end do
+
+	faver = faver / 3.
+	if( inull > 0 ) faver = flag
 
 	end
 

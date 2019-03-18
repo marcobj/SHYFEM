@@ -1,6 +1,28 @@
-c
-c $Id: subbnd.f,v 1.35 2009-05-21 09:24:00 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c bnd administration routines
 c
 c contents :
@@ -65,7 +87,7 @@ c 02.03.2005    ggu     new nbdim for 3D boundary values
 c 02.03.2005    ggu     some new helper functions
 c 07.11.2005    ccf     introduced sed2dn
 c 16.02.2006    ggu     introduced tox3dn
-c 07.04.2008    acc     introduced bfm1bc bfm2bc bfm3bc OB condition for ERSEM
+c 07.04.2008    aac     introduced bfm1bc bfm2bc bfm3bc OB condition for ERSEM
 c 17.04.2008    ggu     deleted infobnd(), levbnd()
 c 28.04.2008    ggu     call to nrdpar in double precision
 c 29.04.2008    ggu&aac new boundary arrays for ERSEM
@@ -480,7 +502,7 @@ c			value indicates the particles per volume flux
 c			(unit \dischargeunit) released along the boundary.
 c			(Default 0)
 
-	call addpar('lgrpps',0.)	!parts per second for lagrange
+	call addpar('lgrpps',0.)	!particles per second for lagrange
 					!if negative parts per volume flux
 
 c DOCS	END
@@ -828,6 +850,23 @@ c returns value of open boundary
 
         call get_bnd_par(ibc,'zval',zval)
 	zvbnds = zval
+
+	end
+
+c********************************************************************
+
+	subroutine setbnds(ibc,zval)
+
+c sets value of open boundary
+
+	implicit none
+
+	integer ibc
+	real zval
+
+        call chkibc(ibc,'setbnds:')
+
+        call set_bnd_par(ibc,'zval',zval)
 
 	end
 

@@ -1,5 +1,28 @@
-c $Id: newpr.f,v 1.24 2010-02-22 15:38:36 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c reading and interpolation of external files
 c
 c contents :
@@ -10,7 +33,7 @@ c 29.10.2012    ggu     created from scratch
 c 17.06.2013    ggu     do not pass function into subroutine
 c 02.07.2014    ggu     new framework finished
 c 10.07.2014    ggu     only new file format allowed
-c 22.02.2016    ggu&eps new files for generic tracer (nvar>1)
+c 22.02.2016    ggu&erp new files for generic tracer (nvar>1)
 c 06.06.2016    ggu	tracer_file routines changed
 c 25.02.2018    ggu	file cleaned - time is now double
 c

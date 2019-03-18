@@ -1,6 +1,12 @@
+
+#------------------------------------------------------------------------
 #
-# $Id: Makefile,v 1.20 2010-03-11 15:32:16 georg Exp $
+#    Copyright (C) 1985-2018  Georg Umgiesser
 #
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+
 #------------------------------------------------------------
 
 DIR	= femplot
@@ -29,10 +35,7 @@ NPOBJS  = supbas.o supiso.o supdep.o supano.o \
 		mod_plot2d.o mod_plot3d.o mod_hydro_plot.o \
 		plotutil.o $(MPI_OBJ)
 
-LPOBJS = subfil.o subbas.o links.o sublnku.o subnsu.o	# not used anymore
-LPOBJS = 
-
-RGFOBJS = subrgf.o
+RGFOBJS = suprgf.o
 
 PSOBJS	= supsim.o $(NPOBJS)
 PSOBJS	= $(NPOBJS)
@@ -47,8 +50,8 @@ LIBIPS  = $(DIRLIB)/lib$(LIBPOST).a
 
 SPECIAL = Makefile VERSION COMMIT
 
-EXES    = plotsim shyplot
-EXESAUX = plotcolb line_nodes windrose
+EXES    = shyplot
+EXESAUX = plotsim line_nodes
 EXESALL = $(EXES) $(EXESAUX)
 EXESLINKS = $(EXES)
 
@@ -82,41 +85,8 @@ shyplot:  shyplot.o $(PSOBJS) $(LIBIFS) $(LIBIPS)
 plotsim:  plotsim.o $(PSOBJS) $(LIBIFS) $(LIBIPS)
 	$(LINKER) $(LFLAGS) $@.o $(PSOBJS) $(LIBFS) $(LIBPS) -o $@
 
-plotbug:  plotbug.o $(PSOBJS) $(LIBIFS) $(LIBIPS)
-	$(LINKER) $(LFLAGS) $@.o $(PSOBJS) $(LIBFS) $(LIBPS) -o $@
-
-plotcolb:  plotcolb.o $(NPOBJS) $(LIBIFS) $(LIBIPS)
-	$(LINKER) $(LFLAGS) $@.o $(NPOBJS) $(LIBFS) $(LIBPS) -o $@
-
-ouvinfo:  ouvinfo.o $(NPOBJS) $(LIBIFS) $(LIBIPS)
-	$(LINKER) $(LFLAGS) $@.o $(NPOBJS) $(LIBIFS) $(LIBIPS) -o $@
-
-ousinfo:  ousinfo.o $(NPOBJS) $(LIBIFS) $(LIBIPS)
-	$(LINKER) $(LFLAGS) $@.o $(NPOBJS) $(LIBIFS) $(LIBIPS) -o $@
-
-readout:  readout.o $(NPOBJS) $(LIBIFS) $(LIBIPS)
-	$(LINKER) $(LFLAGS) $@.o $(NPOBJS) $(LIBIFS) $(LIBIPS) -o $@
-
-windrose: windrose.o $(LIBIPS)
-	$(LINKER) $(LFLAGS) $@.o $(LIBPS) -o $@
-
-lagxitest:  lagxitest.o $(PSOBJS) $(LIBIFS) $(LIBIPS)
-	$(LINKER) $(LFLAGS) $@.o $(PSOBJS) $(LIBFS) $(LIBPS) -o $@
-
-testdash: testdash.o $(LIBIFS) $(LIBIPS)
-	$(LINKER) $(LFLAGS) $@.o $(LIBFS) $(LIBPS) -o $@
-
-turb:  turb.o $(PSOBJS) $(LIBIFS) $(LIBIPS)
-	$(LINKER) $(LFLAGS) $@.o $(PSOBJS) $(LIBFS) $(LIBPS) -o $@
-
-scalar: scalar.o $(PSOBJS) $(LIBIFS) $(LIBIPS)
-	$(LINKER) $(LFLAGS) $@.o $(PSOBJS) $(LIBFS) $(LIBPS) -o $@
-
-reg2fem: reg2fem.o $(RGFOBJS) $(LIBIFS)
-	$(LINKER) $(LFLAGS) $@.o $(RGFOBJS) $(LIBFS) -o $@
-
-line_nodes: line_nodes.o $(LPOBJS) $(LIBIFS)
-	$(LINKER) $(LFLAGS) $@.o $(LPOBJS) $(LIBFS) -o $@
+line_nodes: line_nodes.o $(LIBIFS)
+	$(LINKER) $(LFLAGS) $@.o $(LIBFS) -o $@
 
 links:
 	@$(FEMBIN)/symlink $(FEMBIN) $(EXESLINKS)
@@ -207,10 +177,9 @@ strip:	$(EXES)
 ../femlib/mod/mod_plot.mod: supint.o
 ../femlib/mod/mod_plot2d.mod: mod_plot2d.o
 ../femlib/mod/mod_plot3d.mod: mod_plot3d.o
-../femlib/mod/mod_testdash.mod: testdash.o
 ../femlib/mod/plot_fonts.mod: supcust.o
 ../femlib/mod/plotutil.mod: plotutil.o
-lagxitest.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod
+../femlib/mod/timlim.mod: suptim.o
 line_nodes.o: ../femlib/mod/basin.mod ../femlib/mod/mod_geom.mod
 plotsim.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
@@ -250,7 +219,8 @@ supint.o: ../femlib/mod/levels.mod ../femlib/mod/para.mod
 supiso.o: ../femlib/mod/basin.mod ../femlib/mod/color.mod \
 		../femlib/mod/mod_hydro_plot.mod 
 suplag.o: ../femlib/mod/basin.mod ../femlib/mod/color.mod \
-		../femlib/mod/mod_hydro_plot.mod 
+		../femlib/mod/mod_hydro_plot.mod \
+		../femlib/mod/plotutil.mod 
 suplin.o: ../femlib/mod/basin.mod ../femlib/mod/color.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_hydro_print.mod 
@@ -273,7 +243,6 @@ supsim.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_hydro_plot.mod \
 		../femlib/mod/mod_hydro_vel.mod \
 		../femlib/mod/plotutil.mod 
-suptim.o: timlim.h
 supver.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_hydro.mod \

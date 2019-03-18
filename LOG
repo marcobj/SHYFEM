@@ -1,4 +1,242 @@
 
+13.03.2019
+
+c ./femplot/supsim.f:
+c 13.03.2019    ggu	in plobas use parameters from STR file
+c
+c ./fem3d/subnls.f:
+c 12.03.2019	ggu	before namelist read clean arrays
+c
+c ./fem3d/subn11.f:
+c 06.03.2019    mbj     added tramp = -2, (average, Bajo et al., 2019)
+c
+c ./fem3d/femelab1.f:
+! 01.03.2019    ccf     lmax in function of considered var (needed for split)
+c
+c ./fem3d/subscn.f:
+! 20.02.2019	ggu	bug fix in ialfa (rounding, CHRIS)
+!
+c ./fem3d/subpar3.f:
+c 12.03.2019    ggu     new routine para_clean_section(()
+c
+c ./fem3d/shyfem.f:
+c 12.03.2019    ccf	include new computation of tide potential/analysis
+c
+c ./fem3d/subtide.f:
+! 18.02.2019	ccf	inclued more constituents
+!
+c ./fem3d/femtide.f:
+! 12.03.2019	ccf	written from scratch
+c
+c ./fem3d/subwrt.f:
+c 12.03.2019	ggu	bug fix if no custom data is given (only idtwrt)
+c
+c ./fem3d/subsys.f:
+c 13.03.2019	ggu	new variables for plotting basin
+c
+c ./fem3d/subn35.f:
+c 12.03.2019    mbj     new friction ireib=10
+
+
+16.02.2019
+
+c ./fem3d/substrings.f:
+! 16.02.2019    ggu     populate_strings declared as recursive
+!
+c ./fem3d/sedi3d.f:
+! 15.02.2019    ccf     pass PHIB,PHI100 into nonco (bug)
+
+
+14.02.2019
+
+c ./fem3d/debug.f:
+c 02.02.2019    ggu     new routines is_inf, is_nonumber, adjourned is_nan
+c
+c ./fem3d/sedi3d.f:
+! 03.02.2019    ggu     adjust z0 etc (GGUZ0)
+! 05.02.2019    ggu     upgraded to new version from chris
+! 14.02.2019    ggu     set negative conz values to 0
+c
+c ./fem3d/newcon_omp.f:
+c 01.02.2019    ggu     bug fix for conz==0 with negative loading
+c 14.02.2019    ggu     bug fix for conz<0 with negative loading
+c
+c ./fem3d/subboxa.f:
+c 07.02.2019    ggu     code revised, easy addition of other vars
+c
+c ./fem3d/sedtrans05.f:
+! 01.02.2019	ggu	loop 220 in sub depos cleaned
+! 03.02.2019	ggu	sanity checks (GGUZ0)
+! 14.02.2019	ggu	more sanity checks (GGUZ0)
+c
+c ./fem3d/shyfem.f:
+c 12.02.2019    ccf	bottom shear stress in substress.f
+c
+c ./fem3d/shyelab_output.f:
+! 10.02.2019    ggu     write final message for -averbas
+!
+c ./fem3d/subele.f:
+c 03.02.2019    ggu     in setdepth check for zero layer thickness
+c
+c ./fem3d/newcon.f:
+c 14.02.2019    ggu     check for negative scalar
+c
+c ./fem3d/subfemintp.f:
+! 07.02.2019	ggu	new routine for debug on bound files
+!
+c ./fem3d/subgotm.f:
+c 03.02.2019    ggu     in gotm_shell check for 0layer and z0s/bmin (GGUZ0)
+c
+c ./fem3d/subtime.f:
+c 09.02.2019    ggu     bug fix for syncronization of last time step
+c
+c ./fem3d/subsys.f:
+c 12.02.2019	ccf	introduced ibstrs for computing the bottom stess
+c
+c ./fem3d/subwrt.f:
+c 07.02.2019	ggu	for custom reset allow iso date
+c
+c ./fem3d/subwaves.f:
+! 01.02.2019	ggu	bug fix in parwaves: do not compute H/P for wind == 0
+! 10.02.2019	ggu	bug fix for FPE (GGUZ0)
+! 12.02.2019	ccf	stress computed in substress.f
+!
+c ./fem3d/subdates.f:
+! 13.02.2019    ggu     isolated from more subroutines
+
+
+18.01.2019
+
+c ./fem3d/new3di.f:
+c 18.01.2019    ggu	finished implementing and testing penta solver
+c
+c ./fem3d/sublp.f:
+c 04.01.2019    ggu     linpack and blas routines transfered
+
+
+21.12.2018
+
+c ./fem3d/new3di.f:
+c 19.12.2018    ggu	error in experimental code with penta solver
+
+
+18.12.2018
+
+c ./hcbs/xhcbs.f:
+! 29.10.2018    ggu     new copyright added
+!
+c ./femplot/suptim.f:
+c 18.12.2018  ggu     inlude file substituted with module timlim
+c
+c ./fem3d/newnohydro.f:
+c 18.12.2018    dbf&wjm adapted to last version and inserted in develop
+c
+c ./fem3d/newnudge.f:
+c 23.11.2018    ggu     new routines to read and interpolate time series
+c
+c ./fem3d/suboff.f:
+c 12.11.2018    ggu     linear arrays introduced
+c
+c ./fem3d/elab_off.f:
+! 12.11.2018    ggu     linear arrays introduced
+c
+c ./fem3d/intp.f:
+c 23.11.2018    ggu     new routines to read and interpolate time series
+c
+c ./fem3d/subext.f:
+c 09.11.2018    ggu     more general version of linear routines
+c
+c ./fem3d/subfemintp.f:
+! 23.11.2018    ggu     new routines to read and interpolate time series
+! 23.11.2018    ggu     some sanity checks
+!
+c ./fem3d/sub2linear.f:
+! 09.11.2018    ggu     written from scartch
+! 11.11.2018    ggu     some bug fixes, extension to double
+! 12.11.2018    ggu     utility routines for easy reading/writing
+!
+c ./fem3d/subshy.f:
+! 09.11.2018    ggu     linear routines implemented for compiler warning
+!
+c ./post/colorbar.f:
+! 29.10.2018    ggu     new copyright added
+
+
+25.10.2018
+
+c ./femplot/plotutil.f:
+! 19.10.2018	ccf	handle lgr files
+!
+c ./fem3d/shybas.f:
+c 25.10.2018    ccf     grid output in gr3 and msh formats
+c
+c ./fem3d/elab_nc.f:
+! 25.10.2018    ccf     write field already on regular grid
+c
+c ./fem3d/subgrd.f:
+c 25.10.2018    ccf     grid output in gr3 and msh formats
+c
+c ./fem3d/subrst.f:
+! 25.10.2018    ggu     bug fix with finding desired record
+!
+c ./fem3d/elabutil.f:
+! 25.10.2018	ccf	lagrangian options
+
+
+16.10.2018
+
+c ./fem3d/newcon_omp.f:
+c 11.10.2018    ggu     code adjusted for sediment deposition (negative loads)
+c
+c ./fem3d/subshyutil.f:
+! 27.09.2018    ggu     new routines for writing constant layer structure
+!
+c ./fem3d/subn11.f:
+c 11.10.2018    ggu     zconst setting adjourned
+c
+c ./fem3d/subqfxm5.f:
+! 05.10.2018    ggu     do not compute Ch and Ce (not needed, divide by 0)
+c
+c ./fem3d/submeteo2.f:
+c 03.10.2018    ggu	better output of meteo variables (output_meteo_data)
+c
+c ./fem3d/newcon.f:
+c 11.10.2018    ggu     caux substituted with load,cobs,rtauv (bug inout)
+c
+c ./fem3d/subtsfile.f:
+c 15.10.2018    ggu     set nvar=0 in ts_get_file_info() to avoid segfault
+c
+c ./fem3d/shyelab_nodes.f:
+! 15.10.2018    ggu     added option -coord (bcoord,scoord)
+c
+c ./fem3d/newbcl.f:
+c 05.10.2018    ggu     new diagnostic routine ts_dia()
+c
+c ./fem3d/suboutputd.f:
+c 03.10.2018    ggu     some instances of itanf and itend eliminated
+c
+c ./fem3d/debug.f:
+c 05.10.2018    ggu     eliminated equivalent statement
+c
+c ./fem3d/subdef.f:
+c 05.10.2018    ggu     avoid run time error in subst_extension()
+c
+c ./fem3d/subwrt.f:
+c 05.10.2018	ggu	before calling dep3dele() set nlev
+
+
+31.08.2018
+
+c ./fem3d/shyelab_proj.f:
+! 20.07.2018    dbf     projection routines for shyelab
+c
+c ./fem3d/shyelab1.f:
+! 20.07.2018    dbf     inserted option for projection
+c
+c ./fem3d/subext.f:
+c 30.08.2018	ggu	new version 8 to avoid implicit do
+
+
 06.07.2018
 
 c ./femplot/shyplot.f:
@@ -3951,5 +4189,13 @@ c 02.05.2012    ggu     new routine ideci()
 
 	conservation of tracers in ht must still be looked at
 
+#------------------------------------------------------------------------
+
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
 #------------------------------------------------------------------------
 

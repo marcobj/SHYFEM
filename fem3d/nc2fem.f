@@ -1,4 +1,28 @@
+
+!--------------------------------------------------------------------------
 !
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! convert nc files to fem files
 !
 ! contents :
@@ -63,7 +87,9 @@
         character*80, allocatable :: vars(:)
         character*80, allocatable :: descrps(:)
         character*80, allocatable :: sfacts(:)
-        real, allocatable :: facts(:)
+        real, allocatable :: facts(:)		!factor for multiplication
+        real, allocatable :: offs(:)		!offset to add
+        real, allocatable :: flags(:)		!flag for no data
         integer ndims, nvars, ngatts, unlim
 	integer dim_id,dim_len
 	integer nt,nx,ny,nz,nz1
@@ -341,16 +367,14 @@ c-----------------------------------------------------------------
 c check variables to write
 c-----------------------------------------------------------------
 
-	n = 0
+	n = -1
 	call parse_strings(varline,n,vars)
 	nd = n
 
-	if( nd > 0 ) then
-	  call parse_strings(descrpline,nd,descrps)
-	  call parse_strings(factline,nd,sfacts)
-	  allocate(facts(nd))
-	  call setup_facts(nd,sfacts,facts)
-	end if
+	call parse_strings(descrpline,nd,descrps)
+	call parse_strings(factline,nd,sfacts)
+	allocate(facts(nd),offs(nd),flags(nd))
+	call setup_facts(nd,sfacts,facts)
 
 	call handle_variable_description(ncid,n,vars,descrps,.not.bquiet)
 
@@ -384,11 +408,19 @@ c-----------------------------------------------------------------
 	end if
 
 c-----------------------------------------------------------------
+c check if some dimension is inverted
+c-----------------------------------------------------------------
+
+	if( bregular ) then
+	  call check_invert(regpar)
+	end if
+
+c-----------------------------------------------------------------
 c write variables
 c-----------------------------------------------------------------
 
 	call write_variables(ncid,n,bunform,bdebug,bquiet
-     +				,vars,descrps,facts
+     +				,vars,descrps,facts,offs,flags
      +				,regexpand
      +				,nxdim,nydim,nlvdim
      +				,xlon,ylat
@@ -404,7 +436,9 @@ c-----------------------------------------------------------------
 	  write(6,*) 'variables written: ',n
 	  write(6,*) 'output written to file out.fem'
 	  call print_description(nd,vars,descrps)	!for information
-	  write(6,*) 'facts: ',facts
+	  write(6,*) 'facts:      ',facts
+	  write(6,*) 'offsets:    ',offs
+	  write(6,*) 'fill_value: ',flags
 	end if
 
 	if( .not. bsilent ) then
@@ -452,7 +486,8 @@ c*****************************************************************
 	  call nc_get_var_id(ncid,var,var_id)
 	  if( var_id == 0 ) then
 	    write(6,*) 'no such variable: ',trim(var)
-	    stop 'error stop write_variables: no such variable'
+	    stop 'error stop handle_variable_description: '//
+     +			'no such variable'
 	  end if
 	  if( bwrite ) call nc_var_info(ncid,var_id,.true.)
 	end do
@@ -562,39 +597,33 @@ c*****************************************************************
 	integer norig,ndim
 
 	norig = n
-	ndim = 0
-	call parse_variables(line,ndim,n,vars)
+	call count_variables(line,n)
 
-	ndim = n
-	if( norig > 0 ) ndim = norig
-	allocate(vars(ndim))
+	if( norig == -1 ) norig = n
+	allocate(vars(norig))
 	vars = ' '
 
-	if( n > ndim ) then
+	if( n > norig ) then
 	  write(6,*) 'too many strings given: ',n
 	  write(6,*) 'expecting: ',norig
 	  write(6,*) 'line: ',trim(line)
 	  stop 'error stop parse_strings: too many strings'
-	end if
-	
-	call parse_variables(line,ndim,n,vars)
-
-	if( n == 1 ) vars = vars(1)	!set all values with only value given
-
-	if( n > 1 .and. n /= ndim ) then
+	else if( n /= norig .and. n > 1 ) then
 	  write(6,*) 'wrong number of strings given: ',n
 	  write(6,*) 'possible numbers: ',0,1,ndim
 	  write(6,*) 'line: ',trim(line)
 	  stop 'error stop parse_strings: wrong number of strings'
 	end if
+	
+	call parse_variables(line,n,vars)
 
-	n = ndim
+	if( n == 1 ) vars = vars(1)	!set all values with only value given
 
 	end
 
 c*****************************************************************
 
-	subroutine parse_variables(varline,ndim,n,vars)
+	subroutine count_variables(varline,n)
 
 ! parses line of variables etc..
 ! as separators only commas "," are allowed
@@ -609,10 +638,9 @@ c*****************************************************************
 	implicit none
 
 	character*(*) varline
-	integer ndim,n
-	character*(*) vars(ndim)
+	integer n
 
-	logical bwrite,btoken
+	logical btoken
 	integer i,istart
 	character*1 c
 	character(len=len(varline)+1) string
@@ -623,31 +651,83 @@ c*****************************************************************
 	istart = 1
 	btoken = .false.
 	string = adjustl(varline)
-	bwrite = ndim > 0
-	if( bwrite ) vars = ' '
 
 	do i=1,len_trim(string)+1
 	  c=string(i:i)
 	  if( c /= ' ' .and. c /= ',' ) btoken = .true.
 	  if( c == ',' ) then			!comma (separator)
-	    if( bwrite ) vars(n) = string(istart:i-1)
 	    istart = i + 1
 	    n = n + 1
-	    if( bwrite .and. n > ndim ) then
-	      stop 'error stop parse_variables: ndim'
-	    end if
 	  end if
 	end do
 
-	if( bwrite ) vars(n) = string(istart:i-1)
 	if( .not. btoken ) n = 0
 
 	end
 
 c*****************************************************************
 
+	subroutine parse_variables(varline,ndim,vars)
+
+! parses line of variables etc..
+! as separators only commas "," are allowed
+! ""		n = 0
+! "a"		n = 1
+! ","		n = 2
+! "a,"		n = 2
+! ",b"		n = 2
+! "a,b"		n = 2
+! "a,b,"	n = 3
+
+	implicit none
+
+	character*(*) varline
+	integer ndim			!number of variables we have to read
+	character*(*) vars(ndim)
+
+	logical btoken
+	integer i,istart,n
+	character*1 c
+	character(len=len(varline)+1) string
+
+	! we have at least one blank in the string
+
+	vars = ' '
+	if( ndim == 0 ) return
+
+	n = 1
+	istart = 1
+	btoken = .false.
+	string = adjustl(varline)
+
+	do i=1,len_trim(string)+1
+	  c=string(i:i)
+	  if( c /= ' ' .and. c /= ',' ) btoken = .true.
+	  if( c == ',' ) then			!comma (separator)
+	    vars(n) = string(istart:i-1)
+	    istart = i + 1
+	    n = n + 1
+	    if( n > ndim ) then
+	      stop 'error stop parse_variables: n>ndim'
+	    end if
+	  end if
+	end do
+
+	vars(n) = string(istart:i-1)
+	if( .not. btoken ) n = 0
+
+	if( n /= ndim ) then
+	  write(6,*) 'ndim = ',ndim,'   n = ',n
+	  write(6,*) 'line: ',trim(varline)
+	  stop 'error stop parse_variables: ndim/=n'
+	end if
+
+	end
+
+c*****************************************************************
+
 	subroutine write_variables(ncid,nvar,bunform,bdebug,bquiet
-     +					,vars,descrps,facts
+     +					,vars,descrps,facts,offs,flags
      +					,regexpand
      +					,nx,ny,nz
      +					,x,y
@@ -664,6 +744,8 @@ c*****************************************************************
 	character*(*) vars(nvar)
 	character*(*) descrps(nvar)
 	real facts(nvar)
+	real offs(nvar)
+	real flags(nvar)
 	integer regexpand
 	integer nx,ny,nz		!size of data in nc file
 	real x(nx,ny),y(nx,ny)
@@ -681,8 +763,6 @@ c*****************************************************************
 	integer datetime(2)
 	integer ids(nvar)
 	integer dims(nvar)
-	real flags(nvar)
-	real off(nvar)
 	real, save :: my_flag = -999.
 	real data(nx,ny,nz)
 	double precision atime,avalue,dtime
@@ -714,7 +794,6 @@ c*****************************************************************
 	lmax = nz
 	npnew = nxnew*nynew
 	string = 'unknown'
-	off = 0.
 	bexpand = ( regexpand > -1 )
 	!hlv = 0.
 
@@ -723,7 +802,7 @@ c*****************************************************************
 	hd = -999.
 	ilhkv = lmax
 	flags = my_flag
-	off = 0.
+	offs = 0.
 
 	do i=1,nvar
 	  var = vars(i)
@@ -747,7 +826,7 @@ c*****************************************************************
 	  aname = 'add_offset'
 	  if( nc_has_var_attrib(ncid,var_id,aname) ) then
 	    call nc_get_var_attrib(ncid,var_id,aname,atext,avalue)
-	    off(i) = avalue
+	    offs(i) = avalue
 	  end if
 	  dims(i) = 2
 	  call nc_has_vertical_dimension(ncid,var,bvert)
@@ -817,9 +896,9 @@ c*****************************************************************
 	      where( femdata /= my_flag ) femdata = femdata * facts(i)
 	      where( data /= my_flag ) data = data * facts(i)
 	    end if
-	    if( off(i) /= 0. ) then
-	      where( femdata /= my_flag ) femdata = femdata + off(i)
-	      where( data /= my_flag ) data = data + off(i)
+	    if( offs(i) /= 0. ) then
+	      where( femdata /= my_flag ) femdata = femdata + offs(i)
+	      where( data /= my_flag ) data = data + offs(i)
 	    end if
 
 	    lmax = nzz
@@ -1136,6 +1215,33 @@ c*****************************************************************
 	write(6,*) x(ix,iy),y(ix,iy)
 	write(6,*) xx(ix),yy(iy)
 	stop 'error stop handle_unusual_coordinates: not regular'
+	end
+
+c*****************************************************************
+
+	subroutine check_invert(regpar)
+
+	implicit none
+
+	real regpar(9)
+
+	real dx,dy
+
+	dx = regpar(5)
+	dy = regpar(6)
+
+	if( dx < 0 .or. dy < 0 ) then
+	  write(6,*) 'coordinates are inverted'
+	  write(6,*) 'dx,dy: ',dx,dy
+	  write(6,*) 'please find the coordinate that is inverted'
+	  write(6,*) 'in the nc file and then use NCO routines'
+	  write(6,*) 'to invert them in the nc file'
+	  write(6,*) 'example: ncpdq -a "-lat" orig.nc invert.nc'
+	  write(6,*) 'if lat is the inverted coordinate'
+	  write(6,*) '(You might have to install the nco package)'
+	  stop 'error stop check_invert: inverted coordinates'
+	end if
+
 	end
 
 c*****************************************************************

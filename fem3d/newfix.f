@@ -1,6 +1,28 @@
-c
-c $Id: newfix.f,v 1.5 2009-03-24 17:49:19 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c fix or nudge velocities at open boundary
 c
 c contents :
@@ -18,7 +40,7 @@ c 19.01.2009    ggu     no error stop in initializing when nbfix=0
 c 23.03.2009    ggu     tramp from start of simulation
 c 16.12.2010    ggu     bsigma renamed to bosigma
 c 29.10.2014    ccf     rewritten for 7_0_3, vel file for each boundary
-c 13.07.2016    ivf     bug fix setting up ielfix
+c 13.07.2016    ivn     bug fix setting up ielfix
 c
 c*****************************************************************
 

@@ -1,5 +1,13 @@
 #!/bin/sh
 #
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+#
 # shyfem_dir.sh
 #
 # resets path and and environment variables
@@ -20,7 +28,9 @@
 FEMDIR=${SHYFEMDIR:=$HOME/shyfem}
 fembin=$FEMDIR/fembin
 
-FEMDIR_INSTALL=${SHYFEM_INSTALL:=$HOME/shyfem}
+#FEMDIR_INSTALL=${SHYFEM_INSTALL:=$HOME/shyfem}
+#FEMDIR_INSTALL=${SHYFEM_INSTALL:=$FEMDIR}
+FEMDIR_INSTALL=${FEMDIR}
 fembin_install=$FEMDIR_INSTALL/fembin
 
 # command line options ----------------------------
@@ -36,24 +46,25 @@ fi
 
 # change path and environment variables ---------------
 
+[ $write = "debug" ] && echo "debug message: FEMDIR = $FEMDIR"
+
 if [ -n "$1" ]; then
 
   dir=`readlink -f $1`	# get full path name
 
-  #echo "debug message: using dir as $dir"
+  [ $write = "debug" ] && echo "debug message: using dir as $dir"
 
   version=`$fembin_install/shyfem_version.sh $dir`
   if [ -z "$version" -o "$version" = "unknown" ]; then
     echo "cannot get version for $dir ... aborting" 1>&2
-    exit 1
+  else
+    export SHYFEMDIR=$dir
+    FEMDIR=${SHYFEMDIR:=$HOME/shyfem}
+    fembin=$FEMDIR/fembin
+
+    path=`$fembin_install/shyfem_path.pl $PATH`
+    export PATH=$path:$fembin
   fi
-
-  export SHYFEMDIR=$dir
-  FEMDIR=${SHYFEMDIR:=$HOME/shyfem}
-  fembin=$FEMDIR/fembin
-
-  path=`$fembin_install/shyfem_path.pl $PATH`
-  export PATH=$path:$fembin:$HOME/shyfem/fembin
 
 fi
 

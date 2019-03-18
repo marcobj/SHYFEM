@@ -1,6 +1,28 @@
-c
-c $Id: adjvar.f,v 1.8 2010-03-11 15:30:11 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 2003,2010  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c description :
 c
 c various utility routines for adj
@@ -14,6 +36,7 @@ c               check of grid
 c
 c revision log :
 c
+c 01.01.2003    ggu     written
 c 19.05.2003    ggu     some more utility routines
 c 10.03.2010    ggu     area computation changed in checkarea (bug in 64 bit)
 c
@@ -27,8 +50,6 @@ c smoothing of internal nodes
 	use basin
 
 	implicit none
-
-	include 'param.h'
 
 	integer npass
 	real omega
@@ -102,9 +123,9 @@ c**************************************************************
 
 c marks nodes as static (not moveable)
 
-	implicit none
+	use mod_adj_static
 
-	include 'nbstatic.h'
+	implicit none
 
 	integer nkn
 	integer ianv(1)
@@ -130,13 +151,11 @@ c
 c checks consistency of node and grade index
 
 	use mod_adj_grade
+	use mod_adj_static
 	use basin
 
 	implicit none
 
-	include 'param.h'
-	include 'nbstatic.h'
-	
 	character*(*) text
 
 	integer iaux(nkn)
@@ -415,8 +434,6 @@ c writes info on node
 
 	integer k,kext
 
-	include 'param.h'
-
 	integer i
 
 	if( k .le. 0 ) return
@@ -442,8 +459,6 @@ c k1,k2,k3	node numbers
 	use basin
 
 	implicit none
-
-	include 'param.h'
 
 	real rangle
 	integer k1,k2,k3
@@ -473,8 +488,6 @@ c************************************************************
 
         integer kint,kext
 
-	include 'param.h'
-
         kext = ipv(kint)
 
         end
@@ -489,8 +502,6 @@ c************************************************************
         implicit none
 
         integer ieint,ieext
-
-	include 'param.h'
 
         ieext = ipev(ieint)
 

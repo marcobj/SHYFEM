@@ -1,6 +1,28 @@
-c
-c $Id: subwrt.f,v 1.58 2010-03-08 17:46:45 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines dealing with water renewal time
 c
 c contents :
@@ -8,7 +30,7 @@ c
 c revision log :
 c
 c 24.10.2011	ggu	new file copied from subcus.f (jamal)
-c 28.02.2012	ggu&deb	completely restructured
+c 28.02.2012	ggu&dbf	completely restructured
 c 16.03.2012	ggu	use idtwrt=-1 for no renewal computation
 c 10.05.2014	ccf	parameters from the str file
 c 31.03.2015	ggu	compute res time for different areas
@@ -19,6 +41,9 @@ c 15.04.2016	ggu	new input file for custom reset
 c 31.10.2016	ggu	new output format for wrt files
 c 16.04.2018	ggu	restructured, new computation of WRT (see WRTOLD)
 c 18.04.2018	ggu	restructured, some bugs fixed
+c 05.10.2018	ggu	before calling dep3dele() set nlev
+c 07.02.2019	ggu	for custom reset allow iso date
+c 12.03.2019	ggu	bug fix if no custom data is given (only idtwrt)
 c
 c******************************************************************
 c Parameters to be set in section $wrt of the parameter input file
@@ -100,6 +125,7 @@ c------------------------------------------------------------
 	use basin
 	use mod_renewal_time
 	use shympi
+	use custom_dates
 
         implicit none
 
@@ -116,7 +142,7 @@ c------------------------------------------------------------
 	integer iconz
 	double precision, save :: dtmin,dtmax,ddtwrt
 	double precision, save :: dtnext,dtime0
-	double precision :: dtime,time
+	double precision :: dtime,time,atime
 	real, save :: c0,percmin
 	real, save :: ctop,ccut
 
@@ -235,6 +261,9 @@ c------------------------------------------------------------
           call shyfem_init_scalar_file('wrt',nvar,.false.,id)
           da_out(4) = id
 
+	  call get_absolute_act_time(atime)
+	  call init_custom_reset(atime)
+
 	  nrepl = -1				!must still initialize
         end if
 
@@ -245,6 +274,7 @@ c is it time to run the routine?
 c------------------------------------------------------------
 
 	call get_act_dtime(dtime)
+	call get_absolute_act_time(atime)
         if( dtime .lt. dtmin ) return
         if( dtime .gt. dtmax ) return
 	blast = ( dtime == dtmax )
@@ -269,8 +299,11 @@ c belab		elaborates (accumulates) concentrations
 	breset = binit
 	if( ddtwrt .gt. 0 ) then
 	  if( dtime .ge. dtnext ) breset = .true.
+	else
+	  call custom_dates_over(atime,breset)
 	end if
-	call custom_reset(dtime,breset)
+	if( binit ) breset = .true.
+	if( blast ) breset = .true.
 
 	belab = .not. binit
 	bcompute = .not. binit
@@ -685,6 +718,7 @@ c computes masses for different areas - in -1 is total mass
 	  if( ia == iao ) cycle			!outer area - do not use
 	  if( ia > narea .or. ia < 0 ) goto 99
           lmax = ilhv(ie)
+	  nlev = lmax
 	  area = 4.*ev(10,ie)
 	  call dep3dele(ie,+1,nlev,h)
 	  if( lmax .ne. nlev ) goto 98
@@ -765,6 +799,7 @@ c computes mass and volume on internal nodes
           ia = iarv(ie)
           if( ia == iaout ) cycle                 !outer area - do not use
           lmax = ilhv(ie)
+	  nlev = lmax
           area = 4.*ev(10,ie)
           call dep3dele(ie,+1,nlev,h)
           if( lmax .ne. nlev ) goto 98
@@ -1222,157 +1257,18 @@ c**********************************************************************
 c**********************************************************************
 c**********************************************************************
 
-	subroutine custom_reset(dtime,breset)
+	subroutine init_custom_reset(atime)
+
+	use custom_dates
 
 	implicit none
 
-	double precision dtime
-	logical breset
-
-	integer i
-	integer date,time
-
-	integer, save :: idate = 0
-
-	integer, save :: ndate,ndim
-	double precision, save, allocatable :: restime(:)
+	double precision atime
 
 	character*80 file
 
-c---------------------------------------------------------------
-c initialize - convert date to relative time
-c---------------------------------------------------------------
-
-	if( idate == -1 ) return
-
-	if( idate == 0 ) then
-	  idate = -1
-	  call getfnm('wrtrst',file)
-	  if( file == ' ' ) return			!no file given
-	  call get_reset_time(file,-1,ndim,restime)
-	  allocate(restime(ndim))
-	  call get_reset_time(file,ndim,ndate,restime)
-	  idate = 1
-	end if
-
-c---------------------------------------------------------------
-c see if we have to reset
-c---------------------------------------------------------------
-
-	if( idate > ndate ) return
-	if( dtime < restime(idate) ) return
-
-c---------------------------------------------------------------
-c ok, reset needed - advance to next reset time
-c---------------------------------------------------------------
-
-	idate = idate + 1
-	breset = .true.
-
-c---------------------------------------------------------------
-c end of routine
-c---------------------------------------------------------------
-
-	end
-
-c**********************************************************************
-
-	subroutine get_reset_time(file,ndim,n,restime)
-
-c gets custom reset time from file
-
-	implicit none
-
-	character*(*) file
-	integer ndim		!ndim==0 => check how many dates are given
-	integer n
-	double precision restime(n)
-
-	integer ianz,ios,nline,i
-	integer date,time
-	double precision dtime,atime,atime0,dtold
-	double precision d(2)
-	character*80 line
-	character*20 aline
-	logical bdebug
-
-	integer iscand
-
-	n = 0
-	nline = 0
-	bdebug = .true.
-	if( ndim == -1 ) bdebug = .false.
-
-	open(1,file=file,status='old',form='formatted',iostat=ios)
-
-	if( bdebug ) then
-	  if( ios /= 0 ) then
-	    write(6,*) 'cannot open custom reset file: ',trim(file)
-	    stop 'error stop get_reset_time: opening file'
-	  else
-	    write(6,*) 'reading custom reset file: ',trim(file)
-	  end if
-	end if
-	if( ios /= 0 ) return
-
-	call get_absolute_ref_time(atime0)
-
-	do
-	  read(1,'(a)',iostat=ios) line
-	  nline = nline + 1
-	  if( ios /= 0 ) exit
-	  ianz = iscand(line,d,2)
-	  if( ianz == 0 ) then
-	    cycle
-	  else if( ianz == 1 ) then
-	    date = nint(d(1))
-	    time = 0
-	  else if( ianz == 2 ) then
-	    date = nint(d(1))
-	    time = nint(d(2))
-	  else
-	    write(6,*) 'parse error: ',ianz
-	    write(6,*) 'line: ',trim(line)
-	    write(6,*) 'file: ',trim(file)
-	    stop 'error stop get_reset_time: parse error'
-	  end if
-
-	  n = n + 1
-	  if( ndim == -1 ) cycle
-	  if( n > ndim ) then
-	    write(6,*) 'n,ndim: ',n,ndim
-	    stop 'error stop get_reset_time: dimension error ndim'
-	  end if
-
-	  call dts_to_abs_time(date,time,atime)
-	  dtime = atime - atime0
-
-	  restime(n) = dtime		!insert relative time
-	end do
-
-	if( ios > 0 ) then
-	  write(6,*) 'read error...'
-	  write(6,*) 'file: ',trim(file)
-	  write(6,*) 'line number: ',nline
-	  stop 'error stop get_reset_time: read error'
-	end if
-
-	if( bdebug ) then
-	  write(6,*) 'custom reset times: ',n
-	  dtold = restime(1) - 1
-	  do i=1,n
-	    dtime = restime(i)
-	    atime = atime0 + dtime
-	    call dts_format_abs_time(atime,aline)
-	    write(6,*) i,aline
-	    if( dtime <= dtold ) then
-	      write(6,*) 'times in custom reset must be ascending...'
-	      stop 'error stop get_reset_time: wrong order'
-	    end if
-	  end do
-	end if
-
-	close(1)
+	call getfnm('wrtrst',file)
+	call custom_dates_init(atime,file)	!disables if no file given
 
 	end
 

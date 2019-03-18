@@ -1,5 +1,13 @@
 #!/usr/bin/perl -s
 #
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2019  Christian Ferrarin, Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+#
 # converts kml (google earth) data to grd format
 #
 # command line options: -close           close lines
@@ -16,7 +24,10 @@ usage() unless $ARGV[0];
 
 while(<>) {
 
-  if( /\<coordinates\>/ ) {
+  if ( /\<coordinates\>(.+?)\<\/coordinates\>/gi ) {
+    $coords = $1;
+    parse_coords($coords);
+  } elsif( /\<coordinates\>/ ) {
     $coords = <>;
 
     $line = <>;

@@ -1,6 +1,28 @@
-c
-c $Id: subnev.f,v 1.15 2010-02-16 16:21:37 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c ev routines
 c
 c contents :
@@ -114,9 +136,9 @@ c set up ev vector
 c
 c double precision version
 c
-c revised on 31.08.88 by ggu (czv containes real chezy)
-c revised on 25.11.88 by ggu (czv eliminated)
-c revised on 28.01.92 by ggu (double precision, implicit none)
+c 31.08.1988	ggu	(czv containes real chezy)
+c 25.11.1988	ggu	(czv eliminated)
+c 28.01.1992	ggu	(double precision, implicit none)
 
 	use basin
 	use evgeom
@@ -200,6 +222,7 @@ c revised on 28.01.92 by ggu (double precision, implicit none)
 	a3=x1*y2-x2*y1
 	!aj=a1+a2+a3
 	aj = (x2-x1)*(y3-y1) - (x3-x1)*(y2-y1)		!bug_f_64bit
+        if( aj <= 0 ) goto 96
 	aji=one/aj
 	b1=(y2-y3)*aji
 	c1=(x3-x2)*aji
@@ -274,6 +297,10 @@ c natural coordinates in triangle:   xi(i) = a(i) + b(i)*x + c(i)*y    i=1,3
 	!write(68,*) 'maxmax: ',maxmax
 
 	return
+   96	continue
+        write(6,*) ie,aj
+        write(6,*) x1,x2,x3,y1,y2,y3
+        stop 'error stop set_ev: internal error (3)'
    97	continue
         write(6,*) 'no basin has been read'
 	stop 'error stop set_ev: no basin'

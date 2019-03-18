@@ -1,6 +1,28 @@
-c
-c $Id: supout.f,v 1.15 2010-02-26 15:29:19 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 2003-2004,2007-2011,2013-2015,2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for reading data files
 c
 c revision log :
@@ -162,6 +184,7 @@ c set bshowdry = .false. if you want to plot all areas
 	level = getlev()
 
 	call reset_dry_mask
+	write(6,*) 'calling prepare_dry_mask...'
 
 	if( ous_is_available() ) then			!...handle on elements
 
@@ -207,7 +230,7 @@ c******************************************************
 
 	implicit none
 
-	logical bkw(1)
+	logical bkw(nkn)
 	real hdry
 
 	integer k,idry
@@ -397,8 +420,8 @@ c******************************************************
 	implicit none
 
 	integer n
-	real speed(1), dir(1)
-	real uv(1), vv(1)
+	real speed(n), dir(n)
+	real uv(n), vv(n)
 
 	integer i
 	real rad,a
@@ -751,7 +774,7 @@ c reads next NOS record - is true if a record has been read, false if EOF
 	integer it		!time of record
 	integer ivar		!type of variable
 	integer nlvddi		!dimension of vertical coordinate
-	real array(nlvddi,1)	!values for variable
+	real array(nlvddi,*)	!values for variable
 
 	include 'supout.h'
 
@@ -955,7 +978,7 @@ c reads next FVL record
 
 	integer it		!time of record
 	integer nlvddi		!dimension of vertical coordinate
-	real array(nlvddi,1)	!values for variable
+	real array(nlvddi,*)	!values for variable
 
 	include 'supout.h'
 
@@ -1161,7 +1184,7 @@ c reads next EOS record - is true if a record has been read, false if EOF
 	integer it		!time of record
 	integer ivar		!type of variable
 	integer nlvddi		!dimension of vertical coordinate
-	real array(nlvddi,1)	!values for variable
+	real array(nlvddi,*)	!values for variable
 
 	include 'supout.h'
 

@@ -1,0 +1,15 @@
+
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+
+
+# see if a file or directory is ignored by git
+
+git check-ignore {file|dir}
+git check-ignore -v {file|dir}		#this shows the rule
+

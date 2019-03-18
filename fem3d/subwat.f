@@ -1,6 +1,28 @@
-c
-c $Id: subwat.f,v 1.15 2009-05-21 09:24:00 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c water volume, surface and flux routines
 c
 c contents :
@@ -38,10 +60,10 @@ c k	node where to input
 c vol	volume to input
 c dz	achieved water level change (return)
 c
-c written 05.08.92 by ggu   $$ibtyp3 - implementation of ibtyp=3
-c revised 19.01.94 by ggu   $$conz - implementation of concentration
-c revised 20.01.94 by ggu   $$lumpc - evaluate conz at node
-c revised 04.12.97 by ggu   concentration not adjusted anymore
+c 05.08.1992	ggu	$$ibtyp3 - implementation of ibtyp=3
+c 19.01.1994	ggu	$$conz - implementation of concentration
+c 20.01.1994	ggu	$$lumpc - evaluate conz at node
+c 04.12.1997	ggu	concentration not adjusted anymore
 
 	use mod_geom
 	use mod_hydro
@@ -123,8 +145,8 @@ c
 c ielem		element to input water, 0: all elements
 c dz		rise of water level to achieve
 c
-c written 24.03.94 by ggu   from volnod
-c revised 04.12.97 by ggu   concentration not adjusted anymore
+c 24.03.1994	ggu	from volnod
+c 04.12.1997	ggu	concentration not adjusted anymore
 
 	use mod_hydro
 	use basin, only : nkn,nel,ngr,mbw
@@ -167,11 +189,11 @@ c dz	water level change
 c con	concentraion of water injected
 c coe	variable to change
 c
-c written 05.08.92 by ggu   $$ibtyp3 - implementation of ibtyp=3
-c revised 19.01.94 by ggu   $$conz - implementation of concentration
-c revised 20.01.94 by ggu   $$lumpc - evaluate conz at node
-c revised 04.12.97 by ggu   concentration adjusted in own routine
-c 16.01.2001 by ggu   new concentration unique for node
+c 05.08.1992  ggu   $$ibtyp3 - implementation of ibtyp=3
+c 19.01.1994  ggu   $$conz - implementation of concentration
+c 20.01.1994  ggu   $$lumpc - evaluate conz at node
+c 04.12.1997  ggu   concentration adjusted in own routine
+c 16.01.2001  ggu   new concentration unique for node
 
 	use mod_geom
 	use mod_hydro
@@ -252,8 +274,8 @@ c dz		rise of water level
 c con		conzentration of injected water
 c coe		variable to change
 c
-c written 24.03.94 by ggu   from volnod
-c revised 04.12.97 by ggu   concentration adjusted in own routine
+c 24.03.1994	ggu	from volnod
+c 04.12.1997	ggu	concentration adjusted in own routine
 
 	use mod_hydro
 	use basin
@@ -296,8 +318,8 @@ c
 c k	node
 c dvol	water volume change (for whole time step)
 c
-c written 07.04.95 by ggu   copied from volno3
-c revised 06.08.97 by ggu   use zenv for water level
+c 07.04.1995	ggu	copied from volno3
+c 06.08.1997	ggu	use zenv for water level
 
 	use mod_hydro
 	use evgeom

@@ -1,6 +1,28 @@
-c
-c $Id: subets.f,v 1.15 2007-03-20 13:14:53 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c utility routines to read/write ETS file - file type 161
 c
 c contents :
@@ -993,7 +1015,9 @@ c local
              if( lmax .le. 1 ) then
                read(iunit,end=99,err=99) (c(1,k),k=1,nkn)
              else
-               read(iunit,end=99,err=99) ((c(l,k),l=1,ilhkv(k)),k=1,nkn)
+               call linear2read(iunit,nlvddi,nkn,ilhkv,c,ierr)
+               if( ierr /= 0 ) goto 99
+               !read(iunit,end=99,err=99) ((c(l,k),l=1,ilhkv(k)),k=1,nkn)
              end if
 	   else
 	     read(iunit,end=99,err=99)
@@ -1049,7 +1073,9 @@ c local
 	if( lmax .le. 1 ) then
 	  write(iunit) (c(1,k),k=1,nkn)
 	else
-	  write(iunit) ((c(l,k),l=1,ilhkv(k)),k=1,nkn)
+          call linear2read(iunit,nlvddi,nkn,ilhkv,c,ierr)
+          if( ierr /= 0 ) stop 'error stop ets_write_record'
+	  !write(iunit) ((c(l,k),l=1,ilhkv(k)),k=1,nkn)
 	end if
 
 	ierr=0

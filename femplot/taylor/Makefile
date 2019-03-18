@@ -1,6 +1,12 @@
+
+#------------------------------------------------------------------------
 #
-# $Id: Makefile,v 1.1 2008-04-16 10:19:24 georg Exp $
+#    Copyright (C) 1985-2018  Georg Umgiesser
 #
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+
 #------------------------------------------------------------
 
 DIR	= taylor
@@ -25,7 +31,7 @@ LIBIPS  = $(DIRLIB)/lib$(LIBPOST).a
 
 #----------------
 
-SPECIAL = Makefile DATA taylor.txt
+SPECIAL = Makefile DATA_TAYLOR taylor.txt
 
 EXES    = taylor_test
 ALLEXES    = taylor_test taylor
@@ -45,9 +51,9 @@ taylor_test: taylor_test.o taylor.o $(LIBIFS) $(LIBIPS)
 #----------------------------
 
 data:
-	grep ' C1 ' DATA > DATA_C1.dat
-	grep ' A '  DATA > DATA_A.dat
-	grep ' B '  DATA > DATA_B.dat
+	grep ' C1 ' DATA_TAYLOR > DATA_C1.dat
+	grep ' A '  DATA_TAYLOR > DATA_A.dat
+	grep ' B '  DATA_TAYLOR > DATA_B.dat
 
 #----------------------------
 

@@ -1,6 +1,28 @@
-c
-c $Id: subn11.f,v 1.69 2010-03-22 15:29:31 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c boundary condition routines
 c
 c contents :
@@ -37,21 +59,21 @@ c function get_discharge(ibc)		returns discharge through boundary ibc
 c
 c revision log :
 c
-c revised 05.08.92 by ggu   $$ibtyp3 - implementation of ibtyp=3
-c revised 31.08.92 by ggu   $$rqv1   - rqv initialized in sp159b, not here
-c revised 05.09.92 by ggu   $$close1 - rqv initialized here
-c revised 27.10.93 by ggu   $$roger  - ibtyp=70 (nwe-shelf)
-c revised 05.11.93 by ggu   $$roger  - call to roger has been commented
-c revised 11.01.94 by ggu   $$restart - restart is reading all variables
-c revised 20.01.94 by ggu   $$zeov - initialize zeov
-c revised 20.01.94 by ggu   $$conz - impl. of conz with bnd(12,.)
-c revised 31.01.94 by ggu   $$conzbc - impl. of bc for conz with rcv
-c revised 24.03.94 by ggu   $$surel - impl. of distributed source/sink
-c revised 02.04.96 by ggu   $$exxqq - interpolation for more files ok
-c revised 25.06.97 by ggu   complete restructured -> new subroutines
-c revised 18.09.97 by ggu   $$FLUX3 - special treatment of type 3 boundary
-c revised 23.09.97 by ggu   concentration boundary as file implemented
-c revised 03.12.97 by ggu   $$TS - temp/salt implemented
+c 05.08.1992	ggu	$$ibtyp3 - implementation of ibtyp=3
+c 31.08.1992	ggu	$$rqv1   - rqv initialized in sp159b, not here
+c 05.09.1992	ggu	$$close1 - rqv initialized here
+c 27.10.1993	ggu	$$roger  - ibtyp=70 (nwe-shelf)
+c 05.11.1993	ggu	$$roger  - call to roger has been commented
+c 11.01.1994	ggu	$$restart - restart is reading all variables
+c 20.01.1994	ggu	$$zeov - initialize zeov
+c 20.01.1994	ggu	$$conz - impl. of conz with bnd(12,.)
+c 31.01.1994	ggu	$$conzbc - impl. of bc for conz with rcv
+c 24.03.1994	ggu	$$surel - impl. of distributed source/sink
+c 02.04.1996	ggu	$$exxqq - interpolation for more files ok
+c 25.06.1997	ggu	complete restructured -> new subroutines
+c 18.09.1997	ggu	$$FLUX3 - special treatment of type 3 boundary
+c 23.09.1997	ggu	concentration boundary as file implemented
+c 03.12.1997	ggu	$$TS - temp/salt implemented
 c 20.05.1998	ggu	rain from file implemented
 c 22.05.1998	ggu	local variable t introduced
 c 22.05.1998	ggu	corrected bug for rain (surel called twice)
@@ -102,7 +124,7 @@ c 20.04.2009    ggu     new routine z_tilt (tilting around a fixed value)
 c 27.04.2009    ggu     can use ktilt with ztilt
 c 19.01.2010    ggu     in make_scal_flux() return also sconz at bound
 c 26.02.2010    ggu     bug fix in make_scal_flux() - sconz was out of l-loop
-c 01.03.2010    deb     tramp introduced
+c 01.03.2010    dbf     tramp introduced
 c 10.03.2010    ggu     new routine check_scal_flux()
 c 22.03.2010    ggu     in make_scal_flux() forgotten to initialize sconz
 c 14.04.2010    ggu     account for negative levmin/max
@@ -118,6 +140,8 @@ c 07.11.2014    ggu     bug fix for distance computation in z_tilt, c_tilt
 c 10.02.2015    ggu     new call to iff_read_and_interpolate()
 c 04.04.2018    ggu     initialization for zeta revised for mpi
 c 01.06.2018    mbj     added tramp for sea level boundary condition
+c 11.10.2018    ggu     zconst setting adjourned
+c 06.03.2019    mbj     added tramp = -2, (average, Bajo et al., 2019)
 c
 c***************************************************************
 
@@ -171,10 +195,13 @@ c	real dz
 	real tramp,alpha
 	character*80 zfile
 	logical, save ::  bdebug = .false.
+	real, parameter :: zflag = -999.
 
 	integer iround
         integer nkbnds,kbnds,itybnd,nbnds
 	integer ipext,kbndind
+
+	real, allocatable, save :: dzbav(:)
 
 	call get_timestep(dt)
 
@@ -194,7 +221,9 @@ c	-----------------------------------------------------
 
 	nbc = nbnds()
 	allocate(ids(nbc))
+	allocate(dzbav(nbc))	!This is very small - mbj
 	ids = 0
+	dzbav = zflag
 	
 c	-----------------------------------------------------
 c       initialize meteo
@@ -264,7 +293,8 @@ c	-----------------------------------------------------
 	  end if
 	  call iff_set_description(id,ibc,auxname)
 	  ids(ibc) = id
-	  write(6,'(a,2i5,a)') ' boundary file opened:',ibc,id,trim(zfile)
+	  write(6,'(a,2i5,a,a)') ' boundary file opened: '
+     +				,ibc,id,' ',trim(zfile)
 	end do
 
 	!call iff_print_info(ids(1))
@@ -288,7 +318,9 @@ c	-----------------------------------------------------
 	ibc = shympi_min(ibc)	!choose boundary with minimum index
 	if( ibc > nbc ) ibc = 0
 
-	if( ibc > 0 ) then
+	if( zconst /= zflag ) then
+	  !use this value
+	else if( ibc > 0 ) then
 	  ibtyp=itybnd(ibc)
 	  nk = nkbnds(ibc)
 	  id = ids(ibc)
@@ -368,7 +400,7 @@ c	-----------------------------------------------------
           call get_bnd_par(ibc,'tramp',tramp)
 	  id = ids(ibc)
 
-	  if( ibtyp .le. 0 ) cycle
+	  if( ibtyp .eq. 0 ) cycle
 	  if( id .le. 0 ) cycle
 
           nk = nkbnds(ibc)   !total number of nodes of this boundary
@@ -380,13 +412,19 @@ c	-----------------------------------------------------
 	  call iff_time_interpolate(id,dtime,ivar,nk,lmax,rwv2)
 	  call adjust_bound(id,ibc,dtime,nk,rwv2)
 
+	  if( abs(ibtyp) == 1 ) call setbnds(ibc,rwv2(1))	!for closure
+
           alpha = 1.
           if( tramp .gt. 0. ) then
             call get_passed_dtime(ddtime)
             alpha = ddtime/tramp
             if( alpha .gt. 1. ) alpha = 1.
-          end if
-	  if( tramp == -1. ) alpha = -1.
+	  else if( nint(tramp) == -1 ) then	!subtract single values
+            alpha = -1.
+	  else if( nint(tramp) == -2 ) then	!subtract average over ibc bound
+	    alpha = -2.
+	    call z_ramp_avinit(nbc,ibc,nk,rwv2,dzbav(ibc))
+	  end if
 
 	  do i=1,nk
 
@@ -396,7 +434,7 @@ c	-----------------------------------------------------
 	     if( kn <= 0 ) cycle
 
 	     if(ibtyp.eq.1) then		!z boundary
-               if (tramp /= 0) call z_ramp(kn,alpha,rw)
+               if (nint(tramp) /= 0) call z_ramp(kn,alpha,dzbav(ibc),rw)
                rzv(kn) = rw
 	     else if(ibtyp.eq.2) then		!q boundary
 	       call level_flux(dtime,levflx,kn,rw)	!zeta to flux
@@ -480,7 +518,7 @@ c -----------------------------------------------------------
 
 c**************************************************************
 
-	subroutine z_ramp(kn,alpha,rw)
+	subroutine z_ramp(kn,alpha,bav,rw)
 
 ! implements ramping of water levels for Ensemble Kalman Filter
 
@@ -489,9 +527,9 @@ c**************************************************************
 
 	implicit none
 
-	integer kn
-	real alpha
-	real rw
+	integer, intent(in) :: kn
+	real, intent(in) :: alpha, bav
+	real, intent(inout) :: rw
 
 	real, parameter :: flag = -999.
 	integer, save :: icall = 0
@@ -505,13 +543,50 @@ c**************************************************************
 
         if ( alpha >= 0 ) then		! from the z-restart to the z-file
           rw = znv(kn) + alpha * (rw - znv(kn))
-        else if ( alpha == -1 ) then	
+        else if ( nint(alpha) == -1 ) then	
 	  ! subtract the initial bias from the z-file records
 	  if ( dzb(kn) == flag ) dzb(kn) = znv(kn) - rw
           rw = rw + dzb(kn)
+	else if ( nint(alpha) == -2 ) then
+	  ! subtract the initial bias between the averages from z-file records
+	  if( nint(bav) == flag ) 
+     +      stop 'error stop z_ramp: error in average boundary value.'
+	  rw = rw + bav
         end if
 
 	end
+
+c**************************************************************
+
+	subroutine z_ramp_avinit(nbc,ib,nkb,rwv2,bav)
+
+	use basin, only : nkn
+	use mod_hydro, only : znv
+
+	implicit none
+
+	integer, intent(in) :: nbc,ib,nkb
+	real, intent(in) :: rwv2(nkn)
+	real, intent(out) :: bav
+
+	integer i,kn,kbnds
+	real rw
+	integer, save :: icall = 0
+
+	if( icall /= 0 ) return
+
+	bav = 0.
+	do i = 1,nkb
+	   kn = kbnds(ib,i)
+	   rw = rwv2(i)
+	   bav = bav + znv(kn) - rw
+	end do
+	bav = bav/nkb
+
+	if (ib == nbc) icall = 1
+
+	end subroutine z_ramp_avinit
+
 
 c**************************************************************
 

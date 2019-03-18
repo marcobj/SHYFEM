@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+#
+# packs git files and distributes them
+#
+#---------------------------------------------------------------------
+
+if [ $# -eq 0 ]; then
+  version=$( head -1 VERSION | tr -s ' ' | cut -d ' ' -f 2 )
+else
+  version=$1
+fi
+
+v=VERS_$version
+echo "using version: $version ($v)"
+
+#---------------------------------------------------------------------
+
+git-tar $v
+git-manual $v
+
+mail_shyfem.sh shyfem-$version.tar.gz shyfem-$version.manual.pdf
+
+#---------------------------------------------------------------------
+

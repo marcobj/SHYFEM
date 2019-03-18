@@ -1,4 +1,28 @@
+
+!--------------------------------------------------------------------------
 !
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! interpolation routines from file
 !
 ! revision log :
@@ -28,6 +52,9 @@
 ! 26.05.2018	ggu	bug fix in regular 2d/3d interpolation
 ! 06.06.2018	ggu	in iff_init use dtime==-1 to not populate data
 ! 08.06.2018	ggu	do not populate if no file (bug fix)
+! 23.11.2018    ggu     new routines to read and interpolate time series
+! 23.11.2018	ggu	some sanity checks
+! 07.02.2019	ggu	new routine for debug on bound files
 !
 !****************************************************************
 !
@@ -214,6 +241,9 @@
 	  write(iu,*) id,pinfo(id)%nvers,pinfo(id)%ntype,pinfo(id)%irec
 	  write(iu,*) id,pinfo(id)%np,pinfo(id)%lmax,pinfo(id)%nexp
 	  write(iu,*) id,pinfo(id)%ilast,pinfo(id)%bonepoint
+	  write(iu,*) id,pinfo(id)%bfemdata,pinfo(id)%bfiledata
+	  !write(iu,*) 11,id,pinfo(id)%time_file
+	  !write(iu,*) 12,id,pinfo(id)%time
 	  if( pinfo(id)%bfemdata ) then
 	  write(iu,*) id,'fem variables: nodes,time,data'
 	  write(iu,*) id,pinfo(id)%nodes
@@ -282,9 +312,13 @@
 
 	integer id
 
+	integer iunit
+
+	iunit = pinfo(id)%iunit
+
 	pinfo(id)%iformat = iform_forget
 	call iff_delete_entry(id)
-	close(pinfo(id)%iunit)
+	if( iunit > 0 ) close(iunit)
 	pinfo(id)%iunit = -3
 
 	end subroutine iff_forget_file
@@ -507,6 +541,7 @@
 
 ! initializes file and sets up various parameters
 ! if called with dtime==-1 does not populate records
+! this means that iff_populate_records must be called manually
 
 	double precision dtime	!initial time
 	character*(*) file	!file name
@@ -530,6 +565,7 @@
 	logical breg
 	logical bok
 	logical bts,bfem,bnofile,bfile,berror,bnosuchfile,boperr
+	logical, parameter :: bdebug = .false.
 	type(info), pointer :: p
 
 	!---------------------------------------------------------
@@ -601,6 +637,13 @@
 	end if
 	nvar = nvar_orig
 
+	if( bdebug ) then
+	  write(6,*) 'iff_init initializing file: ',trim(file)
+	  write(6,*) bts,breg,bfem
+	  write(6,*) id,nvar,nintp,nexp,lexp
+	  write(6,*) id0,iformat,ntype,itype
+	end if
+
 	!---------------------------------------------------------
 	! store information
 	!---------------------------------------------------------
@@ -627,7 +670,6 @@
 	! get data description and allocate data structure
 	!---------------------------------------------------------
 
-	!if( .not. breg .and. nexp > 0 
 	if( nexp > 0 
      +		.and. nexp /= nkn_fem .and. nexp /= nel_fem) then
 	  allocate(pinfo(id)%nodes(nexp))	!lateral BC
@@ -674,6 +716,12 @@
 	  pinfo(id)%datetime = datetime
 	else
 	  stop 'error stop iff_init: internal error (3)'
+	end if
+
+	if( bdebug ) then
+	  write(6,*) 'iff_init opened file: ',trim(file)
+	  write(6,*) id,iunit
+	  write(6,*) dtime
 	end if
 
 	if( iunit < 0 ) goto 99
@@ -834,8 +882,8 @@ c	 3	time series
 	    ntype = 0
 	    iformat = iform_ts
 	    if( bverb ) then
+	      write(6,*) 'file info: ',file(1:il)
 	      write(6,*) 'file is time series with columns: ',nvar
-	      write(6,*) file(1:il)
 	    end if
 	  else if( iformat == -77 ) then
 	    !write(6,*) 'error opening file: ',file(1:il)
@@ -1327,6 +1375,54 @@ c	 3	time series
 !****************************************************************
 !****************************************************************
 
+	subroutine iff_info_on_data(id)
+
+! writes info on boundary data
+
+	integer id
+
+	integer nintp,np,nexp,lexp,ip,lmax
+	integer ivar,nvar,ireg
+	integer l,j,lfem,ipl
+	integer iu
+
+	iu = 6
+	iu = 654
+
+        nintp = pinfo(id)%nintp
+        nvar = pinfo(id)%nvar
+        np = pinfo(id)%np		!number of data in file
+        nexp = pinfo(id)%nexp		!expected data for BC
+        lexp = pinfo(id)%lexp
+        lmax = pinfo(id)%lmax		!levels in file
+        ireg = pinfo(id)%ireg
+
+	  write(iu,*) 'iff_info_on_data: id = ',id
+	  write(iu,*)  trim(pinfo(id)%descript)
+	  write(iu,*) 'nvar,nintp: ',nvar,nintp
+	  write(iu,*) 'nexp,np: ',nexp,np
+	  write(iu,*) 'lexp,lmax: ',lexp,lmax
+	  do j=1,nintp
+	    write(iu,*) 'iintp = ',j
+	    do ivar=1,nvar
+	      write(iu,*) 'ivar = ',ivar
+	      do ip=1,nexp
+		ipl = ip
+		if( nexp /= nkn_fem ) ipl = pinfo(id)%nodes(ip)
+		lfem = ilhkv_fem(ipl)
+	        write(iu,*) 'node = ',ip,lfem,lexp
+	        write(iu,*) (pinfo(id)%data(l,ip,ivar,j),l=1,lexp)
+	      end do
+	    end do
+	  end do
+	  write(iu,*) 'end info_on_data: data -----------'
+
+	end subroutine iff_info_on_data
+
+!****************************************************************
+!****************************************************************
+!****************************************************************
+
 	subroutine iff_space_interpolate(id,iintp,dtime)
 
 c interpolates in space all variables in data set id
@@ -1434,7 +1530,7 @@ c interpolates in space all variables in data set id
 	integer ivar,nvar
 	integer nx,ny
 	integer nexp,lexp,np,l,ip
-	integer ierr
+	integer ierr,imode
 	real x0,y0,dx,dy,flag
 	real, allocatable :: data2dreg(:),data2dfem(:)
 	real, allocatable :: data(:,:,:)
@@ -1463,6 +1559,7 @@ c interpolates in space all variables in data set id
 	allocate(data(lexp,nexp,nvar))
 
 	if( nexp == nkn_fem ) then
+	  imode = 1
 	  do ivar=1,nvar
 	    data2dreg(:) = pinfo(id)%data_file(1,:,ivar)
 	    call intp_reg_nodes(nx,ny,x0,y0,dx,dy,flag
@@ -1474,6 +1571,7 @@ c interpolates in space all variables in data set id
 	    if( bneedall .and. ierr .ne. 0 ) goto 99
 	  end do
 	else if( nexp == nel_fem ) then
+	  imode = 2
 	  do ivar=1,nvar
 	    data2dreg(:) = pinfo(id)%data_file(1,:,ivar)
 	    call intp_reg_elems(nx,ny,x0,y0,dx,dy,flag
@@ -1485,6 +1583,7 @@ c interpolates in space all variables in data set id
 	    if( bneedall .and. ierr .ne. 0 ) goto 99
 	  end do
 	else if( allocated(pinfo(id)%nodes) ) then
+	  imode = 3
 	  if( size(pinfo(id)%nodes) /= nexp ) goto 98
 	  call setregextend(.true.)
 	  do ivar=1,nvar
@@ -1525,6 +1624,12 @@ c interpolates in space all variables in data set id
    99	continue
 	write(6,*) 'error interpolating from regular grid: '
 	write(6,*) 'ierr =  ',ierr
+	if( ierr < 0 ) then
+	  write(6,*) 'some points are outside of domain: ',-ierr
+	else
+	  write(6,*) 'some points have no data...'
+	end if
+	write(6,*) 'imode =  ',imode
 	write(6,*) 'id =  ',id
 	write(6,*) 'ivar =  ',ivar
 	write(6,*) 'string =  ',trim(pinfo(id)%strings_file(ivar))
@@ -2027,6 +2132,7 @@ c global lmax and lexp are > 1
 
 	if( iff_must_read(id,t) ) then
 	  write(6,*) 'warning: reading data in iff_time_interpolate'
+	  write(6,*) 'this is a problem with OMP'
 	  stop 'error stop iff_time_interpolate: internal error (1)'
 	  !call iff_read_and_interpolate(id,t)
 	end if
@@ -2037,6 +2143,7 @@ c global lmax and lexp are > 1
 
 	if( nintp > 0 ) then
           ilast = pinfo(id)%ilast
+	  if( ilast <= 0 ) goto 94
 	  itlast = pinfo(id)%time(ilast)
 	  ifirst = mod(ilast,nintp) + 1
 	  itfirst = pinfo(id)%time(ifirst)
@@ -2063,6 +2170,11 @@ c global lmax and lexp are > 1
 	!---------------------------------------------------------
 
 	return
+   94	continue
+	write(6,*) 'record has not been populated with data'
+	write(6,*) 't,itlast: ',t,ilast
+	call iff_print_file_info(id)
+	stop 'error stop iff_time_interpolate'
    95	continue
 	write(6,*) 'id out of range: ',id,idlast
 	call iff_print_file_info(0)
@@ -2108,6 +2220,7 @@ c this routine determines if new data has to be read from file
 
         nintp = pinfo(id)%nintp
         ilast = pinfo(id)%ilast			!index of last record
+	if( ilast <= 0 ) goto 98
 
         iff_must_read = .false.
 	if( pinfo(id)%eof ) return		!already at EOF
@@ -2116,6 +2229,12 @@ c this routine determines if new data has to be read from file
 
         iff_must_read = ( tc < t )
 
+	return
+   98	continue
+	write(6,*) 'record has not been populated with data'
+	write(6,*) 't,itlast: ',t,ilast
+	call iff_print_file_info(id)
+	stop 'error stop iff_must_read'
 	end function iff_must_read
 
 !****************************************************************
@@ -2135,6 +2254,7 @@ c this routine reads and interpolates new data - no parallel execution
 	bok = .true.
         nintp = pinfo(id)%nintp
         ilast = pinfo(id)%ilast			!index of last record
+	if( ilast <= 0 ) goto 98
 	itlast = nint(pinfo(id)%time(ilast))	!time of last record
 
 	tc = tcomp(t,nintp,ilast,pinfo(id)%time)
@@ -2153,6 +2273,11 @@ c this routine reads and interpolates new data - no parallel execution
         pinfo(id)%ilast = ilast
 
 	return
+   98	continue
+	write(6,*) 'record has not been populated with data'
+	write(6,*) 't,ilast: ',t,ilast
+	call iff_print_file_info(id)
+	stop 'error stop iff_read_and_interpolate'
    99	continue
 	write(6,*) 'time record not in increasing sequence'
 	write(6,*) 'it,itlast: ',it,itlast
@@ -2455,10 +2580,79 @@ c does the final interpolation in time
 !================================================================
 
 !****************************************************************
+! next are simple utility routines for init and read of time series
+!****************************************************************
+
+        subroutine iff_ts_init(dtime,file,nintp,nvar,id)
+
+	use intp_fem_file
+
+c opens and inititializes file
+
+        implicit none
+
+	double precision dtime
+        character*(*) file      !file name
+        integer nintp           !grade of interpolation (2=linear,4=cubic)
+        integer nvar            !how many vars (columns) to read/interpolate
+	integer id
+
+	integer nv
+	integer nexp,lexp
+	integer nodes(1)
+	real vconst(nvar)
+
+	nexp = 1
+	lexp = 0
+	vconst = 0.
+	nodes = 0
+	nv = nvar
+	
+	call iff_init(dtime,file,nv,nexp,lexp,nintp
+     +					,nodes,vconst,id)
+	call iff_set_description(id,0,'timeseries')
+
+	if( nv .ne. nvar ) then
+	  write(6,*) 'nvar,nv: ',nvar,nv
+	  stop 'error stop iff_ts_init: parameter mismatch'
+	end if
+
+	end 
+
+!****************************************************************
+
+        subroutine iff_ts_intp(id,dtime,values)
+
+	use intp_fem_file
+
+	implicit none
+
+	integer id
+	double precision dtime
+        real values(*)            !interpolated values
+
+	integer ldim,ndim,ivar,nvar
+
+	nvar = iff_get_nvar(id)
+
+	ldim = 1
+	ndim = 1
+
+        if( iff_must_read(id,dtime) ) then
+          call iff_read_and_interpolate(id,dtime)
+	end if
+
+	do ivar=1,nvar
+	  call iff_time_interpolate(id,dtime,ivar,ndim,ldim,values(ivar))
+	end do
+
+        end
+
+!****************************************************************
 ! next are dummy routines that can be deleted somewhen...
 !****************************************************************
 
-        subroutine exffil(file,nintp,nvar,nsize,ndim,array)
+        subroutine exffil0(file,nintp,nvar,nsize,ndim,array)
 
 	use intp_fem_file
 
@@ -2491,6 +2685,7 @@ c everything needed is in array (unit, vars etc...)
 	
 	call iff_init(dtime,file,nvar,nexp,lexp,nintp
      +					,nodes,vconst,id)
+	call iff_set_description(id,0,'timeseries')
 
 	if( nv .ne. nvar ) then
 	  write(6,*) 'nvar,nv: ',nvar,nv
@@ -2504,7 +2699,7 @@ c everything needed is in array (unit, vars etc...)
 
 !****************************************************************
 
-        subroutine exffils(file,ndim,array)
+        subroutine exffils0(file,ndim,array)
 
 c opens file and inititializes array - simplified version
 
@@ -2522,13 +2717,13 @@ c opens file and inititializes array - simplified version
         nvar=1
         nsize=0
 
-        call exffil(file,nintp,nvar,nsize,ndim,array)
+        call exffil0(file,nintp,nvar,nsize,ndim,array)
 
         end
 
 !****************************************************************
 
-        subroutine exfintp(array,t,rint)
+        subroutine exfintp0(array,t,rint)
 
 	use intp_fem_file
 
@@ -2557,6 +2752,12 @@ c opens file and inititializes array - simplified version
 
         end
 
+!****************************************************************
+!****************************************************************
+!****************************************************************
+! utility routines
+!****************************************************************
+!****************************************************************
 !****************************************************************
 
 	subroutine iff_init_global_2d(nkn,nel,hkv,hev,date,time)

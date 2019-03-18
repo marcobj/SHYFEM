@@ -1,6 +1,28 @@
-c
-c $Id: subpar.f,v 1.13 2010-02-16 16:21:37 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c parameter management routines
 c
 c contents :
@@ -21,16 +43,16 @@ c subroutine pripar                     prints parameter values
 c
 c revision log :
 c
-c revised on  01.03.88  by ggu	written
-c revised on  30.08.88  by ggu  (default values in rdpar..a/h)
-c revised on  08.11.88  by ggu  (addpar,setpar,ittpar,ipadim...)
-c revised on  05.12.88  by ggu  (rdpara/h substituted by nlsa/h)
-c revised on  30.09.89  by ggu  (putpar,pripar,intpar)
-c revised on  26.05.90  by ggu  (newly structured -> manpar)
-c revised on  04.02.91  by ggu  (included iar..., far...)
-c revised on  15.05.97  by ggu  (nnamdi set to 200)
-c revised on  12.06.97  by ggu  (iar..., far... moved to subiar.f)
-c revised on  12.06.97  by ggu  (section introduced)
+c 01.03.1988	ggu	written
+c 30.08.1988	ggu	(default values in rdpar..a/h)
+c 08.11.1988	ggu	(addpar,setpar,ittpar,ipadim...)
+c 05.12.1988	ggu	(rdpara/h substituted by nlsa/h)
+c 30.09.1989	ggu	(putpar,pripar,intpar)
+c 26.05.1990	ggu	(newly structured -> manpar)
+c 04.02.1991	ggu	(included iar..., far...)
+c 15.05.1997	ggu	(nnamdi set to 200)
+c 12.06.1997	ggu	(iar..., far... moved to subiar.f)
+c 12.06.1997	ggu	(section introduced)
 c 18.03.1998    ggu     introduced undocumented feature -> c
 c 18.03.1998    ggu     save secpar (bug uncovered by g77)
 c 07.11.2005    ggu     helper routine get_sect_of()
@@ -42,6 +64,7 @@ c 28.07.2010    ggu     new routines (par and fnm together) -> subst. old ones
 c 25.06.2012    ggu     debugged
 c 13.02.2015    ggu     limit of string raised from 6 to 10
 c 13.04.2017    ggu     new array feature
+c 12.03.2019    ggu     new routine para_clean_section(()
 c
 c**************************************************************
 c**************************************************************
@@ -312,6 +335,26 @@ c**************************************************************
 	end do
 
 	end subroutine para_delete_section
+
+!******************************************************************
+
+	subroutine para_clean_section(section)
+
+! this cleans array values in section
+
+	character*(*) section
+
+	integer id
+
+	do id=idlast,1,-1	!we run backwards - section is probably last
+	  if( pentry(id)%section == section ) then
+	    if( pentry(id)%itype == type_array_value ) then
+	      pentry(id)%isize = 0
+	    end if
+	  end if 
+	end do
+
+	end subroutine para_clean_section
 
 !******************************************************************
 
@@ -703,7 +746,7 @@ c**************************************************************
 	double precision dvalues(ndim)
 
 	call para_get_array_value_d(name,ndim,n,dvalues)
-	values = nint(dvalues)
+	values(1:n) = nint(dvalues(1:n))
 
 	end subroutine para_get_array_value_i
 
@@ -718,7 +761,7 @@ c**************************************************************
 	double precision dvalues(ndim)
 
 	call para_get_array_value_d(name,ndim,n,dvalues)
-	values = dvalues
+	values(1:n) = dvalues(1:n)
 
 	end subroutine para_get_array_value_r
 

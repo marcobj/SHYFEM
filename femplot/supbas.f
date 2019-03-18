@@ -1,6 +1,28 @@
-c
-c $Id: supbas.f,v 1.12 2010-02-26 15:29:19 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1999-2001,2003-2005,2009-2015  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for plotting basin
 c
 c contents :
@@ -55,7 +77,7 @@ c 30.05.2014  ggu     new metpnt for meteo points, imicro computed
 c 10.02.2015  ggu     also plot other points, also regular points
 c 12.10.2015  ggu     fix in rround() to handle rmaster==0 case
 c
-c notes:
+c notes :
 c
 c rules for regular frame around plot:
 c
@@ -1281,7 +1303,8 @@ c here labeling
         dx = dist
         dy = dist
 
-	if( nx .gt. nxymax .or. ny .gt. nxymax ) goto 99
+	!if( nx .gt. nxymax .or. ny .gt. nxymax ) goto 99
+        !DWNH bug
 
 	call qcomm('labeling bw_frame')
 	call qfont('Times-Roman')

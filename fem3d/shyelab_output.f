@@ -1,4 +1,28 @@
+
+!--------------------------------------------------------------------------
 !
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 ! routines for shy post processing output
 !
 ! revision log :
@@ -6,6 +30,7 @@
 ! 23.09.2016    ggu     expand routine written
 ! 05.10.2016    ggu     routines dealing with regular field copied to own file
 ! 24.05.2018    ccf     add outformat option off
+! 10.02.2019    ggu     write final message for -averbas
 !
 !***************************************************************
 !
@@ -58,7 +83,7 @@
 !***************************************************************
 !***************************************************************
 
-	subroutine shyelab_init_output(id,idout,nvar,ivars)
+	subroutine shyelab_init_output(id,idout,ftype,nvar,ivars)
 
 ! initializes in case of btrans, bout, bsplit, bsumvar
 !
@@ -74,6 +99,7 @@
 	implicit none
 
 	integer id,idout
+	integer ftype
 	integer nvar
 	integer ivars(nvar)
 
@@ -139,8 +165,9 @@
             idout = shy_init(file)
 	    if( idout <= 0 ) goto 74
             call shy_clone(id,idout)
+            call shy_set_ftype(idout,ftype)
+            call shy_set_nvar(idout,nvar)
             if( b2d ) call shy_convert_2d(idout)
-	    if( nvar == 1 ) call shy_convert_1var(idout)
             call shy_write_header(idout,ierr)
             if( ierr /= 0 ) goto 75
 	  else if( outformat == 'gis' ) then
@@ -177,7 +204,7 @@
 
 !***************************************************************
 
-	subroutine shyelab_header_output(id,idout,dtime,nvar)
+	subroutine shyelab_header_output(idout,ftype,dtime,nvar)
 
 ! writes header of record
 
@@ -190,16 +217,15 @@
 
 	implicit none
 
-	integer id,idout
+	integer idout,ftype
 	double precision dtime
-	integer nvar,ftype,ncid
+	integer nvar,ncid
 	logical bscalar,bhydro
 
 	integer ierr,iunit,np,nvers,lmax
 
 	if( .not. boutput ) return
 
-	call shy_get_ftype(id,ftype)
         bhydro = ftype == 1
         bscalar = ftype == 2
 
@@ -481,7 +507,7 @@
 	character*10 short
 	character*40 full
 
-	if( .not. boutput ) return
+	if( .not. boutput .and. .not. baverbas ) return
 	if( bsilent ) return
 
 	write(6,*) 'output written to following files: '
@@ -510,6 +536,7 @@
 	end if
 
 	if( bsplit ) then
+
 	  if( bhydro ) then
 	    write(6,*) 'zeta.shy'
 	    write(6,*) 'velx.shy'
@@ -528,9 +555,9 @@
 	      end if
 	    end do
 	  end if
-	!end if
 
-	else
+	else if( boutput ) then
+
 	  if( bshy ) then
 	    write(6,*) 'out.shy'
 	  else if( outformat == 'gis' ) then
@@ -547,6 +574,25 @@
 	  else
 	    write(6,*) 'outformat = ',trim(outformat)
 	    stop 'error stop: outformat not recognized'
+	  end if
+
+	else if( baverbas ) then
+	  write(6,*) '  what.dim.area'
+          write(6,*) 'what is one of the following:'
+	  do iv=1,nvar
+	    ivar = ivars(iv)
+            call strings_get_short_name(ivar,short)
+            call strings_get_full_name(ivar,full)
+            write(6,*) '  ',short,'       ',full
+          end do
+          write(6,*) '  ','volume_and_area','  volume and area'
+          write(6,*) 'dim is 0d'
+          write(6,*) 'area is 0'
+	  if( barea ) then
+	    write(6,*) 'the average is relative to the area given'
+	    write(6,*) 'by the line contained in ',trim(areafile)
+	  else
+	    write(6,*) 'the average is relative to the whole basin'
 	  end if
 	end if
 

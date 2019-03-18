@@ -1,6 +1,30 @@
-c
-c $Id: supdep.f,v 1.5 2009-11-18 17:16:00 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 2000,2008-2011,2013,2016  Georg Umgiesser
+!    Copyright (C) 2012  Christian Ferrarin
+!    Copyright (C) 2012  Debora Bellafiore
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c routines for averaging depth
 c
 c contents :
@@ -19,7 +43,7 @@ c 17.12.2010    ggu     substituted hv with hkv, new routine hlthick()
 c 30.03.2011    ggu     new routine mkareafvl()
 c 14.11.2011    ggu     use get_layer_thickness() for layer structure
 c 23.02.2012    ccf     bug fix in mkht (get_layer_thicknes, get_sigma_info)
-c 16.03.2012    deb     bug fix in mkht3 (get_layer_thicknes, get_sigma_info)
+c 16.03.2012    dbf     bug fix in mkht3 (get_layer_thicknes, get_sigma_info)
 c 10.06.2013    ggu     bug fix in mkht,mkht3 (get_layer_thicknes_e)
 c 05.09.2013    ggu     adapt to new get_layer_thickness()
 c 27.05.2016    ggu     mkhkv,mkhev deleted
@@ -108,7 +132,7 @@ c makes het3v (3D depth structure)
 
 c arguments
 	integer nlvddi
-	real het3v(nlvddi,1)
+	real het3v(nlvddi,nel)
 	real href
 c local
 	logical bdebug
@@ -159,7 +183,7 @@ c works also for sigma layers
 	real hlthick		! layer thickness (return)
 	integer l		! layer to compute thickness
 	integer lmax		! maximum layers
-	real hl(1)		! level thickness
+	real hl(lmax)		! level thickness
 
 	integer ll
 	real hm

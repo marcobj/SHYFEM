@@ -1,3 +1,511 @@
+version  7_5_61    13-03-2019    VERS_7_5_61   commit_2019-03-14
+
+version  7_5_61    13-03-2019    VERS_7_5_61   commit_2019-03-14
+
+version  7_5_61    13-03-2019    VERS_7_5_61
+
+========================================================== 13-03-2019 - 7_5_61
+
+c ./femplot/supsim.f:
+c 13.03.2019    ggu	in plobas use parameters from STR file
+c
+c ./fem3d/subnls.f:
+c 12.03.2019	ggu	before namelist read clean arrays
+c
+c ./fem3d/subn11.f:
+c 06.03.2019    mbj     added tramp = -2, (average, Bajo et al., 2019)
+c
+c ./fem3d/femelab1.f:
+! 01.03.2019    ccf     lmax in function of considered var (needed for split)
+c
+c ./fem3d/subver.f:
+c 13.03.2019	ggu	version 7.5.61
+c
+c ./fem3d/subscn.f:
+! 20.02.2019	ggu	bug fix in ialfa (rounding, CHRIS)
+!
+c ./fem3d/subpar3.f:
+c 12.03.2019    ggu     new routine para_clean_section(()
+c
+c ./fem3d/shyfem.f:
+c 12.03.2019    ccf	include new computation of tide potential/analysis
+c
+c ./fem3d/subtide.f:
+! 18.02.2019	ccf	inclued more constituents
+!
+c ./fem3d/femtide.f:
+! 12.03.2019	ccf	written from scratch
+c
+c ./fem3d/subwrt.f:
+c 12.03.2019	ggu	bug fix if no custom data is given (only idtwrt)
+c
+c ./fem3d/subsys.f:
+c 13.03.2019	ggu	new variables for plotting basin
+c
+c ./fem3d/subn35.f:
+c 12.03.2019    mbj     new friction ireib=10
+
+==========================================================
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-03-13
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-03-13
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-03-12
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-03-12
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-02-28
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-02-26
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-02-25
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-02-25
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-02-24
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-02-24
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-02-22
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-02-22
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-02-21
+
+version  7_5_60    16-02-2019    VERS_7_5_60   commit_2019-02-20
+
+version  7_5_60    16-02-2019    VERS_7_5_60
+
+========================================================== 16-02-2019 - 7_5_60
+
+c ./fem3d/substrings.f:
+! 16.02.2019    ggu     populate_strings declared as recursive
+!
+c ./fem3d/subver.f:
+c 16.02.2019	ggu	version 7.5.60	copyrighted release
+c
+c ./fem3d/sedi3d.f:
+! 15.02.2019    ccf     pass PHIB,PHI100 into nonco (bug)
+
+==========================================================
+
+version  7_5_56    14-02-2019    VERS_7_5_56   commit_2019-02-16
+
+version  7_5_56    14-02-2019    VERS_7_5_56   commit_2019-02-16
+
+version  7_5_56    14-02-2019    VERS_7_5_56   commit_2019-02-16
+
+version  7_5_56    14-02-2019    VERS_7_5_56
+
+========================================================== 14-02-2019 - 7_5_56
+
+c ./fem3d/debug.f:
+c 02.02.2019    ggu     new routines is_inf, is_nonumber, adjourned is_nan
+c
+c ./fem3d/sedi3d.f:
+! 03.02.2019    ggu     adjust z0 etc (GGUZ0)
+! 05.02.2019    ggu     upgraded to new version from chris
+! 14.02.2019    ggu     set negative conz values to 0
+c
+c ./fem3d/newcon_omp.f:
+c 01.02.2019    ggu     bug fix for conz==0 with negative loading
+c 14.02.2019    ggu     bug fix for conz<0 with negative loading
+c
+c ./fem3d/subboxa.f:
+c 07.02.2019    ggu     code revised, easy addition of other vars
+c
+c ./fem3d/sedtrans05.f:
+! 01.02.2019	ggu	loop 220 in sub depos cleaned
+! 03.02.2019	ggu	sanity checks (GGUZ0)
+! 14.02.2019	ggu	more sanity checks (GGUZ0)
+c
+c ./fem3d/shyfem.f:
+c 12.02.2019    ccf	bottom shear stress in substress.f
+c
+c ./fem3d/shyelab_output.f:
+! 10.02.2019    ggu     write final message for -averbas
+!
+c ./fem3d/subele.f:
+c 03.02.2019    ggu     in setdepth check for zero layer thickness
+c
+c ./fem3d/newcon.f:
+c 14.02.2019    ggu     check for negative scalar
+c
+c ./fem3d/subfemintp.f:
+! 07.02.2019	ggu	new routine for debug on bound files
+!
+c ./fem3d/subgotm.f:
+c 03.02.2019    ggu     in gotm_shell check for 0layer and z0s/bmin (GGUZ0)
+c
+c ./fem3d/subtime.f:
+c 09.02.2019    ggu     bug fix for syncronization of last time step
+c
+c ./fem3d/subver.f:
+c 14.02.2019	ggu	version 7.5.55	San Valentine's release '
+c
+c ./fem3d/subsys.f:
+c 12.02.2019	ccf	introduced ibstrs for computing the bottom stess
+c
+c ./fem3d/subwrt.f:
+c 07.02.2019	ggu	for custom reset allow iso date
+c
+c ./fem3d/subwaves.f:
+! 01.02.2019	ggu	bug fix in parwaves: do not compute H/P for wind == 0
+! 10.02.2019	ggu	bug fix for FPE (GGUZ0)
+! 12.02.2019	ccf	stress computed in substress.f
+!
+c ./fem3d/subdates.f:
+! 13.02.2019    ggu     isolated from more subroutines
+
+==========================================================
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-14
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-14
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-14
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-14
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-13
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-13
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-13
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-12
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-12
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-12
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-12
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-11
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-11
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-11
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-11
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-10
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-10
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-09
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-09
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-08
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-05
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-05
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-04
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-03
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-01
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-02-01
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-01-30
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-01-30
+
+version  7_5_55    18-01-2019    VERS_7_5_55   commit_2019-01-18
+
+version  7_5_55    18-01-2019    VERS_7_5_55
+
+========================================================== 18-01-2019 - 7_5_55
+
+c ./fem3d/new3di.f:
+c 18.01.2019    ggu	finished implementing and testing penta solver
+c
+c ./fem3d/subver.f:
+c 18.01.2019	ggu	version 7.5.55	penta testing
+c
+c ./fem3d/sublp.f:
+c 04.01.2019    ggu     linpack and blas routines transfered
+
+==========================================================
+
+version  7_5_54    27-12-2018    VERS_7_5_54   commit_2019-01-18
+
+version  7_5_54    27-12-2018    VERS_7_5_54   commit_2019-01-17
+
+version  7_5_54    27-12-2018    VERS_7_5_54   commit_2019-01-04
+
+version  7_5_54    27-12-2018    VERS_7_5_54   commit_2019-01-04
+
+version  7_5_54    27-12-2018    VERS_7_5_54
+
+========================================================== 27-12-2018 - 7_5_54
+
+c ./fem3d/subver.f:
+c 27.12.2018	ggu	version 7.5.54
+
+==========================================================
+
+version  7_5_53    21-12-2018    VERS_7_5_53   commit_2018-12-27
+
+version  7_5_53    21-12-2018    VERS_7_5_53   commit_2018-12-26
+
+version  7_5_53    21-12-2018    VERS_7_5_53   commit_2018-12-24
+
+version  7_5_53    21-12-2018    VERS_7_5_53
+
+========================================================== 21-12-2018 - 7_5_53
+
+c ./fem3d/new3di.f:
+c 19.12.2018    ggu	error in experimental code with penta solver
+c
+c ./fem3d/subver.f:
+c 21.12.2018	ggu	version 7.5.53	Christmas 2018 edition
+
+==========================================================
+
+version  7_5_52    18-12-2018    VERS_7_5_52   commit_2018-12-21
+
+version  7_5_52    18-12-2018    VERS_7_5_52   commit_2018-12-19
+
+version  7_5_52    18-12-2018    VERS_7_5_52   commit_2018-12-19
+
+version  7_5_52    18-12-2018    VERS_7_5_52
+
+========================================================== 18-12-2018 - 7_5_52
+
+c ./hcbs/xhcbs.f:
+! 29.10.2018	ggu	new copyright added
+!
+c ./femplot/suptim.f:
+c 18.12.2018  ggu     inlude file substituted with module timlim
+c
+c ./fem3d/newnohydro.f:
+c 18.12.2018    dbf&wjm adapted to last version and inserted in develop
+c
+c ./fem3d/newnudge.f:
+c 23.11.2018    ggu     new routines to read and interpolate time series
+c
+c ./fem3d/suboff.f:
+c 12.11.2018    ggu     linear arrays introduced
+c
+c ./fem3d/elab_off.f:
+! 12.11.2018    ggu     linear arrays introduced
+c
+c ./fem3d/subver.f:
+c 18.12.2018	ggu	version 7.5.52
+c
+c ./fem3d/intp.f:
+c 23.11.2018	ggu	new routines to read and interpolate time series
+c
+c ./fem3d/subext.f:
+c 09.11.2018	ggu	more general version of linear routines
+c
+c ./fem3d/subfemintp.f:
+! 23.11.2018    ggu     new routines to read and interpolate time series
+! 23.11.2018	ggu	some sanity checks
+!
+c ./fem3d/sub2linear.f:
+! 09.11.2018    ggu     written from scartch
+! 11.11.2018    ggu     some bug fixes, extension to double
+! 12.11.2018    ggu     utility routines for easy reading/writing
+!
+c ./fem3d/subshy.f:
+! 09.11.2018    ggu     linear routines implemented for compiler warning
+!
+c ./post/colorbar.f:
+! 29.10.2018	ggu	new copyright added
+
+==========================================================
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-12-18
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-11-29
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-11-23
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-11-12
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-11-12
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-11-12
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-11-09
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-11-09
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-11-03
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-11-03
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-11-02
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-10-31
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-10-30
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-10-30
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-10-29
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-10-29
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-10-28
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-10-27
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-10-27
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-10-27
+
+version  7_5_51    25-10-2018    VERS_7_5_51   commit_2018-10-26
+
+version  7_5_51    25-10-2018    VERS_7_5_51
+
+========================================================== 25-10-2018 - 7_5_51
+
+c ./femplot/plotutil.f:
+! 19.10.2018	ccf	handle lgr files
+!
+c ./fem3d/shybas.f:
+c 25.10.2018    ccf     grid output in gr3 and msh formats
+c
+c ./fem3d/elab_nc.f:
+! 25.10.2018    ccf     write field already on regular grid
+c
+c ./fem3d/subver.f:
+c 25.10.2018	ggu	version 7.5.51
+c
+c ./fem3d/subgrd.f:
+c 25.10.2018    ccf     grid output in gr3 and msh formats
+c
+c ./fem3d/subrst.f:
+! 25.10.2018    ggu     bug fix with finding desired record
+!
+c ./fem3d/elabutil.f:
+! 25.10.2018	ccf	lagrangian options
+
+==========================================================
+
+version  7_5_50    16-10-2018    VERS_7_5_50   commit_2018-10-24
+
+version  7_5_50    16-10-2018    VERS_7_5_50   commit_2018-10-24
+
+version  7_5_50    16-10-2018    VERS_7_5_50
+
+========================================================== 16-10-2018 - 7_5_50
+
+c ./fem3d/newcon_omp.f:
+c 11.10.2018    ggu     code adjusted for sediment deposition (negative loads)
+c
+c ./fem3d/subshyutil.f:
+! 27.09.2018    ggu     new routines for writing constant layer structure
+!
+c ./fem3d/subn11.f:
+c 11.10.2018    ggu     zconst setting adjourned
+c
+c ./fem3d/subqfxm5.f:
+! 05.10.2018    ggu     do not compute Ch and Ce (not needed, divide by 0)
+c
+c ./fem3d/subver.f:
+c 16.10.2018	ggu	version 7.5.50
+c
+c ./fem3d/submeteo2.f:
+c 03.10.2018    ggu	better output of meteo variables (output_meteo_data)
+c
+c ./fem3d/newcon.f:
+c 11.10.2018    ggu     caux substituted with load,cobs,rtauv (bug inout)
+c
+c ./fem3d/subtsfile.f:
+c 15.10.2018    ggu     set nvar=0 in ts_get_file_info() to avoid segfault
+c
+c ./fem3d/shyelab_nodes.f:
+! 15.10.2018    ggu     added option -coord (bcoord,scoord)
+c
+c ./fem3d/newbcl.f:
+c 05.10.2018    ggu     new diagnostic routine ts_dia()
+c
+c ./fem3d/suboutputd.f:
+c 03.10.2018    ggu     some instances of itanf and itend eliminated
+c
+c ./fem3d/debug.f:
+c 05.10.2018    ggu     eliminated equivalent statement
+c
+c ./fem3d/subdef.f:
+c 05.10.2018    ggu     avoid run time error in subst_extension()
+c
+c ./fem3d/subwrt.f:
+c 05.10.2018	ggu	before calling dep3dele() set nlev
+
+==========================================================
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-16
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-15
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-15
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-15
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-12
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-12
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-12
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-09
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-08
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-08
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-06
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-05
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-05
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-10-03
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-09-28
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-09-28
+
+version  7_5_49    31-08-2018    VERS_7_5_49   commit_2018-09-28
+
+version  7_5_49    31-08-2018    VERS_7_5_49
+
+========================================================== 31-08-2018 - 7_5_49
+
+c ./fem3d/shyelab1.f:
+! 20.07.2018    dbf     inserted option for projection
+c
+c ./fem3d/shyelab_proj.f:
+! 20.07.2018    dbf     projection routines for shyelab
+! 30.08.2018    ggu     bug fix if mode == 0
+c
+c ./fem3d/subver.f:
+c 31.08.2018	ggu	version 7.5.49
+c
+c ./fem3d/subext.f:
+c 30.08.2018	ggu	new version 8 to avoid implicit do
+
+==========================================================
+
+version  7_4_1    13-07-2018    VERS_7_4_1   commit_2018-08-31
+
+version  7_4_1    13-07-2018    VERS_7_4_1   commit_2018-08-31
+
+version  7_4_1    13-07-2018    VERS_7_4_1   commit_2018-08-31
+
+version  7_4_1    13-07-2018    VERS_7_4_1   commit_2018-08-31
+
+version  7_4_1    13-07-2018    VERS_7_4_1   commit_2018-08-31
+
 version  7_4_1    13-07-2018    VERS_7_4_1   commit_2018-07-20
 
 version  7_4_1    13-07-2018    VERS_7_4_1   commit_2018-07-20
@@ -11077,6 +11585,14 @@ makefile:	link with new objects (old objects have been
 last version of old model : 19 June 1996
 
 --------------------------------------------------------------------
+
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2018  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
 
 ==========================================================
 Do not delete last line - needed for logging.

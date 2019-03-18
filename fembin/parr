@@ -1,4 +1,16 @@
 #!/usr/bin/perl
+
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1989  jgreely@cis.ohio-state.edu
+#    Copyright (C) 1990-2018  Georg Umgiesser
+#
+# this file has been re-arranged from a version by jgreely@cis.ohio-state.edu
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+
 #parr:
 # rearrange conforming PS code to print the pages in an arbitrary
 # order.  The -[sS] options (for signature order) assume two-up, left

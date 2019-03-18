@@ -1,6 +1,28 @@
-c
-c $Id: subcus.f,v 1.58 2010-03-08 17:46:45 georg Exp $
-c
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) 1985-2018  Georg Umgiesser
+!
+!    This file is part of SHYFEM.
+!
+!    SHYFEM is free software: you can redistribute it and/or modify
+!    it under the terms of the GNU General Public License as published by
+!    the Free Software Foundation, either version 3 of the License, or
+!    (at your option) any later version.
+!
+!    SHYFEM is distributed in the hope that it will be useful,
+!    but WITHOUT ANY WARRANTY; without even the implied warranty of
+!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+!    GNU General Public License for more details.
+!
+!    You should have received a copy of the GNU General Public License
+!    along with SHYFEM. Please see the file COPYING in the main directory.
+!    If not, see <http://www.gnu.org/licenses/>.
+!
+!    Contributions to this file can be found below in the revision log.
+!
+!--------------------------------------------------------------------------
+
 c custom routines
 c
 c contents :
@@ -122,6 +144,7 @@ c custom routines
 	if( icall .eq. 112 ) call mpi_test_basin(3)
 	if( icall .eq. 113 ) call mpi_test_basin(4)
 	if( icall .eq. 201 ) call conz_decay_curonian
+	if( icall .eq. 301 ) call cyano_diana
         if( icall .eq. 883 ) call debora(it)
         if( icall .eq. 884 ) call tsinitdebora(it)
         if( icall .eq. 888 ) call uv_bottom
@@ -1616,7 +1639,7 @@ c*****************************************************************
 
         subroutine jamal_fra
 
-c reset conz for fra
+c reset conz for fdp
 
 	use mod_conz
 	use levels
@@ -2054,7 +2077,7 @@ c     !+         /!grid bati_gradino.grd
 
         end
 c*****************************************************************
-        subroutine bclevvar_ini !deb
+        subroutine bclevvar_ini !dbf
 
 	use mod_internal
 	use mod_depth
@@ -2128,8 +2151,8 @@ c    ! +     /!grid bati_gradino.grd
                 iuvfix(ie)=1
                 do l=1,nlev
                        h = hdeov(l,ie)
-                       ulov(l,ie) = upresc(l)!deb 12feb2007
-                       vlov(l,ie) = vpresc(l)!deb 12feb2007
+                       ulov(l,ie) = upresc(l)!dbf 12feb2007
+                       vlov(l,ie) = vpresc(l)!dbf 12feb2007
                        ulnv(l,ie) = upresc(l)
                        vlnv(l,ie) = vpresc(l)
                        utlov(l,ie) = ulov(l,ie)*h
@@ -4404,6 +4427,132 @@ c*******************************************************************
 	    end if
 	    nodes(i) = kk
 	  end do
+
+	end
+
+c*******************************************************************
+
+	subroutine cyano_diana
+
+! write out values for cyanobacteria scum simulations
+
+	use basin
+	use mod_waves
+	use mod_meteo
+	use mod_hydro_print
+
+	implicit none
+
+	integer, save :: nvar = 5			!number of vars written
+	character*80, save :: file = 'cdiana.txt'	!file name of dates
+	double precision, save :: dtout = 1800.		!output frequence
+	double precision, save :: dtwin = 3.*3600.	!output window
+
+	character*20 :: aline
+	integer ierr,k
+	integer, save :: id = 0
+	logical, save :: bfinish = .false.
+	double precision :: dtime,atime
+	double precision, save :: astart,anext
+	double precision, save :: aend = 0		!impossible time
+	real s,d
+	real uvmed(nkn),uvdir(nkn),windir(nkn)
+
+	if( bfinish ) return	!nothing more to read
+
+        call get_absolute_act_time(atime)
+
+	if( aend < atime ) then	!read new output time
+	  ierr = 0
+	  call get_new_cyano_time(file,dtout,dtwin,astart,aend,ierr)
+	  if( ierr /= 0 ) bfinish = .true.
+	  if( bfinish ) return	!nothing more to read
+	  anext = astart
+	end if
+
+	if( atime < anext ) return	!no output yet
+	anext = anext + dtout
+
+	if( id == 0 ) then
+          call shyfem_init_scalar_file('cyano',nvar,.true.,id)
+	end if
+
+	do k=1,nkn
+	  call convert_wind_sd(uprv(1,k),vprv(1,k),s,d)
+	  uvmed(k) = s
+	  d = d + 180.
+	  if( d > 360. ) d = d - 360.
+	  uvdir(k) = d
+	  call convert_wind_sd(wxv,wyv,s,d)
+	  windir(k) = d
+	end do
+	!uvmed = sqrt( uprv(1,:)**2 + vprv(1,:)**2 )
+
+	call get_act_dtime(dtime)
+	call get_act_timeline(aline)
+	write(6,*) 'new cyano output written: ',aline
+        call shy_write_scalar_record(id,dtime,231,1,waveh)
+        call shy_write_scalar_record(id,dtime,28,1,metws)
+        call shy_write_scalar_record(id,dtime,29,1,windir)
+        call shy_write_scalar_record(id,dtime,6,1,uvmed)
+        call shy_write_scalar_record(id,dtime,7,1,uvdir)
+
+	end
+
+c*******************************************************************
+
+	subroutine get_new_cyano_time(file,dtout,dtwin,astart,aend,ierr)
+
+! reads date and determines start and end date for output
+
+	use iso8601
+
+	implicit none
+
+	character*(*) file
+	double precision :: dtout,dtwin,astart,aend
+	integer ierr
+
+	integer date,time
+	integer ios
+	integer, save :: iud = 0
+	double precision atime,aout
+	character*80 line
+	character*20 aline
+
+	if( iud == 0 ) then
+	  open(iud,file=file,status='old',form='formatted',iostat=ios)
+	  if( ios /= 0 ) then
+	    write(6,*) 'cannot open file: ',trim(file)
+	    stop 'error stop get_new_cyano_time: error opening file'
+	  end if
+	end if
+
+	ierr = -1
+	read(iud,'(a)',iostat=ios) line
+	if( ios > 0 ) then
+	  stop 'error stop get_new_cyano_time: read error'
+	end if
+	if( ios < 0 ) return
+
+	call string2date(line,date,time,ierr)
+	call dts_to_abs_time(date,time,aout)
+
+	atime = dnint(aout/dtout)
+	atime = atime * dtout
+	astart = atime - dtwin
+	aend = atime + dtwin
+	  
+	write(6,*) '------------------------------------------'
+	call dts_format_abs_time(aout,aline)
+	write(6,*) 'new output date for cyano read: ',aline
+	call dts_format_abs_time(atime,aline)
+	write(6,*) 'central output date for cyano: ',aline
+	call dts_format_abs_time(astart,aline)
+	write(6,*) 'start output date for cyano: ',aline
+	call dts_format_abs_time(aend,aline)
+	write(6,*) 'end output date for cyano: ',aline
+	write(6,*) '------------------------------------------'
 
 	end
 
