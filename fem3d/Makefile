@@ -258,7 +258,7 @@ SOBJS   = \
 	  subbit10.o shyutil.o subclo.o substrings.o subpar3.o \
 	  elabutil.o elabtime.o elab_gis.o elab_check.o subiso8601.o \
 	  unitutils.o lagrange_read.o sub2linear.o \
-	  $(MPI_OBJ)
+	  $(MPI_OBJ) mod_arrays.o
 
 # general objects for 3D model shyfem
 
@@ -284,7 +284,7 @@ HTOBJS = \
 	$(QFLUX) \
 	$(MUD_FILES) $(GOTM_OBJ) \
 	subbndo.o subbnds.o \
-	new36.o intp.o subssf.o \
+	intp.o subssf.o \
 	bdist.o links.o sublnka.o sublnkd.o sublnks.o sublnku.o \
 	sedi3d.o sedtrans05.o subwaves.o substress.o \
 	subhisto.o \
@@ -309,7 +309,8 @@ HTOBJS = \
 	subfloodfill.o mercury.o merc_water.o subssed.o \
 	subclo.o sub2linear.o \
 	subdates.o \
-	subpenta.o submir.o
+	subpenta.o submir.o mod_arrays.o \
+	$(CLOSE_SYS)
 
 # objects for pre-processor shypre
 
@@ -348,7 +349,8 @@ TSOBJS = subtsfile.o
 
 RSTOBJS = subrst.o ecological_dummy.o \
 	  mod_ts.o mod_conz.o mod_hydro_vel.o \
-	  subbit10.o
+	  subbit10.o \
+	  subshy.o subshyutil.o sub2linear.f
 
 BASOBJS = basutil.o basutil_resol.o basutil_hsigma.o basutil_bathy.o \
 	  basutil_interp.o basutil_smooth.o basutil_box.o basutil_part.o \
@@ -372,11 +374,11 @@ SHYOBJS = genutil.o \
 		lagrange_read.o subfind.o \
 		shyutil.o subdates.o sub2linear.o
 SHYCOMPAT = shyelab_nodes.o shyelab_average.o elab_regular.o elab_expand.o \
-		shyelab_util.o unitutils.o elab_check.o
+		shyelab_util.o unitutils.o elab_check.o shyelab_extract.o
 SHYELAB = shyelab1.o shyelab_output.o shyelab_nodes.o \
 		shyelab_area.o shyelab_average.o \
 		shyelab_util.o unitutils.o \
-		line_util.o lagrange_read.o \
+		line_util.o lagrange_read.o shyelab_extract.o \
 		elab_regular.o elab_expand.o $(NETCDF_ELAB)
 SHYNOBJS = genutil.o elabutil.o subshy.o subshyutil.o subshyutil2.o shyutil.o
 ETSOBJS = subets.o etsutil.o genutil.o subetsm.o
@@ -405,6 +407,9 @@ LAGRANGE =	lagrange_main.o \
 		lagrange_connect.o lagrange_vertical.o \
 		lagrange_stk.o lagrange_read.o \
 		line_util.o
+
+CLOSE_SYS =	newclose.o
+#CLOSE_SYS =	new36.o
 
 # heat flux module
 
@@ -441,7 +446,7 @@ INTP    = subreg.o
 
 EXEMAIN  = shyfem shypre shybas
 
-EXEINFO  = rstinf tselab \
+EXEINFO  = rstinf rst2shy tselab \
 		offinf lgrinf \
 		filetype \
 		extelab flxelab \
@@ -661,6 +666,9 @@ optintp:   optintp.o $(OUTOBJS) $(LAPLACE)
 rstinf:   rstinf.o $(OUTOBJS) $(RSTOBJS)
 	$(LINKER) $(LFLAGS) $@.o $(OUTOBJS) $(RSTOBJS) -o $@ 
 
+rst2shy:   rst2shy.o $(OUTOBJS) $(RSTOBJS)
+	$(LINKER) $(LFLAGS) $@.o $(OUTOBJS) $(RSTOBJS) -o $@ 
+
 qflux_test:   qflux_test.o $(QFLUX_TEST)
 	$(LINKER) $(LFLAGS) $@.o $(QFLUX_TEST) -o $@ 
 
@@ -838,6 +846,7 @@ last:
 ../femlib/mod/aquabc_ii_wc_ini.mod: aquabc_II_pelagic_model.o
 ../femlib/mod/aquabc_pel_state_var_indexes.mod: \
 		aquabc_II_svindex.o 
+../femlib/mod/arrays.mod: mod_arrays.o
 ../femlib/mod/basin.mod: subbas.o
 ../femlib/mod/basutil.mod: basutil.o
 ../femlib/mod/box.mod: subboxa.o
@@ -847,6 +856,7 @@ last:
 ../femlib/mod/check_unit.mod: newchk.o
 ../femlib/mod/chezy.mod: subn35.o
 ../femlib/mod/clo.mod: subclo.o
+../femlib/mod/close.mod: newclose.o
 ../femlib/mod/co2sys_cdiac.mod: aquabc_II_co2sys.o
 ../femlib/mod/coordinates.mod: subcoord.o
 ../femlib/mod/custom_dates.mod: subdates.o
@@ -991,6 +1001,7 @@ last:
 ../femlib/mod/regular.mod: subreg.o
 ../femlib/mod/scan_string.mod: subscn.o
 ../femlib/mod/semi_implicit.mod: subnsh.o
+../femlib/mod/shy_extract.mod: shyelab_extract.o
 ../femlib/mod/shyelab_out.mod: shyelab_output.o
 ../femlib/mod/shyelab_unit.mod: unitutils.o
 ../femlib/mod/shyfem_strings.mod: substrings.o
@@ -1241,6 +1252,11 @@ newchk.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_nohyd.mod \
 		../femlib/mod/mod_ts.mod ../femlib/mod/shympi.mod \
 		femtime.h mkonst.h param.h 
+newclose.o: ../femlib/mod/arrays.mod ../femlib/mod/basin.mod \
+		../femlib/mod/mod_hydro.mod \
+		../femlib/mod/mod_hydro_print.mod \
+		../femlib/mod/mod_internal.mod \
+		../femlib/mod/shympi.mod close.h mkonst.h 
 newcon.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/levels.mod \
 		../femlib/mod/mod_area.mod \
@@ -1418,6 +1434,7 @@ shyelab1.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/elabutil.mod \
 		../femlib/mod/evgeom.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
+		../femlib/mod/shy_extract.mod \
 		../femlib/mod/shyfile.mod ../femlib/mod/shympi.mod \
 		../femlib/mod/shyutil.mod 
 shyelab_area.o: ../femlib/mod/basin.mod ../femlib/mod/elabutil.mod

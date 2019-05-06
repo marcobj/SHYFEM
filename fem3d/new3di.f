@@ -201,6 +201,7 @@ c 31.10.2016    ggu	parallel part modified
 c 24.03.2017    ggu	new treatment for afix in sp256v_intern()
 c 19.12.2018    ggu	error in experimental code with penta solver
 c 18.01.2019    ggu	finished implementing and testing penta solver
+c 16.04.2019    ggu	introduced rcomputev for excluding elements (rcomp)
 c
 c******************************************************************
 
@@ -743,7 +744,7 @@ c-------------------------------------------------------------
  	  if(iend .gt. nel) iend = nel
 
  	  do ies=ie,iend
-	    call sp256v_intern(ies,bcolin,baroc,az,am,af,at,radv
+	    call hydro_intern(ies,bcolin,baroc,az,am,af,at,radv
      +			,vismol,rrho0,dt,rmsdif)
 	    rmsmax = max(rmsmax,rmsdif)
 	  end do
@@ -776,7 +777,7 @@ c-------------------------------------------------------------
 
 c******************************************************************
 
-	subroutine sp256v_intern(ie,bcolin,baroc,az,am,af,at,radv
+	subroutine hydro_intern(ie,bcolin,baroc,az,am,af,at,radv
      +			,vismol,rrho0,dt,rmsdif)
 
 c assembles vertical system matrix
@@ -844,6 +845,8 @@ c local
 	real gamma,gammat
         real hhi,hhim,hhip,uui,uuim,uuip,vvi,vvim,vvip
 	real bb,bbt,cc,cct,aa,aat,aux
+	real rfric
+	real, save :: rfric_max = 1./1800.	!half hour time scale
 	real aust
 	real fact                       !$$BCHAO - not used
 	!real uuadv,uvadv,vuadv,vvadv
@@ -860,10 +863,11 @@ c local
 	logical, parameter :: debug_mpi = .false.
 
 	double precision b(3),c(3)
-	double precision bpres,cpres
+	double precision bpres,cpres,presx,presy
 	double precision zz,zm,zmm
 	double precision bz,cz
-	double precision taux,tauy,rdist
+	double precision taux,tauy,rdist,rcomp
+	double precision gravx,gravy,wavex,wavey
 	double precision vis
 	double precision uuadv,uvadv,vuadv,vvadv
 
@@ -915,6 +919,8 @@ c-------------------------------------------------------------
 c compute barotropic terms (wind, atmospheric pressure, water level
 c-------------------------------------------------------------
 
+	rcomp = rcomputev(ie)		!use terms in element
+
 	bz=0.
 	cz=0.
 	bpres=0.
@@ -946,9 +952,9 @@ c-------------------------------------------------------------
 
 	zm=zm*drittl
 	zmm=zmm*drittl
-	taux=taux*drittl
-	tauy=tauy*drittl
-        rdist = rdist * drittl
+	taux=rcomp*taux*drittl
+	tauy=rcomp*tauy*drittl
+        rdist = rcomp * rdist * drittl
 
 c-------------------------------------------------------------
 c coriolis parameter
@@ -957,7 +963,7 @@ c-------------------------------------------------------------
 c	gamma=af*dt*fcorv(ie)*rdist     !ggu advindex
 c	gammat=fcorv(ie)*rdist
 
-	gammat=fcorv(ie)*rdist 
+	gammat=fcorv(ie)*rdist
         gamma=af*dt*gammat
 
 c-------------------------------------------------------------
@@ -1087,8 +1093,10 @@ c	------------------------------------------------------
 	  ppy = ppy - tauy
 	end if
 	if( blast ) then
-	  aa  = aa + dt * rfricv(ie)
-	  aat = aat + rfricv(ie)
+	  rfric = rfricv(ie)
+	  if( rcomp /= 1. ) rfric = rfric_max * (1.-rcomp) + rfric * rcomp
+	  aa  = aa + dt * rfric
+	  aat = aat + rfric
 	end if
 
 c	------------------------------------------------------
@@ -1131,6 +1139,15 @@ c	------------------------------------------------------
         xexpl = rdist * fxv(l,ie)
         yexpl = rdist * fyv(l,ie)
 
+	wavex = rdist * wavefx(l,ie)
+	wavey = rdist * wavefy(l,ie)
+
+	presx = rcomp * bpres
+	presy = rcomp * cpres
+
+	gravx = rcomp * grav*hhi*bz
+	gravy = rcomp * grav*hhi*cz
+
 c	------------------------------------------------------
 c	ppx/ppy is contribution on the left side of equation
 c	ppx corresponds to -F^x_l in the documentation
@@ -1138,11 +1155,11 @@ c	ppy corresponds to -F^y_l in the documentation
 c	------------------------------------------------------
 
 	ppx = ppx + aat*uui - bbt*uuip - cct*uuim - gammat*vvi 
-     +			+ grav*hhi*bz + (hhi/rowass)*bpres + xexpl 
-     +  		+ wavefx(l,ie)
+     +			+ gravx + (hhi/rowass)*presx + xexpl 
+     +  		+ wavex
 	ppy = ppy + aat*vvi - bbt*vvip - cct*vvim + gammat*uui 
-     +			+ grav*hhi*cz + (hhi/rowass)*cpres + yexpl 
-     +  		+ wavefy(l,ie)
+     +			+ gravy + (hhi/rowass)*presy + yexpl 
+     +  		+ wavey
 
 c	------------------------------------------------------
 c	set up matrix A
@@ -1238,7 +1255,7 @@ c-------------------------------------------------------------
 
 	if(ier.ne.0) then
 	  call vel_matrix_error(ier,ie,ilevel,rvec,rmat,hact,alev)
-	  stop 'error stop sp256v: inverting vertical matrix'
+	  stop 'error stop hydro_intern: inverting vertical matrix'
 	end if
 
 c-------------------------------------------------------------
@@ -1271,7 +1288,7 @@ c special information
 c-------------------------------------------------------------
 
 	if( ie .eq. 1 .and. barea0 .and. baroc ) then  !$$BAROC_AREA0
-	  write(6,*) 'sp256v: BAROC_AREA0 active '
+	  write(6,*) 'hydro_intern: BAROC_AREA0 active '
 	end if
 
 c-------------------------------------------------------------
@@ -1359,6 +1376,7 @@ c
 	double precision bz,cz,um,vm
 	double precision dz
 	double precision du,dv
+	double precision rfix,rcomp
 c function
 	integer iround
 	real getpar
@@ -1385,7 +1403,9 @@ c-------------------------------------------------------------
 
 	ilevel=ilhv(ie)
 
+	rcomp = rcomputev(ie)		!use terms in element
         afix=1-iuvfix(ie)       !chao dbf
+	rfix = afix * rcomp
 
 c	------------------------------------------------------
 c	compute barotropic pressure term
@@ -1412,8 +1432,8 @@ c	------------------------------------------------------
 	  du = beta * ( ddxv(ju,ie)*bz + ddyv(ju,ie)*cz )	!ASYM_OPSPLT_CH
 	  dv = beta * ( ddxv(jv,ie)*bz + ddyv(jv,ie)*cz )	!ASYM_OPSPLT_CH
 
-	  utlnv(l,ie) = utlnv(l,ie) - du*afix   !chao dbf
-	  vtlnv(l,ie) = vtlnv(l,ie) - dv*afix   !chao dbf
+	  utlnv(l,ie) = utlnv(l,ie) - du*rfix   !chao dbf
+	  vtlnv(l,ie) = vtlnv(l,ie) - dv*rfix   !chao dbf
 
 	end do
 
