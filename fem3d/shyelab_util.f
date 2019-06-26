@@ -23,6 +23,12 @@
 !
 !--------------------------------------------------------------------------
 
+! revision log :
+!
+! 04.11.2017	ggu	changed VERS_7_5_34
+! 16.02.2019	ggu	changed VERS_7_5_60
+! 21.05.2019	ggu	changed VERS_7_5_62
+
 !***************************************************************
 
         subroutine prepare_hydro(bvel,nndim,cv3all,znv,uprv,vprv)

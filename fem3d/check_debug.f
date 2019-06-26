@@ -23,6 +23,18 @@
 !
 !--------------------------------------------------------------------------
 
+! revision log :
+!
+! 13.06.2013	ggu	changed VERS_6_1_65
+! 05.11.2014	ggu	changed VERS_7_0_5
+! 05.06.2015	ggu	changed VERS_7_1_12
+! 10.07.2015	ggu	changed VERS_7_1_50
+! 17.07.2015	ggu	changed VERS_7_1_52
+! 16.02.2019	ggu	changed VERS_7_5_60
+! 21.05.2019	ggu	changed VERS_7_5_62
+
+!**************************************************************************
+
 	program check_debug
 
 c checks two files written with check_debug from ht

@@ -37,6 +37,14 @@ c revision log :
 c
 c 01.07.1992	ggu	$$lump  - lumping of matrix
 c 05.08.1992	ggu	$$ibtyp3 - implementation of ibtyp=3
+c 01.09.1992	ggu	$$eps  - introduction of eps (setuvd)
+c 12.01.1994	ggu	$$hzon  - use new variable hzon (setweg)
+c 12.01.1994	ggu	$$eps0  - use eps only in last control (setuvd)
+c 12.01.1994	ggu	$$99  - do not jump to 99 in loop (setuvd)
+c 05.02.1994	ggu	$$azpar - use az to compute velocities (setuvd)
+c 04.03.1994	ggu	$$azuvdry - one az too much in formula (setuvd)
+c 27.10.1997	ggu	$$isum - better identification of error 99 (setuvd)
+c 27.10.1997	ggu	$$dpisum - use double prec. for key values (setuvd)
 c 27.03.1998	ggu	eliminated /bnd/, /irv/
 c 27.04.1998	ggu	$$NKNEL - do not call nknel in tstlnk
 c 08.05.1998	ggu	new routine pntfla -> absolute element index
@@ -44,17 +52,36 @@ c 20.05.1998	ggu	hard coded unit 88 substituted (use ifileo)
 c 14.07.1998	ggu	$$ibtyp4 - boundary type 4 integrated
 c 21.08.1998	ggu	file sublnk splitted into lnk/dry
 c 21.08.1998	ggu	routine setczg removed
-c 21.08.1998    ggu     xv eliminated
-c 21.11.2001    ggu     extra bdebug in setweg
-c 21.11.2001    ggu     more debug information in setuvd
-c 13.08.2003    ggu     new routine setznv
-c 03.09.2004    ggu     setznv: do not stop if znv is not unique (restart)
-c 22.09.2004    ggu     debug in setweg()
-c 23.03.2006    ggu     changed time step to real
-c 20.05.2011    ggu     different algorithm for element removal (wet&dry)
-c 20.05.2011    ggu     new routines set_dry() and set_element_dry(ie)
-c 07.06.2011    ggu     slight changes in wetting and drying
-c 27.01.2012    dbf&ggu changes for sigma coordinates (bsigma)
+c 21.08.1998	ggu	xv eliminated
+c 21.11.2001	ggu	extra bdebug in setweg
+c 21.11.2001	ggu	more debug information in setuvd
+c 13.08.2003	ggu	new routine setznv
+c 03.09.2004	ggu	setznv: do not stop if znv is not unique (restart)
+c 22.09.2004	ggu	debug in setweg()
+c 23.03.2006	ggu	changed time step to real
+c 23.03.2010	ggu	changed v6.1.1
+c 20.05.2011	ggu	different algorithm for element removal (wet&dry)
+c 20.05.2011	ggu	new routines set_dry() and set_element_dry(ie)
+c 31.05.2011	ggu	changed VERS_6_1_23
+c 07.06.2011	ggu	slight changes in wetting and drying
+c 14.07.2011	ggu	changed VERS_6_1_27
+c 27.01.2012	dbf&ggu	changes for sigma coordinates (bsigma)
+c 30.03.2012	ggu	changed VERS_6_1_51
+c 12.09.2013	ggu	changed VERS_6_1_67
+c 12.12.2014	ggu	changed VERS_7_0_9
+c 19.12.2014	ggu	changed VERS_7_0_10
+c 23.12.2014	ggu	changed VERS_7_0_11
+c 19.01.2015	ggu	changed VERS_7_1_3
+c 05.05.2015	ggu	changed VERS_7_1_10
+c 17.07.2015	ggu	changed VERS_7_1_80
+c 20.07.2015	ggu	changed VERS_7_1_81
+c 23.09.2015	ggu	changed VERS_7_2_4
+c 28.04.2016	ggu	changed VERS_7_5_9
+c 05.12.2017	ggu	changed VERS_7_5_39
+c 19.04.2018	ggu	changed VERS_7_5_45
+c 16.02.2019	ggu	changed VERS_7_5_60
+c 13.03.2019	ggu	changed VERS_7_5_61
+c 21.05.2019	ggu	changed VERS_7_5_62
 c
 c*****************************************************************
 
@@ -122,8 +149,6 @@ c  h1	|		|    exclude, repeat	|	error		|
 c	+- zero  -------------------------------------------------------+
 c
 c iwegv   0:all nodes wet   >0:number of nodes dry -> out of system
-c
-c 12.01.1994	ggu	$$hzon  - use new variable hzon
 c
 	use mod_geom_dynamic
 	use mod_hydro
@@ -329,15 +354,6 @@ c ie    element
 c dt    time step
 c hzmin smallest z allowed
 c b,c   form functions
-c
-c 01.07.1992	ggu	$$lump  - lumping of matrix
-c 01.09.1992	ggu	$$eps  - introduction of eps
-c 12.01.1994	ggu	$$eps0  - use eps only in last control
-c 12.01.1994	ggu	$$99  - do not jump to 99 in loop
-c 05.02.1994	ggu	$$azpar - use az to compute velocities
-c 04.03.1994	ggu	$$azuvdry - one az too much in formula
-c 27.10.1997	ggu	$$isum - better identification of error 99
-c 27.10.1997	ggu	$$dpisum - use double prec. for key values
 c
 	use mod_geom_dynamic
 	use mod_hydro_baro
@@ -697,8 +713,6 @@ c works only for lumped mass matrix
 c
 c zv    aux vector for z value
 c av    aux vector for weighting factors (areas)
-c
-c 01.07.1992	ggu	$$lump  - lumping of matrix
 c
 	use mod_geom_dynamic
 	use mod_hydro

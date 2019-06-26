@@ -27,10 +27,29 @@
 !
 ! revision log :
 !
-! 23.09.2016    ggu     expand routine written
-! 05.10.2016    ggu     routines dealing with regular field copied to own file
-! 24.05.2018    ccf     add outformat option off
-! 10.02.2019    ggu     write final message for -averbas
+! 25.05.2016	ggu	changed VERS_7_5_10
+! 30.05.2016	ggu	changed VERS_7_5_11
+! 07.06.2016	ggu	changed VERS_7_5_12
+! 14.06.2016	ggu	changed VERS_7_5_14
+! 17.06.2016	ggu	changed VERS_7_5_15
+! 27.06.2016	ggu	changed VERS_7_5_16
+! 09.09.2016	ggu	changed VERS_7_5_17
+! 23.09.2016	ggu	expand routine written
+! 30.09.2016	ggu	changed VERS_7_5_18
+! 05.10.2016	ggu	routines dealing with regular field copied to own file
+! 11.10.2016	ggu	changed VERS_7_5_20
+! 31.03.2017	ggu	changed VERS_7_5_24
+! 09.05.2017	ggu	changed VERS_7_5_26
+! 04.11.2017	ggu	changed VERS_7_5_34
+! 14.11.2017	ggu	changed VERS_7_5_36
+! 24.01.2018	ggu	changed VERS_7_5_41
+! 24.05.2018	ccf	add outformat option off
+! 06.07.2018	ggu	changed VERS_7_5_48
+! 25.10.2018	ggu	changed VERS_7_5_51
+! 10.02.2019	ggu	write final message for -averbas
+! 16.02.2019	ggu	changed VERS_7_5_60
+! 14.05.2019	ggu	for nc_output use interpolated values, allow ivar=1
+! 16.05.2019	ggu	write regular grid information
 !
 !***************************************************************
 !
@@ -129,6 +148,7 @@
      +				,fmreg,fmextra
      +				,ilcoord,xcoord,ycoord,hcoord
      +				,xlon,ylat)
+	  if( .not. bquiet ) call fem_reg_print(regpar)
 	  breg = .true.
 	  ntype = ntype + 10
 	  !write(6,*) 'regular setup: ',regpar
@@ -320,7 +340,8 @@
 	end if
 
 	if( .not. bsplit .and. .not. bshy ) then
-	  if( ivar == 1 .or. ivar == 3 ) goto 99
+	  !if( ivar == 1 .or. ivar == 3 ) goto 99
+	  if( ivar == 3 ) goto 99
 	  if( m /= 1 ) goto 98
 	end if
 
@@ -347,7 +368,8 @@
 	  else if( outformat == 'nc' ) then
 	    ncid = idout
 	    var_id = var_ids(iv)
-	    call nc_output_record(ncid,var_id,cv3)
+	    !call nc_output_record(ncid,var_id,cv3)	!old call
+	    call nc_output_record(ncid,var_id,np,svalue)
 	  else if( outformat == 'off' ) then
 	    ! nothing to be done
 	  else

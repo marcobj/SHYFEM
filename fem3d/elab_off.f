@@ -27,8 +27,16 @@
 !
 ! revision log :
 !
-! 24.05.2018    ccf     written from scratch
-! 12.11.2018    ggu     linear arrays introduced
+! 27.08.1991	ggu	(from scratch) (make_vertical_velocity_off)
+! 14.08.1998	ggu	w=0 at open boundary nodes (make_vertical_velocity_off)
+! 20.08.1998	ggu	some documentation (make_vertical_velocity_off)
+! 24.05.2018	ccf	written from scratch
+! 06.07.2018	ggu	changed VERS_7_5_48
+! 12.11.2018	ggu	linear arrays introduced
+! 18.12.2018	ggu	changed VERS_7_5_52
+! 16.02.2019	ggu	changed VERS_7_5_60
+! 13.03.2019	ggu	changed VERS_7_5_61
+! 21.05.2019	ggu	changed VERS_7_5_62
 !
 !***************************************************************
 !***************************************************************
@@ -152,10 +160,6 @@ c at the end it receives the vertical velocity
 c
 c wlnv (dvol)   aux array for volume difference
 c vv            aux array for area
-c
-c 27.08.1991	ggu	(from scratch)
-c 14.08.1998    ggu     w = 0 at open boundary nodes
-c 20.08.1998    ggu     some documentation
 
         use evgeom
         use levels

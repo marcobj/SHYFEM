@@ -23,6 +23,16 @@
 !
 !--------------------------------------------------------------------------
 
+! revision log :
+!
+! 13.04.2017	ggu	changed VERS_7_5_25
+! 09.05.2017	ggu	changed VERS_7_5_26
+! 25.05.2017	ggu	changed VERS_7_5_28
+! 16.02.2019	ggu	changed VERS_7_5_60
+! 21.05.2019	ggu	changed VERS_7_5_62
+
+!**************************************************************************
+
 c	program merc.f
 
         subroutine mercury_react(id,bsurf,bbottom,boxtype,dt,vol,depth,k

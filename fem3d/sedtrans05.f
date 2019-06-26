@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2005  Urs Neumeier, Christian Ferrarin, Carl Amos
+!    Copyright (C) 2005  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -29,46 +30,44 @@
 !                           CONTINENTAL SHELVES AND ESTUARIES
 !
 !****************************************************************************
+!
 ! Sedtrans05 - a sediment transport model
-! Preliminary test version
-! Copyright (C) 2005 Urs Neumeier, Christian Ferrarin, Carl Amos
-! and Georg Umgiesser.
+!
 ! Sedtrans05 was developed at the ISMAR-CNR in Venice and the
 ! University of Southampton.
+!
 ! Previous versions of Sedtrans (1992 and 1996) were developed at
 ! the Geological Survey of Canada, Bedford Institute of Oceanography.
 !
-! This program is free software; you can redistribute it and/or modify
-! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 2 of the License, or
-! (at your option) any later version. See file "licence.txt" in the
-! Sedtrans05 directory for the full licence text, which can also be
-! found at http://www.gnu.org/licenses/
-!
-! This program is distributed in the hope that it will be useful,
-! but WITHOUT ANY WARRANTY; without even the implied warranty of
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-! GNU General Public License for more details.
 ! **********************************************************************
 !
 ! revision log :
 !
-! 01.08.2005    ccf	changes in FRICFAC, compute ripple if USTC<USTCRB
-! 01.08.2005    ccf	no ripple prediction in case of cohesive sediment
-! 14.02.2006    ccf	compute C0 with Van Rijn instead of Smith and McLean
-! 13.03.2006    ccf	correct computation of USTC for cohesive
-! 11.06.2006    ccf	correct Z0 in GETC01 and add KCOES
+! 01.05.2005	ccf&unm&cla&ggu	started rewriting old code
+! 01.08.2005	ccf	changes in FRICFAC, compute ripple if USTC<USTCRB
+! 01.08.2005	ccf	no ripple prediction in case of cohesive sediment
+! 14.02.2006	ccf	compute C0 with Van Rijn instead of Smith and McLean
+! 13.03.2006	ccf	correct computation of USTC for cohesive
+! 11.06.2006	ccf	correct Z0 in GETC01 and add KCOES
 ! 12.09.2006	ccf	in FRICFAC limit RKB <= D
 ! 30.01.2007	ccf	introduce Z0S in PROFL
 ! 21.12.2007	ccf	NBCONC as input variables
 ! 16.04.2008	ccf	bugfix in SETCCONST (new label 930)
 ! 20.10.2008	ccf	new routine for RIPPLE prediction in case of current 
+! 23.03.2010	ggu	changed v6.1.1
+! 08.10.2010	ggu	changed VERS_6_1_13
+! 05.11.2014	ggu	changed VERS_7_0_5
+! 10.07.2015	ggu	changed VERS_7_1_50
+! 12.10.2015	ggu	changed VERS_7_3_3
 ! 01.04.2016	ccf	converted to module
 ! 01.04.2016	ccf	converted to module
+! 02.09.2017	ggu	changed VERS_7_5_31
 ! 22.02.2018	ccf	bug fix for TAUCD (wrong formula, look for TAUCD=)
 ! 01.02.2019	ggu	loop 220 in sub depos cleaned
 ! 03.02.2019	ggu	sanity checks (GGUZ0)
 ! 14.02.2019	ggu	more sanity checks (GGUZ0)
+! 16.02.2019	ggu	changed VERS_7_5_60
+! 21.05.2019	ggu	changed VERS_7_5_62
 !
 !****************************************************************************
 
