@@ -4542,7 +4542,7 @@ c*******************************************************************
 	  d = d + 180.
 	  if( d > 360. ) d = d - 360.
 	  uvdir(k) = d
-	  call convert_wind_sd(wxv,wyv,s,d)
+	  call convert_wind_sd(wxv(k),wyv(k),s,d)
 	  windir(k) = d
 	end do
 	!uvmed = sqrt( uprv(1,:)**2 + vprv(1,:)**2 )
@@ -4550,11 +4550,11 @@ c*******************************************************************
 	call get_act_dtime(dtime)
 	call get_act_timeline(aline)
 	write(6,*) 'new cyano output written: ',aline
-        call shy_write_scalar_record(id,dtime,231,1,waveh)
-        call shy_write_scalar_record(id,dtime,28,1,metws)
-        call shy_write_scalar_record(id,dtime,29,1,windir)
-        call shy_write_scalar_record(id,dtime,6,1,uvmed)
-        call shy_write_scalar_record(id,dtime,7,1,uvdir)
+        call shy_write_scalar_record2d(id,dtime,231,waveh)
+        call shy_write_scalar_record2d(id,dtime,28,metws)
+        call shy_write_scalar_record2d(id,dtime,29,windir)
+        call shy_write_scalar_record2d(id,dtime,6,uvmed)
+        call shy_write_scalar_record2d(id,dtime,7,uvdir)
 
 	end
 
@@ -4658,7 +4658,8 @@ c*******************************************************************
 	ij=0
 
         do ie=1,nel
-         if(iarv(ie).eq.7.or.iarv(ie).eq.0)then
+         !if(iarv(ie).eq.7.or.iarv(ie).eq.0)then
+         if(iarv(ie).eq.77.or.iarv(ie).eq.88)then
           do ii=1,3
             k=nen3v(ii,ie)
             nlev = ilhkv(k)

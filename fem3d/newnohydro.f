@@ -192,8 +192,6 @@ c copies new values of q to old time step
 
         implicit none
 
-        include 'param.h'
-
         qpov = qpnv
         qpnv = 0.
         
@@ -878,7 +876,7 @@ c opens output of w/q
 	double precision da_out(4)
 	integer iwvel,iqpnv
 
-	integer nvar,id,ishyff
+	integer nvar,id
 	logical has_output
 	logical has_output_d
 	real getpar

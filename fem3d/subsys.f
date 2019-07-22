@@ -212,6 +212,7 @@ c 12.02.2019	ccf	introduced ibstrs for computing the bottom stess
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	new variables for plotting basin
 c 21.05.2019	ggu	changed VERS_7_5_62
+c 04.07.2019	ggu	new description for WW3
 c
 c************************************************************************
 
@@ -704,6 +705,18 @@ c               of water is clear water (type I).
 c               (Default 0) 
 
         call addpar('isolp',0.)         !type of solar penetration   
+
+c |iwtyp|       The water types from clear water (type I) to the most 
+c               turbid water (coastal water 9) following the classification of
+c               Jerlov (Jerlov, N. G., 1968 Optical Oceanography, 
+c               Elsevier, 194pp).
+c               |iwtyp| = 0 :clear water type I ; |iwtyp| = 1 : type IA
+c               |iwtyp| = 2 : type IB ; |iwtyp| = 3 : type II
+c               |iwtyp| = 4 : type III; |iwtyp| = 5 : type 1
+c               |iwtyp| = 6 : type 3  ; |iwtyp| = 7 : type 5
+c               |iwtyp| = 8 : type 7  ; |iwtyp| = 9 : type 9
+
+        call addpar('iwtyp',0.)         !water type (works if |isolp|=1)
 
 c |hdecay|	Depth of e-folding decay of radiation [m]. If |hdecay| = 0 
 c		everything is absorbed in first layer (Default 0).
@@ -1521,6 +1534,7 @@ c		\item[2] ... wind from SHYFEM, radiation stress formulation
 c		\item[3] ... wind from SHYFEM, vortex force formulation 
 c		\item[4] ... wind from WWMIII, radiation stress formulation
 c		\item[5] ... wind from WWMIII, vortex force formulation 
+c		\item[11] The spectral wind wave model WaveWatch WW3 is called
 c		\end{description}
 c		When the vortex force formulation is chosen the wave-supported
 c		surface stress is subtracted from the wind stress, in order to
