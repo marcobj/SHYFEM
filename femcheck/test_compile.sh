@@ -44,6 +44,7 @@ Clean_before()
   cp $rules_dist ./Rules.make
   [ -f allstdout.txt ] && rm allstdout.txt
   [ -f allstderr.txt ] && rm allstderr.txt
+  make cleanall > /dev/null 2>&1
 }
 
 Clean_after()
@@ -54,6 +55,7 @@ Clean_after()
   mv -f $rules_save ./Rules.make
   [ -f allstdout.txt ] && mv allstdout.txt allstdout.tmp
   [ -f allstderr.txt ] && mv allstderr.txt allstderr.tmp
+  make cleanall > /dev/null 2>&1
 }
 
 SetUp()
@@ -68,7 +70,10 @@ SetUp()
 
 WrapUp()
 {
-  lines=`cat allstderr.tmp | grep -v 'setting macros' | wc -l`
+  lines=0
+  if [ -f allstderr.tmp ]; then
+    lines=`cat allstderr.tmp | grep -v 'setting macros' | wc -l`
+  fi
   echo "================================="
   echo "Final message on all compilations: "
   if [ $lines -ne 0 ]; then

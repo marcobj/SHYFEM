@@ -152,6 +152,9 @@ c 12.02.2019	ccf	bottom shear stress in substress.f
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 12.03.2019	ccf	include new computation of tide potential/analysis
 c 04.07.2019	ggu	new ww3 routines introduced
+c 15.09.2019	ggu	subroutine to test only forcing
+c 02.10.2019	ggu	delete include files
+c 17.10.2019	ggu	no call to bfm_write, is done inside subroutine
 c
 c*****************************************************************
 
@@ -198,12 +201,6 @@ c----------------------------------------------------------------
 
 	implicit none
 
-c include files
-
-	include 'mkonst.h'
-	include 'pkonst.h'
-	!include 'femtime.h'
-
 c local variables
 
 	logical bdebout,bdebug,bmpirun
@@ -226,7 +223,6 @@ c local variables
 	call cpu_time(time1)
 	call system_clock(count1, count_rate, count_max)
 !$      timer = omp_get_wtime() 
-
 
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 c%%%%%%%%%%%%%%%%%%%%%%%%%%% code %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -424,6 +420,8 @@ c-----------------------------------------------------------
 
 	if( bdebout ) call debug_output(dtime)
 
+        !call test_forcing(dtime,dtend)
+
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 c%%%%%%%%%%%%%%%%%%%%%%%%% time loop %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -473,7 +471,6 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	   call do_after
 
 	   call tracer_write
-	   call bfm_write
 
            if( bfirst ) call print_file_usage
 
@@ -760,6 +757,8 @@ c*****************************************************************
 
 !$OMP TASK IF ( ibfm > 0 )
 	 call bfm_compute
+	 call bfm_reactor
+	 call bfm_write_output_file
 !$OMP END TASK
 
 !!!$OMP END TASKGROUP	
@@ -1048,6 +1047,32 @@ c*****************************************************************
 	call shympi_stop('finish')
  
 	end
+
+c*****************************************************************
+
+        subroutine test_forcing(dtime,dtend)
+
+        implicit none
+
+        double precision dtime,dtend
+
+        real dt
+
+	do while( dtime .lt. dtend )
+
+           call set_timestep		!sets dt and t_act
+           call get_timestep(dt)
+	   call get_act_dtime(dtime)
+
+	   call sp111(2)		!boundary conditions
+	   
+	   call print_time			!output to terminal
+
+        end do
+
+        stop 'end of testing forcing'
+
+        end
 
 c*****************************************************************
 
