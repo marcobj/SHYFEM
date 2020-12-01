@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1994-1995  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -25,13 +25,14 @@
 
 
 /************************************************************************\
- *                                                                      *
- * queue.h - list table administration routines                         *
- *                                                                      *
- * Revision History:                                                    *
- * 11-Aug-95: Queuetable_type renamed in QueueTable                     *
- * 07-Oct-94: routines written from scratch                             *
- *                                                                      *
+ *
+ * queue.h - list table administration routines
+ *
+ * revision log :
+ *
+ * 07.10.1994	ggu	routines written from scratch
+ * 11.08.1995	ggu	Queuetable_type renamed in QueueTable
+ *
 \************************************************************************/
 
 

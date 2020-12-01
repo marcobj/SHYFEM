@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2003,2005,2009-2010,2013-2015,2013-2015  Georg Umgiesser
+!    Copyright (C) 2017-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -54,10 +55,11 @@ c 05.12.2017	ggu	changed VERS_7_5_39
 c 06.07.2018	ggu	changed VERS_7_5_48
 c 14.02.2019	ggu	changed VERS_7_5_56
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 26.05.2020	ggu	rdist is now defined on elements
 c
 c****************************************************************
 
-        subroutine shdist(rdist)
+        subroutine shdist(redist)
 
 c makes distance array from open boundaries
 c
@@ -76,17 +78,19 @@ c   rdist:   0   0  1/4 2/4 3/4  1   1   1   ...
 
 	implicit none
 
-        real rdist(nkn)
+        real redist(nel)
 
 c local variables
 
         integer idist(nkn)
+        real rdist(nkn)
 
-        integer i,k,kk
+        integer i,k,kk,ie,ii
         integer nadist,nad
         integer ibc,n,itype,nk
 	integer nbc
 	integer ivar
+	real r
 
 	integer iapini,ipint
         integer nbnds,itybnd,nkbnds,kbnds
@@ -143,6 +147,19 @@ c-----------------------------------------------------------------
 	  ivar = 77
 	  call scalar_output_once_2d('dist',ivar,rdist)
 	end if
+
+c-----------------------------------------------------------------
+c compute value of rdist on elements
+c-----------------------------------------------------------------
+
+	do ie=1,nel
+	  r = 0.
+	  do ii=1,3
+	    k = nen3v(ii,ie)
+	    r = r + rdist(k)
+	  end do
+	  redist(ie) = r / 3.
+	end do
 
 c-----------------------------------------------------------------
 c end of routine

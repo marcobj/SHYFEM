@@ -1,7 +1,11 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1988,1991-1993,1995-2001,2003-2020  Georg Umgiesser
+!    Copyright (C) 2006,2011,2019  Christian Ferrarin
+!    Copyright (C) 2007,2013  Debora Bellafiore
+!    Copyright (C) 2008  Marco Bajo
+!    Copyright (C) 2015  Erik Pascolo
 !
 !    This file is part of SHYFEM.
 !
@@ -258,6 +262,9 @@ c 21.05.2019	ggu	changed VERS_7_5_62
 c 02.07.2019	ggu	switched completely to penta solver
 c 04.07.2019	ccf	for offline also compute horizontal diffusion params
 c 16.07.2019	ggu	rmsdiff was not set to 0 (bug)
+c 26.03.2020	ggu	adjust viscosity in case of closure (rcomp)
+c 26.05.2020	ggu	new variable ruseterm to shut off selected terms
+c 04.06.2020	ggu	debug_new3di() for selected debug
 c
 c******************************************************************
 
@@ -472,6 +479,7 @@ c semi-implicit scheme for 3d model
 	use evgeom
 	use levels
 	use basin
+	use shympi
 
 	implicit none
 
@@ -487,7 +495,7 @@ c semi-implicit scheme for 3d model
 	logical bcolin
 	logical bdebug
 	integer kn(3)
-	integer ie,i,j,j1,j2,n,m,kk,l,k
+	integer ie,i,j,j1,j2,n,m,kk,l,k,ie_mpi
 	integer ngl
 	integer ilevel
 	integer ju,jv
@@ -552,7 +560,11 @@ c-------------------------------------------------------------
 c loop over elements
 c-------------------------------------------------------------
 
-	do ie=1,nel
+	do ie_mpi=1,nel
+
+	ie = ie_mpi
+	ie = ip_sort_elem(ie_mpi)
+	!write(6,*) ie_mpi,ie,ipev(ie),nel
 
 c	------------------------------------------------------
 c	compute level gradient
@@ -689,6 +701,8 @@ c	------------------------------------------------------
 
 	  !call system_assemble(ie,nkn,mbw,kn,hia,hik)
 	  call system_assemble(ie,kn,hia,hik)
+
+	  !call debug_new3di('zeta',0,ie,hia,hik)
 
 	end do
 
@@ -855,7 +869,7 @@ c semi-implicit scheme for 3d model
 	integer ie
 	logical bcolin,baroc
 	real az,am,af,at
-	real radv			!non-linear contribution
+	real radv			!non-linear implicit contribution
 	real vismol,rrho0
 	real dt
 	double precision rmsdif
@@ -882,28 +896,20 @@ c local
 	integer lp,lm
 	integer k1,k2,k3,k
         integer imin,imax
-	!real b(3),c(3)
 	real hlh
-	!real bz,cz,zm,zmm,zz
 	real xbcl,ybcl
         real xexpl,yexpl
 	real ulm,vlm
-	!real taux,tauy
 	real gamma,gammat
         real hhi,hhim,hhip,uui,uuim,uuip,vvi,vvim,vvip
 	real bb,bbt,cc,cct,aa,aat,aux
 	real rfric
-	real, save :: rfric_max = 1./1800.	!half hour time scale
 	real aust
 	real fact                       !$$BCHAO - not used
-	!real uuadv,uvadv,vuadv,vvadv
         real rhp,rhm,aus
 	real hzg,gcz
         real xmin,xmax
-        !real rdist
         real xadv,yadv,fm,uc,vc,f,um,vm,up,vp
-	!real bpres,cpres
-	!real vis
 	real rraux,cdf,dtafix
 	real ss
 	logical b2d
@@ -913,7 +919,7 @@ c local
 	double precision bpres,cpres,presx,presy
 	double precision zz,zm,zmm
 	double precision bz,cz
-	double precision taux,tauy,rdist,rcomp
+	double precision taux,tauy,rdist,rcomp,ruseterm
 	double precision gravx,gravy,wavex,wavey
 	double precision vis
 	double precision uuadv,uvadv,vuadv,vvadv
@@ -966,7 +972,9 @@ c-------------------------------------------------------------
 c compute barotropic terms (wind, atmospheric pressure, water level
 c-------------------------------------------------------------
 
-	rcomp = rcomputev(ie)		!use terms in element
+        rdist = rdistv(ie)		!use terms (distance from OB)
+	rcomp = rcomputev(ie)		!use terms (custom elements)
+        ruseterm = min(rcomp,rdist)	!use terms (both)
 
 	bz=0.
 	cz=0.
@@ -976,7 +984,6 @@ c-------------------------------------------------------------
 	zmm=0.
 	taux=0.
 	tauy=0.
-        rdist = 0.
 	do ii=1,3
 	  kk=nen3v(ii,ie)
 	  kn(ii)=kk
@@ -994,23 +1001,18 @@ c-------------------------------------------------------------
 	  cpres=cpres+ppv(kk)*c(ii)
 	  taux=taux+tauxnv(kk)
 	  tauy=tauy+tauynv(kk)
-          rdist = rdist + rdistv(kk)
 	end do
 
 	zm=zm*drittl
 	zmm=zmm*drittl
 	taux=rcomp*taux*drittl
 	tauy=rcomp*tauy*drittl
-        rdist = rcomp * rdist * drittl
 
 c-------------------------------------------------------------
 c coriolis parameter
 c-------------------------------------------------------------
 
-c	gamma=af*dt*fcorv(ie)*rdist     !ggu advindex
-c	gammat=fcorv(ie)*rdist
-
-	gammat=fcorv(ie)*rdist
+	gammat=fcorv(ie)*ruseterm
         gamma=af*dt*gammat
 
 c-------------------------------------------------------------
@@ -1065,6 +1067,7 @@ c-------------------------------------------------------------
 	    vis = vismol
 	    vis = vis + (visv(l,k1)+visv(l,k2)+visv(l,k3))/3.
 	    vis = vis + (vts(l,k1)+vts(l,k2)+vts(l,k3))/3.
+	    if( rcomp /= 1. ) vis = vis_max * (1.-rcomp) + vis * rcomp
 	    alev(l) = vis
 	end do
 
@@ -1155,7 +1158,7 @@ c	------------------------------------------------------
 	vuadv = 0.
 	vvadv = 0.
 
-	aux = dt * radv * rdist
+	aux = dt * radv * ruseterm	!implicit contribution
 
 	if( aux .gt. 0. ) then		!implict treatment of non-linear terms
 
@@ -1183,16 +1186,16 @@ c	------------------------------------------------------
 c	explicit contribution (non-linear, baroclinic, diffusion)
 c	------------------------------------------------------
         
-        xexpl = rdist * fxv(l,ie)
-        yexpl = rdist * fyv(l,ie)
+        xexpl = fxv(l,ie)			!explicit terms
+        yexpl = fyv(l,ie)
 
-	wavex = rdist * wavefx(l,ie)
-	wavey = rdist * wavefy(l,ie)
+	wavex = ruseterm * wavefx(l,ie)		!wave radiation stresss
+	wavey = ruseterm * wavefy(l,ie)
 
-	presx = rcomp * bpres
+	presx = rcomp * bpres			!atmospheric pressure
 	presy = rcomp * cpres
 
-	gravx = rcomp * grav*hhi*bz
+	gravx = rcomp * grav*hhi*bz		!barotropic pressure
 	gravy = rcomp * grav*hhi*cz
 
 c	------------------------------------------------------
@@ -1421,6 +1424,7 @@ c post processing of time step
 	use evgeom
 	use levels
 	use basin
+	use shympi
 
 	implicit none
 
@@ -1428,7 +1432,7 @@ c post processing of time step
 	include 'pkonst.h'
 
 	logical bcolin,bdebug
-	integer ie,ii,l,kk
+	integer ie,ii,l,kk,ie_mpi
 	integer ilevel
 	integer ju,jv
         integer afix            !chao dbf
@@ -1460,12 +1464,15 @@ c-------------------------------------------------------------
 c start loop on elements
 c-------------------------------------------------------------
 
-	do ie=1,nel
+	do ie_mpi=1,nel
+
+	ie = ie_mpi
+	ie = ip_sort_elem(ie_mpi)
 
 	ilevel=ilhv(ie)
 
 	rcomp = rcomputev(ie)		!use terms in element
-        afix=1-iuvfix(ie)       !chao dbf
+        afix=1-iuvfix(ie)       	!chao dbf
 	rfix = afix * rcomp
 
 c	------------------------------------------------------
@@ -1493,8 +1500,8 @@ c	------------------------------------------------------
 	  du = beta * ( ddxv(ju,ie)*bz + ddyv(ju,ie)*cz )	!ASYM_OPSPLT_CH
 	  dv = beta * ( ddxv(jv,ie)*bz + ddyv(jv,ie)*cz )	!ASYM_OPSPLT_CH
 
-	  utlnv(l,ie) = utlnv(l,ie) - du*rfix   !chao dbf
-	  vtlnv(l,ie) = vtlnv(l,ie) - dv*rfix   !chao dbf
+	  utlnv(l,ie) = utlnv(l,ie) - du*rfix   		!chao dbf
+	  vtlnv(l,ie) = vtlnv(l,ie) - dv*rfix   		!chao dbf
 
 	end do
 
@@ -1719,6 +1726,87 @@ c*******************************************************************
 
 	znv = znv + dzeta
 
+	end
+
+c*******************************************************************
+
+	subroutine debug_new3di(text,k,ie,hia,hik)
+
+	use shympi
+	use basin
+	use mod_hydro
+	use mod_hydro_baro
+	use mod_system
+
+	implicit none
+
+	character*(*) text
+	integer k,ie
+	integer iunit
+	real hia(3,3)
+	real hik(3)
+	type(smatrix), pointer :: mm
+
+	logical bggu
+	integer i,kk,ke,ike
+	integer kn(3)
+	double precision dtime
+
+	integer ipext,ieext
+
+	return
+	call get_act_dtime(dtime)
+	!if( dtime < 1038. ) return
+	if( dtime < 1034. ) return
+	if( dtime > 1042. ) return
+
+	bggu = .false.
+	if( ie > 0 ) then
+	  do i=1,3
+	    kk=nen3v(i,ie)
+	    kn(i) = kk
+	    ke = ipext(kk)
+	    if( ke == 1934 ) then
+	      bggu = .true.
+	      ike = i
+	    end if
+	  end do
+	  ke = 0
+	else
+	  !ke = ipext(k)
+	  !if( ke == 1934 ) bggu = .true.
+	end if
+
+	if( .not. bggu ) return
+
+	iunit = 166 + my_id
+
+	mm => l_matrix
+
+	write(iunit,*) '-----------------------'
+	write(iunit,*) trim(text),dtime
+	write(iunit,*) my_id,ke,k,ie,ieext(ie)
+
+	if( ie > 0 ) then
+	  write(iunit,*) nen3v(:,ie)
+	  write(iunit,*) (ipext(nen3v(i,ie)),i=1,3)
+	  write(iunit,*) zeov(:,ie)
+	  write(iunit,*) zenv(:,ie)
+	  write(iunit,*) unv(ie),vnv(ie)
+	  !write(iunit,*) (hia(i,i),i=1,3)
+	  !write(iunit,*) hik
+	  write(iunit,*) hia(ike,ike)
+	  write(iunit,*) hik(ike)
+	  kk = kn(ike)
+	  write(iunit,*) kk,ipext(kk),mm%raux2d(kk),mm%rvec2d(kk)
+	end if
+
+	if( k > 0 ) then
+	  write(iunit,*) zov(k),znv(k)
+	end if
+
+	write(iunit,*) '-----------------------'
+	  
 	end
 
 c*******************************************************************

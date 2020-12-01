@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2016-2020  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -56,11 +56,16 @@
 ! 16.02.2019	ggu	populate_strings declared as recursive
 ! 10.09.2019	ggu	condense all strings
 ! 24.10.2019	ggu	new string grainsizep
+! 28.01.2020	ggu	new string vorticity
+! 05.04.2020	ggu	review of strings
+! 11.04.2020	ggu	review of directional strings
+! 17.04.2020	ggu	new routine strings_meteo_convention()
+! 18.05.2020	ggu	do not attach direction to file name
 !
 ! contents :
 !
 ! name		any abbreviation of variable name
-! full		full name
+! full		full name (canonical)
 ! short		short name
 ! ivar		variable identification
 ! isub		sub-variable number
@@ -80,9 +85,13 @@
 !	subroutine strings_get_short_name(ivar,short,isub)
 !
 !	subroutine strings_get_ivar(name,ivar)
+!	subroutine strings_get_canonical(name,full)
 !
 !       subroutine strings_add_new(name,ivar,irange)
 !       subroutine strings_set_short(ivar,short)
+!
+!       subroutine strings_check_consistency
+!       subroutine strings_info(id)
 !
 !-------------------------------------------------------
 !
@@ -91,9 +100,17 @@
 !	subroutine ivar2filename(ivar,filename)
 !	subroutine ivar2femstring(ivar,femstring)
 !
+!       function string_is_this_short(short,string)
+!
+!       subroutine compress_string(string)
 !       function compare_svars(s1,s2)
-!       subroutine string_direction(string,dir)
+!
+!       subroutine string_direction_and_unit(string,dir,unit)
 !       function has_direction(name)
+!
+!       subroutine get_direction_ivars(ivar,ivars,ivard)
+!       subroutine strings_pop_direction(name)
+!       subroutine list_strings
 !
 !-------------------------------------------------------
 !
@@ -138,6 +155,7 @@
         logical, save, private :: bpopulate = .true.    !must still populate?
         integer, save, private :: idlast = 0
         integer, save, private :: ndim = 0
+        integer, save, private :: ivarmax = 0
 	type(entry), save, private, allocatable :: pentry(:)
 
         INTERFACE strings_get_id
@@ -222,9 +240,13 @@
 
 	integer id,i,ids
 	character(len=len(name)) :: string
+        logical bdebug
 	logical compare_svars
 
 	call populate_strings
+
+	strings_get_id_by_name = 0
+        if( name == ' ' ) return
 
 	ids = 0
 	string = name
@@ -235,6 +257,17 @@
 	  if( compare_svars(pentry(id)%short,string) ) ids = id
 	end do
 	if( id > idlast ) id = ids
+
+        bdebug = ( string(1:6) == 'transp' )
+        bdebug = .false.
+        if( bdebug ) then
+          write(6,*) '-----------------------------'
+          write(6,*) 'debug: ',trim(name),' ',trim(string)
+          write(6,*) 'id/ids: ',id,ids
+          if( id > 0 )  write(6,*) 'id: ',trim(pentry(id)%search)
+          if( ids > 0 ) write(6,*) 'ids: ',trim(pentry(ids)%short)
+          write(6,*) '-----------------------------'
+        end if
 
 	strings_get_id_by_name = id
 
@@ -415,10 +448,7 @@
 
 	integer id
 
-	call populate_strings
-
 	ivar = -1
-	if( name == ' ' ) return
 
 	id = strings_get_id(name)
 	if( id == 0 ) return
@@ -428,26 +458,22 @@
 	end subroutine strings_get_ivar
 
 !******************************************************************
+
+	subroutine strings_get_canonical(name,full)
+
+! returns canonical name
+
+        implicit none
+
+	character*(*) name
+	character*(*) full
+
+	call strings_get_full_name(name,full)
+
+	end subroutine strings_get_canonical
+
 !******************************************************************
 !******************************************************************
-
-	subroutine strings_check_consistency
-
-	integer id
-
-	do id=1,idlast
-	  if( pentry(id)%ivar < 0 ) cycle
-	  if( pentry(id)%full==' '.neqv.pentry(id)%short==' ' ) then
-	    write(6,*) 'strings entries not consistent'
-	    write(6,*) 'either full or short not given'
-	    write(6,*) 'full  = ',trim(pentry(id)%full)
-	    write(6,*) 'short = ',trim(pentry(id)%short)
-	    stop 'error stop strings_check_consistency'
-	  end if
-	end do
-
-	end subroutine strings_check_consistency
-
 !******************************************************************
 
 	subroutine strings_add_new(name,ivar,irange)
@@ -463,7 +489,7 @@
 	call compress_string(string)
 	id = strings_get_id(string)
 	if( id /= 0 ) then
-	  write(6,*) ivar,'  ',name
+	  write(6,*) ivar,'  ',name,'  ',string
 	  call strings_info(id)
 	  stop 'error stop strings_add_new: name already present'
 	end if
@@ -478,6 +504,8 @@
 	pentry(id)%ivar = ivar
 	pentry(id)%irange = irange_local
 
+        ivarmax = max(ivarmax,ivar)
+
 	end subroutine strings_add_new
 
 !******************************************************************
@@ -491,17 +519,65 @@
 
 	do id=1,idlast
 	  if( ivar == pentry(id)%ivar ) then
+            if( pentry(id)%short /= ' ' ) then
+              write(6,*) 'ivar,short: ',ivar,short,' ',pentry(id)%short
+              stop 'error stop strings_set_short: already set'
+            end if
 	    pentry(id)%short = short
 	  end if
 	end do
 
-	!id = strings_get_id(ivar)
-	!if( id <= 0 ) return
-	!pentry(id)%short = short
-
 	end subroutine strings_set_short
 
 !****************************************************************
+
+        subroutine strings_check_consistency(bfull)
+
+        logical, optional :: bfull
+
+        logical bfullcheck
+        integer id,iv,ivar
+        character*80 name,short,full
+
+        bfullcheck = .false.
+        if( present(bfull) ) bfullcheck = bfull
+
+        do id=1,idlast
+          if( pentry(id)%ivar < 0 ) goto 99
+          if( pentry(id)%full==' ' ) goto 99
+          if( pentry(id)%short==' ' ) goto 99
+          if( pentry(id)%ivar < 0 ) cycle
+        end do
+
+        do id=1,idlast
+          ivar = pentry(id)%ivar
+          name = pentry(id)%full
+	  call strings_get_ivar(name,iv)
+          if( ivar /= iv ) goto 98
+          name = pentry(id)%short
+	  call strings_get_ivar(name,iv)
+          if( ivar /= iv ) goto 98
+          if( .not. bfullcheck ) cycle
+          if( pentry(id)%full == pentry(id)%short ) then
+            full = pentry(id)%full
+            short = pentry(id)%short
+            write(6,*) 'warning: full==short: ',ivar
+     +                          ,trim(short),'  ',trim(full)
+          end if
+        end do
+
+        return
+   98   continue
+        call strings_info(id)
+        write(6,*) 'ivar,iv: ',ivar,iv
+        stop 'error stop strings_check_consistency: ivar/=iv'
+   99   continue
+        call strings_info(id)
+        write(6,*) 'some parameter has not been set'
+        stop 'error stop strings_check_consistency: consistency'
+        end subroutine strings_check_consistency
+
+!******************************************************************
 
 	subroutine strings_info(id)
 
@@ -517,6 +593,85 @@
 	write(6,*) 'irange: ',pentry(id)%irange
 
 	end subroutine strings_info
+
+!****************************************************************
+
+	subroutine strings_list(bfull)
+
+        logical, optional :: bfull
+        !logical bfull
+
+	integer ivar,isub,iv,id
+	character*28 full,cname
+	character*10 short
+
+        integer, allocatable :: icount(:)
+
+        call populate_strings
+
+        allocate(icount(0:ivarmax))
+        icount = 0
+
+        do id=1,idlast
+          ivar = pentry(id)%ivar
+          icount(ivar) = icount(ivar) + 1
+        end do
+
+        write(6,'(4a)') ' ivar   short name   long name'
+	do ivar=0,ivarmax
+	  !if( ivar == 30 ) cycle		!old name - do not use
+	  call strings_get_full(ivar,full,isub)
+	  call strings_get_short(ivar,short,isub)
+	  call strings_get_canonical(full,cname)
+	  if( isub > 0 ) cycle
+	  if( short /= ' ' ) then
+	    !write(6,1000) ivar,'  ',short,'  ',full,'  ',cname
+	    write(6,1000) ivar,'   ',short,'   ',full
+ 1000       format(i5,6a)
+	  end if
+	end do
+
+        if( .not. present(bfull) ) return
+        if( .not. bfull ) return
+
+	write(6,*) 'variables with more than one name:'
+        write(6,*) 'ndim,idlast,ivarmax: ',ndim,idlast,ivarmax
+
+        do ivar=0,ivarmax
+          if( icount(ivar) > 1 ) then
+	    call strings_get_full(ivar,full,isub)
+            write(6,'(i5,i3,2x,a)') ivar,icount(ivar),trim(full)
+            do id=1,idlast
+              iv = pentry(id)%ivar
+              if( iv == ivar ) then
+                write(6,*) id,pentry(id)%short,trim(pentry(id)%full)
+              end if
+            end do
+          end if
+        end do
+
+	end subroutine strings_list
+
+!****************************************************************
+
+        subroutine srings_get_ivarmax(ivar_max)
+
+        integer ivar_max
+
+        ivar_max = ivarmax
+
+        end subroutine srings_get_ivarmax
+
+!****************************************************************
+
+        function srings_exists_id(id)
+
+        logical srings_exists_id
+        integer id
+
+        srings_exists_id = ( id >= 1 .and. id <= idlast )
+
+        end function srings_exists_id
 
 !================================================================
 	end module shyfem_strings
@@ -604,7 +759,7 @@
 	  filename = trim(filename) // string(1:4)
 	else if( has_direction(string) ) then
 	  idir = mod(idir,2) + 1
-	  filename = trim(filename) // '-' // dir(idir)
+	  !filename = trim(filename) // '-' // dir(idir)
 	end if
 
 	end
@@ -653,7 +808,7 @@
 	call strings_get_ivar(short,isvar)
 	call strings_get_ivar(string,ivar)
 
-	string_is_this_short = ( isvar == ivar )
+	string_is_this_short = ( isvar /= -1 .and. isvar == ivar )
 
 	end
 
@@ -671,7 +826,9 @@
 
 	integer lmax,l,ll
 	character*1 c
-	character*80 s
+	character*80 s,dir,unit
+
+        call pop_direction_and_unit(string,dir,unit)
 
 	s = ' '
 	ll = 0
@@ -700,6 +857,7 @@
 	character*(*) s1,s2
 
 	integer l1,l2,l
+        logical, parameter :: bmin = .false.
 
 	compare_svars = .false.
 
@@ -708,9 +866,13 @@
 	l = min(l1,l2)
 
 	!write(6,*) trim(s1),'  ',trim(s2),l1,l2,l
-	if( l == 0 ) return
 
-	compare_svars = ( s1(1:l) == s2(1:l) )
+        if( bmin ) then
+	  if( l == 0 ) return
+	  compare_svars = ( s1(1:l) == s2(1:l) )
+        else
+	  compare_svars = ( s1 == s2 )
+        end if
 
 	end
 
@@ -718,11 +880,26 @@
 
 	subroutine string_direction_and_unit(string,dir,unit)
 
-c finds direction if vector
+c finds direction and unit - does not change string
+
+	character*(*) string,dir,unit
+        character*80 aux
+
+        aux = string
+
+	call pop_direction_and_unit(aux,dir,unit)
+
+        end
+
+!****************************************************************
+
+	subroutine pop_direction_and_unit(string,dir,unit)
+
+c pops direction and unit and returns cleaned string
 
 	implicit none
 
-	character(*) string,dir,unit
+	character*(*) string,dir,unit
 
 	integer l,lu
 
@@ -739,13 +916,23 @@ c finds direction if vector
 	  l = len_trim(string(1:lu-1))	!pop trailing spaces and unit
 	end if
 
-	if( string(l-1:l) == ' x' ) then
+	dir = ' '
+	if( string(l-1:l) == ' x' .or. string(l-1:l) == '-x' ) then
 	  dir = 'x'
-	else if( string(l-1:l) == ' y' ) then
+	else if( string(l-1:l) == ' y' .or. string(l-1:l) == '-y' ) then
 	  dir = 'y'
-	else
-	  dir = ' '
 	end if
+
+        if( dir /= ' ' ) then
+	  l = len_trim(string(1:l-1))	!pop trailing spaces and dir
+          if( string(l:l) == '-' ) then
+	    l = len_trim(string(1:l-1))	!pop trailing spaces and "-"
+          else if( string(l-2:l) == ' in' ) then
+	    l = len_trim(string(1:l-2))	!pop trailing spaces and "in"
+          end if
+        end if
+
+        if( unit /= ' ' .or. dir /= ' ' ) string(l+1:) = ' '
 
 	end
 
@@ -767,39 +954,96 @@ c finds direction if vector
 	call strings_get_ivar(name,ivar)
 
 	has_direction = (
-     +			  ivar == 2 
-     +		     .or. ivar == 3 
-     +		     .or. ivar == 21
-     +		     .or. ivar == 42
+     +			  ivar == 2 		!velocity
+     +		     .or. ivar == 3 		!transport
+     +		     .or. ivar == 21		!wind
+     +		     .or. ivar == 42		!wind stress
      +			)
 
 	end
 
 !****************************************************************
 
-	subroutine list_strings
+        subroutine strings_meteo_convention(ivar,bmeteo)
+
+! checks if we have to use meteo convention for this variable
+
+	integer ivar
+	logical bmeteo
+
+	if( ivar == 21 .or. ivar == 28 .or. ivar == 29 ) then
+	  bmeteo = .true.
+	else
+	  bmeteo = .false.
+	end if
+
+	end
+
+!****************************************************************
+
+        subroutine get_direction_ivars(ivar,ivars,ivard)
+
+! returns ivars for speed and dir if variable is directional
 
 	use shyfem_strings
 
 	implicit none
 
-	integer ivar,isub,iv
-	character*40 full
-	character*10 short
+        integer ivar,ivars,ivard
 
-	call populate_strings
+        if( ivar == 2 ) then			!velocity
+          ivars = 6
+          ivard = 7
+        else if( ivar == 3 ) then		!transport
+          ivars = 8
+          ivard = 9
+        else if( ivar == 21 ) then		!wind
+          ivars = 28
+          ivard = 29
+        else if( ivar == 42 ) then		!wind stress
+          ivars = 45
+          ivard = 46
+	else
+	  ivars = 0
+	  ivard = 0
+        end if
 
-	do ivar=1,1000
-	  if( ivar == 30 ) cycle		!old name - do not use
-	  call strings_get_full(ivar,full,isub)
-	  call strings_get_short(ivar,short,isub)
-	  if( isub > 0 ) cycle
-	  if( short /= ' ' ) then
-	    write(6,*) ivar,'  ',short,'  ',full
-	  end if
-	end do
+        end
 
-	end
+!****************************************************************
+
+        subroutine strings_pop_direction(name)
+
+! deletes direction (-x,-y) from name
+
+        implicit none
+
+        character*(*) name
+
+        integer l
+
+        if( name == ' ' ) return
+        
+        l = len_trim(name)
+        if( l < 2 ) return
+
+        if( name(l-1:l) == '-x' .or. name(l-1:l) == '-y' ) then
+          name(l-1:l) = '  '
+        end if
+
+        end
+
+!****************************************************************
+
+        subroutine list_strings
+
+	use shyfem_strings
+
+	implicit none
+
+        call strings_list(.false.)
+
+        end
 
 !****************************************************************
 !****************************************************************
@@ -825,7 +1069,6 @@ c finds direction if vector
 	call strings_add_new('mass field',0)
 	call strings_add_new('water level',1)
 	call strings_add_new('level',1)
-	call strings_add_new('zeta',1)
 	call strings_add_new('velocity',2)
 	call strings_add_new('transport',3)
 	call strings_add_new('bathymetry',5)
@@ -834,21 +1077,22 @@ c finds direction if vector
 	call strings_add_new('speed',6)
 	call strings_add_new('current direction',7)
 	call strings_add_new('direction',7)
+	call strings_add_new('transport speed',8)
+	call strings_add_new('transport direction',9)
 	call strings_add_new('generic tracer',10)
-	call strings_add_new('tracer',10)
 	call strings_add_new('salinity',11)
-	call strings_add_new('salt',11)
 	call strings_add_new('temperature',12)
 	call strings_add_new('density',13)
-	call strings_add_new('rho',13)
 	call strings_add_new('oxygen',15)
 	call strings_add_new('discharge',16)
 	call strings_add_new('rms velocity',18)
 	call strings_add_new('rms speed',18)
+	call strings_add_new('current vorticity',19)
 
 	call strings_add_new('atmospheric pressure',20)
 	call strings_add_new('air pressure',20)
 	call strings_add_new('pressure',20)
+	call strings_add_new('pressure (atmospheric)',20)
 	call strings_add_new('wind velocity',21)
 	call strings_add_new('solar radiation',22)
 	call strings_add_new('sradiation',22)
@@ -857,8 +1101,7 @@ c finds direction if vector
 	call strings_add_new('humidity (relative)',24)
 	call strings_add_new('rhumidity',24)
 	call strings_add_new('cloud cover',25)
-	call strings_add_new('cc',25)
-	call strings_add_new('rain',26)
+	call strings_add_new('precipitation',26)
 	call strings_add_new('evaporation',27)
 	call strings_add_new('wind speed',28)
 	call strings_add_new('wind direction',29)
@@ -866,76 +1109,60 @@ c finds direction if vector
 	call strings_add_new('wet bulb temperature',40)
 	call strings_add_new('dew point temperature',41)
 	call strings_add_new('wind stress',42)
-	call strings_add_new('wstress',42)
 	call strings_add_new('mixing ratio',43)
 	call strings_add_new('mixrat',43)
 	call strings_add_new('humidity (specific)',44)
 	call strings_add_new('shumidity',44)
+	call strings_add_new('wind stress modulus',45)
+	call strings_add_new('wind stress direction',46)
 
 	call strings_add_new('bottom stress',60)
-	call strings_add_new('bstress',60)
-	!call strings_add_new('velocity in x-direction',61)
-	call strings_add_new('index',75)
-	call strings_add_new('type',76)
-	call strings_add_new('distance',77)
-	call strings_add_new('lgr',80)
+	call strings_add_new('general index',75)
+	call strings_add_new('general type',76)
+	call strings_add_new('general distance',77)
 	call strings_add_new('lagrangian (general)',80)
-	call strings_add_new('lagage',81)
 	call strings_add_new('lagrangian age',81)
-	call strings_add_new('lagdep',82)
 	call strings_add_new('lagrangian depth',82)
-	call strings_add_new('lagtyp',83)
 	call strings_add_new('lagrangian type',83)
-	call strings_add_new('lagcus',84)
 	call strings_add_new('lagrangian custom',84)
 	call strings_add_new('ice cover',85)
+	call strings_add_new('ice thickness',86)
+	call strings_add_new('relaxation time',94)
 	call strings_add_new('time step',95)
 	call strings_add_new('time over threshold',97)
-	call strings_add_new('age',98)
+	call strings_add_new('water age',98)
 	call strings_add_new('renewal time',99)
 	call strings_add_new('residence time',99)
-	call strings_add_new('wrt',99)
 
 	call strings_add_new('waves (general)',230)
 	call strings_add_new('wave height (significant)',231)
-	call strings_add_new('wheight (significant)',231)
 	call strings_add_new('wave period (mean)',232)
-	call strings_add_new('wperiod (mean)',232)
 	call strings_add_new('wave direction',233)
-	call strings_add_new('wdirection',233)
 	call strings_add_new('wave orbital velocity',234)
-	call strings_add_new('worbital velocity',234)
 	call strings_add_new('wave peak period',235)
-	call strings_add_new('wpeak period',235)
 
-	call strings_add_new('concentration (multi)',300,100)	!new numbering
-	call strings_add_new('concentration (multi old)',30,20)
+	call strings_add_new('concentration',300,100)	!new numbering
+	!call strings_add_new('concentration (multi old)',30,20)
 
 	call strings_add_new('weutro (pelagic)',700,20)
-	call strings_add_new('weutrop',700,20)
 	call strings_add_new('weutro (sediment)',720,10)
-	call strings_add_new('weutrosd',720,10)
 	call strings_add_new('weutro (shell fish)',730,10)
-	call strings_add_new('weutrosf',730,10)
 
 	call strings_add_new('suspended sediment concentration',800,50)
-	call strings_add_new('ssc',800,50)
 	call strings_add_new('erosion-deposition',891)
-	call strings_add_new('sederodep',891)
 	call strings_add_new('grainsize (average)',892)
 	call strings_add_new('bottom shear stress',893)
-	call strings_add_new('sbstress',893)
 	call strings_add_new('mud fraction',894)
 	call strings_add_new('bedload transport',895)
 	call strings_add_new('grainsize (percentage)',896)
 
 	call strings_add_new('suspended sediments',850)
-	call strings_add_new('bed sediments [kg]',851)
-	call strings_add_new('bed sediments [kg/m**2]',852)
-	call strings_add_new('bed sediments [m]',853)
+	call strings_add_new('bed sediments mass',851)
+	call strings_add_new('bed sediments volume',852)
+	call strings_add_new('bed sediments height',853)
 
-	call strings_add_new('var',-9)		!special treatment
-	call strings_add_new('ivar',-9)
+	!call strings_add_new('var',-9)		!special treatment
+	!call strings_add_new('ivar',-9)
 
 !---------------------------------------------------------------------
 ! here short description
@@ -946,8 +1173,10 @@ c finds direction if vector
 	call strings_set_short(2,'vel')
 	call strings_set_short(3,'transp')
 	call strings_set_short(5,'bathy')
-	call strings_set_short(6,'speed')
-	call strings_set_short(7,'dir')
+	call strings_set_short(6,'curspeed')
+	call strings_set_short(7,'curdir')
+	call strings_set_short(8,'transspeed')
+	call strings_set_short(9,'transdir')
 	call strings_set_short(10,'tracer')
 	call strings_set_short(11,'salt')
 	call strings_set_short(12,'temp')
@@ -955,12 +1184,13 @@ c finds direction if vector
 	call strings_set_short(15,'oxy')
 	call strings_set_short(16,'disch')
 	call strings_set_short(18,'rms')
+	call strings_set_short(19,'vorticity')
 
 	call strings_set_short(20,'airp')
 	call strings_set_short(21,'wind')
 	call strings_set_short(22,'srad')
 	call strings_set_short(23,'airt')
-	call strings_set_short(23,'tair')
+	!call strings_set_short(23,'tair')
 	call strings_set_short(24,'rhum')
 	call strings_set_short(25,'cc')
 	call strings_set_short(26,'rain')
@@ -973,6 +1203,8 @@ c finds direction if vector
 	call strings_set_short(42,'wstress')
 	call strings_set_short(43,'mixrate')
 	call strings_set_short(44,'shum')
+	call strings_set_short(45,'wstressmod')
+	call strings_set_short(46,'wstressdir')
 
 	call strings_set_short(60,'bstress')
 	call strings_set_short(75,'index')
@@ -983,7 +1215,9 @@ c finds direction if vector
 	call strings_set_short(82,'lagdep')
 	call strings_set_short(83,'lagtyp')
 	call strings_set_short(84,'lagcus')
-	call strings_set_short(85,'ice')
+	call strings_set_short(85,'icecover')
+	call strings_set_short(86,'icethick')
+	call strings_set_short(94,'relaxtime')
 	call strings_set_short(95,'timestep')
 	call strings_set_short(97,'timeot')
 	call strings_set_short(98,'age')
@@ -997,7 +1231,7 @@ c finds direction if vector
 	call strings_set_short(235,'wpeak')
 
 	call strings_set_short(300,'conc')
-	call strings_set_short(30,'conc')
+	!call strings_set_short(30,'conc')
 
 	call strings_set_short(700,'weutrop')
 	call strings_set_short(720,'weutrosd')
@@ -1035,24 +1269,27 @@ c finds direction if vector
 	implicit none
 
 	integer ivar,isub,iv
+        integer ivar_max
 	character*40 full
 	character*10 short
 
 	call populate_strings
 
-	do ivar=1,1000
+        call srings_get_ivarmax(ivar_max)
+
+	do ivar=0,ivar_max
 	  if( ivar == 30 ) cycle		!old name - do not use
 	  call strings_get_full(ivar,full,isub)
 	  call strings_get_short(ivar,short,isub)
+	  if( short == ' ' .and. full == ' ' ) cycle
 	  if( isub > 0 ) cycle
 	  if( short /= ' ' ) then
 	    write(6,*) ivar,isub,short,'  ',full
 	  end if
-	  if( short == ' ' .neqv. full == ' ' ) then
+	  if( short == ' ' .or. full == ' ' ) then
 	    write(6,*) 'not equivalent: ',short,full
 	    stop 'error stop'
 	  end if
-	  if( full == ' ' ) cycle
 	  call strings_get_ivar(full,iv)
 	  if( iv /= ivar ) then
 	    write(6,*) 'inconsistency full: ',ivar,iv,full
@@ -1061,6 +1298,9 @@ c finds direction if vector
 	  if( iv /= ivar ) then
 	    write(6,*) 'inconsistency short: ',ivar,iv,short
 	  end if
+          if( full == short ) then
+            write(6,*) 'warning: short = full: ',short,full
+          end if
 	end do
 
 	end
@@ -1079,7 +1319,9 @@ c finds direction if vector
 	character*10 short,unit
 	character*3 dir
 	character*80 name
-	character*80 ss(17)
+
+	integer, parameter :: ndim = 22
+	character*80 ss(ndim)
 
 	logical string_is_this_short
 
@@ -1106,7 +1348,14 @@ c finds direction if vector
         ss(16) = 'wet bulb temperature [C]'
         ss(17) = 'dew point temperature [C]'
 
-	do i=1,17
+        ss(18) = 'rain'
+        ss(19) = 'shumidity'
+        ss(20) = 'cloud cover'
+
+        ss(21) = 'wind stress in x [N/m**2]'
+        ss(22) = 'wind stress in y [N/m**2]'
+
+	do i=1,ndim
 	  name=ss(i)
 	  call strings_get_short_name(name,short)
 	  if( short == ' ' ) short = '   ****   '
@@ -1119,9 +1368,19 @@ c finds direction if vector
 
 !****************************************************************
 
+	subroutine test_strings_all
+	use shyfem_strings
+	call populate_strings
+	call test_strings
+        call strings_check_consistency(.true.)
+        call strings_list(.true.)
+	call test_meteo_strings
+	end
+
+!****************************************************************
+
 !	program test_strings_main
-!	call test_strings
-!	call test_meteo_strings
+!	call test_strings_all
 !	end
 
 !****************************************************************

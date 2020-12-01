@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1992  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -25,12 +25,13 @@
 
 
 /************************************************************************\
- *                                                                      *
- * queue.h - list table administration routines                         *
- *                                                                      *
- * Revision History:                                                    *
- * 07-Oct-92: routines written from scratch                             *
- *                                                                      *
+ *
+ * queue.h - list table administration routines
+ *
+ * revision log :
+ *
+ * 07.10.1992	ggu	routines written from scratch
+ *
 \************************************************************************/
 
 

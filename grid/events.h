@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1994-1995,2014  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,15 +24,16 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * events.h - header file for event routines				*
- *									*
- * Revision History:							*
- * 05-Mar-2014: handle also mouse wheel					*
- * 05-Dec-95: QKey... symbols introduced                                *
- * 04-Dec-94: routines written from scratch                             *
- *									*
+/************************************************************************\
+ *
+ * events.h - header file for event routines
+ *
+ * revision log :
+ *
+ * 04.12.1994	ggu	routines written from scratch
+ * 05.12.1995	ggu	QKey... symbols introduced
+ * 05.03.2014	ggu	handle also mouse wheel
+ *
 \************************************************************************/
 
 

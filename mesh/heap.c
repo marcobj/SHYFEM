@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1995  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,13 +24,14 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * heap.c - heap table routines						*
- *									*
- * Revision History:							*
- * 25-Jul-95: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * heap.c - heap table routines
+ *
+ * revision log :
+ *
+ * 25.07.1995	ggu	routines written from scratch
+ *
 \************************************************************************/
 
 #include <stdlib.h>

@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2012-2016,2018-2020  Georg Umgiesser
+!    Copyright (C) 2016  Erik Pascolo
 !
 !    This file is part of SHYFEM.
 !
@@ -54,24 +55,26 @@ c 25.02.2018	ggu	file cleaned - time is now double
 c 03.04.2018	ggu	changed VERS_7_5_43
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
+c 14.02.2020	ggu	new routine ts_file_exists()
+c 04.03.2020	ggu	iunit converted to id
 c
 c*******************************************************************	
 c*******************************************************************	
 c*******************************************************************	
 
-	subroutine ts_file_descrp(iunit,name)
+	subroutine ts_file_descrp(id,name)
 	use intp_fem_file
 	implicit none
-	integer iunit(3)
+	integer id
 	character*(*) name
-	call iff_set_description(iunit(1),0,name)
+	call iff_set_description(id,0,name)
 	end
 
 c*******************************************************************	
 c*******************************************************************	
 c*******************************************************************	
 
-	subroutine ts_file_open(file,dtime,np,nlv,iunit)
+	subroutine ts_file_open(file,dtime,np,nlv,id)
 
 c opens T/S file
 
@@ -80,13 +83,12 @@ c opens T/S file
 	implicit none
 
 	character*(*) file		!name of file
-	double precision dtime
+	double precision dtime		!initial time
 	integer np			!number of points expected
-	integer nlv
-	integer iunit(3)		!unit number (return)
+	integer nlv			!vertical dimmension
+	integer id			!unit number (return)
 
 	integer nvar,nexp,lexp,nintp
-	integer id
 	integer nodes(1)
 	real vconst(1)
 
@@ -102,38 +104,26 @@ c opens T/S file
      +                                  ,nodes,vconst,id)
 !$OMP END CRITICAL
 
-	iunit(1) = id
-
-	return
-   99	continue
-	write(6,*) 'Cannot open file: ',file
-	stop 'error stop ts_file_open: error file open'
 	end
 
 c*******************************************************************	
 
-	subroutine ts_next_record(dtime,iunit,nlvddi,nkn,nlv,value)
+	subroutine ts_next_record(dtime,id,nlvddi,nkn,nlv,value)
 
 	use intp_fem_file
 
 	implicit none
 
 	double precision dtime
-	integer iunit(3)
+	integer id
 	integer nlvddi
 	integer nkn
 	integer nlv
 	real value(nlvddi,nkn)
 
-	integer id,ldim,ndim,ivar
+	integer ldim,ndim,ivar
         real vmin,vmax
 	character*80 string
-
-c--------------------------------------------------------------
-c initialize
-c--------------------------------------------------------------
-
-	id = iunit(1)
 
 c--------------------------------------------------------------
 c read new data
@@ -164,7 +154,7 @@ c--------------------------------------------------------------
 
 c*******************************************************************	
 
-	subroutine ts_file_close(iunit)
+	subroutine ts_file_close(id)
 
 c closes T/S file
 
@@ -172,12 +162,26 @@ c closes T/S file
 
 	implicit none
 
-	integer iunit(3)
-
 	integer id
 
-	id = iunit(1)
 	call iff_forget_file(id)
+
+	end
+
+c*******************************************************************	
+
+	subroutine ts_file_exists(file,bexist)
+
+c checks if file exists (and no read error)
+
+	use intp_fem_file
+
+	implicit none
+
+	character*(*) file		!name of file
+	logical bexist
+
+	call iff_file_exists(file,bexist)
 
 	end
 

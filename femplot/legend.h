@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2010,2018  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -22,6 +22,13 @@
 !    Contributions to this file can be found below in the revision log.
 !
 !--------------------------------------------------------------------------
+
+! revision log :
+!
+! 23.03.2010	ggu	changed v6.1.1
+! 22.02.2018	ggu	changed VERS_7_5_42
+! 25.10.2018	ggu	changed VERS_7_5_51
+! 18.12.2018	ggu	changed VERS_7_5_52
 
         integer legdim			!maximum number of legend entries
         parameter(legdim=400)

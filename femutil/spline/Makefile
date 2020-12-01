@@ -1,7 +1,7 @@
 
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -11,10 +11,10 @@
 
 DIR =	spline
 
-FEMDIR = ..
+FEMDIR = ../..
 FEMBIN = $(FEMDIR)/fembin
 
-include ../Rules.make
+include ../../Rules.make
 
 #------------------------------------------------------
 

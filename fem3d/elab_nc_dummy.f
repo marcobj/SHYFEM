@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2016,2018-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -66,21 +66,6 @@
 	integer var_id
 	integer np
 	real cv3(nlvdi,np)
-
-	end
-
-!********************************************************************
-
-        subroutine nc_output_record_reg(ncid,var_id,nlvd,np,cv3)
-
-
-        implicit none
-
-        integer ncid
-        integer var_id
-        integer nlvd
-        integer np
-        real cv3(nlvd,np)
 
 	end
 

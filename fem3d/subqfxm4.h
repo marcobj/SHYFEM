@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2011,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -22,6 +22,11 @@
 !    Contributions to this file can be found below in the revision log.
 !
 !--------------------------------------------------------------------------
+
+! revision log :
+!
+! 23.03.2011	ggu	changed VERS_6_1_21
+! 16.02.2019	ggu	changed VERS_7_5_60
 
 	real cpa,cp,emiss,bolz,Kelvin,const06,pi,deg2rad,rad2deg
 

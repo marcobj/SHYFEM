@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1994-1995  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,18 +24,19 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * nmblist.c - number table administration routines			*
- *									*
- * Revision History:							*
- * 11-Aug-95: NumberTable routines transfered to this file              *
- *            Numbertable_type renamed in NumberTable                   *
- * 08-Oct-94: ResetListTable initializes pact to NULL (bug)             *
- * 17-Apr-94: NumberTable routines added                                *
- * 13-Apr-94: completely restructured -> independent routines           *
- * 12-Apr-94: Listtable_type created and routines written from scratch  *
- *									*
+/************************************************************************\
+ *
+ * nmblist.c - number table administration routines
+ *
+ * revision log :
+ *
+ * 12.04.1994	ggu	Listtable_type created and routines written from scratch
+ * 13.04.1994	ggu	completely restructured -> independent routines
+ * 17.04.1994	ggu	NumberTable routines added
+ * 08.10.1994	ggu	ResetListTable initializes pact to NULL (bug)
+ * 11.08.1995	ggu	NumberTable routines transfered to this file
+ * ...		ggu	Numbertable_type renamed in NumberTable
+ *
 \************************************************************************/
 
 #include <stdlib.h>

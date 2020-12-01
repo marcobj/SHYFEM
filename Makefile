@@ -1,21 +1,23 @@
 
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
 #------------------------------------------------------------------------
 
-# general makefile for dir fem
+#---------------------------------------------------------------
 #
+# general makefile for shyfem base directory
+#
+#---------------------------------------------------------------
+
 #---------------------------------------------------------------
 #
 # targets that should be in all Makefiles of SUBDIRS:
 #
-# clean cleanall 
-#
-# really necessary are only: fem clean cleanall
+# fem clean cleanall 
 #
 #---------------------------------------------------------------
 
@@ -111,12 +113,26 @@ default:
 all: fem doc
 	@cd fem3d; make compatibility
 
-fem: checkv directories links test_executable
+fem: checkv directories links test_executable check_server check_compiler
 	@$(FEMBIN)/recursivemake $@ $(FEMDIRS)
 	@femcheck/check_compilation.sh -quiet
 
-bfm_compile:
-	@fembfm1/bfm_compile.sh $(BFMDIR)
+para_get:
+	@cd fempara; ./para_get.sh $(PARADIR)
+
+para_compile:
+	@cd fempara; ./para_setup.sh $(PARADIR)
+	#@cd $(PARADIR)/src; make clean; make lib
+	@cd $(PARADIR)/src; make lib
+
+para_clean:
+	@cd $(PARADIR)/src; make clean
+
+bfm_compile: check_server
+	@fembfm/bfm_compile.sh $(BFMDIR) $(FORTRAN_COMPILER)
+
+bfm_clean:
+	@fembfm/bfm_compile.sh -clean $(BFMDIR)
 
 nograph: checkv directories links test_executable
 	@$(FEMBIN)/recursivemake fem $(FEMNOGRAPH)
@@ -141,16 +157,20 @@ depend:
 	@$(FEMBIN)/recursivemake $@ $(FEMDIRS)
 
 directories:
-	@-mkdir -p tmp
+	@-mkdir -p tmp arc
 	@-mkdir -p femlib/mod
 	@if [ ! -f ./tmp/Makefile ]; then cp ./femdummy/Makefile ./tmp; fi
 	@if [ ! -f ./arc/Makefile ]; then cp ./femdummy/Makefile ./arc; fi
 
 links:
-	@-rm -f bin lib
+	@-rm -fr bin lib
 	@-ln -sf fembin bin
 	@-ln -sf femlib lib
 	@if [ ! -d ./femregress ]; then ln -fs femdummy femregress; fi
+
+ctags:
+	@echo "making tags file..."
+	ctags -R .
 
 #---------------------------------------------------------------
 # cleaning
@@ -161,10 +181,10 @@ cleanlocal:
 	-rm -f changed_zip.zip
 	-rm -f *~
 	-rm -f *.tmp *.bak *.out
+	-rm -f *.revnew
 	-rm -f ggg hhh
 	-rm -f errout.dat a.out plot.ps
 	-rm -f .memory
-	-rm -f CHECKLOG
 
 clean: cleanlocal
 	$(FEMBIN)/recursivemake $@ $(SUBDIRS)
@@ -204,7 +224,7 @@ help:
 	@echo "changed             finds files changed after installation"
 	@echo "changed_zip         zips files changed after installation"
 
-first_time:
+first_time: links
 	@echo 'Recommended use if you see shyfem for the first time:'
 	@echo '   make help            gives overview of possible commands'
 	@echo 'Commands to run only for the first time:'
@@ -272,6 +292,21 @@ advance_time:
 	touch -d "`date -R -r VERSION` + 5 seconds" VERSION
 
 #--------------------------------------------------------
+# copyright and revision log
+#--------------------------------------------------------
+
+FEMCOPY = $(FEMDIR)/femcheck/copyright
+
+check_files:
+	@$(FEMCOPY)/copyright.sh -check_all
+
+check_copyright:
+	@$(FEMCOPY)/copyright.sh -check_rev --updatecopy
+
+update_copyright:
+	@$(FEMCOPY)/copyright.sh -check_rev --updatecopy --write
+
+#--------------------------------------------------------
 # installing
 #--------------------------------------------------------
 
@@ -325,6 +360,13 @@ help_dev:
 	@echo "rules_diff         difference between Rules.make and Rules.dist"
 	@echo "advance_time       advances modification time of VERSION"
 	@echo "make_executable    makes scripts executable"
+
+rules:
+	@echo "rules_save         saves actual Rules.make file"
+	@echo "rules_restore      restores last saved Rules.make file"
+	@echo "rules_dist         substitutes Rules.make with Rules.dist file"
+	@echo "rules_new          copies Rules.make file to Rules.dist"
+	@echo "rules_diff         difference between Rules.make and Rules.dist"
 
 test_compile:
 	@femcheck/test_compile.sh
@@ -430,9 +472,19 @@ nemoff:
 git_nemunas:
 	. fem3d/bin/nemunas-git.sh
 
+check_server:
+	@femcheck/servers/check_server.sh -check $(FORTRAN_COMPILER)
+
+show_server:
+	@femcheck/servers/check_server.sh -show $(FORTRAN_COMPILER)
+
 #---------------------------------------------------------------
 # check if routines are executable
 #---------------------------------------------------------------
+
+check_compiler:
+	@femcheck/check_compiler.sh "$(CC) $(CINFOFLAGS)" \
+		"$(F77) $(FINFOFLAGS)"
 
 test_executable:
 	@if [ ! -x fembin/make_executable.sh ]; then make make_executable; fi

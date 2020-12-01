@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2019  Georg Umgiesser
+!    Copyright (C) 2018-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -22,6 +22,12 @@
 !    Contributions to this file can be found below in the revision log.
 !
 !--------------------------------------------------------------------------
+
+! revision log :
+!
+! 18.12.2018	ggu	changed VERS_7_5_52
+! 14.02.2019	ggu	changed VERS_7_5_56
+! 21.05.2019	ggu	changed VERS_7_5_62
 
 	program plotcolb
 

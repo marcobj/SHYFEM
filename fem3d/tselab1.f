@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2017-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -43,7 +43,6 @@ c writes info on ts file
 
 	use clo
         use elabutil
-        use elabtime
         use elabtime
 
 	implicit none
@@ -237,6 +236,7 @@ c--------------------------------------------------------------
 	  if( nvar .ne. nvar0 ) goto 96
 
 	  call dts_convert_to_atime(datetime,dtime,atime)
+	  !write(6,*) datetime,dtime,atime
 	  if( datetime(1) == 0 ) atime = atime0 + dtime
 	  call dts_format_abs_time(atime,dline)
 

@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -24,6 +24,10 @@
 !--------------------------------------------------------------------------
 
 c creates circle with random fluctuation
+
+! revision log :
+!
+! 13.03.2019	ggu	changed VERS_7_5_61
 
 	implicit none
 

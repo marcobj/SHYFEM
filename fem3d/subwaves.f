@@ -1,7 +1,9 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2006,2008-2009,2013-2014,2019  Christian Ferrarin
+!    Copyright (C) 2008  Andrea Cucco
+!    Copyright (C) 2010-2011,2014-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -65,6 +67,7 @@
 ! 01.02.2019	ggu	bug fix in parwaves: do not compute H/P for wind == 0
 ! 10.02.2019	ggu	bug fix for FPE (GGUZ0)
 ! 12.02.2019	ccf	stress computed in substress.f
+! 11.11.2020	ggu	get_ice_all() renamed to get_ice_cover_all()
 !
 !**************************************************************
 c DOCS  START   S_wave
@@ -1201,7 +1204,7 @@ c -------------------------------------------------------------------
 c normal call
 c -------------------------------------------------------------------
 
-	call get_ice_all(icecover)
+	call get_ice_cover_all(icecover)
 
 c       -------------------------------------------------------------
 c	get wind speed and direction

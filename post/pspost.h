@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1997,2009  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,14 +24,15 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * pspost.h - graphic routines for postscript output with c routines	*
- *									*
- * Revision History:							*
- * 21-Jan-2009: adjourned list of routines				*
- * 15-Sep-97: from psgraph.h                                            *
- *									*
+/************************************************************************\
+ *
+ * pspost.h - graphic routines for postscript output with c routines
+ *
+ * revision log :
+ *
+ * 15.09.1997	ggu	from psgraph.h
+ * 21.01.2009	ggu	adjourned list of routines
+ *
 \************************************************************************/
 
 

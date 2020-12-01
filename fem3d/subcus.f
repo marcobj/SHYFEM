@@ -1,7 +1,9 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1998-1999,2001,2003-2020  Georg Umgiesser
+!    Copyright (C) 2009  Andrea Cucco
+!    Copyright (C) 2016  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -138,6 +140,7 @@ c 13.03.2019	ggu	changed VERS_7_5_61
 c 16.04.2019	ggu	small changes in close_inlets1() (bfill)
 c 21.05.2019	ggu	changed VERS_7_5_62
 c 10.09.2019	ggu	more parameters written in cyano_diana()
+c 30.01.2020	ggu	new kreis routines for vorticity checks
 c
 c******************************************************************
 
@@ -200,6 +203,9 @@ c custom routines
 	if( icall .eq. 113 ) call mpi_test_basin(4)
 	if( icall .eq. 201 ) call conz_decay_curonian
 	if( icall .eq. 301 ) call cyano_diana
+	if( icall .eq. 311 ) call kreis_vel(1)
+	if( icall .eq. 312 ) call kreis_vel(2)
+	if( icall .eq. 313 ) call kreis_vel(3)
         if( icall .eq. 883 ) call debora(it)
         if( icall .eq. 884 ) call tsinitdebora(it)
         if( icall .eq. 888 ) call uv_bottom
@@ -1958,6 +1964,23 @@ c*****************************************************************
 
 c*****************************************************************
 
+	subroutine kreis_vel(mode)
+
+! sets velocities to a given value in kreis
+!
+! for vorticity computations - this is done at every time step
+! so velocity is kept konstant
+
+	implicit none
+
+	integer mode
+
+	call init_kreis(mode)
+
+	end 
+
+c*****************************************************************
+
 	subroutine kreis
 
 	implicit none
@@ -1974,7 +1997,7 @@ c*****************************************************************
 
 	if( icall .eq. 0 ) then
 	  icall = 1
-	  call init_kreis()
+	  call init_kreis(0)
 	end if
 
 	call energ(0,kenerg,penerg)
@@ -1986,7 +2009,7 @@ c*****************************************************************
 
 c*****************************************************************
 
-	subroutine init_kreis
+	subroutine init_kreis(mode)
 
 	use mod_depth
 	use mod_area
@@ -1997,11 +2020,22 @@ c*****************************************************************
 
 	implicit none
 
+	integer mode	!type of initialization
+
+! 0	geostrophic currents
+! 1	for vorticity with u_theta = a*r -> zeta = 2a
+! 2	for vorticity with u_theta = a   -> zeta = a/r
+! 3	for vorticity with u_theta = a/r -> zeta = 0
+
 	integer k,ie,ii,l
 	real pi,dcori,z0,r0,f,omega,grav
-	real aux,r02,r2
+	real aux,r02,r2,r,rmax,fact
 	real x,y,z,u,v
-	!real v1v(nkn)
+	integer, save :: icall = 0
+
+!--------------------------------------------------------------
+! definition of parameters
+!--------------------------------------------------------------
 
 	pi = 4.*atan(1.)
 	dcori = 45.
@@ -2014,14 +2048,20 @@ c*****************************************************************
 	aux = (omega*f)/(2.*grav)
 	r02 = r0*r0
 
+!--------------------------------------------------------------
+! set zeta
+!--------------------------------------------------------------
+
+	rmax = 0.
 	do k=1,nkn
 	  x = xgv(k)
 	  y = ygv(k)
 	  r2 = x*x+y*y
+	  rmax = max(rmax,r2)
 	  z = z0 + aux * ( r2 - r02 )
-
 	  znv(k) = z
 	end do
+	rmax = sqrt(rmax)	!maximum r in kreis
 
 	do ie=1,nel
 	  do ii=1,3
@@ -2030,12 +2070,47 @@ c*****************************************************************
 	  end do
 	end do
 
+	if( mode /= 0 ) then	!if not mode==0 zet zeta to 0
+	  znv = 0.
+	  zenv = 0.
+	end if
+
 	call make_new_depth
+
+!--------------------------------------------------------------
+! set velocities and transports
+!--------------------------------------------------------------
+
+! we use fact for scaling, so velocity at rmax is omega*rmax
+
+	fact = omega
+	if( mode == 0 ) then
+	  fact = omega
+	else if( mode == 1 ) then
+	  fact = omega
+	else if( mode == 2 ) then
+	  fact = rmax*omega
+	else if( mode == 3 ) then
+	  fact = rmax*rmax*omega
+	else
+	  write(6,*) 'mode = ',mode
+	  stop 'error stop init_kreis: mode not allowed'
+	end if
+
+	if( icall == 0 ) then
+	  write(6,*) 'kreis: mode = ',mode,'  fact = ',fact
+	end if
+	!icall = 1
 
 	do ie=1,nel
 	  call baric(ie,x,y)
-	  u = -omega * y
-	  v = +omega * x
+	  r2 = x*x+y*y
+	  r = sqrt(r2)
+	  aux = fact
+	  if( mode == 2 ) aux = fact / r
+	  if( mode == 3 ) aux = fact / r2
+	  u = -aux * y
+	  v = +aux * x
 	  do l=1,nlv
 	    ulnv(l,ie) = u
 	    vlnv(l,ie) = v
@@ -2046,11 +2121,14 @@ c*****************************************************************
 	call uvint
 	call make_prvel
 
+!--------------------------------------------------------------
+! end of routines
+!--------------------------------------------------------------
+
 	end
 
 c*****************************************************************
 
-c*****************************************************************
         subroutine bclevvar
 
 	use mod_depth
@@ -3407,6 +3485,8 @@ c**********************************************************************
 	real x,y
 	real tau
 
+	real tauv(nkn)
+
 	integer icall
 	save icall
 	data icall / 0 /
@@ -3447,6 +3527,7 @@ c**********************************************************************
 	    tau = 0.5 * (tc+tm)
 	  end if
 
+	  tauv(k) = tau
 	  if( tau .gt. 0. ) tau = 1. / tau
 
 	  do l=1,nlvdi
@@ -4539,12 +4620,12 @@ c*******************************************************************
 	end if
 
 	do k=1,nkn
-	  call convert_wind_sd(uprv(1,k),vprv(1,k),s,d)
+	  call convert_uv_sd(uprv(1,k),vprv(1,k),s,d,.true.)
 	  uvmed(k) = s
 	  d = d + 180.
 	  if( d > 360. ) d = d - 360.
 	  uvdir(k) = d
-	  call convert_wind_sd(wxv(k),wyv(k),s,d)
+	  call convert_uv_sd(wxv(k),wyv(k),s,d,.true.)
 	  windir(k) = d
 	end do
 	!uvmed = sqrt( uprv(1,:)**2 + vprv(1,:)**2 )
@@ -4586,6 +4667,7 @@ c*******************************************************************
 	character*20 aline
 
 	if( iud == 0 ) then
+	  write(6,*) 'opening cyano file: ',trim(file)
 	  open(iud,file=file,status='old',form='formatted',iostat=ios)
 	  if( ios /= 0 ) then
 	    write(6,*) 'cannot open file: ',trim(file)

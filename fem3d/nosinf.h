@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2012,2014,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -55,6 +55,16 @@ c
 c-------------------------------------------------------------
 c parameters
 c-------------------------------------------------------------
+
+! revision log :
+!
+! 05.11.2012	ggu	changed VERS_6_1_60
+! 28.01.2014	ggu	changed VERS_6_1_71
+! 16.02.2019	ggu	changed VERS_7_5_60
+! 31.10.2019	ggu	changed VERS_7_5_65
+
+c-------------------------------------------------------------
+
 
         integer ftype,maxvers,maxcomp
         parameter(ftype=161,maxvers=5,maxcomp=3)

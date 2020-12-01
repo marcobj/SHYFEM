@@ -1,7 +1,11 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1992-1994,1996-1999,2001,2003-2015  Georg Umgiesser
+!    Copyright (C) 2017-2019  Georg Umgiesser
+!    Copyright (C) 2008,2014  Christian Ferrarin
+!    Copyright (C) 2010  Debora Bellafiore
+!    Copyright (C) 2018-2019  Marco Bajo
 !
 !    This file is part of SHYFEM.
 !
@@ -174,6 +178,7 @@ c 16.02.2019	ggu	changed VERS_7_5_60
 c 06.03.2019	mbj	added tramp = -2, (average, Bajo et al., 2019)
 c 13.03.2019	ggu	changed VERS_7_5_61
 c 04.07.2019	ggu	setweg & setznv introduced before make_new_depth
+c 05.06.2020	ggu	bug fix: set_area was not called (MPI_SET_AREA)
 c
 c***************************************************************
 
@@ -204,7 +209,7 @@ c		2 : read in b.c.
 	integer nodes(nkn)
 	real vconst(nkn)
 
-	character*10 auxname
+	character*12 auxname
 	logical bimpose
 	integer kranf,krend,k,kn
 	integer ibc,ibtyp
@@ -314,19 +319,21 @@ c	-----------------------------------------------------
      +				,ibc,ibtyp,intpol
           call iff_init(dtime0,zfile,nvar,nk,0,intpol
      +                          ,nodes,vconst,id)
-	  if( ibtyp .le. 0 ) then
-	    write(auxname,'(a6,1x,i3)') 'closed',ibtyp
+	  if( ibtyp .eq. 0 ) then
+	    write(auxname,'(a8,1x,i3)') 'not used',ibtyp
+	  else if( ibtyp .lt. 0 ) then
+	    write(auxname,'(a8,1x,i3)') 'closed  ',ibtyp
 	  else if( ibtyp .eq. 1 ) then
-	    write(auxname,'(a6,1x,i3)') 'zlevel',ibtyp
+	    write(auxname,'(a8,1x,i3)') 'zlevel  ',ibtyp
 	  else if( ibtyp .eq. 2 .or. ibtyp .eq. 3 ) then
-	    write(auxname,'(a6,1x,i3)') 'disch ',ibtyp
+	    write(auxname,'(a8,1x,i3)') 'disch   ',ibtyp
 	  else
-	    write(auxname,'(a6,1x,i3)') 'bound ',ibtyp
+	    write(auxname,'(a8,1x,i3)') 'bound   ',ibtyp
 	  end if
 	  call iff_set_description(id,ibc,auxname)
 	  ids(ibc) = id
-	  write(6,'(a,2i5,a,a)') ' boundary file opened: '
-     +				,ibc,id,' ',trim(zfile)
+	  write(6,'(a,2i5,4a)') ' boundary file opened: '
+     +			,ibc,id,' ',auxname,' ',trim(zfile)
 	end do
 
 	!call iff_print_info(ids(1))
@@ -374,6 +381,7 @@ c	-----------------------------------------------------
 	call init_z(zconst)	!initializes znv and zenv
 	call setweg(0,iw)	!sets minimum depth
 	call setznv		!adjusts znv
+	call set_area		!initializes area	!bugfix MPI_SET_AREA
 	call make_new_depth	!initializes layer thickness
 	call init_uvt		!initializes utlnv, vtlnv
 	call init_z0		!initializes surface and bottom roughness

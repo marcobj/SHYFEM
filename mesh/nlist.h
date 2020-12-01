@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1995  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,15 +24,16 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * nlist.h - NodeList utility routines					*
- *									*
- * Revision History:							*
- * 11-Aug-95: Nodelist renamed to NodeList                              *
- *            Nodelist_type * substituted by NodeList                   *
- * 27-Jul-95: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * nlist.h - NodeList utility routines
+ *
+ * revision log :
+ *
+ * 27.07.1995	ggu	routines written from scratch
+ * 11.08.1995	ggu	Nodelist renamed to NodeList
+ * ...		ggu	Nodelist_type * substituted by NodeList
+ *
 \************************************************************************/
 
 

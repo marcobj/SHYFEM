@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1997  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,13 +24,14 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * backg.h - background grid interpolation routines                     *
- *									*
- * Revision History:							*
- * 17-Nov-97: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * backg.h - background grid interpolation routines
+ *
+ * revision log :
+ *
+ * 17.11.1997	ggu	routines written from scratch
+ *
 \************************************************************************/
 
 

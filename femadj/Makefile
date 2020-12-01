@@ -1,7 +1,7 @@
 
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -16,7 +16,7 @@ FEMDIR = ..
 FEMBIN = $(FEMDIR)/fembin
 DIRLIB = $(FEMDIR)/femlib
 F77    = g77
-FFLAGS =  -O -Wall
+FFLAGS =  -O -Wall -g
 LINKER = $(F77)
 #---------------------------------------------
 

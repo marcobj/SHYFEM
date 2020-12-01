@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1998-2000,2009-2011,2014-2015,2014-2015  Georg Umgiesser
+!    Copyright (C) 2017-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -458,5 +459,5 @@ c copies concentrations from node value to element value (only wet areas)
 
         end
 
-c******************************************************
+!*********************************************************************
 

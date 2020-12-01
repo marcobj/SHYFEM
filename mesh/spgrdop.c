@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1995  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -25,12 +25,13 @@
 
 
 /************************************************************************\
- *									*
- * spgrdop.c - command line options for spgrd				*
- *									*
- * Revision History:							*
- * 17-Aug-95: routines copied from meshop.c				*
- *									*
+ *
+ * spgrdop.c - command line options for spgrd
+ *
+ * revision log :
+ *
+ * 17.08.1995	ggu	routines copied from meshop.c
+ *
 \************************************************************************/
 
 #include <string.h>

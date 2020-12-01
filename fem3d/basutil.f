@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2015-2020  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -45,6 +45,9 @@
 ! 13.04.2018	ggu	new routine for partitioning
 ! 25.10.2018	ggu	changed VERS_7_5_51
 ! 16.02.2019	ggu	changed VERS_7_5_60
+! 12.02.2020	ggu	new command line option -reg (and breg)
+! 01.04.2020	ggu	new option -custom (bcustom)
+! 21.05.2020	ggu	better handle copyright notice
 !
 !************************************************************
 
@@ -62,6 +65,7 @@
 	logical, save :: bgrd
 	logical, save :: bxyz
 	logical, save :: bdepth
+	logical, save :: breg
 	logical, save :: bunique
 	logical, save :: bgr3
 	logical, save :: bmsh
@@ -76,8 +80,10 @@
 	logical, save :: bbox
 	logical, save :: barea
 	logical, save :: binvert
+	logical, save :: bcustom
 
 	real, save :: hsigma
+	real, save :: dreg
 
         character*80, save :: bfile
         character*80, save :: lfile
@@ -96,6 +102,7 @@
 
 	logical, save :: bverb
 	logical, save :: bquiet
+	logical, save :: bsilent
 	logical, save :: bnomin
 
         character*80, save :: infile
@@ -143,6 +150,7 @@
 
         call clo_add_option('verb',.false.,'be more verbose')
         call clo_add_option('quiet',.false.,'do not be verbose')
+        call clo_add_option('silent',.false.,'be silent')
 	call clo_add_option('nomin',.false.,'do not compute min distance')
 	call clo_add_option('area',.false.,'area/vol for each area code')
 
@@ -151,8 +159,9 @@
         call clo_add_option('grd',.false.,'writes grd file')
         call clo_add_option('xyz',.false.,'writes xyz file')
         call clo_add_option('depth',.false.,'writes depth values')
+        call clo_add_option('reg dxy',0.,'writes regular depth values')
         call clo_add_option('unique',.false.
-     +		,'writes grd file with unique depths')
+     +		,'writes grd file with unique depths on nodes')
         call clo_add_option('delem',.false.
      +		,'writes grd file with constant depths on elements')
         call clo_add_option('hsigma',-1,'creates hybrid depth level')
@@ -179,6 +188,8 @@
         call clo_add_option('invert_depth',.false.
      +				,'inverts depth values')
         call clo_add_option('box',.false.,'creates index for box model')
+        call clo_add_option('custom',.false.
+     +				,'run custom routine defined by user')
 
         call clo_add_sep('bathymetry interpolation:')
 
@@ -225,6 +236,7 @@
         call clo_get_option('grd',bgrd)
         call clo_get_option('xyz',bxyz)
         call clo_get_option('depth',bdepth)
+        call clo_get_option('reg',dreg)
         call clo_get_option('unique',bunique)
         call clo_get_option('delem',bdelem)
         call clo_get_option('npart',bnpart)
@@ -239,6 +251,7 @@
         call clo_get_option('compare',bcompare)
         call clo_get_option('invert_depth',binvert)
         call clo_get_option('box',bbox)
+        call clo_get_option('custom',bcustom)
 
         call clo_get_option('hsigma',hsigma)
 
@@ -257,12 +270,11 @@
 
         call clo_get_option('verb',bverb)
         call clo_get_option('quiet',bquiet)
+        call clo_get_option('silent',bsilent)
         call clo_get_option('nomin',bnomin)
         call clo_get_option('area',barea)
 
-        call clo_check_files(1)
-        call clo_get_file(1,infile)
-        call ap_set_names(' ',infile)
+	if( bsilent ) bquiet = .true.
 
         if( .not. bquiet ) then
 	  if( type == 'BAS' .or. type == 'GRD' ) then
@@ -272,6 +284,12 @@
 	    stop 'error stop basutil_get_options: unknown type'
 	  end if
         end if
+
+        call clo_check_files(1)
+        call clo_get_file(1,infile)
+        call ap_set_names(' ',infile)
+
+	breg = ( dreg > 0. )
 
 	bsmooth = .false.
 	bsmooth = bsmooth .or. hmin /= -99999.

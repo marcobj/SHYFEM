@@ -27,6 +27,8 @@ femregress
 
 gmon.out
 
+tags
+
 #-----------------------------------------------
 
 *.o
@@ -44,7 +46,6 @@ gmon.out
 .bash_eternal_history
 a.out
 DIFFS
-CHECKLOG
 errout.dat
 fem3d/main_dummy.f
 femdoc/texput.log
@@ -122,9 +123,11 @@ fem3d/feminf
 fem3d/filetype
 fem3d/tsinf
 fem3d/femelab
+fem3d/femelab2
 fem3d/femintp
 fem3d/femcombine
 fem3d/offinf
+fem3d/offcat
 fem3d/nos_elab
 fem3d/etsinf
 fem3d/splitets
@@ -133,6 +136,7 @@ fem3d/nosadmin
 fem3d/scalintp
 fem3d/mkgeom
 fem3d/check_debug
+fem3d/check_shympi_debug
 fem3d/baschk
 fem3d/bascomp
 fem3d/ousvdiff
@@ -144,6 +148,8 @@ fem3d/shyelab
 fem3d/shyfem
 fem3d/shypre
 fem3d/shybas
+fem3d/shypart
+fem3d/shyparts
 fem3d/flxelab
 fem3d/nos2shy
 fem3d/ous2shy
@@ -176,7 +182,6 @@ post/demopost
 hcbs/xhcbs
 hcbs/tvis
 
-femcheck/CHECKLOG
 femcheck/test.c
 femcheck/test.f
 
@@ -208,11 +213,13 @@ fembin/feminf
 fembin/filetype
 fembin/tsinf
 fembin/offinf
+fembin/offcat
 fembin/lgrinf
 fembin/etsinf
 fembin/fileinf
 fembin/splitets
 fembin/bc2fem
+fembin/check_shympi_debug
 fembin/noselab
 fembin/ouselab
 fembin/extelab
@@ -221,10 +228,13 @@ fembin/shyfem
 fembin/shympi
 fembin/shypre
 fembin/shybas
+fembin/shypart
+fembin/shyparts
 fembin/flxelab
 fembin/shyadj
 fembin/adjele
 fembin/femelab
+fembin/femelab2
 fembin/femintp
 fembin/femcombine
 fembin/nos2shy

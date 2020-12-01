@@ -1,7 +1,7 @@
 
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -17,13 +17,13 @@ run: mpi omp mix
 #--------------------------------------------------
 
 mpi:
-	./hw_mpi.sh
+	-./hw_mpi.sh
 
 omp:
-	./hw_omp.sh
+	-./hw_omp.sh
 
 mix:
-	./hw_mix.sh
+	-./hw_mix.sh
 
 #--------------------------------------------------
 

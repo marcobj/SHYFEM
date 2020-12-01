@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1999,2005,2007,2009-2012,2015-2020  Georg Umgiesser
+!    Copyright (C) 2018  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -63,6 +64,9 @@ c 16.10.2018	ggu	changed VERS_7_5_50
 c 25.10.2018	ccf	grid output in gr3 and msh formats
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
+c 13.02.2020	ggu	new routine write_regular_depth() with -reg
+c 01.04.2020    ggu     new option -custom (bcustom) 
+c 28.05.2020    ggu     implement bquiet and bsilent
 c
 c todo :
 c
@@ -86,6 +90,7 @@ c writes information and manipulates basin
 	implicit none
 
 	integer nc
+	logical bwrite
 	character*80 file
 
 c-----------------------------------------------------------------
@@ -93,16 +98,20 @@ c read in basin
 c-----------------------------------------------------------------
 
 	call basutil_init('BAS')
-	call shympi_init(.false.)
+
+	bwrite = .not. bsilent
 
 	call clo_get_file(1,file)
         if( file == ' ' ) call clo_usage
-	call read_command_line_file(file)
+	call read_command_line_file(file,bwrite)
+
+	call shympi_init(.false.)
 
 c-----------------------------------------------------------------
 c initialize modules
 c-----------------------------------------------------------------
 
+	call ev_set_verbose(bwrite)
 	call ev_init(nel)
 	call set_ev
 
@@ -146,7 +155,7 @@ c-----------------------------------------------------------------
 	if( binvert ) call invert_depth		!inverts depth values
 	if( bbox ) call basbox			!creates box index
 
-	!call sort_basin
+	if( bcustom ) call bas_custom
 
 c-----------------------------------------------------------------
 c loop for interactive information on nodes and elems
@@ -161,9 +170,10 @@ c-----------------------------------------------------------------
 	if( bgrd ) call write_grd_from_bas
         if( bxyz ) call write_xy('bas.xyz',nkn,ipv,xgv,ygv,hkv)
         if( bdepth ) call write_depth_from_bas
+        if( breg ) call write_regular_depth(dreg)
 	if( bunique ) call write_grd_with_unique_depth !for sigma levels
 	if( bdelem ) call write_grd_with_elem_depth !for zeta levels
-	if( bnpart ) call write_nodal_partition		!nodal partition
+	if( bnpart ) call write_nodal_partition(bwrite)	!nodal partition
 	if( lfile /= ' ' ) call bas_partition		!creates partition file
 	if( bgr3 ) call write_gr3_from_bas
 	if( bmsh ) call write_msh_from_bas
@@ -178,7 +188,7 @@ c*******************************************************************
 c*******************************************************************
 c*******************************************************************
 
-	subroutine read_command_line_file(file)
+	subroutine read_command_line_file(file,bwrite)
 
 	use basin
 	use basutil
@@ -186,17 +196,20 @@ c*******************************************************************
 	implicit none
 
 	character*(*) file
+	logical bwrite
 	logical is_grd_file,filex
+
+	call grd_set_write(bwrite)
 
 	if( .not. filex(file) ) then
 	  write(6,*) 'file not existing: ',trim(file)
 	  stop 'error stop read_command_line_file: no such file'
 	else if( basin_is_basin(file) ) then
-	  write(6,*) 'reading BAS file: ',trim(file)
+	  if( bwrite ) write(6,*) 'reading BAS file: ',trim(file)
 	  call basin_read(file)
 	  breadbas = .true.
 	else if( is_grd_file(file) ) then
-	  write(6,*) 'reading GRD file: ',trim(file)
+	  if( bwrite ) write(6,*) 'reading GRD file: ',trim(file)
 	  call grd_read(file)
 	  call grd_to_basin
 	  call estimate_ngr(ngr)
@@ -1449,17 +1462,20 @@ c*******************************************************************
 
 c*******************************************************************
 
-	subroutine write_nodal_partition
+	subroutine write_nodal_partition(bwrite)
 
 	use basin
 
 	implicit none
 
+	logical bwrite
+
+	integer ierr1,ierr2
 	integer ie,k,ii,ic,nc,n
 	integer, allocatable :: nic(:)
 	integer icolor(nkn)
 
-        write(6,*) 'making nodal partition...'
+        if( bwrite ) write(6,*) 'making nodal partition...'
 
 	nc = maxval(iarnv)
 	allocate(nic(0:nc))
@@ -1471,7 +1487,9 @@ c*******************************************************************
 	do ic=0,nc
 	  n = nic(ic)
 	  if( n > 0 ) then
-	    write(6,*) ic,n,(100.*n)/nkn,' %'
+	    if( bwrite ) then
+	      write(6,'(2i10,f10.2,a)') ic,n,(100.*n)/nkn,' %'
+	    end if
 	  end if
 	end do
 	deallocate(nic)
@@ -1486,13 +1504,25 @@ c*******************************************************************
 	  iarv(ie) = ic
 	end do
 
+	call grd_set_write(bwrite)
         call basin_to_grd
 
         call grd_write('npart.grd')
-        write(6,*) 'The basin has been written to npart.grd'
+	if( bwrite ) write(6,*) 'The basin has been written to npart.grd'
 
-	call check_connectivity
-	call check_connections
+	return
+
+        call link_set_stop(.false.)     !do not stop after error
+        call link_set_write(.false.)    !do not write error
+
+	call check_connectivity(ierr1)
+	call check_connections(ierr2)
+
+	if( ierr1 /= 0 .or. ierr2 /= 0 ) then
+	  write(6,*) 'there were errors in link structure:'
+	  write(6,*) 'connectivity: ',ierr1
+	  write(6,*) 'connections:  ',ierr2
+	end if
 
         end
 
@@ -1640,6 +1670,79 @@ c****************************************************************
 	end do
 
 	write(6,*) 'all nodes found...',nkn,nerror,nequal
+
+	end
+
+c****************************************************************
+
+        subroutine write_regular_depth(dreg)
+
+! interpolates bathymetry on regular grid
+
+        use basin
+        use mod_depth
+
+	implicit none
+
+	real dreg
+
+	integer ie,k
+	integer nx,ny
+	integer iunit,iformat,datetime(2),np
+	double precision dtime
+	integer ilhkv(1)
+	real xmin,ymin,xmax,ymax,dx,dy
+	real hlv(1),hd(1)
+	real regpar(7)
+	character*80 file,string
+	real, allocatable :: hreg(:)
+	real, save :: flag = -999.
+
+	if( dreg <= 0. ) return
+
+!-------------------------------------------------------------
+! find min/max for regular grid
+!-------------------------------------------------------------
+
+	call make_reg_box(dreg,regpar)
+	call getreg(regpar,nx,ny,xmin,ymin,dx,dy,flag)
+
+	write(6,*) 'xmin,xmax: ',xmin,xmax
+	write(6,*) 'ymin,ymax: ',ymin,ymax
+	write(6,*) 'dx,dy: ',dx,dy
+	write(6,*) 'nx,ny: ',nx,ny
+
+!-------------------------------------------------------------
+! interpolate on regular grid
+!-------------------------------------------------------------
+
+	allocate( hreg(nx*ny) )
+
+	if( dx /= dy ) stop 'error stop write_regular_depth: dx/=dy'
+	if( dx /= dreg ) stop 'error stop write_regular_depth: dx/=dreg'
+	call setgeo(xmin,ymin,dx,dy,flag)
+
+	call av2am(hkv,hreg,nx,ny)
+
+!-------------------------------------------------------------
+! write fem file
+!-------------------------------------------------------------
+
+	iunit = 1
+	file = 'regbathy.fem'
+	string = 'bathymetry'
+	np = nx*ny
+
+	open(iunit,file=file,status='unknown',form='formatted')
+	call write_regular_2d_1var_record(iunit,string,regpar,np,hreg)
+	close(iunit)
+
+	write(6,*) 'The regular bathymetry has been written to file '
+     +			,trim(file)
+
+!-------------------------------------------------------------
+! end of routine
+!-------------------------------------------------------------
 
 	end
 

@@ -1,7 +1,10 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2009-2012,2014-2020  Georg Umgiesser
+!    Copyright (C) 2009  Debora Bellafiore
+!    Copyright (C) 2012,2017  Christian Ferrarin
+!    Copyright (C) 2016  Ivan Federico
 !
 !    This file is part of SHYFEM.
 !
@@ -89,6 +92,10 @@ c 27.12.2018	ggu	changed VERS_7_5_54
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
 c 17.10.2019	ggu	check number of meteo variables written
+c 09.12.2019	ggu	more documentation
+c 27.01.2020	ggu	code to use full ice cover (ballcover)
+c 17.04.2020	ggu	wind conversion routines out of this file
+c 11.11.2020	ggu	new routine meteo_has_ice_file()
 c
 c notes :
 c
@@ -306,6 +313,10 @@ c DOCS  END
 
 	  call get_first_dtime(dtime0)
 
+!	  ---------------------------------------------------------
+!	  initializing wind file
+!	  ---------------------------------------------------------
+
 	  write(6,'(a)') 'opening wind file...'
           nvar = 0      !not sure if 2 or 3
           call iff_get_file_nvar(windfile,nvar)
@@ -319,6 +330,10 @@ c DOCS  END
 
 	  call meteo_set_wind_data(idwind,nvar)
 
+!	  ---------------------------------------------------------
+!	  initializing ice file
+!	  ---------------------------------------------------------
+
 	  write(6,'(a)') 'opening ice file...'
 	  nvar = 1
 	  nintp = 2
@@ -328,12 +343,16 @@ c DOCS  END
 	  call iff_init(dtime,icefile,nvar,nkn,0,nintp
      +				,nodes,vconst,idice)
 	  call iff_set_description(idice,0,'meteo ice')
-	  call iff_flag_ok(idice)	!we do not need all icd data
+	  call iff_flag_ok(idice)	!we do not need all ice data
 	  if( iff_has_file(idice) ) then
 	    call iff_populate_records(idice,dtime0)  !only now because of flag
 	  end if
 
 	  call meteo_set_ice_data(idice,nvar)
+
+!	  ---------------------------------------------------------
+!	  initializing rain file
+!	  ---------------------------------------------------------
 
 	  write(6,'(a)') 'opening rain file...'
 	  nvar = 1
@@ -345,6 +364,10 @@ c DOCS  END
 	  call iff_set_description(idrain,0,'meteo rain')
 
 	  call meteo_set_rain_data(idrain,nvar)
+
+!	  ---------------------------------------------------------
+!	  initializing heat file
+!	  ---------------------------------------------------------
 
 	  write(6,'(a)') 'opening heat flux file...'
 	  nvar = 4
@@ -372,13 +395,19 @@ c DOCS  END
 	call get_act_dtime(dtime)
 	lmax = 1
 
+!	---------------------------------------------------------
+!	read and interpolate ice file
+!	---------------------------------------------------------
+
 	if( .not. iff_is_constant(idice) .or. icall == 1 ) then
 	  call iff_read_and_interpolate(idice,dtime)
 	  metice = 0.	!assume no ice cover in areas not covered by data
 	  call iff_time_interpolate(idice,dtime,1,nkn,lmax,metice)
 	end if
-	!write(6,*) (metice(i),i=1,nkn,50)
-	!write(6,*) 'constant: ',iff_is_constant(idice)
+
+!	---------------------------------------------------------
+!	read and interpolate wind file
+!	---------------------------------------------------------
 
 	if( .not. iff_is_constant(idwind) .or. icall == 1 ) then
 	  call iff_read_and_interpolate(idwind,dtime)
@@ -391,12 +420,18 @@ c DOCS  END
 	  end if
 	end if
 
-	!call iff_print_info(idwind,0,.true.)
+!	---------------------------------------------------------
+!	read and interpolate rain file
+!	---------------------------------------------------------
 
         if( .not. iff_is_constant(idrain) .or. icall == 1 ) then
           call iff_read_and_interpolate(idrain,dtime)
           call iff_time_interpolate(idrain,dtime,1,nkn,lmax,metrain)
         end if
+
+!	---------------------------------------------------------
+!	read and interpolate heat file
+!	---------------------------------------------------------
 
         if( .not. iff_is_constant(idheat) .or. icall == 1 ) then
           call iff_read_and_interpolate(idheat,dtime)
@@ -410,22 +445,35 @@ c DOCS  END
 ! extra treatment of data
 !------------------------------------------------------------------
 
+!	---------------------------------------------------------
+!	treat ice data
+!	---------------------------------------------------------
+
 	if( .not. iff_is_constant(idice) .or. icall == 1 ) then
 	  call meteo_convert_ice_data(idice,nkn,metice)
 	end if
+
+!	---------------------------------------------------------
+!	treat wind data
+!	---------------------------------------------------------
 
 	if( .not. iff_is_constant(idwind) .or. icall == 1 ) then
 	  call meteo_convert_wind_data(idwind,nkn,wxv,wyv
      +			,windcd,tauxnv,tauynv,metws,ppv,metice)
 	end if
 
-!	write(166,*) (wxv(i),wyv(i),windcd(i),tauxnv(i),tauynv(i)
-!     +			,i=1,nkn,nkn/20)
+!	---------------------------------------------------------
+!	treat heat data
+!	---------------------------------------------------------
 
         if( .not. iff_is_constant(idheat) .or. icall == 1 ) then
           call meteo_convert_heat_data(idheat,nkn
      +                       ,metaux,mettair,ppv,methum)
         end if
+
+!	---------------------------------------------------------
+!	treat rain data
+!	---------------------------------------------------------
 
 	if( .not. iff_is_constant(idrain) .or. icall == 1 ) then
 	  call meteo_convert_rain_data(idrain,nkn,metrain)
@@ -742,7 +790,7 @@ c DOCS  END
             do k=1,n
 	      wspeed = sfact * wx(k)
 	      wdir = wy(k)
-              call convert_wind_xy(wspeed,wdir,wx(k),wy(k))
+              call convert_sd_uv(wspeed,wdir,wx(k),wy(k),.true.)
 	      ws(k) = wspeed
 	    end do
 	  else				!data is wind velocity [m/s]
@@ -1030,27 +1078,33 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 	integer n
 	real r(n)	!ice concentration
 
-	integer k,ie,ii,ia,nflag
+	integer k,ie,ii,ia,nflag,nice
 	real rarea,rnodes
 	double precision dacu,dice,darea,area
 	character*20 aline
 
 	integer, save :: ninfo = 0
 	real, parameter :: flag = -999.
+	logical, parameter :: ballcover = .false.  !cover whole area with ice
 
 	if( ninfo == 0 ) call getinfo(ninfo)
 
 	nflag = 0
-	dice = 0.
-	darea = 0.
+	nice = 0
 
 	do k=1,n
 	  if( r(k) == flag ) then
 	    nflag = nflag + 1
 	    r(k) = 0
+	  else if( r(k) /= 0. ) then
+	    nice = nice + 1
 	  end if
 	end do
 
+	if( ballcover .and. nice > 0 ) r = 1.
+
+	dice = 0.
+	darea = 0.
 	do ie=1,nel
 	  ia = iarv(ie)
 	  area = 4. * ev(10,ie)
@@ -1070,12 +1124,20 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 	dice = dice / darea
 
 	dacu = 0.
-	do k=1,n
-	  dacu = dacu + r(k)
+	darea = 0.
+	do ie=1,nel
+	  ia = iarv(ie)
+	  area = 4. * ev(10,ie)
+	  do ii=1,3
+	    k = nen3v(ii,ie)
+	    dacu = dacu + area*r(k)
+	    darea = darea + area
+	  end do
 	end do
-	rnodes = dacu / n
+	dacu = dacu / darea
 
 	rarea = dice
+	rnodes = dacu
 	call get_act_timeline(aline)
 	write(ninfo,*) 'ice: ',aline,rarea,rnodes,nflag
 
@@ -1329,52 +1391,6 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 
 !*********************************************************************
 
-        subroutine convert_wind_xy(s,d,u,v)
-
-        implicit none
-
-        real s,d,u,v
-
-        real dir
-        real pi,rad
-        parameter(pi=3.14159,rad=pi/180.)
-
-        dir = d
-        dir = 90. - dir + 180.
-        do while( dir .lt. 0. )
-          dir = dir + 360.
-        end do
-        dir = mod(dir,360.)
-
-        u = s*cos(rad*dir)
-        v = s*sin(rad*dir)
-
-        end subroutine convert_wind_xy
-
-!*********************************************************************
-
-        subroutine convert_wind_sd(u,v,s,d)
-
-        implicit none
-
-        real u,v,s,d
-
-        real dir
-        real pi,rad,rrad
-        parameter(pi=3.14159,rad=pi/180.,rrad=1./rad)
-
-	s = sqrt(u*u+v*v)
-	d = 0.
-	if( s > 0 ) d = atan2(v/s,u/s)
-
-        d = 180. + 90. - d * rrad
-        if( d < 0. ) d = d + 360.
-        if( d > 360. ) d = d - 360.
-	
-        end subroutine convert_wind_sd
-
-!*********************************************************************
-
 	subroutine meteo_get_heat_values(k,qs,ta,rh,twb,uw,cc,p)
 
 ! returns meteo parameters for one node
@@ -1542,24 +1558,33 @@ c interpolates files spatially - to be deleted
 
 !*********************************************************************
 
-	subroutine test_wind_conversion
+        subroutine meteo_get_ice_usage(uice)
 
-	implicit none
+! get parameter for ice usage
 
-	real u,v,s,d
+        use meteo_forcing_module
 
-	u = 1.
-	v = 1.
-	call convert_wind_sd(u,v,s,d)
-	write(6,*) u,v,s,d
+        implicit none
+
+	real uice
+
+	uice = amice
 
 	end
 
 !*********************************************************************
 
-!	program test_main_meteo
-!	call test_wind_conversion
-!	end
+	subroutine meteo_has_ice_file(bice)
+
+        use meteo_forcing_module
+
+        implicit none
+
+	logical bice
+
+	bice = iff_has_file(idice)
+
+	end
 
 !*********************************************************************
 

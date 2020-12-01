@@ -1,7 +1,9 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2016,2018-2020  Georg Umgiesser
+!    Copyright (C) 2016,2019  Erik Pascolo
+!    Copyright (C) 2016  Leslie Aveytua
 !
 !    This file is part of SHYFEM.
 !
@@ -30,7 +32,7 @@
 ! 22.02.2016	ggu&erp	new bfm routines created from newconz
 ! 22.03.2016	ggu	changed VERS_7_5_6
 ! 06.06.2016	ggu	initialization from file changed
-! 09.06.2016 	leslie	modified (Search LAA)
+! 09.06.2016 	laa	modified (Search LAA)
 ! 10.06.2016	ggu	changed VERS_7_5_13
 ! 17.06.2016	ggu	changed VERS_7_5_15
 ! 28.06.2016	ggu	initialize bfmv, new routine bfm_check()
@@ -40,6 +42,8 @@
 ! 13.03.2019	ggu	changed VERS_7_5_61
 ! 01.05.2019	erp	some routines written for linkage to BFM
 ! 17.10.2019	ggu	these routines eliminated into own file
+! 17.02.2020	ggu	femtime eliminated
+! 09.03.2020	ggu	compiler bug fixed (ddt)
 
 !==================================================================
         module mod_bfm_internal
@@ -63,6 +67,8 @@
 
         call BFM0D_NO_BOXES(1,1,1,1,1)
         call Initialize()
+
+	write(6,*) 'bfm_init_internal: bfm routines initialized'
         
         end subroutine
 
@@ -77,9 +83,8 @@ c*********************************************************************
 
       implicit none
 
-      include 'femtime.h'
-
       integer :: i,l,k
+      double precision :: ddt
       double precision, dimension(10) :: er
       double precision, dimension(4) :: wsink
       logical :: bsur,bot
@@ -90,6 +95,7 @@ c*********************************************************************
       
       matrix_light(:,:) = 0.
       call light_abs(nkn,nlv,ibfm_state,bfmv,matrix_light)
+      call get_ddt(ddt)
       
       DO k=1,nkn
 	  DO l=1,ilhkv(k)
@@ -124,7 +130,7 @@ c*********************************************************************
 !!!#endif          
           wsinkv(l,k) = REAL(wsink(1)+wsink(2)+wsink(3)+wsink(4))/4
 	  
-	  bfmv(l,k,:) = REAL(b_apx + b(:)*dt_act)
+	  bfmv(l,k,:) = REAL(b_apx + b(:)*ddt)
 	  
 	  ENDDO
 	ENDDO

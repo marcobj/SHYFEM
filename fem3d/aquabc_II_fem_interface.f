@@ -1,9 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Petras Zemlys    
-!    Copyright (C) 1985-2018  Georg Umgiesser
-!    Copyright (C) 1985-2018  Ali Erturk
+!    Copyright (C) 2004,2006,2011  Petras Zemlys
+!    Copyright (C) 2015-2019  Georg Umgiesser
 
 !    This file is part of SHYFEM.
 !
@@ -38,18 +37,6 @@
 
 ! aquabc_fem_interface is biogeochemical model specific. Please change line 11 and
 ! corresponding lines in Make file to switch to different biogeochemical models of AQUABC series
-
-        subroutine ecological_module
-
-! general interface to ecological module
-
-        implicit none
-
-
-
-        call aquabc_II_fem_interface
-
-        end
 
 ! Contents of the rest:
 !   subroutine aquabc_fem_interface - Interface between SHYFEM and AQUABC (Aquatic Biochemical Cycling)
@@ -241,17 +228,31 @@
 !   word 'fast' in variable names means prepared for vectorization        
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !
-!
-!
 !***********************************************
 !***********************************************
 !***********************************************
+
+        subroutine ecological_module
+
+! general interface to ecological module
+
+        implicit none
+
+        call aquabc_II_fem_interface
+
+        end
+
+!***********************************************
+!***********************************************
+!***********************************************
+
       subroutine aquabc_II_fem_interface
 
       !instead of param.h        
       use levels, only: ilhkv, nlvdi, nlv  
       use basin, only: nkn, nkndi, neldi, ipv
       
+      use mod_debug
       use mod_diff_visc_fric
       !use mod_conz
 
@@ -972,7 +973,7 @@
 
 !        routines to introduce fraction of ice cover:
 
-         call get_ice(k,ice_cover)
+         call get_ice_cover(k,ice_cover)
          ice_cover_fast(k) =  ice_cover
          FDAY = 1. !used only for old equations compatibility
          !light_fast  (k)  = ITOT*(1-ice_cover)
@@ -1003,7 +1004,7 @@
          vol_old_fast(k,l) = volold
          area_fast   (k,l) = area
 
-         if (isnan(depth).or.depth.eq.0)
+         if (is_nan(depth).or.depth.eq.0)
      +        then
           print *,
      +   'aquabc_II_fem_interface: Depth is NaN or zero:', depth,
@@ -1011,7 +1012,7 @@
           stop
          end if
 
-        if (isnan(vol).or.vol.eq.0)
+        if (is_nan(vol).or.vol.eq.0)
      +        then
          print *,
      +   'aquabc_II_fem_interface: Volume is NaN or zero:', vol,
@@ -1019,7 +1020,7 @@
          stop
         end if
 
-         if (isnan(area).or.area.eq.0)
+         if (is_nan(area).or.area.eq.0)
      +       then
           print *,
      +   'aquabc_II_fem_interface: Area is NaN or zero:', area,

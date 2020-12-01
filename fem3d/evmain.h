@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2010-2011,2015,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -28,6 +28,16 @@ c finite element information for each element
 c------------------------------------------------
 c
 c please change this info also in main
+
+! revision log :
+!
+! 23.03.2010	ggu	changed v6.1.1
+! 17.02.2011	ggu	changed VERS_6_1_18
+! 05.06.2015	ggu	changed VERS_7_1_12
+! 16.02.2019	ggu	changed VERS_7_5_60
+
+c------------------------------------------------
+
 
 	integer evdim
 	parameter ( evdim = 19 )

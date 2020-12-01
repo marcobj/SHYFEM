@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1998-2000,2002-2003,2006-2007,2009  Georg Umgiesser
+!    Copyright (C) 2011-2015,2018-2020  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -71,6 +72,8 @@ c 16.12.2015	ggu	changed VERS_7_3_16
 c 18.12.2015	ggu	changed VERS_7_3_17
 c 03.04.2018	ggu	changed VERS_7_5_43
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 16.02.2020	ggu	femtime eliminated
+c 05.03.2020	ggu	do not print flux divergence
 c
 c******************************************************************
 c******************************************************************
@@ -372,8 +375,6 @@ c passed in are pointers to these section in lnk structure
 
 	implicit none
 
-	include 'femtime.h'
-
 	integer k		!node number of finite volume
 	integer ibefor,iafter	!pointer to pre/post node
 	integer istype		!type of node (see flxtype)
@@ -382,6 +383,7 @@ c passed in are pointers to these section in lnk structure
 	real flux(nlvdi)	!computed fluxes (return)
 
 	logical bdebug
+	logical bdiverg		!write error on flux divergence
 	integer i,n,ne
 	integer l
 	real ttot,tabs
@@ -395,6 +397,9 @@ c passed in are pointers to these section in lnk structure
 
 	bdebug = k .eq. 6615
 	bdebug = k .eq. 0
+
+	bdiverg = .true.
+	bdiverg = .false.
 
 c---------------------------------------------------------
 c compute transport through finite volume k
@@ -421,7 +426,7 @@ c---------------------------------------------------------
 	      ttot = ttot + transp(l,i)
 	      tabs = tabs + abs(transp(l,i))
 	    end do
-	    if( abs(ttot) .gt. 1. ) then
+	    if( abs(ttot) .gt. 1. .and. bdiverg ) then
 	      write(6,*) '******** flx3d (divergence): ',ttot,tabs
 	      write(6,*) '     ',k,l,lkmax,istype
 	    end if

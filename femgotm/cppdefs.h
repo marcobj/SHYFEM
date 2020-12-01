@@ -1,3 +1,12 @@
+
+!--------------------------------------------------------------------------
+!
+!    Copyright (C) by the GOTM-team under the GNU Public License - www.gnu.org
+!
+!    This file is part of SHYFEM. (m)
+!
+!--------------------------------------------------------------------------
+
 ! This file is include in all .F90 files and contains very important
 ! definitions. Infact GOTM will not compile when this file is not
 ! in a correct format.
@@ -7,7 +16,8 @@
 
 #define PATH_MAX	255
 
-#define stderr		0
+!#define stderr		0		!GGU
+#define stderr		6
 #define stdout		6
 
 ! Handy for writing

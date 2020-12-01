@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2019  Georg Umgiesser
+!    Copyright (C) 2019  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -46,7 +47,6 @@
 	use elabutil
 	use elabtime
 	use tide
-        use fem_util
 
 	implicit none
 

@@ -1,7 +1,9 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2002-2012,2014-2016,2018-2019  Georg Umgiesser
+!    Copyright (C) 2014-2016  Christian Ferrarin
+!    Copyright (C) 2016  Ivan Federico
 !
 !    This file is part of SHYFEM.
 !
@@ -85,6 +87,10 @@ c 16.10.2018	ggu	changed VERS_7_5_50
 c 14.02.2019	ggu	changed VERS_7_5_56
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
+c 10.12.2019	ggu	ice cover introduced, handle ice-water sensible heat
+c 11.11.2020	ggu	new ice model integrated, cleaned, documented
+c 13.11.2020	ggu	bug fix: correct rain from [m/s] to [mm/d]
+c 14.11.2020	ggu	allow for ice and other heat fluxes to coexist
 c
 c notes :
 c
@@ -106,23 +112,19 @@ c other notes in subqfxf.f
 c
 c*****************************************************************************
 
-	subroutine qflux_compute(yes)
+	subroutine qflux_compute(byes)
 
 c returnes flag -> compute heat flux or not
 
 	implicit none
 
-	integer yes
+	logical byes
 
 	character*80 file
 
         call getfnm('qflux',file)
 
-	if( file .eq. ' ' ) then
-	  yes = 0
-	else
-	  yes = 1
-	end if
+	byes = ( file /= ' ' )
 
 	end
 
@@ -182,36 +184,31 @@ c computes new temperature (forced by heat flux) - 3d version
         real temp(nlvddi,nkn) 
 	double precision dq	!total energy introduced [(W/m**2)*dt*area = J]
 
-c local
+        logical byes
+        logical buseice,bicecover
         integer levdbg
-	logical bdebug
-	logical baverevap
-	logical bwind
 	integer k
 	integer l,lmax,kspec
 	integer mode
-        integer yes
-	integer iheat
-	integer isolp  
-	integer iwtyp
 	integer days,im,ih
 	integer ys(8)
-	real tm,tnew,hm
+	real hm,sm,tm,tnew
 	real salt,tfreeze
 	real albedo
-	real hdecay,adecay,qsbottom,botabs
+	real adecay,qsbottom
 	real qtot
         real qs,ta,tb,uw,cc,ur,p,e,r,q
         real ddlon,ddlat  
         real dp,uuw,vvw  
-	real qsens,qlat,qlong,evap,qrad
-        real qswa  
-	real cice,aice,fice
+	real qsens,qlat,qlong,evap,qrad,qsdown
+        real qswa,qice,qsurface
+	real cice,fice_free,fice_cover
 	real ev,eeff
 	real area
 	real evaver
         real uub,vvb        
 	real ik1,ik2
+	real tice,u,v,uv
 
 	double precision ddq
 	double precision atime
@@ -244,19 +241,38 @@ c functions
 	integer ifemopa
 	logical is_dry_node
 c save
-	integer n93,icall
-	save n93,icall
-	data n93,icall / 0 , 0 /
-	save bdebug,bwind
+	integer, save :: icall = 0
+	integer, save :: n93 = 0
 
-	dq = 0.
+	integer, save :: iheat
+	integer, save :: isolp  
+	integer, save :: iwtyp
+	real, save :: hdecay
+	real, save :: botabs
 
-	call qflux_compute(yes)
-	if( yes .le. 0 ) return
+	real, save :: aice = 1.
+	real, save :: fice_pen = 0.3		!penetration through ice
+
+	integer, save :: kdebug = 0		!debug for this node
+	logical, save :: bdebug = .false.
+	logical, save :: baverevap = .false.
+	logical, save :: bwind = .false.
+	logical, save :: bice = .false.
+	logical, save :: bheat = .false.
+	logical, save :: bqflux = .false.
 
 c---------------------------------------------------------
-c iheat		1=areg  2=pom  3=gill  4=dejak  5=gotm  6=COARE3.0
+c start of routine
+c---------------------------------------------------------
+
+	dq = 0.
+	if( icall < 0 ) return
+
+c---------------------------------------------------------
+c iheat		1=areg  2=pom  3=gill  4=dejak  5=gotm  
+c		6=COARE 3.0
 c               7=read flux from file
+c		8=MFS routines (Pettenuzzo et al., 2010)
 c hdecay	depth of e-folding decay of radiation
 c		0. ->	everything is absorbed in first layer
 c botabs	1. ->	bottom absorbs remaining radiation
@@ -268,17 +284,30 @@ c in case of iheat==7 the columns are:
 c    time srad qsens qlat qlong
 c---------------------------------------------------------
 
-	baverevap = .false.
-	aice = 0.	!ice cover for heat: 1: use  0: do not use
-
-	iheat = nint(getpar('iheat'))
-        isolp = nint(getpar('isolp'))   
-	iwtyp  = nint(getpar('iwtyp'))+1
-	hdecay = getpar('hdecay')
-	botabs = getpar('botabs')
+c---------------------------------------------------------
+c initialize on first call
+c---------------------------------------------------------
 
 	if( icall .eq. 0 ) then
+	  iheat = nint(getpar('iheat'))
+          isolp = nint(getpar('isolp'))   
+	  iwtyp  = nint(getpar('iwtyp'))+1
+	  hdecay = getpar('hdecay')
+	  botabs = getpar('botabs')
+
+	  call shyice_init
+	  call shyice_is_active(bice)		!ice model is active
+	  bheat = iheat > 0			!we have to compute heat fluxes
+	  call qflux_compute(bqflux)		!have qflux file
+
+	  if( .not. bqflux ) icall = -1
+	  if( .not. bheat .and. .not. bice ) icall = -1
+	  if( icall < 0 ) return
+
 !$OMP CRITICAL
+	  write(6,*) 'qflux3d routines are active'
+	  write(6,*) 'qflux3d: bqflux,bheat,bice: '
+     +				,bqflux,bheat,bice
 	  write(6,*) 'qflux3d: iheat,hdecay,botabs: '
      +				,iheat,hdecay,botabs  
 !$OMP END CRITICAL
@@ -301,11 +330,16 @@ c---------------------------------------------------------
             end if
           end if
 
+	  call shyice_init_output
+	  call meteo_get_ice_usage(aice)	!use ice (1) or not (0)
+	  if( bice ) fice_pen = 0.
+
           levdbg = nint(getpar('levdbg'))
 	  bdebug = levdbg .ge. 2 
 
 	end if
-	icall = 1
+
+	icall = icall + 1
 
 c---------------------------------------------------------
 c set other parameters
@@ -319,19 +353,20 @@ c---------------------------------------------------------
 	ik1 = 0.
 	ik2 = 0.
 	if ( isolp .eq. 1 ) then
-       if (iwtyp > 10 ) then
-         write(6,*) 'not valid value for iwtyp = ',iwtyp-1
-         write(6,*) 'use values from 0 (Jrv t-I) to 10 (Jrv t-9)'
-         stop 'error stop qflux3d: iwtyp'
-       end if
-       ik1 = 1. / k1(iwtyp)
-       ik2 = 1. / k2(iwtyp)
+          if (iwtyp > 10 ) then
+            write(6,*) 'not valid value for iwtyp = ',iwtyp-1
+            write(6,*) 'use values from 0 (Jrv t-I) to 10 (Jrv t-9)'
+            stop 'error stop qflux3d: iwtyp'
+          end if
+          ik1 = 1. / k1(iwtyp)
+          ik2 = 1. / k2(iwtyp)
 	end if
 
 c---------------------------------------------------------
-c set date parameters for iheat=8   
+c set date parameters
 c---------------------------------------------------------
 
+	call get_act_timeline(aline)
 	call get_absolute_act_time(atime)
 	call dts_from_abs_time_to_ys(atime,ys)
 	call dts_from_abs_time_to_days_in_year(atime,days)
@@ -339,9 +374,6 @@ c---------------------------------------------------------
 	im = ys(2)
 	ih = ys(4)
 
-	!call get_act_timeline(aline)
-	!write(177,*) dtime,'  ',aline
-	
 c---------------------------------------------------------
 c loop over nodes
 c---------------------------------------------------------
@@ -357,29 +389,46 @@ c---------------------------------------------------------
 	    cycle
 	  end if
 
-	  !write(177,*) 'node = ',k,iheat
-
 	  tm = temp(1,k)
 	  salt = saltv(1,k)
-	  call get_ice(k,cice)
-	  fice = 1. - aice*cice		!fice = 0 if fully ice covered
+	  call get_ice_cover(k,cice)
+	  fice_cover = aice*cice
+	  fice_free  = 1. - fice_cover
+	  bicecover = fice_cover > 0.
+	  buseice = bice .and. bicecover	!we use ice model
 	  tfreeze = -0.0575*salt
+	  qsens = 0.
+	  qlat = 0.
+	  qlong = 0.
+	  evap = 0.
 	  area = areanode(1,k)
 	  lmax = ilhkv(k)
           if( isolp .eq. 0 .and. hdecay .le. 0. ) lmax = 1   
 
+	  !------------------------------------------------
+	  ! solar radiation - positive from air to sea
+	  !------------------------------------------------
+
           call meteo_get_heat_values(k,qs,ta,ur,tb,uw,cc,p)
 	  call make_albedo(tm,albedo)
-	  qss = fice * qs * (1. - albedo)
+	  qsdown = qs * (1. - albedo)
+	  qss = fice_free*qsdown + fice_cover*fice_pen*qsdown
+	  if( .not. bheat ) qss = 0.
 
-	  if( iheat .eq. 1 ) then
+	  !------------------------------------------------
+	  ! heat exchange - qlong, qlat, qsens positive from sea to air
+	  !------------------------------------------------
+
+	  if( iheat .eq. 0 ) then
+	    buseice = bice			!we use ice model heat fluxes
+	  else if( iheat .eq. 1 ) then
 	    call heatareg (ta,p,uw,ur,cc,tm,qsens,qlat,qlong,evap)
 	  else if( iheat .eq. 2 ) then
 	    call heatpom  (ta,p,uw,ur,cc,tm,qsens,qlat,qlong,evap)
 	  else if( iheat .eq. 3 ) then
 	    call heatgill (ta,p,uw,ur,cc,tm,qsens,qlat,qlong,evap)
 	  else if( iheat .eq. 4 ) then
-	    !call rh2wb(ta,p,ur,tb)
+	    !call rh2wb(ta,p,ur,tb)	!FIXME
 	    call heatlucia(ta,p,uw,tb,cc,tm,qsens,qlat,qlong,evap)
 	  else if( iheat .eq. 5 ) then
 	    call heatgotm (ta,p,uw,ur,cc,tm,qsens,qlat,qlong,evap)
@@ -400,9 +449,8 @@ c---------------------------------------------------------
             vvb = vprv(1,k)  
 	    call meteo_get_heat_extra(k,dp,uuw,vvw)
             call heatmfsbulk(days,im,ih,ddlon,ddlat,ta,p,uuw,vvw,dp,
-     +                   cc,tm,uub,vvb,qsens,qlat,qlong,evap,qswa,
-     +                   cd)   
-            qss= fice * qswa  !albedo (monthly) already in qshort1 -> qswa  
+     +                   cc,tm,uub,vvb,qsens,qlat,qlong,evap,qswa,cd)   
+            qss= fice_free*qswa  !albedo (monthly) already in qshort1 -> qswa  
             if ( bwind ) windcd(k) = cd   
           else
             write(6,*) 'iheat = ',iheat
@@ -411,10 +459,38 @@ c---------------------------------------------------------
 
 	  if (bdebug) call check_heat(k,tm,qsens,qlat,qlong,evap)
 
-          qrad = - fice * ( qlong + qlat + qsens )
+	  !------------------------------------------------
+	  ! heat transfer from water to ice - qice positive from water to ice
+	  !------------------------------------------------
+
+	  qice = 0.
+	  if( bicecover .and. .not. bice ) then	!ice on node but no ice model
+	    tice = 0.
+	    call getuv(1,k,u,v)
+	    uv = sqrt(u*u+v*v)		!current speed
+	    call ice_water_exchange(tm,tice,uv,qice)
+	    if( .not. bheat ) qice = 0.
+	  end if
+
+	  !------------------------------------------------
+	  ! final heat exchange - qrad, qss, qtot positive from air to sea
+	  !------------------------------------------------
+
+	  qlong = fice_free * qlong
+	  qlat = fice_free * qlat
+	  qsens = fice_free * qsens + fice_cover * qice
+          qrad =  - ( qlong + qlat + qsens )
 	  qtot = qss + qrad
 
+	  !------------------------------------------------
+	  ! distribute short wave radiation to layers and compute heat budget
+	  !------------------------------------------------
+
+	  qsurface = qrad
+
           do l=1,lmax
+	    if( .not. bheat ) cycle	!no heat flux computed
+	    if( buseice ) cycle		!we use heat flux from ice model
             hm = depnode(l,k,mode)
             tm = temp(l,k)
             if (isolp == 0) then  
@@ -434,25 +510,45 @@ c---------------------------------------------------------
               write(6,*) 'Use isolp = 0 (hdecay) or 1 (Jerlov t-I)'
               stop 'error stop qflux3d: isolp'
             end if
-            call heat2t(dt,hm,qss-qsbottom,qrad,tm,tnew)
-            if (bdebug) call check_heat2(k,l,qss,qsbottom,qrad,
+            call heat2t(dt,hm,qss-qsbottom,qsurface,tm,tnew)
+            if (bdebug) call check_heat2(k,l,qss,qsbottom,qsurface,
      +                                   albedo,tm,tnew)
             tnew = max(tnew,tfreeze)
             temp(l,k) = tnew
             albedo = 0.
-            qrad = 0.
+            qsurface = 0.	!different from 0 only in first layer
             qss = qsbottom
           end do
 
 c         ---------------------------------------------------------
-c         Compute sea surface skin temperature
+c         compute sea surface skin temperature
 c         ---------------------------------------------------------
 
 	  tm   = temp(1,k)
 	  hb   = depnode(1,k,mode) * 0.5
           usw  = max(1.e-5, sqrt(sqrt(tauxnv(k)**2 + tauynv(k)**2)))
-          qrad =  -(qlong + qlat + qsens)
 	  call tw_skin(qss,qrad,tm,hb,usw,dt,dtw(k),tws(k))
+
+c         ---------------------------------------------------------
+c         handle ice model
+c         ---------------------------------------------------------
+
+	  if( k == kdebug ) write(444,*) icall,bice,bicecover,buseice
+	  if( bice ) then
+            hm = depnode(1,k,mode)
+            tm = temp(1,k)
+            sm = saltv(1,k)
+	    call get_pe_values(k,r,e,eeff)
+	    r = r * 1000 * 86400	!r is in [m/s] -> convert to [mm/d]
+	    call shyice_run(k,qs,ta,ur,uw,cc,p,r,hm,tm,sm,dt)
+	    if( buseice ) then	!ice on water or bheat == .false.
+              temp(1,k) = tm
+              saltv(1,k) = sm
+	      evap = 0.
+	      dtw(k) = 0.
+	      call shyice_get_tsurf(k,tws(k))
+	    end if
+	  end if
 
 c	  ---------------------------------------------------------
 c	  evap is in [kg/(m**2 s)] -> convert it to [m/s]
@@ -481,6 +577,8 @@ c---------------------------------------------------------
 c special output
 c---------------------------------------------------------
 
+	call shyice_write_output
+
 	k = min(nkn,1000)
 	k = -1
 	if( k .gt. 0 ) then
@@ -493,6 +591,31 @@ c---------------------------------------------------------
 c---------------------------------------------------------
 c end of routine
 c---------------------------------------------------------
+
+	end
+
+c*****************************************************************************
+
+	subroutine ice_water_exchange(tw,ti,uv,qice)
+
+! Li at al.,
+! Heat transfer at ice-water interface under conditions of low flow velocities
+! Journal of Hydrodynamics,2016,28(4):603-609
+! DOI: 10.1016/S1001-6058(16)60664-9
+
+! qice is heat flux [W/m**2] from water to ice (positive)
+
+	implicit none
+
+	real tw,ti
+	real uv
+	real qice
+
+	real, parameter :: rhow = 1000.	!density of water
+	real, parameter :: cw = 4179.6	!specific heat of water
+	real, parameter :: ch = 1.1E-3	!heat transfer coefficient
+
+	qice = rhow*cw*ch*uv*(tw-ti)
 
 	end
 

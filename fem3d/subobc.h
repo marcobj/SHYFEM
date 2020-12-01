@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2013,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -22,6 +22,11 @@
 !    Contributions to this file can be found below in the revision log.
 !
 !--------------------------------------------------------------------------
+
+! revision log :
+!
+! 13.06.2013	ggu	changed VERS_6_1_65
+! 16.02.2019	ggu	changed VERS_7_5_60
 
 	integer ip_iunit		!unit number, -1 for not open
 	integer ip_nintp		!interpolation, 2: linear, 4: cubic

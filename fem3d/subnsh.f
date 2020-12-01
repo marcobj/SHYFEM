@@ -1,7 +1,9 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1994-1995,1997-2020  Georg Umgiesser
+!    Copyright (C) 2008,2010,2014,2018  Christian Ferrarin
+!    Copyright (C) 2016  William McKiver
 !
 !    This file is part of SHYFEM.
 !
@@ -158,6 +160,9 @@ c 18.12.2018	ggu	changed VERS_7_5_52
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
 c 21.05.2019	ggu	changed VERS_7_5_62
+c 06.11.2019	ggu	femtime eliminated
+c 16.02.2020	ggu	femtime finally eliminated
+c 18.03.2020	ggu	admrst() substituted with rst_write_restart()
 c
 c************************************************************
 
@@ -170,12 +175,14 @@ c writes output to terminal or log file
 	implicit none
 
 	include 'modules.h'
-	include 'femtime.h'
 	include 'simul.h'
 
 	character*80 name
         integer nrb,nbc
         integer nkbnd,nbnds
+	integer niter,nits
+	double precision atime0,dtanf,dtend
+	real dt
 	character*20 aline
 
 	if( .not. shympi_is_master() ) return
@@ -193,11 +200,17 @@ c writes output to terminal or log file
 	write(6,*) trim(descrp)
 	write(6,*)
 
+	call get_absolute_ref_time(atime0)
+	call get_first_dtime(dtanf)
+	call get_last_dtime(dtend)
+	call get_orig_timestep(dt)
+	call get_time_iterations(niter,nits)
+
 	call dts_format_abs_time(atime0+dtanf,aline)
-	write(6,*) '     itanf = ',aline
+	write(6,*) '     start time = ',aline
 	call dts_format_abs_time(atime0+dtend,aline)
-	write(6,*) '     itend = ',aline
-	write(6,*) '     idt =   ',idt
+	write(6,*) '     end time   = ',aline
+	write(6,*) '     time step  =   ',dt
 	write(6,*) '     Iterations to go :',nits
 
 	call getfnm('basnam',name)
@@ -370,7 +383,7 @@ c	call wrexta
         call resid
         call rmsvel
 
-        call admrst             !restart
+        call rst_write_restart
 
 c        call tsmed
 	call ts_shell
@@ -670,15 +683,16 @@ c returns actual az
 
 	real azpar
 
-	include 'femtime.h'
+	double precision dtime
 
 	real ampar
 	real getpar
 
+	call get_act_dtime(dtime)
 	azpar=getpar('azpar')
 	ampar=0.			!dummy
 
-	call changeimp(it,azpar,ampar)
+	call changeimp(dtime,azpar,ampar)
 
 	end
 
@@ -695,20 +709,21 @@ c returns actual az,am
 	real azpar
 	real ampar
 
-	include 'femtime.h'
+	double precision dtime
 
 	real getpar
 
+	call get_act_dtime(dtime)
 	azpar=getpar('azpar')
 	ampar=getpar('ampar')
 
-	call changeimp(it,azpar,ampar)
+	call changeimp(dtime,azpar,ampar)
 
 	end
 
 c**********************************************************************
 
-	subroutine changeimp(it,azpar,ampar)
+	subroutine changeimp(dtime,azpar,ampar)
 
 c changes parameters for semi-implicit time-step if necessary
 
@@ -716,10 +731,10 @@ c changes parameters for semi-implicit time-step if necessary
 
 	implicit none
 
-	integer it
+	double precision dtime
 	real azpar,ampar
 
-	if( binit .and. it .le. dtimpl ) then
+	if( binit .and. dtime .le. dtimpl ) then
 	  azpar = weight
 	  ampar = weight
 	end if
@@ -728,7 +743,7 @@ c changes parameters for semi-implicit time-step if necessary
 
 c**********************************************************************
 
-	subroutine setimp(it,aweigh)
+	subroutine setimp(dtime,aweigh)
 
 c sets parameters for semi-implicit time-step
 
@@ -736,10 +751,10 @@ c sets parameters for semi-implicit time-step
 
 	implicit none
 
-	integer it
+	double precision dtime
 	real aweigh
 
-	dtimpl = it
+	dtimpl = dtime
 	weight = aweigh
 
 	write(6,*) 'implicit parameters changed: ',dtimpl,weight

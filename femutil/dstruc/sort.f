@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2018-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -32,6 +32,11 @@
 !
 !	array can be integer or real
 !
+! revision log :
+!
+! 24.01.2018	ggu	changed VERS_7_5_41
+! 14.02.2019	ggu	changed VERS_7_5_56
+
 !==============================================================
 	module sort
 !==============================================================

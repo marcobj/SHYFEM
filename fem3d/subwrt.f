@@ -1,7 +1,9 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2011-2012,2014-2019  Georg Umgiesser
+!    Copyright (C) 2012  Debora Bellafiore
+!    Copyright (C) 2014  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -73,6 +75,7 @@ c 16.02.2019	ggu	changed VERS_7_5_60
 c 12.03.2019	ggu	bug fix if no custom data is given (only idtwrt)
 c 29.04.2019	ggu	fix computation for too low concentrations (climit)
 c 21.05.2019	ggu	changed VERS_7_5_62
+c 22.09.2020    ggu     correct warnings for PGI compiler
 c
 c******************************************************************
 c Parameters to be set in section $wrt of the parameter input file
@@ -1056,7 +1059,7 @@ c resstd	standard deviation of renewal time
 
 	double precision, save :: remint,remlog,remtim
 	double precision, save :: rsum,rsumsq
-	real, parameter :: rlimit = 999999.
+	double precision, parameter :: rlimit = 999999.
 	real, parameter :: rsecs = 86400.
 	integer, save :: ndata = 0
 

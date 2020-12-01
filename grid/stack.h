@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1995  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -25,14 +25,15 @@
 
 
 
-/************************************************************************\ 
- *									*
- * stack.h - stack table administration routines                        *
- *									*
- * Revision History:							*
- * 11-Aug-95: Stacktable_type renamed in StackTable                     *
- * 25-Jul-95: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * stack.h - stack table administration routines
+ *
+ * revision log :
+ *
+ * 25.07.1995	ggu	routines written from scratch
+ * 11.08.1995	ggu	Stacktable_type renamed in StackTable
+ *
 \************************************************************************/
 
 

@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2017-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -213,6 +213,7 @@
 	    if( id1 /= ic .and. id2 /= ic ) cycle
 	    if( id0 /= my_id .and. id0 /= ic ) then	!special element
 	      if( ies > 0 ) then
+		write(*,*)my_id,ic,' (',id0,id1,id2,') ; ', nc,ie,ies
 	        stop 'error stop make_ghost: internal error (11)'
 	      end if
 	      ies = ie
@@ -526,7 +527,7 @@
 	call shympi_check_array(nkn,num_nodes,ipv,'ghost ipv')
 	call shympi_check_array(nel,num_elems,ipev,'ghost ipev')
 
-	write(6,*) 'finished exchange...'
+	write(6,*) 'ghost_exchange: finished exchange...',my_id
 
 	end
 

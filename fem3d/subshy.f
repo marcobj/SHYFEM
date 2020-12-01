@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2015-2020  Georg Umgiesser
+!    Copyright (C) 2018  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -56,6 +57,7 @@
 ! 12.07.2019	ggu	some changes to shy_info()
 ! 13.09.2019	ggu	error handling in shy_peek_record
 ! 17.10.2019	ggu	introduced nvar_act
+! 28.01.2020	ggu	utility code to change npr
 !
 !**************************************************************
 !**************************************************************
@@ -773,6 +775,20 @@
 	integer ftype
 	pentry(id)%ftype = ftype
 	end subroutine shy_set_ftype
+
+!************************************************************
+
+	subroutine shy_get_npr(id,npr)
+	integer id
+	integer npr
+	npr = pentry(id)%npr
+	end subroutine shy_get_npr
+
+	subroutine shy_set_npr(id,npr)
+	integer id
+	integer npr
+	pentry(id)%npr = npr
+	end subroutine shy_set_npr
 
 !************************************************************
 

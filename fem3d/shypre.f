@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1988,1990,1994-1998,2001,2005,2009  Georg Umgiesser
+!    Copyright (C) 2011-2013,2015-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -64,6 +65,8 @@ c 13.04.2018	ggu	accepts partition to write bas file with node partition
 c 16.10.2018	ggu	changed VERS_7_5_50
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
+c 21.05.2020    ggu     better handle copyright notice
+c 13.07.2020    ggu     honor noopti flag, stack poisoning eliminated
 c
 c notes :
 c
@@ -481,6 +484,7 @@ c--------------------------------------------------------
 c process partitions
 c--------------------------------------------------------
 
+	if( bwrite ) write(6,*) 'handle_partition: ',nkn,nel
 	call handle_partition(nkn,nel,kphv,ierank)
 
 c--------------------------------------------------------
@@ -984,9 +988,13 @@ c optimize band width
         integer ng(nkn)
         integer iknot(ngr1,nkn)
         integer kvert(2,nkn)
-	logical bwrite
+	logical bwrite,bloop
 
 	integer iantw
+
+	call ininum(nkn,iphv,kphv)
+
+	if( .not. bopti ) return
 
 	if( bauto ) then
 	  call ininum(nkn,iphv,kphv)
@@ -1000,7 +1008,9 @@ c optimize band width
 	  return
 	end if
 
-        do while( bopti )
+	bloop = .true.
+
+        do while( bloop )
 	  call ininum(nkn,iphv,kphv)
 
 c	  call anneal(nkn,ngr1,kphv,ng,iknot,iphv,kvert)
@@ -1017,7 +1027,7 @@ c	  call anneal(nkn,ngr1,kphv,ng,iknot,iphv,kvert)
             call rosen(nkn,ngr1,iphv,kphv,ng,iknot,kvert,bwrite)
 	  end if
 
-	  bopti = iantw(' Repeat optimization of bandwidth ?') .gt. 0
+	  bloop = iantw(' Repeat optimization of bandwidth ?') .gt. 0
         end do
 
 	bopti = .true.
@@ -1143,7 +1153,9 @@ c copy one array to itself exchanging elements as in irank
         integer irank(n)
 
         integer i
-	integer iauxv(n)
+	integer, allocatable :: iauxv(:)
+
+	allocate(iauxv(n))
 
         do i=1,n
           iauxv(i)=iv(i)
@@ -1169,7 +1181,9 @@ c copy one array to itself exchanging elements as in irank
         integer irank(n)
 
         integer i
-	real rauxv(n)
+	real, allocatable :: rauxv(:)
+
+	allocate(rauxv(n))
 
         do i=1,n
           rauxv(i)=rv(i)
@@ -1564,8 +1578,8 @@ c**********************************************************
 
 	logical bnepart,bgrd
 	integer nnpart,nepart
-	integer area_node(nn)
-	integer area_elem(ne)
+	integer, allocatable :: area_node(:)
+	integer, allocatable :: area_elem(:)
 
 	integer i
 	character*80 grdfile
@@ -1580,6 +1594,9 @@ c**********************************************************
 	  write(6,*) 'only one of -partition and -nepart can be given'
 	  stop 'error stop handle_partition: options'
 	end if
+
+	allocate(area_node(nn))
+	allocate(area_elem(ne))
 
 	if( bgrd ) then
 	  write(6,*) 'reading partitioning file ',trim(grdfile)
@@ -1600,8 +1617,6 @@ c**********************************************************
           call icopy(nn,area_node,knrank)
           call icopy(ne,area_elem,ierank)
 	end if
-
-	write(6,*) 'partitioning set: ',nnpart,nepart
 
 	call basin_set_partition(nn,ne,nnpart,nepart,area_node,area_elem)
 
@@ -1635,7 +1650,7 @@ c**********************************************************
 	  return
 	end if
 
-	if( nmax < 0 ) then
+	if( nmin < 0 .or. nmax < 0 ) then
 	  write(6,*) nmin,nmax
 	  stop 'error stop renumber_partition: nmin,nmax'
 	end if
@@ -1658,15 +1673,6 @@ c**********************************************************
 	  end if
 	end do
 	npart = imax
-
-	!write(6,*) 'nmax: ',nmax,npart
-	!write(6,*) table_in
-	!write(6,*) table_out
-
-	!if( imax /= nmax ) then
-	!  write(6,*) nmin,nmax
-	!  stop 'error stop renumber_partition: internal error (1)'
-	!end if
 
 	do i=1,n
 	  ia = area(i)
@@ -1716,16 +1722,17 @@ c**********************************************************
         call clo_get_option('noopti',bnoopti)
         call clo_get_option('manual',bmanual)
 
-	call clo_check_files(1)
-	call clo_get_file(1,grdfile)
-
 	bopti = .not. bnoopti
 	bauto = .not. bmanual
 	if( bsilent ) bquiet = .true.
 
-	if( .not. bquiet ) then
+	call shyfem_set_short_copyright(bquiet)
+	if( .not. bsilent ) then
           call shyfem_copyright('shypre - pre-processing of GRD grid')
 	end if
+
+	call clo_check_files(1)
+	call clo_get_file(1,grdfile)
 
 	end
 

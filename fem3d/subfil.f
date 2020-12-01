@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1998,2001,2008-2010,2012,2014-2015  Georg Umgiesser
+!    Copyright (C) 2018-2020  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -54,6 +55,7 @@ c 30.04.2015	ggu	changed VERS_7_1_9
 c 26.04.2018	ggu	changed VERS_7_5_46
 c 16.10.2018	ggu	changed VERS_7_5_50
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 03.03.2020	ggu	better error messaging, if error return -1
 c
 c********************************************************
 
@@ -115,13 +117,13 @@ c iunit < 0 does not complain if not existing
 	integer iunit
 	character*(*) file,format,status
 
-	integer iu,nfile,ios
+	integer iu,nfile,ios,iuaux
 	logical found,error,opened,ex,od,bquiet
 	character*1 cf,cs
 	character*15 form,stat,access
 
 	external ichanm0
-	integer ichanm0
+	integer ichanm0,ifilun
 
         integer iustd
         save iustd
@@ -197,7 +199,7 @@ c open file and check error
 c----------------------------------------------------------------
 
 	if(found) then
-          	open(	 unit=iu
+          open(	 unit=iu
      +			,file=file
      +			,form=form
      +			,status=stat
@@ -207,19 +209,22 @@ c----------------------------------------------------------------
 	  if(ios.ne.0) then
 	    nfile=ichanm0(file)
 	    if(nfile.le.0) nfile=1
-	        write(6,*) 'error opening file : '
+	    write(6,*) 'error opening file : '
      +				,file(1:nfile)
-		write(6,*) 'unit : ',iu,'  iostat : ',ios
-		write(6,*) 'error : ',mod(ios,256)
-		inquire(file=file,opened=opened)
-		if( opened ) then
-		  write(6,*) '...the file is already open...'
-		  write(6,*) 'If you are using gfortran or pgf90'
-		  write(6,*) 'please remember that you can open'
-		  write(6,*) 'a file only once. You will have to'
-		  write(6,*) 'copy the file to files with different'
-		  write(6,*) 'names and open these files instead'
-		end if
+	    write(6,*) 'unit : ',iu,'  iostat : ',ios
+	    write(6,*) 'error : ',mod(ios,256)
+	    inquire(file=file,opened=opened)
+	    if( opened ) then
+	      write(6,*) '...the file is already open...'
+	      write(6,*) 'If you are using gfortran or pgf90'
+	      write(6,*) 'please remember that you can open'
+	      write(6,*) 'a file only once. You will have to'
+	      write(6,*) 'copy the file to files with different'
+	      write(6,*) 'names and open these files instead'
+	      iuaux = ifilun(file)
+	      write(6,*) iuaux,'  ',trim(file)
+	    end if
+	    ifileo=-1
 	  else
 		rewind(iu)
 		ifileo=iu

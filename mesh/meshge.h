@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1995,1997,2011  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -25,16 +25,17 @@
 
 
 /************************************************************************\
- *									*
- * meshge.h - geometric routines for mesh				*
- *									*
- * Revision History:							*
- * 05-Dec-2011: new general routines					*
- * 17-Oct-97: new routine TurnClosedLine()                              *
- * 16-Oct-97: new routine FindElement()                                 *
- * 15-Oct-97: new routine InClosedLine()                                *
- * 01-Aug-95: routines written from scratch				*
- *									*
+ *
+ * meshge.h - geometric routines for mesh
+ *
+ * revision log :
+ *
+ * 01.08.1995	ggu	routines written from scratch
+ * 15.10.1997	ggu	new routine InClosedLine()
+ * 16.10.1997	ggu	new routine FindElement()
+ * 17.10.1997	ggu	new routine TurnClosedLine()
+ * 05.12.2011	ggu	new general routines
+ *
 \************************************************************************/
 
 

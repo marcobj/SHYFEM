@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1992,1994  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,14 +24,15 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * pcalp.c - Calcomp emulation under Fortran (deprecated)		*
- *									*
- * Revision History:							*
- * 06-Apr-94: copyright notice added to file				*
- * ..-...-92: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * pcalp.c - Calcomp emulation under Fortran (deprecated)
+ *
+ * revision log :
+ *
+ * 01.01.1992	ggu	routines written from scratch
+ * 06.04.1994	ggu	copyright notice added to file
+ *
 \************************************************************************/
 
 

@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 2003  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,13 +24,14 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * colorutil.h - color utilities for color space conversions		*
- *									*
- * Revision History:							*
- * 18-Aug-2003	adapted for use in psgraph				*
- *									*
+/************************************************************************\
+ *
+ * colorutil.h - color utilities for color space conversions
+ *
+ * revision log :
+ *
+ * 18.08.2003	ggu	adapted for use in psgraph
+ *
 \************************************************************************/
 
 

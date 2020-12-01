@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2014-2020  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -90,6 +90,9 @@
 ! 14.02.2019	ggu	changed VERS_7_5_56
 ! 16.02.2019	ggu	changed VERS_7_5_60
 ! 21.05.2019	ggu	changed VERS_7_5_62
+! 18.12.2019	ggu	if dtime is absolute do not transform
+! 03.02.2020	ggu	cleaned, new routine call iff_write_dtime()
+! 14.02.2020	ggu	new utility routine iff_file_exists()
 !
 !****************************************************************
 !
@@ -442,6 +445,7 @@
 
 	integer nvar
 
+	if( id <= 0 ) return
 	nvar = pinfo(id)%nvar
 	if( ivar < 1 .or. ivar > nvar ) goto 99
 
@@ -462,6 +466,7 @@
 	integer ibc
 	character*(*) string
 
+	if( id <= 0 ) return
 	pinfo(id)%ibc = ibc
 	pinfo(id)%descript = string
 
@@ -764,7 +769,7 @@
 	if( bdebug ) then
 	  write(6,*) 'iff_init opened file: ',trim(file)
 	  write(6,*) id,iunit
-	  write(6,*) dtime
+	  call iff_write_dtime('time',dtime)
 	end if
 
 	if( iunit < 0 ) goto 99
@@ -876,6 +881,29 @@ c coputes number of variables in file
 
 !****************************************************************
 
+	subroutine iff_file_exists(file,bexist)
+
+c checks if file exists and is a fem/ts file
+
+	character*(*) file
+	logical bexist
+
+	integer np,nvar,ntype,iformat
+	logical bverb
+
+	bverb = .false.
+
+	bexist = .false.
+	if( file == ' ' ) return
+
+	call iff_get_file_info(file,bverb,np,nvar,ntype,iformat)
+
+	bexist = ( iformat >= 0 )
+
+	end subroutine iff_file_exists
+
+!****************************************************************
+
 	subroutine iff_get_file_info(file,bverb,np,nvar,ntype,iformat)
 
 c coputes info on type of file
@@ -915,8 +943,9 @@ c	 3	time series
 
 	if( nvar > 0 ) then
 	  if( bverb ) then
-	    write(6,*) 'file is fem file with format: ',iformat
-	    write(6,*) file(1:il)
+	    write(6,'(a,i2,a)') 'file is fem file (format='
+     +                  ,iformat,   '): '//trim(file)
+	    !write(6,*) file(1:il)
 	  end if
 	else
 	  call ts_get_file_info(file,nvar)
@@ -979,9 +1008,7 @@ c	 3	time series
 	integer id
 	double precision dtime0
 
-	!integer it,it2,idt,its,itold
 	double precision dtime,dtime2
-	!double precision dtimes,ddt
 	double precision dtimefirst,dtimelast
 	integer nintp,i
 	logical bok,bts
@@ -996,21 +1023,6 @@ c	 3	time series
 
 	if( bok ) then				!at least two records
 		call iff_assert(nintp > 0,'nintp<=0')
-
-                !ddt = dtime2 - dtime
-                !if( ddt <= 0 ) goto 98
-                !dtimes = dtime0 - nintp*ddt	!first record needed
-		!if( dtime0 == -1 ) dtimes = dtime	!just take first
-
-		!dtimeold = dtime
-                !do while( dtime < dtimes )
-                !        bok = iff_read_next_record(id,dtime)
-                !        if( .not. bok ) goto 97
-		!	ddt = dtime - dtimeold	!if time step changes
-                !	if( ddt <= 0 ) goto 98
-		!	dtimes = dtime0 - nintp*ddt
-		!	dtimeold = dtime
-                !end do
 
 	        do
 		  if( dtime0 == -1. ) exit	! no real time given
@@ -1050,8 +1062,8 @@ c	 3	time series
    91	continue
 	call iff_print_file_info(id)
 	write(6,*) 'cannot find time records'
-	write(6,*) 'looking for it = ',dtime0
-	write(6,*) 'first time found = ',dtimefirst
+	call iff_write_dtime('looking for time = ',dtime0)
+	call iff_write_dtime('first time found = ',dtimefirst)
 	stop 'error stop iff_populate_records: no time record found'
    96	continue
 	call iff_print_file_info(id)
@@ -1060,15 +1072,14 @@ c	 3	time series
 	stop 'error stop iff_populate_records: not enough records'
    97	continue
 	call iff_print_file_info(id)
-	write(6,*) 'cannot find time record'
-	!write(6,*) 'looking at least for it = ',dtimes
-	write(6,*) 'looking for it = ',dtime0
-	write(6,*) 'last time found it = ',dtime
+	write(6,*) 'cannot find time records'
+	call iff_write_dtime('looking for time = ',dtime0)
+	call iff_write_dtime('last time found = ',dtime)
 	stop 'error stop iff_populate_records: not enough records'
    98	continue
 	call iff_print_file_info(id)
 	write(6,*) 'time step less than 0'
-	write(6,*) 'this happens at it = ',dtime
+	call iff_write_dtime('this happens at time = ',dtime)
 	stop 'error stop iff_populate_records: time step <= 0'
    99	continue
 	call iff_print_file_info(id)
@@ -1402,14 +1413,14 @@ c	 3	time series
 	return
    98	continue
 	write(6,*) 'string description has changed for var ',i
-	write(6,*) 'time: ',dtime
+	call iff_write_dtime('time: ',dtime)
 	write(6,*) 'old: ',pinfo(id)%strings_file(i)
 	write(6,*) 'new: ',string
 	call iff_print_file_info(id)
 	stop 'error stop iff_read_data'
    99	continue
 	write(6,*) 'error reading data: ',ierr
-	write(6,*) 'time: ',dtime
+	call iff_write_dtime('time: ',dtime)
 	call iff_print_file_info(id)
 	stop 'error stop iff_read_data'
 	end subroutine iff_read_data
@@ -1523,7 +1534,8 @@ c interpolates in space all variables in data set id
 
 	if( bdebug ) then
 	  write(6,*) 'iff_space_interpolate: data ---------------'
-	  write(6,*) np,dtime
+	  write(6,*) np
+	  call iff_write_dtime('time = ',dtime)
 	  do j=1,nintp
 	    write(6,*) 'iintp = ',j
 	    do ivar=1,nvar
@@ -2492,6 +2504,7 @@ c does the final interpolation in time
 	integer datetime(2)		!reference date of fem_file
 	double precision dtime		!relative time of fem_file
 
+	logical dts_is_atime
 	double precision atime0
 
 	if( datetime(1) <= 0 ) return		!nothing to adjust
@@ -2503,9 +2516,12 @@ c does the final interpolation in time
 	  stop 'error stop iff_adjust_datetime: date'
 	end if
 
-	call dts_to_abs_time(datetime(1),datetime(2),atime0)
-
-	dtime = dtime + atime0 - atime0_fem
+	if( dts_is_atime(dtime) ) then
+	  dtime = dtime - atime0_fem
+	else
+	  call dts_to_abs_time(datetime(1),datetime(2),atime0)
+	  dtime = dtime + atime0 - atime0_fem
+	end if
 
 	end subroutine iff_adjust_datetime
 
@@ -2840,6 +2856,23 @@ c opens file and inititializes array - simplified version
 	integer date,time
 
 	call iff_init_global_date_internal(date,time)
+
+	end
+
+!****************************************************************
+
+	subroutine iff_write_dtime(string,dtime)
+
+	implicit none
+
+	character*(*) string
+	double precision dtime
+
+	character*20 aline
+
+	call get_timeline(dtime,aline)
+
+	write(6,*) trim(string),dtime,'  ',aline
 
 	end
 

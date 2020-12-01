@@ -2,7 +2,7 @@
 #
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -17,7 +17,7 @@ Proc()
 {
   ./femdoc.pl $1
   if [ $? -ne 0 ]; then
-    echo "*** Error in processing file $1"
+    echo "*** (femdoc.pl) Error in processing file $1"
     exit 1
   fi
 }

@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1995,1997  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -25,13 +25,14 @@
 
 
 /************************************************************************\
- *									*
- * meshin.h - node insert routines for mesh				*
- *									*
- * Revision History:							*
- * 08-Oct-97: new routine prototypes InsertNodes(), GivenNodes()        *
- * 01-Aug-95: routines written from scratch				*
- *									*
+ *
+ * meshin.h - node insert routines for mesh
+ *
+ * revision log :
+ *
+ * 01.08.1995	ggu	routines written from scratch
+ * 08.10.1997	ggu	new routine prototypes InsertNodes(), GivenNodes()
+ *
 \************************************************************************/
 
 

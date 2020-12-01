@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1996,2001,2010,2014-2015,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -50,12 +50,6 @@ c******************************************************************
 
 	implicit none
 
-c parameter
-	include 'param.h'
-c common
-	include 'femtime.h'
-
-
 	real umax,dz,fact
 	integer ie,l,last,iex
 	integer ichange
@@ -88,4 +82,6 @@ c common
 
 	return
 	end
+
+c******************************************************************
 

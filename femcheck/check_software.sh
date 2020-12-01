@@ -2,13 +2,13 @@
 
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
 #------------------------------------------------------------------------
 
-log=CHECKLOG
+log=CHECKLOG.tmp
 rm -f $log
 
 missing=""
@@ -73,7 +73,30 @@ CleanUp()
 	[ -f a.out ] && rm -f a.out
 }
 
+Exists() 
+{
+  command -v "$1" >/dev/null 2>&1
+}
+
 #---------------------------------------------------
+
+CheckMpiCompiler()
+{
+  local missing_save=$missing
+
+  CheckCommand mpi_compiler "mpif90 -v" "" "quiet"
+  [ $status -eq 0 ] && mpi_available="$mpi_available mpif90"
+
+  if [ -n "$mpi_available" ]; then
+    echo "... the following Mpi compilers are available:"
+    echo "          ${green}$mpi_available${normal}"
+  else
+    echo "*** ${red}No Mpi compiler found${normal}"
+    echo "    ... please install a Mpi compiler if you want to run in MPI"
+    echo "    (on debian the packages may be: openmpi-bin)"
+    missing_save="$missing_save mpif90"
+  fi
+}
 
 CheckFortranCompiler()
 {
@@ -122,28 +145,49 @@ CheckNetcdf()
   netcdf=`GetMacro NETCDF`
   netcdfdir=`GetMacro NETCDFDIR`
 
+  local debug=1
+  local nfconfig=0
+  local ncdump=0
+
   #echo "netcdf: $netcdf $netcdfdir    $fortran"
 
   [ -z "$fortran" ] && return		# no fortran compiler
   #[ "$netcdf" != "true" ] && return	# no netcdf requested
-  command -v nf-config >/dev/null 2>&1 || return  # no netcdff
+  Exists nf-config && nfconfig=1
+  Exists ncdump && ncdump=1
 
-  #if [ -f $netcdfdir/lib/libnetcdff.a ]; then
-  #  netcdflib=$netcdfdir/lib
-  #elif [ -f $netcdfdir/lib/x86_64-linux-gnu/libnetcdff.a ]; then
-  #  netcdflib=$netcdfdir/lib/x86_64-linux-gnu/
-  #else
-  #  netcdflib=$netcdfdir
-  #fi
+  if [ $debug -eq 1 ]; then
+    echo "checking netcdf: $nfconfig $ncdump"
+    ncdump=0
+  fi
 
-  CheckCommand netcdf \
+  if [ -f $netcdfdir/lib/libnetcdff.a ]; then
+    netcdflib=$netcdfdir/lib
+  elif [ -f $netcdfdir/lib/x86_64-linux-gnu/libnetcdff.a ]; then
+    netcdflib=$netcdfdir/lib/x86_64-linux-gnu/
+  else
+    netcdflib=$netcdfdir
+  fi
+
+  if [ $nfconfig -eq 1 ]; then
+    CheckCommand netcdf \
 	"$fortran test.f  $(nf-config --flibs) $(nf-config --fflags)"
-
-	#"$fortran -L$netcdflib -I$netcdfdir/include -lnetcdff test.f"
+  elif [ $ncdump -eq 1 ]; then
+    CheckCommand netcdf \
+	"$fortran -L$netcdflib -I$netcdfdir/include -lnetcdff test.f"
+  else
+    CheckCommand netcdf false
+  fi
 
   if [ $status -ne 0 ]; then
     RecommendPackageFull "netcdf package" \
 	libnetcdf-dev libnetcdff-dev netcdf-bin
+    echo "      If you have installed netcdf maybe the libraries cannot be found."
+    echo "      Please also try one of the following commands:"
+    echo "        ldconfig -p | grep libnetcdff"
+    echo "        whereis libnetcdff"
+    echo "        locate libnetcdff.a"
+
   fi
 }
 
@@ -213,6 +257,7 @@ echo
 echo "... ${bold}checking Fortran compilers (needed)${normal}"
 
 CheckFortranCompiler
+CheckMpiCompiler
 
 echo
 echo "... ${bold}checking c compiler and X11 (needed)${normal}"

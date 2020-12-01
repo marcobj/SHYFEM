@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1995,1997  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,14 +24,15 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * gridky.c - routines for keyboard input                               *
- *									*
- * Revision History:							*
- * 19-Nov-97: new routines SetKeyboardString(), AppendKeyboardString()  *
- * 04-Feb-95: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * gridky.c - routines for keyboard input
+ *
+ * revision log :
+ *
+ * 04.02.1995	ggu	routines written from scratch
+ * 19.11.1997	ggu	new routines SetKeyboardString(), AppendKeyboardString()
+ *
 \************************************************************************/
 
 

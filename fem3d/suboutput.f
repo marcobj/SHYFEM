@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1997-2012,2014-2017,2019-2020  Georg Umgiesser
+!    Copyright (C) 2008,2010,2014  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -96,6 +97,7 @@ c 04.11.2015	ggu	allow for initial output in adjust_itmidt()
 c 11.10.2016	ggu	changed VERS_7_5_20
 c 31.03.2017	ggu	changed VERS_7_5_24
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 22.04.2020	ggu	write text for info_output
 c
 c************************************************************
 c
@@ -289,24 +291,25 @@ c checks if time has come for output
 
 c********************************************************************
 
-	subroutine info_output(ia_out)
+	subroutine info_output(text,ia_out)
 
 c writes info on ia_output
 
 	implicit none
 
+	character*(*) text
 	integer ia_out(4)
 
 	include 'femtime.h'
 
 	logical has_output,next_output
 
-	write(6,*) '------ info_output start------'
+	write(6,*) '------ '//trim(text)//' info_output start ------'
 	write(6,*) ia_out
 	write(6,*) it
 	write(6,*) has_output(ia_out)
 	write(6,*) next_output(ia_out)
-	write(6,*) '------ info_output end ------'
+	write(6,*) '------ '//trim(text)//' info_output end ------'
 
 	end
 

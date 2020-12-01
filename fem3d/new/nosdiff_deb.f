@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2010,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -28,6 +28,13 @@ c 06.04.1999    ggu     some cosmetic changes
 c 03.12.2001    ggu     some extra output -> place of min/max
 c 09.12.2003    ggu     check for NaN introduced
 c
+c**************************************************************
+
+! revision log :
+!
+! 23.03.2010	ggu	changed v6.1.1
+! 16.02.2019	ggu	changed VERS_7_5_60
+
 c**************************************************************
 
 	program nosdiff

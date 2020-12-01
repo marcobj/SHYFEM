@@ -1,7 +1,9 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2016,2018-2020  Georg Umgiesser
+!    Copyright (C) 2016,2019  Erik Pascolo
+!    Copyright (C) 2016  Leslie Aveytua
 !
 !    This file is part of SHYFEM.
 !
@@ -30,7 +32,7 @@
 ! 22.02.2016	ggu&erp	new bfm routines created from newconz
 ! 22.03.2016	ggu	changed VERS_7_5_6
 ! 06.06.2016	ggu	initialization from file changed
-! 09.06.2016 	leslie	modified (Search LAA)
+! 09.06.2016 	laa	modified (Search LAA)
 ! 10.06.2016	ggu	changed VERS_7_5_13
 ! 17.06.2016	ggu	changed VERS_7_5_15
 ! 28.06.2016	ggu	initialize bfmv, new routine bfm_check()
@@ -40,6 +42,7 @@
 ! 13.03.2019	ggu	changed VERS_7_5_61
 ! 01.05.2019	erp	restructured for new BFM
 ! 17.10.2019	ggu	restructured and adapted
+! 09.04.2020	ggu	new routine bfm_run()
 
 !==================================================================
         module mod_bfm
@@ -69,6 +72,7 @@
         integer, save :: icall_bfm = 0
         integer, save :: ninfo_bfm = 0
 
+        logical, private, save :: bdebug = .false.
         logical, save :: binfo_bfm = .true.
 
         real, save :: cref,rkpar,difmol
@@ -123,6 +127,31 @@ c*********************************************************************
 c*********************************************************************
 c*********************************************************************
 
+	subroutine bfm_run
+      
+	implicit none
+      
+	if( ibfm < 0 ) return
+
+	if( bdebug ) write(6,*) 'starting bfm_run'
+
+	if( bdebug ) write(6,*) 'running bfm_compute'
+        call bfm_compute
+
+	if( bdebug ) write(6,*) 'running bfm_reactor'
+        call bfm_reactor
+
+	if( bdebug ) write(6,*) 'running bfm_write_output_file'
+        call bfm_write_output_file
+
+	if( bdebug ) write(6,*) 'finished bfm_run'
+
+	end subroutine bfm_run
+
+c*********************************************************************
+c*********************************************************************
+c*********************************************************************
+
 	subroutine bfm_init
 
 c initializes bfm computation
@@ -156,7 +185,7 @@ c-------------------------------------------------------------
 
 	  bfmv = 0.
 
-          write(6,*) 'bfm initialized: ',ibfm,nkn,nlvdi
+          write(6,*) 'bfm initialized: ',ibfm,ibfm_state,nkn,nlvdi
         end if
 
 c-------------------------------------------------------------
@@ -393,6 +422,8 @@ c*********************************************************************
       
       implicit none
       
+      if( ibfm < 0 ) return
+
       call bfm_reactor_internal
 
       end subroutine bfm_reactor

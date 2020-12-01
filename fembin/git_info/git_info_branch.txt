@@ -1,7 +1,7 @@
 
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -42,3 +42,5 @@ git commit
 git stash list
 git stash drop
 
+git diff branch1..branch2		#compares head of two branches
+git diff branch1...branch2		#compares head of branch2 with ancestor

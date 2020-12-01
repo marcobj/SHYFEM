@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 2003  Georg Umgiesser
+!    Copyright (C) 2003,2010,2015,2018-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -104,10 +104,8 @@ c eliminates high grades by switching diagonal
 
 	if( k .gt. nkn ) return
 
+	bdebug = .true.
 	bdebug = .false.
-c	if( k .eq. 543 ) bdebug = .true.
-c	if( k .eq. 2643 ) bdebug = .true.
-c	if( k .eq. 554 ) bdebug = .true.
 
 c make circular list
 

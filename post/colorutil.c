@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 2003  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,14 +24,15 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * colorutil.c - color utilities for color space conversion		*
- *									*
- * Revision History:							*
- * 18-Aug-2003	bug fix in hsv2rgb -> i=i%6 after other statements	*
- * 18-Aug-2003	adapted for use in psgraph				*
- *									*
+/************************************************************************\
+ *
+ * colorutil.c - color utilities for color space conversion
+ *
+ * revision log :
+ *
+ * 18.08.2003	ggu	adapted for use in psgraph
+ * 18.08.2003	ggu	bug fix in hsv2rgb -> i=i%6 after other statements
+ *
 \************************************************************************/
 
 

@@ -1,7 +1,9 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1998-1999,2001,2003,2007-2008,2010  Georg Umgiesser
+!    Copyright (C) 2015-2020  Georg Umgiesser
+!    Copyright (C) 2020  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -47,6 +49,8 @@ c 17.11.2017	ggu	changed VERS_7_5_38
 c 22.02.2018	ggu	changed VERS_7_5_42
 c 03.04.2018	ggu	changed VERS_7_5_43
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 06.03.2020	ggu	check for time step
+c 27.04.2020	ggu&ccf	bug fix for handling time step
 c
 c**************************************************************
 
@@ -77,7 +81,7 @@ c elaborates flx file
 	integer, allocatable :: naccu(:)
 	double precision, allocatable :: accum(:,:,:)
 
-	logical b3d
+	logical b3d,btskip,bfirstrec
 	integer nread,nelab,nrec,nin,nout
 	integer nvers
 	integer nknnos,nelnos,nvar
@@ -304,7 +308,8 @@ c--------------------------------------------------------------
          if(ierr.ne.0) exit
 
 	 nread = nread + 1
-	 if( ivar == ivarfirst ) then
+	 bfirstrec = ( ivar == ivarfirst )
+	 if( bfirstrec ) then
 	   nrec = nrec + 1
 	   iv = 0
 	 end if
@@ -313,6 +318,9 @@ c--------------------------------------------------------------
 	 atlast = atime
 	 call flx_peek_record(nin,nvers,atnew,ivarnew,ierr)
 	 if( ierr .ne. 0 ) atnew = atime
+
+         if( bfirstrec ) call handle_timestep(atime,bcheckdt,btskip)
+         if( btskip ) cycle
 
          if( elabtime_over_time(atime,atnew,atold) ) exit
          if( .not. elabtime_in_time(atime,atnew,atold) ) cycle
@@ -387,6 +395,9 @@ c--------------------------------------------------------------
           write(6,*) 'first time record: ',dline
 	  call dts_format_abs_time(atlast,dline)
           write(6,*) 'last time record:  ',dline
+
+          call handle_timestep_last(bcheckdt)
+
 	  write(6,*)
 	  write(6,*) nread,' data records read'
 	  write(6,*) nrec ,' time records read'

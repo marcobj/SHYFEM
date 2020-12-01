@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1997-2012,2014-2020  Georg Umgiesser
+!    Copyright (C) 2008,2010,2014  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -98,6 +99,8 @@ c 06.07.2018	ggu	changed VERS_7_5_48
 c 03.10.2018	ggu	some instances of itanf and itend eliminated
 c 16.10.2018	ggu	changed VERS_7_5_50
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 06.02.2020	ggu	new function function is_first_output_d()
+c 22.04.2020    ggu     write text for info_output
 c
 c info :
 c
@@ -220,7 +223,24 @@ c checks if output phase has started (it > itmout)
 
 	include 'femtime.h'
 
-	is_over_output_d = t_act > da_out(2)
+	is_over_output_d = ( t_act > da_out(2) )
+
+	end
+
+c********************************************************************
+
+	function is_first_output_d(da_out)
+
+c checks if we are at starting of output (it == itmout)
+
+	implicit none
+
+	logical is_first_output_d
+	double precision da_out(4)
+
+	include 'femtime.h'
+
+	is_first_output_d = ( t_act == da_out(2) )
 
 	end
 
@@ -237,7 +257,7 @@ c checks if we arrived at output phase (it >= itmout)
 
 	include 'femtime.h'
 
-	is_in_output_d = t_act >= da_out(2)
+	is_in_output_d = ( t_act >= da_out(2) )
 
 	end
 
@@ -252,7 +272,7 @@ c checks if variable has any output at all
 	logical has_output_d
 	double precision da_out(4)
 
-	has_output_d = da_out(1) > 0	!idtout > 0
+	has_output_d = ( da_out(1) > 0 )	!idtout > 0
 
 	end
 
@@ -289,12 +309,13 @@ c checks if time has come for output
 
 c********************************************************************
 
-	subroutine info_output_d(da_out)
+	subroutine info_output_d(text,da_out)
 
 c writes info on da_output
 
 	implicit none
 
+	character*(*) text
 	double precision da_out(4)
 
 	include 'femtime.h'
@@ -303,7 +324,7 @@ c writes info on da_output
 	double precision dtime,atime
 	character*20 aline
 
-	write(6,*) '------ info_output start------'
+	write(6,*) '------ '//trim(text)//' info_output start ------'
 	write(6,*) da_out
 	dtime = da_out(1)
 	write(6,*) 'idtout = ',dtime
@@ -318,7 +339,7 @@ c writes info on da_output
 	write(6,*) 't_act  = ',dtime,aline
 	write(6,*) 'has output =  ',has_output_d(da_out)
 	write(6,*) 'next output = ',next_output_d(da_out)
-	write(6,*) '------ info_output end ------'
+	write(6,*) '------ '//trim(text)//' info_output end ------'
 
 	end
 

@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2010,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -35,6 +35,14 @@ c				(31536000 for one year - 365 days)
 c	irhumid			relative humidity given 
 c				(0 for wet bulb given)
 c				(1 for relative humidity, default)
+
+! revision log :
+!
+! 23.03.2010	ggu	changed v6.1.1
+! 16.02.2019	ggu	changed VERS_7_5_60
+
+c-----------------------------------------------------------
+
 
         integer ifunit,itfold,itfnew,itfact,itperiod,irhumid
         common /qflxi/ ifunit,itfold,itfnew,itfact,itperiod,irhumid

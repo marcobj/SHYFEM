@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2012,2015-2017,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -92,6 +92,18 @@ c***************************************************************
         openmp_is_master = .true.
 
         end
+
+c***************************************************************
+
+	subroutine openmp_parallel_code(text)
+
+	implicit none
+
+	character*(*) text
+
+	text = 'serial'
+
+	end
 
 c***************************************************************
 

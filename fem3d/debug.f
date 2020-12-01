@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2003,2008,2010-2012,2015-2016,2015-2016  Georg Umgiesser
+!    Copyright (C) 2018-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -43,6 +44,7 @@ c 16.10.2018	ggu	changed VERS_7_5_50
 c 02.02.2019	ggu	new routines is_inf, is_nonumber, adjourned is_nan
 c 14.02.2019	ggu	changed VERS_7_5_56
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 22.09.2020	ggu	added test for arrays to check for Nan
 c
 c notes :
 c
@@ -64,6 +66,10 @@ c if( is_debug() ) then
 c   here insert your debug statements
 c end if
 c
+c to check multi-dimensional arrays for Nan, use the reshape intrinsic:
+c
+c is_nan( reshape(array,(/size(array)/)) )
+c
 c***************************************************************
 
 !==================================================================
@@ -76,6 +82,7 @@ c***************************************************************
 
         INTERFACE is_nan
         MODULE PROCEDURE is_d_nan, is_r_nan, is_i_nan
+     +			,is_d_array1_nan
         END INTERFACE
 
         INTERFACE is_inf
@@ -98,7 +105,7 @@ c***************************************************************
 
 	debug_intern = bdebug
 
-	end
+	end subroutine
 
 c***************************************************************
 
@@ -108,7 +115,7 @@ c***************************************************************
 
 	debug_intern = .true.
 
-	end
+	end subroutine
 
 c***************************************************************
 
@@ -118,7 +125,7 @@ c***************************************************************
 
 	debug_intern = .false.
 
-	end
+	end subroutine
 
 c***************************************************************
 
@@ -130,10 +137,34 @@ c***************************************************************
 
 	is_debug = debug_intern
 
-	end
+	end function
 
 c***************************************************************
 c***************************************************************
+c***************************************************************
+
+	function is_d_array1_nan(val)
+
+c tests array for NaN
+
+	implicit none
+
+	double precision val(:)
+	logical is_d_array1_nan
+
+	integer i
+	logical mask(size(val))
+
+	is_d_array1_nan = .true.
+
+	do i=1,size(val)
+	  if( is_d_nan(val(i)) ) return
+	end do
+
+	is_d_array1_nan = .false.
+
+	end function
+
 c***************************************************************
 
 	function is_d_nan(val)
@@ -154,7 +185,7 @@ c tests val for NaN
 
 	is_d_nan = itot .ne. 1
 
-	end
+	end function
 
 c***************************************************************
 
@@ -176,7 +207,7 @@ c tests val for NaN
 
 	is_r_nan = itot .ne. 1
 
-	end
+	end function
 
 c***************************************************************
 
@@ -198,7 +229,7 @@ c tests val for NaN
 
 	is_i_nan = itot .ne. 1
 
-	end
+	end function
 
 c***************************************************************
 c***************************************************************
@@ -215,7 +246,7 @@ c tests val for infinity
 
 	is_i_inf = ( val-1 == val )
 
-	end
+	end function
 
 c***************************************************************
 
@@ -230,7 +261,7 @@ c tests val for infinity
 
 	is_r_inf = ( val-1. == val )
 
-	end
+	end function
 
 c***************************************************************
 
@@ -245,7 +276,7 @@ c tests val for infinity
 
 	is_d_inf = ( val-1. == val )
 
-	end
+	end function
 
 c***************************************************************
 c***************************************************************
@@ -262,7 +293,7 @@ c tests val for infinity
 
 	is_i_nonumber = ( is_nan(val) .or. is_inf(val) )
 
-	end
+	end function
 
 c***************************************************************
 
@@ -277,7 +308,7 @@ c tests val for infinity
 
 	is_r_nonumber = ( is_nan(val) .or. is_inf(val) )
 
-	end
+	end function
 
 c***************************************************************
 
@@ -292,7 +323,7 @@ c tests val for infinity
 
 	is_d_nonumber = ( is_nan(val) .or. is_inf(val) )
 
-	end
+	end function
 
 !==================================================================
         end module mod_debug

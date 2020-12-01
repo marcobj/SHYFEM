@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2008  Andrea Cucco
 !
 !    This file is part of SHYFEM.
 !
@@ -27,7 +27,7 @@
 !
 ! revision log :
 !
-! 31.03.2008    acc     arrays for BFM TRANSPORT
+! 31.03.2008    aac     arrays for BFM TRANSPORT
 !
 !*****************************************************************************
 !

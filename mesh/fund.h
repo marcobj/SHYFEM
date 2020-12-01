@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1994  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,13 +24,14 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * fund.h - fundamental type declarations                               *
- *									*
- * Revision History:							*
- * 12-Apr-94: Extracted from grid.h -> new header file                  *
- *									*
+/************************************************************************\
+ *
+ * fund.h - fundamental type declarations
+ *
+ * revision log :
+ *
+ * 12.04.1994	ggu	Extracted from grid.h -> new header file
+ *
 \************************************************************************/
 
 

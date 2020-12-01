@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 2016,2019  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,9 +24,16 @@
 \************************************************************************/
 
 
-/*
-	routines to transform between color spaces
-*/
+/************************************************************************\
+ *
+ * routines to transform between color spaces
+ *
+ * revision log :
+ *
+ * 17.06.2016	ggu	changed VERS_7_5_15
+ * 14.02.2019	ggu	changed VERS_7_5_56
+ *
+\************************************************************************/
 
 #include <stdio.h>
 #include "general.h"

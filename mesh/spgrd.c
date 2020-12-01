@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1995,1997-1998  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,15 +24,16 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * exgrd.c - extracts items from grd file				*
- *									*
- * Revision History:							*
- * 17-Jan-98: algorithm changed for UnifyNodes()                        *
- * 05-May-97: CompressNumbers() added                                   *
- * 17-Aug-95: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * exgrd.c - extracts items from grd file
+ *
+ * revision log :
+ *
+ * 17.08.1995	ggu	routines written from scratch
+ * 05.05.1997	ggu	CompressNumbers() added
+ * 17.01.1998	ggu	algorithm changed for UnifyNodes()
+ *
 \************************************************************************/
 
 

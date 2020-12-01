@@ -1,15 +1,17 @@
-package GD;
+#!/usr/bin/perl
 
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1995  Lincoln D. Stein
 #
-#    This file is part of SHYFEM.
+#    This file is part of SHYFEM. (m)
 #
 #------------------------------------------------------------------------
 
 # Copyright 1995 Lincoln D. Stein.  See accompanying README file for
 # usage information
+
+package GD;
 
 use strict;
 require 5.004;

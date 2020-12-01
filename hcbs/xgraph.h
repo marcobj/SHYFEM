@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1992,1994  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,15 +24,16 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * xgraph.h - header file for X11 routines				*
- *									*
- * Revision History:							*
- * 21-Mar-94: declared *ShadeColor() in this file			*
- * 11-Feb-94: copyright notice added to all files			*
- * ..-...-92: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * xgraph.h - header file for X11 routines
+ *
+ * revision log :
+ *
+ * 01.01.1992	ggu	routines written from scratch
+ * 11.02.1994	ggu	copyright notice added to all files
+ * 21.03.1994	ggu	declared *ShadeColor() in this file
+ *
 \************************************************************************/
 
 

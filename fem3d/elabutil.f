@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2015-2020  Georg Umgiesser
+!    Copyright (C) 2017-2018  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -74,6 +75,10 @@
 ! 16.02.2019	ggu	changed VERS_7_5_60
 ! 15.05.2019	ggu	new option -date0 (sdate0)
 ! 22.07.2019    ggu     new routines for handling time step check
+! 13.12.2019    ggu     new option -checkrain (bcheckrain)
+! 28.01.2020    ggu     new option -vorticity (bvorticity)
+! 06.03.2020    ggu     -checkdt also for ext and flx files
+! 21.05.2020    ggu     better handle copyright notice
 !
 !************************************************************
 
@@ -120,6 +125,7 @@
 	character*80, save :: sdate0		= ' '
 	logical, save :: bconvert		= .false.
 	logical, save :: bcheckdt		= .false.
+	logical, save :: bcheckrain		= .false.
 
 	logical, save :: bcondense		= .false.
 	logical, save :: bchform		= .false.
@@ -132,6 +138,7 @@
         character*80, save :: factstring	= ' '
 
         character*80, save :: regstring		= ' '
+        character*80, save :: rbounds		= ' '
 	integer, save :: regexpand		= -1
 
 	logical, save :: baverbas		= .false.
@@ -147,6 +154,7 @@
 	real, save :: fact			= 1
 	integer, save :: ifreq			= 0
 	logical, save :: b2d			= .false.
+	logical, save :: bvorticity		= .false.
 
 	logical, save :: bdiff			= .false.
 	real, save :: deps			= 0.
@@ -385,9 +393,15 @@
      +				'all,year,month,week,day,none')
 	end if
 
-	if( bshowall .or. binputfile .or. bshyfile ) then
+	!if( bshowall .or. binputfile .or. bshyfile ) then
+	!if( bshowall .or. binputfile ) then
           call clo_add_option('checkdt',.false.
      +			,'check for change of time step')
+	!end if
+
+	if( bshowall .or. binputfile ) then
+          call clo_add_option('checkrain',.false.
+     +			,'check for yearly rain (if file contains rain)')
 	end if
 
 	if( bshowall .or. bshyfile ) then
@@ -465,13 +479,16 @@
 
         call clo_add_sep('regular output file options')
 
-        call clo_add_option('reg rstring',' ','regular interpolation')
-        call clo_add_option('regexpand iexp',-1,'expand regular grid')
+	call clo_add_option('reg rstring',' ','regular interpolation')
+	call clo_add_option('resample bounds',' ','resample regular grid')
+	call clo_add_option('regexpand iexp',-1,'expand regular grid')
 
 	call clo_add_com('    rstring is: dx[,dy[,x0,y0,x1,y1]]')
 	call clo_add_com('    if only dx is given -> dy=dx')
 	call clo_add_com('    if only dx,dy are given -> bounds computed')
+	call clo_add_com('    bounds is: x0,y0,x1,y1')
 	call clo_add_com('    iexp>0 expands iexp cells, =0 whole grid')
+	call clo_add_com('    resample should be used with regexpand')
 
 	end subroutine elabutil_set_reg_options
 
@@ -501,6 +518,8 @@
      +			,'frequency for aver/sum/min/max/std/rms')
 
 	call clo_add_option('2d',.false.,'average vertically to 2d field')
+	call clo_add_option('vorticity',.false.
+     +			,'compute vorticity for hydro file')
 
 	end subroutine elabutil_set_shy_options
 
@@ -622,9 +641,10 @@
 	if( bshowall .or. bflxfile .or. bextfile ) then
           call clo_get_option('splitall',bsplitall)
 	end if
+        call clo_get_option('checkdt',bcheckdt)
 	if( bshowall .or. binputfile ) then
           call clo_get_option('check',scheck)
-          call clo_get_option('checkdt',bcheckdt)
+          call clo_get_option('checkrain',bcheckrain)
 	end if
 	if( bshowall .or. bshyfile ) then
           call clo_get_option('node',nodelist)
@@ -651,6 +671,7 @@
 	if( bshowall .or. bfemfile .or. bshyfile .or. blgrfile ) then
           call clo_get_option('reg',regstring)
           call clo_get_option('regexpand',regexpand)
+          call clo_get_option('resample',rbounds)
 	end if
 
 	if( bshowall .or. bshyfile ) then
@@ -667,6 +688,7 @@
           call clo_get_option('fact',fact)
           call clo_get_option('freq',ifreq)
           call clo_get_option('2d',b2d)
+          call clo_get_option('vorticity',bvorticity)
 	end if
 
 	if( bshowall .or. bshyfile ) then
@@ -706,6 +728,7 @@
 	  stop 'error stop elabutil_get_options: unknown type'
 	end if
 
+	call shyfem_set_short_copyright(bquiet)
         if( .not. bsilent ) then
 	  flow = ftype
 	  call to_lower(flow)
@@ -734,7 +757,7 @@
 	bcheck = ( scheck /= ' ' )
 
         boutput = bout
-        boutput = boutput .or. b2d
+        boutput = boutput .or. b2d .or. bvorticity
         boutput = boutput .or. bsplit
 	boutput = boutput .or. outformat /= 'native'
         boutput = boutput .or. bsumvar
@@ -744,7 +767,7 @@
         !btrans is added later
 	!if( bsumvar ) boutput = .false.
 
-        bneedbasin = b2d .or. baverbas
+        bneedbasin = b2d .or. baverbas .or. bvorticity
         bneedbasin = bneedbasin .or. bnode .or. bnodes
         bneedbasin = bneedbasin .or. bcoord
 	bneedbasin = bneedbasin .or. outformat == 'gis'
@@ -767,11 +790,11 @@
 
 	integer ic
 
-	ic = count( (/b2d,bsplit,bsumvar,btrans/) )
+	ic = count( (/b2d,bsplit,bsumvar,btrans,bvorticity/) )
 
 	if( ic > 1 ) then
 	  write(6,*) 'Only one of the following options can be given:'
-	  write(6,*) '-2d -split -sumvar'
+	  write(6,*) '-2d -split -sumvar -vorticity'
 	  write(6,*) '-aver -sum -min -max -std -rms'
 	  write(6,*) '-threshold -averdir'
 	  stop 'error stop elabutil_check_options: incompatible options'

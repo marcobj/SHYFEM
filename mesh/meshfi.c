@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1995,1997,2016  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,19 +24,20 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * meshfi.c - file handling routines for mesh				*
- *									*
- * Revision History:							*
- * 19-Mar-2016: program now accepts filename with and without .grd	*
- * 15-Oct-97: in WriteFile: write also lines with type L_NONE           *
- * 08-Oct-97: routine ReadBnd deleted                                   *
- *            if depth is given -> write it                             *
- *            uses mesh type to decide which elements to write          *
- * 01-Aug-95: writing routines transfered from gridck.c                 *
- * 27-Jul-95: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * meshfi.c - file handling routines for mesh
+ *
+ * revision log :
+ *
+ * 27.07.1995	ggu	routines written from scratch
+ * 01.08.1995	ggu	writing routines transfered from gridck.c
+ * 08.10.1997	ggu	routine ReadBnd deleted
+ * ...		ggu	if depth is given -> write it
+ * ...		ggu	uses mesh type to decide which elements to write
+ * 15.10.1997	ggu	in WriteFile: write also lines with type L_NONE
+ * 19.03.2016	ggu	program now accepts filename with and without .grd
+ *
 \************************************************************************/
 
 

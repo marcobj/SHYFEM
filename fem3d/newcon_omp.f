@@ -1,7 +1,9 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1994,1996,2015-2019  Georg Umgiesser
+!    Copyright (C) 2015  Erik Pascolo
+!    Copyright (C) 2016  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -219,6 +221,8 @@ c----------------------------------------------------------------
         cdiag=0.
         clow=0.
         chigh=0.
+
+        !call tsdebug(robs,cobs,rtauv)
 
         nchunk = 1
 	nthreads = 1
@@ -847,6 +851,61 @@ c*****************************************************************
 	write(6,*) cdiag(l),clow(l),chigh(l-1)
 	stop 'error stop conz3d_nodes (omp): diag == 0'
       end subroutine conz3d_nodes
+
+c*****************************************************************
+
+        subroutine tsdebug(robs,cobs,rtauv)
+
+        use basin
+        use levels
+
+        implicit none
+
+        real robs
+        real cobs(nlvdi,nkn)
+        real rtauv(nlvdi,nkn)
+
+        integer k,lmax,i
+        integer ipext,ipint
+
+        integer, parameter :: nmax=5
+        integer :: nodes(nmax) = (/37806,52065,80988,65554,53926/)
+
+        do i=1,nmax
+          k = nodes(i)
+          k = ipint(k)
+          lmax= ilhkv(k)
+          call tsdebugk(k,lmax,robs,cobs(1:lmax,k),rtauv(1:lmax,k))
+        end do
+
+        end
+
+c*****************************************************************
+
+        subroutine tsdebugk(k,lmax,robs,cobs,rtau)
+
+        integer k,lmax
+        real robs
+        real cobs(lmax)
+        real rtau(lmax)
+
+        integer iunit,ke
+        real aux(lmax)
+        integer ipext,ipint
+        
+        iunit = 789
+        aux = 0
+        where ( rtau > 0 ) aux = 1./rtau
+        ke = ipext(k)
+
+        write(iunit,*) '------------------------------------'
+        write(iunit,*) k,ke,lmax,robs
+        write(iunit,*) minval(cobs),maxval(cobs)
+        write(iunit,*) minval(rtau),maxval(rtau)
+        write(iunit,*) minval(aux),maxval(aux)
+        write(iunit,*) '------------------------------------'
+
+        end
 
 c*****************************************************************
 

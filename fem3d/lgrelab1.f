@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2018-2020  Georg Umgiesser
+!    Copyright (C) 2018  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -29,6 +30,7 @@ c 20.07.2018	ccf	from scratch
 c 25.10.2018	ggu	changed VERS_7_5_51
 c 14.02.2019	ggu	changed VERS_7_5_56
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 29.01.2020	ggu	old call to nc_output_record_reg() substituted
 c
 c**************************************************************
 
@@ -736,9 +738,9 @@ c---------------------------------------------------------
         else if( outformat == 'nc' ) then
           ncid = idout
           var_id = var_ids(1)
-          call nc_output_record_reg(ncid,var_id,nlvdi,np,density)
+          call nc_output_record(ncid,var_id,np,density)
           var_id = var_ids(2)
-          call nc_output_record_reg(ncid,var_id,nlvdi,np,kage)
+          call nc_output_record(ncid,var_id,np,kage)
         else if( outformat == 'off' ) then
           ! nothing to be done
         else

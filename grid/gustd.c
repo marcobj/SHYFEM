@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1988,1994,2011  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,16 +24,17 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * gustd.c - standard utilities						*
- *									*
- * Revision History:							*
- * 16-Feb-2011: new routine savestr()					*
- * 21-Mar-94: gcc-warnings (minor changes)				*
- * 11-Feb-94: copyright notice added to all files			*
- * ..-...-88: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * gustd.c - standard utilities
+ *
+ * revision log :
+ *
+ * 01.01.1988	ggu	routines written from scratch
+ * 11.02.1994	ggu	copyright notice added to all files
+ * 21.03.1994	ggu	gcc-warnings (minor changes)
+ * 16.02.2011	ggu	new routine savestr()
+ *
 \************************************************************************/
 
 

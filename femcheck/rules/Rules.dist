@@ -1,12 +1,17 @@
 
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
 #------------------------------------------------------------------------
 
+#------------------------------------------------------------
+#
+# This is the Rules.make file for shyfem
+#
+#------------------------------------------------------------
 
 #------------------------------------------------------------
 # This file defines various parameters to be used
@@ -47,12 +52,14 @@ COMPILER_PROFILE = NORMAL
 # INTEL			->	ifort
 # PORTLAND		->	pgf90
 # IBM			->	xlf
+# PGI			->	nvfortran
 #
 # Available options for the C compiler are:
 #
 # GNU_GCC		->	gcc
 # INTEL			->	icc
 # IBM			->	xlc
+# PGI			->	nvc
 #
 ##############################################
 
@@ -61,10 +68,12 @@ FORTRAN_COMPILER = GNU_GFORTRAN
 #FORTRAN_COMPILER = INTEL
 #FORTRAN_COMPILER = PORTLAND
 #FORTRAN_COMPILER = IBM
+#FORTRAN_COMPILER = PGI
 
 C_COMPILER = GNU_GCC
 #C_COMPILER = INTEL
 #C_COMPILER = IBM
+#C_COMPILER = PGI
 
 ##############################################
 # Parallel compilation
@@ -105,14 +114,39 @@ PARALLEL_MPI = NONE
 #PARALLEL_MPI = ELEM
 
 ##############################################
+# Partition library for domain decomposition
+##############################################
+#
+# Here you specify the external module to be used
+# for the partition of the grid. The software
+# should be downloaded and installed separately.
+#
+# There are different options for the software:
+#
+#  - METIS: http://glaros.dtc.umn.edu/gkhome/views/metis
+#  - ...
+#
+# The variable PARTSDIR indicates the directory
+# where the library and its include files can be found.
+# Please leave out the final lib specification.
+# This is mandatory only if the library has been
+# installed in a non-standard place.
+#
+##############################################
+
+PARTS = NONE
+#PARTS = METIS
+#PARTSDIR = /usr/local
+
+##############################################
 # Solver for matrix solution
 ##############################################
 #
 # Here you have to specify what solver you want
 # to use for the solution of the system matrix.
 # You have a choice between Gaussian elimination,
-# iterative solution (Sparskit) and the Pardiso
-# solver. 
+# iterative solution (Sparskit), the Pardiso
+# solver, and the Paralution solver.
 # The gaussian elimination is the most robust.
 # Sparskit is very fast on big matrices.
 # To use the Pardiso solver you must have the 
@@ -121,12 +155,41 @@ PARALLEL_MPI = NONE
 # in order to use Pardiso you must also use
 # the INTEL compiler. The option to use the
 # Pardiso solver is considered experimental.
+# Finally you can use the Paralution solver,
+# which allows you to use the GPU. 
+# This solver is still in a testing phase,
+# it should be faster with large matrices
+# and with a good GPU.
+# Moreover, it can reduce the CPU usage.
+# If you are unsure what solver to use, leave
+# the default which is SPARSKIT.
 #
 ##############################################
 
 #SOLVER = GAUSS
 SOLVER = SPARSKIT
 #SOLVER = PARDISO
+#SOLVER = PARALUTION
+
+##############################################
+#
+# Paralution solver
+#
+# In order to use the paralution solver
+# please see the README file in fempara,
+# set SOLVER = PARALUTION, set the GPU variable,
+# and define the PARADIR directory below.
+#
+# this feature is still experimental - no support
+#
+##############################################
+
+#PARADIR = $(HOME)/my_paralution
+
+GPU=NONE
+#GPU=OpenCL
+#GPU=CUDA
+#GPU=MIC
 
 ##############################################
 # NetCDF library
@@ -134,22 +197,25 @@ SOLVER = SPARSKIT
 #
 # If you want output in NetCDF format and have
 # the library installed, then you can specify
-# it here. The directory where the netcdf files
+# it here. Normally the place where the netcdf
+# files reside can be found automatically. However,
+# if the libraries are in some non standard 
+# place the directory where the netcdf files
 # (include and libraries) reside must also be 
-# indicated. This is normally /usr.
+# indicated.
 #
 # You can normally find the directory by one
 # of the following commands:
 #   ldconfig -p | grep libnetcdff
 #   whereis libnetcdff
 #   locate libnetcdff.a
-# Do not include the final /lib part of the directory
+# Do not include the final /lib part of the directory.
 #
 ##############################################
 
 NETCDF = false
 #NETCDF = true
-NETCDFDIR = /usr
+#NETCDFDIR =
 
 ##############################################
 # GOTM library
@@ -158,11 +224,12 @@ NETCDFDIR = /usr
 # This software comes with a version of the
 # GOTM turbulence model. It is needed if you
 # want to run the model in 3D mode, unless you
-# uses constant vertical viscosity and diffusivity.
+# use constant vertical viscosity and diffusivity.
 # If you have problems compiling the GOTM
 # library, you can set GOTM to false. This will use
 # an older version of the program without the
-# need of the external library.
+# need of the external library. However, this 
+# option is not recommended.
 #
 ##############################################
 
@@ -175,10 +242,9 @@ GOTM = true
 #
 # The model also comes with code for some
 # ecological models. You can activiate this
-# code here. Choices are between EUTRO
-# ERSEM and AQUABC. These choices have to be 
-# integrated explicitly.
-# This feature is still experimental.
+# code here. Choices are between EUTRO,
+# ERSEM, AQUABC, and BFM.
+# The BFM model is still experimental.
 #
 ##############################################
 
@@ -190,26 +256,18 @@ ECOLOGICAL = NONE
 
 ##############################################
 #
-# BFM model - how to
+# BFM model - in order to use the BFM model
+# please see the README file in fembfm
+# and set the BFMDIR directory below.
 #
 # this feature is still experimental - no support
 #
-# to integrate the BFM model the following has to be done:
-#   1) set "NETCDF = true" in the lines above (BFM needs NETCDF)
-#   2) set "ECOLOGICAL = BFM" in the lines above
-#   3) download the BFM model from the official sources
-#      (https://www.bfm-community.eu)
-#   4) unpack in a directory of your choice
-#   5) specify this directory in BFMDIR below
-#   6) run "make bfm_compile"
-# if everything is ok, SHYFEM can be compiled with BFM support:
-#   "make fem"
-#   
 ##############################################
 
-BFMDIR = /gpfs/work/OGS18_PRACE_P_0/SHYFEM_BFM/bfm
-BFMDIR = /home/georg/appl/donata/bfm/bfmv5
-BFMDIR = /home/georg/appl/donata/bfm/BiogeochemicalFluxModel-5.1.0
+#BFMDIR = /gpfs/work/OGS18_PRACE_P_0/SHYFEM_BFM/bfm
+#BFMDIR = /home/georg/appl/donata/bfm/bfmv5
+#BFMDIR = /home/georg/appl/donata/bfm/BiogeochemicalFluxModel-5.1.0
+#BFMDIR = $(HOME)/BFM
 
 ##############################################
 # Experimental features
@@ -277,10 +335,39 @@ ifneq ($(FORTRAN_COMPILER),INTEL)
   endif
 endif
 
+ifneq ($(SOLVER),PARALUTION)
+  ifneq ($(GPU),NONE)
+    RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
+    RULES_MAKE_MESSAGE = "Use GPU=NONE without PARALUTION solver"
+  endif
+endif
+
+ifeq ($(SOLVER),PARALUTION)
+  ifneq ($(PARALLEL_OMP),true)
+    RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
+    RULES_MAKE_MESSAGE = "Paralution solver needs PARALLEL_OMP=true"
+  endif
+  ifeq ($(PARADIR),)
+    RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
+    RULES_MAKE_MESSAGE = "PARALUTION solver needs PARADIR directory"
+  endif
+endif
+
 ifeq ($(C_COMPILER),INTEL)
   ifneq ($(FORTRAN_COMPILER),INTEL)
     RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
     RULES_MAKE_MESSAGE = "INTEL C works only with INTEL Fortran compiler"
+  endif
+endif
+
+ifeq ($(ECOLOGICAL),BFM)
+  ifeq ($(BFMDIR),)
+    RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
+    RULES_MAKE_MESSAGE = "BFM model needs BFMDIR directory"
+  endif
+  ifeq ($(NETCDF),false)
+    RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
+    RULES_MAKE_MESSAGE = "BFM model needs NETCDF support"
   endif
 endif
 
@@ -374,24 +461,31 @@ endif
 #
 ##############################################
 
-# determines major version for gfortran
+# determines major version for compilers
 
-GMV := $(shell $(FEMBIN)/gmv.sh)
+GMV := $(shell $(FEMBIN)/cmv.sh -quiet gfortran)
+IMV := $(shell $(FEMBIN)/cmv.sh -quiet intel)
+GMV_LE_4  := $(shell [ $(GMV) -le 4 ] && echo true || echo false )
+IMV_LE_14 := $(shell [ $(IMV) -le 14 ] && echo true || echo false )
 
-#------------- print version of gfortran ------------
-#gversion:
-#	@echo "GMV=$(GMV) WTABS=$(WTABS)"
-#	@$(FEMBIN)/gmv.sh -info
-#------------------------------------------------------------
+MVDEBUG := true
+MVDEBUG := false
+ifeq ($(MVDEBUG),true)
+  $(info gfortran major version = $(GMV) )
+  $(info gfortran major version <= 4: $(GMV_LE_4) )
+  $(info intel major version = $(IMV) )
+  $(info intel major version <= 14: $(IMV_LE_14) )
+endif
 
 # next solves incompatibility of option -Wtabs between version 4 and higher
 
 WTABS = -Wno-tabs
-ifeq ($(GMV),4)
+ifeq ($(GMV_LE_4),true)
   WTABS = -Wtabs
 endif
-#$(warning gmv=$(GMV) wtabs=$(WTABS))
-#WTABS = -Wtabs			#NEMUNAS_FIX_OLD
+ifeq ($(MVDEBUG),true)
+  $(info WTABS = $(WTABS) )
+endif
 
 FGNU_GENERAL = 
 ifdef MODDIR
@@ -453,7 +547,7 @@ ifeq ($(FORTRAN_COMPILER),GNU_G77)
   LINKER	= $(F77)
   LFLAGS	= $(FGNU_OPT) $(FGNU_PROFILE) $(FGNU_OMP)
   FFLAGS	= $(LFLAGS) $(FGNU_NOOPT) $(FGNU_WARNING)
-  FINFOFLAGS	= -v
+  FINFOFLAGS	= --version
 endif
 
 ifeq ($(FORTRAN_COMPILER),GNU_GFORTRAN)
@@ -468,9 +562,70 @@ ifeq ($(FORTRAN_COMPILER),GNU_GFORTRAN)
   LINKER	= $(F77)
   LFLAGS	= $(FGNU_OPT) $(FGNU_PROFILE) $(FGNU_OMP)
   FFLAGS	= $(LFLAGS) $(FGNU_NOOPT) $(FGNU_WARNING) $(FGNU_GENERAL)
-  FINFOFLAGS	= -v
+  FINFOFLAGS	= --version
 endif
 
+##############################################
+#
+# PGI compiler (nvfortran)
+#
+##############################################
+#
+# for download see: https://developer.nvidia.com/nvidia-hpc-sdk-download
+#
+##############################################
+
+FPGI_GENERAL = 
+ifdef MODDIR
+  FPGI_GENERAL = -module $(MODDIR)
+endif
+
+FPGI_OMP   =
+ifeq ($(PARALLEL_OMP),true)
+  FPGI_OMP   = -mp
+endif
+
+FPGI_BOUNDS = 
+ifeq ($(BOUNDS),true)
+  FPGI_BOUNDS = -check uninit 
+  FPGI_BOUNDS = -Mbounds -Mchkptr -Mchkstk
+endif
+
+FPGI_PROFILE = 
+ifeq ($(PROFILE),true)
+  FPGI_PROFILE = -Mprof
+endif
+
+FPGI_NOOPT = 
+ifeq ($(DEBUG),true)
+  FPGI_NOOPT = -g -traceback -Ktrap=fp
+endif
+
+FPGI_OPT   = -O
+ifeq ($(OPTIMIZE),HIGH)
+  FPGI_OPT   = -O3
+endif
+ifeq ($(OPTIMIZE),NONE)
+  FPGI_OPT   = 
+endif
+
+FGNU_OMP   =
+ifeq ($(PARALLEL_OMP),true)
+  FGNU_OMP   =  -fopenmp
+endif
+
+FPGI_WARNING =
+
+ifeq ($(FORTRAN_COMPILER),PGI)
+  FPGI		= nvfortran
+  F77		= $(FPGI)
+  F95		= nvfortran
+  LINKER	= $(FPGI)
+  LFLAGS	= $(FPGI_OPT) $(FPGI_PROFILE) $(FPGI_OMP) $(FPGI_BOUNDS)
+  FFLAGS	= $(LFLAGS) $(FPGI_NOOPT) $(FPGI_WARNING) $(FPGI_GENERAL)
+  FINFOFLAGS	= --version
+endif
+ 
 ##############################################
 #
 # IBM compiler (xlf)
@@ -667,6 +822,12 @@ FINTEL_OMP   =
 ifeq ($(PARALLEL_OMP),true)
   FINTEL_OMP   = -threads -qopenmp
   FINTEL_OMP   = -qopenmp
+  ifeq ($(IMV_LE_14),true)
+    FINTEL_OMP   = -openmp
+  endif
+  ifeq ($(MVDEBUG),true)
+    $(info FINTEL_OMP = $(FINTEL_OMP) )
+  endif
 endif
 
 ifeq ($(FORTRAN_COMPILER),INTEL)
@@ -693,7 +854,16 @@ ifeq ($(C_COMPILER),GNU_GCC)
   CFLAGS = -O -Wall -pedantic
   CFLAGS = -O -Wall -pedantic -std=gnu99  #no warnings for c++ style comments
   LCFLAGS = -O 
-  CINFOFLAGS = -v
+  CINFOFLAGS = --version
+endif
+
+ifeq ($(C_COMPILER),PGI)
+  CC     = nvc
+  CFLAGS = -O -Wall -pedantic
+  CFLAGS = -O -Wall -pedantic -std=gnu99  #no warnings for c++ style comments
+  CFLAGS = -O -Wall
+  LCFLAGS = -O 
+  CINFOFLAGS = --version
 endif
 
 ifeq ($(C_COMPILER),INTEL)

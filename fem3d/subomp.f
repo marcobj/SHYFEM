@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2012,2015-2017,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -98,6 +98,18 @@ c***************************************************************
 
 	call openmp_get_thread_num(it)
 	openmp_is_master = ( it == 0 )
+
+        end
+
+c***************************************************************
+
+        subroutine openmp_parallel_code(text)
+
+        implicit none
+
+        character*(*) text
+
+        text = 'omp'
 
         end
 

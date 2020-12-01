@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2005,2009-2010,2014-2015,2017,2017  Georg Umgiesser
+!    Copyright (C) 2019-2020  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -41,6 +42,7 @@ c 20.07.2015	ggu	changed VERS_7_1_81
 c 14.11.2017	ggu	changed VERS_7_5_36
 c 14.02.2019	ggu	changed VERS_7_5_56
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 16.02.2020	ggu	femtime eliminated
 c
 c notes :
 c
@@ -87,8 +89,6 @@ c*****************************************************************
 
 	implicit none
 
-	include 'femtime.h'
-
 	integer itnew,itold,ierr
 	real zp,zold,znew
 	integer ifileo
@@ -97,6 +97,7 @@ c*****************************************************************
 
 	integer iuin,iuout,itp,np,iep
 	double precision xdp,ydp
+	double precision dtime,ddt
 	real xp,yp
 	real uv(4)
 	save iuin,iuout,itp,np,iep
@@ -136,8 +137,11 @@ c-------------------------------------------------------------------
 c prepare time
 c-------------------------------------------------------------------
 
-	itnew = it
-	itold = it - idt
+	call get_act_dtime(dtime)
+	call get_ddt(ddt)
+
+	itnew = nint(dtime)
+	itold = nint(dtime - ddt)
 
 	if( itp .lt. itold ) goto 89
 	ierr = 0

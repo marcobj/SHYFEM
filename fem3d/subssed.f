@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2017-2020  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -40,6 +40,7 @@
 ! 31.08.2018	ggu	changed VERS_7_5_49
 ! 14.02.2019	ggu	changed VERS_7_5_56
 ! 16.02.2019	ggu	changed VERS_7_5_60
+! 20.02.2020	ggu	new routine compute_bottom_flux()
 !
 ! notes :
 !
@@ -54,6 +55,8 @@
 !==================================================================
 
 	implicit none
+
+	integer, private, save :: nkn_ssedi = 0
 
 	real, save, allocatable :: conzs(:)	!bottom sediment [kg]
 	real, save, allocatable :: conza(:)	!bottom sediment [kg/m**2]
@@ -84,6 +87,44 @@
 	real, save :: eurpar = 1.e-3	!erosion parameter [kg/m**2/s]
 
 !==================================================================
+	contains
+!==================================================================
+
+	subroutine simple_sediments_init(nkn)
+
+        integer ncs
+        integer nkn
+        integer nlv
+
+        if( nkn == nkn_ssedi ) return
+
+        if( nkn_ssedi > 0 ) then
+	  deallocate(conzs)
+	  deallocate(conza)
+	  deallocate(conzh)
+	  deallocate(sedflux)
+	  deallocate(inarea)
+        end if
+
+        nkn_ssedi = nkn
+
+        if( nkn == 0 ) return
+
+	allocate(conzs(nkn))
+	allocate(conza(nkn))
+	allocate(conzh(nkn))
+	allocate(sedflux(nkn))
+	allocate(inarea(nkn))
+
+	conzs = 0.
+	conza = 0.
+	conzh = 0.
+	sedflux = 0.
+	inarea = 0
+
+	end subroutine simple_sediments_init
+
+!==================================================================
 	end module simple_sediments
 !==================================================================
 
@@ -108,6 +149,7 @@
 	real getpar
 	real caux(nlvdi)
 	real taubot(nkn)
+	real fflux(nkn)
 	real dc,f,tau,alpha
 	real cmin,cmax
 	character*20 aline
@@ -151,18 +193,7 @@
 	    stop 'error stop simple_sedi: iconz /= 1'
 	  end if
 
-	  allocate(conzs(nkn))
-	  allocate(conza(nkn))
-	  allocate(conzh(nkn))
-	  allocate(sedflux(nkn))
-	  allocate(inarea(nkn))
-	  conzs = 0.
-	  conza = 0.
-	  conzh = 0.
-	  sedflux = 0.
-	  cnv = 0.
-
-	  !itstart = nint(getpar('tcust'))
+	  call simple_sediments_init(nkn)
 
 	  call get_first_dtime(dtime0)
 	  call simple_sedi_init_output
@@ -186,7 +217,8 @@
 ! sinking
 !------------------------------------------------------------
 
-	  call bottom_stress(taubot)
+	  !call bottom_stress(taubot)
+	  call compute_bottom_flux(dt,fflux)
 
  	  cmax = maxval(cnv)
 
@@ -208,8 +240,9 @@
             vol = volnode(lmax,k,+1)
 	    tau = taubot(k)
 	    r = dt/h
-	    call bottom_flux(k,tau,cnv(lmax,k),r,alpha,f) !f is sediment flux
+	    !call bottom_flux(k,tau,cnv(lmax,k),r,alpha,f) !f is sediment flux
 
+	    f = fflux(k)
 	    if( bonlys .and. f*dt > conza(k) ) then	!limit erosion
 	      f = conza(k) / dt
 	    end if
@@ -253,6 +286,8 @@
         !write(iunit,*) 'sedimt: ',dtime,mass,masss,mass+masss
         write(iunit,1200) ' sedimt: ',aline,mass,masss,mass+masss
  1200	format(a,a,4e14.6)
+
+	call convert_bottom_sediments(.true.)
 
 !------------------------------------------------------------
 ! write accumulated bottom sediments
@@ -307,6 +342,55 @@
 
 !*****************************************************************
 
+	subroutine compute_bottom_flux(dt,fflux)
+
+	use basin
+	use levels
+	use simple_sediments
+	use mod_conz
+	use mod_layer_thickness	
+	use evgeom
+
+	implicit none
+
+	real dt
+	real fflux(nkn)
+
+	integer k,ia,lmax,ie,ii
+	real alpha,f,conz
+	real area
+	real tau,r,h
+	real taubot(nkn)
+	real aux(nkn)
+
+	call bottom_stress(taubot)
+	aux = 0.
+	fflux = 0.
+
+	do ie=1,nel
+	  area = 4.*ev(10,ie)
+	  ia = iarv(ie)
+	  lmax = ilhv(ie)
+	  h = hdenv(lmax,ie)
+	  r = dt/h
+	  tce = 0.1
+	  !if( ia == 0 ) tce = 10.0	!FIXME
+	  do ii=1,3
+	    k = nen3v(ii,ie)
+	    conz = cnv(lmax,k)
+	    tau = taubot(k)
+	    call bottom_flux(k,tau,conz,r,alpha,f)
+	    fflux(k) = fflux(k) + area*f
+	    aux(k) = aux(k) + area
+	  end do
+	end do
+
+	where( aux > 0. ) fflux = fflux / aux
+
+	end
+
+!*****************************************************************
+
 	subroutine bottom_flux(k,tau,conz,r,alpha,f)
 
 ! computes fluxes between bottom and water column
@@ -339,6 +423,8 @@
 
 	end
 
+!*****************************************************************
+!*****************************************************************
 !*****************************************************************
 
 	subroutine simple_sedi_init_output
@@ -399,6 +485,8 @@
 	end
 
 !*****************************************************************
+!*****************************************************************
+!*****************************************************************
 
 	subroutine get_sediment_values(k,flux,conz)
 
@@ -421,6 +509,97 @@
 	conz(:) = cnv(:,k)
 
 	end
+
+!*****************************************************************
+
+	subroutine convert_bottom_sediments(bcheck)
+
+! converts conza to conzs and conzh
+! if bcheck is true, only checks if consistent
+
+	use basin
+	use levels
+	use simple_sediments
+
+	implicit none
+
+	logical bcheck
+
+	integer k,lmax
+	real h,vol
+	real smax,hmax,vmax
+	real auxs(nkn),auxh(nkn),auxv(nkn)
+
+	real depnode,volnode
+
+        do k=1,nkn
+	  lmax = ilhkv(k)
+          h = depnode(lmax,k,+1)
+          vol = volnode(lmax,k,+1)
+
+	  !conzs(k) = conzs(k) - vol*dc	! [kg]
+	  !conza(k) = conza(k) - h*dc		! [kg/m**2]
+	  !conzh(k) = conzh(k) - (h*dc)/rhos	! [m]
+
+	  auxs(k) = conza(k)*vol/h
+	  auxh(k) = conza(k)/rhos
+	  auxv(k) = vol/h
+
+        end do
+
+	if( bcheck ) then
+	  smax = maxval(abs(auxs-conzs))
+	  hmax = maxval(abs(auxh-conzh))
+	  vmax = maxval(abs(auxv))
+	  write(778,*) smax,hmax,vmax
+	  call flush(778)
+	else
+	  conzs = auxs
+	  conzh = auxh
+	end if
+
+	end
+
+!*****************************************************************
+!*****************************************************************
+!*****************************************************************
+
+        subroutine write_restart_ssedi(iunit)
+	use basin
+	use simple_sediments
+        implicit none
+        integer iunit
+	integer, save :: nstate = 1
+	write(iunit) nstate,nkn
+	write(iunit) conza
+        end
+
+        subroutine skip_restart_ssedi(iunit)
+	use basin
+	use simple_sediments
+        implicit none
+        integer iunit
+	read(iunit)
+	read(iunit)
+        end
+
+        subroutine read_restart_ssedi(iunit)
+	use basin
+	use simple_sediments
+        implicit none
+        integer iunit
+	integer, save :: nstate = 1
+	integer nstate_aux,nkn_aux
+	read(iunit) nstate_aux,nkn_aux
+	if( nstate /= nstate_aux ) goto 99
+	if( nkn /= nkn_aux ) goto 99
+	read(iunit) conza
+	return
+   99	continue
+	write(6,*) 'nstate: ',nstate,nstate_aux
+	write(6,*) 'nkn   : ',nkn,nkn_aux
+	stop 'error stop read_restart_ssedi: incompatible params'
+        end
 
 !*****************************************************************
 

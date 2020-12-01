@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1995  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,13 +24,14 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * grdhs.c - hash table utilities for grd files				*
- *									*
- * Revision History:							*
- * 17-Aug-95: routines copied from meshhs				*
- *									*
+/************************************************************************\
+ *
+ * grdhs.c - hash table utilities for grd files
+ *
+ * revision log :
+ *
+ * 17.08.1995	ggu	routines copied from meshhs
+ *
 \************************************************************************/
 
 

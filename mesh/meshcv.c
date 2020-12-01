@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1995,1997  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,14 +24,15 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * meshcv.c - routines for convex hull to be used with mesh		*
- *									*
- * Revision History:							*
- * 08-Oct-97: uses new mesh type                                        *
- * 27-Jul-95: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * meshcv.c - routines for convex hull to be used with mesh
+ *
+ * revision log :
+ *
+ * 27.07.1995	ggu	routines written from scratch
+ * 08.10.1997	ggu	uses new mesh type
+ *
 \************************************************************************/
 
 

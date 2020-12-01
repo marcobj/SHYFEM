@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2017,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -22,6 +22,11 @@
 !    Contributions to this file can be found below in the revision log.
 !
 !--------------------------------------------------------------------------
+
+! revision log :
+!
+! 07.12.2017	ggu	changed VERS_7_5_40
+! 14.02.2019	ggu	changed VERS_7_5_56
 
 	program mpi_test
 

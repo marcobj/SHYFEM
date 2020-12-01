@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2014,2018  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -22,6 +22,11 @@
 !    Contributions to this file can be found below in the revision log.
 !
 !--------------------------------------------------------------------------
+
+! revision log :
+!
+! 23.12.2014	ggu	changed VERS_7_0_11
+! 18.12.2018	ggu	changed VERS_7_5_52
 
 	real grav,fcor,dcor,dirn,rowass,roluft
 	common /pkonst/ grav,fcor,dcor,dirn,rowass,roluft

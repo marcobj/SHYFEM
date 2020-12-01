@@ -1,7 +1,8 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1992,1994-1995,1997,2001,2003-2004  Georg Umgiesser
+ *    Copyright (C) 2006-2010  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,47 +25,49 @@
 \************************************************************************/
 
 
-/* debugging: look for setcolor_ggu and post_ggu */
-
-/************************************************************************\ 
- *									*
- * psgraph.c - graphic routines for postscript output			*
- *									*
- * Revision History:							*
- * 29-Sep-2010: new routine PsArcFill()					*
- * 23-Feb-2010: change color table in PS file, default color table	*
- * 22-Feb-2010: new flag NoClip and routine PsSetNoClip()		*
- * 14-Sep-2009: new routine PsCmLength() to get length in cm		*
- * 12-Jun-2009: maximize viewport for new factor			*
- * 11-Jun-2009: new routine PsFactorScale() for spheric coordinates	*
- * 06-Apr-2009: changes in pcalp.f to avoid compiler warnings		*
- * 27-Jan-2009: bug computing VS in PsTextSetCenter()			*
- * 20-Jan-2009: text centering routines					*
- * 09-Dec-2008: small changes to Makefile				*
- * 16-Apr-2008: New Makefile structure					*
- * 20-Mar-2007: Fake                                                    *
- * 18-Oct-2006: Minor                                                   *
- * 06-Dec-2004: new copyright and version                               *
- * 24-Sep-2004: new routine PsFlush                                     *
- * 28-Apr-2004: new routines dash, rotate text and arc                  *
- * 18-Aug-2003: new routines dealing with color table			*
- * 26-Apr-2001: new routine PsSetPointSize                              *
- * 12-Sep-97: PsAdjustScale becomes static, PsWindow -> PsSetWorld      *
- * 11-Sep-97: minor modifications (PsGraphOpen,...)                     *
- * 03-Jun-97: PsRectFill() optimized, also PsSetColor() for Hue         *
- * 09-May-97: append feature in PsText()                                *
- * 03-May-97: restructured, PsRectFill() new calling arguments,         *
- *            no integer color any more                                 *
- * 07-Dec-95: PPageHeader() now declared and defined static (bug)       *
- * 21-Oct-94: PSetClipWindow does clipping,                             *
- *            translate whole plot area 0.5 cm into the paper           *
- *            change names from Q to P                                  *
- *            rectify scale with PRectifyScale (Aspect ratios are       *
- *              not distorted anymore                                   *
- * 06-Apr-94: copyright notice added to file				*
- * ..-...-92: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * psgraph.c - graphic routines for postscript output
+ *
+ * revision log :
+ *
+ * 01.01.1992	ggu	routines written from scratch
+ * 06.04.1994	ggu	copyright notice added to file
+ * 21.10.1994	ggu	PSetClipWindow does clipping,
+ * 21.10.1994	ggu	translate whole plot area 0.5 cm into the paper
+ * 21.10.1994	ggu	change names from Q to P
+ * 21.10.1994	ggu	rectify scale with PRectifyScale
+ * 21.10.1994	ggu	Aspect ratios are not distorted anymore
+ * 07.12.1995	ggu	PPageHeader() now declared and defined static (bug)
+ * 03.05.1997	ggu	restructured, PsRectFill() new calling arguments,
+ * 03.05.1997	ggu	no integer color any more
+ * 09.05.1997	ggu	append feature in PsText()
+ * 03.06.1997	ggu	PsRectFill() optimized, also PsSetColor() for Hue
+ * 11.09.1997	ggu	minor modifications (PsGraphOpen,...)
+ * 12.09.1997	ggu	PsAdjustScale becomes static, PsWindow -> PsSetWorld
+ * 26.04.2001	ggu	new routine PsSetPointSize
+ * 18.08.2003	ggu	new routines dealing with color table
+ * 28.04.2004	ggu	new routines dash, rotate text and arc
+ * 24.09.2004	ggu	new routine PsFlush
+ * 06.12.2004	ggu	new copyright and version
+ * 18.10.2006	ggu	Minor
+ * 20.03.2007	ggu	Fake
+ * 16.04.2008	ggu	New Makefile structure
+ * 09.12.2008	ggu	small changes to Makefile
+ * 20.01.2009	ggu	text centering routines
+ * 27.01.2009	ggu	bug computing VS in PsTextSetCenter()
+ * 06.04.2009	ggu	changes in pcalp.f to avoid compiler warnings
+ * 11.06.2009	ggu	new routine PsFactorScale() for spheric coordinates
+ * 12.06.2009	ggu	maximize viewport for new factor
+ * 14.09.2009	ggu	new routine PsCmLength() to get length in cm
+ * 22.02.2010	ggu	new flag NoClip and routine PsSetNoClip()
+ * 23.02.2010	ggu	change color table in PS file, default color table
+ * 29.09.2010	ggu	new routine PsArcFill()
+ * 10.07.2020	ggu	make sure file is opened (BFileOpened)
+ *
 \************************************************************************/
+
+/* debugging: look for setcolor_ggu and post_ggu */
 
 /**********************************************/
 static char  VERSION [7] ="1.79";
@@ -124,9 +127,10 @@ static long int NPath       = 0;	/* subpaths in actual path */
 static      int NPage       = 0;	/* actual page */
 static	    int NClip       = 0;	/* number of page clipping */
 static	    int NoClip      = 0;	/* flag for no clipping */
-static	    int BOutSide    = NO;	/* actual point is outside ? */
-static	    int BPageOpened = NO;	/* page has been opened for plot ? */
-static	    int BPaintWhite = NO;	/* paint with white ? (only for gray) */
+static	    int BOutSide    = NO;	/* actual point is outside */
+static	    int BPageOpened = NO;	/* page has been opened for plot */
+static	    int BFileOpened = NO;	/* file has been opened for plot */
+static	    int BPaintWhite = NO;	/* paint with white (only for gray) */
 
 /*****************************************************************/
 
@@ -216,6 +220,15 @@ static void PsSetFont( void );
 /*****************************************************************/
 /****************** Static Routines ******************************/
 /*****************************************************************/
+
+/*
+static void CheckFP( int i )
+{
+    printf("%% ggu  CheckFP: %d\n",i);
+    fflush(stdout);
+    fprintf(FP,"%% ggu  CheckFP: %d\n",i);
+}
+*/
 
 static void PsPageHeader( void )
 
@@ -322,6 +335,9 @@ void PsGraphInit( char *file )
 {
     FILE *fp;
     static char sinit[] = {"%!PS-Adobe-3.0\n"};
+
+    if( BFileOpened ) return;
+    BFileOpened = YES;
 
     if( file && *file != '\0' ) {
       fp=fopen(file,"w");
@@ -471,7 +487,12 @@ void PsGraphOpenFile( char *file )
 
 void PsGraphClose( void )
 
+/* this can safely be called also without opening the file */
+
 {
+    if( !BFileOpened ) return;
+    BFileOpened = NO;
+
     PsEndPage();
 
     fprintf(FP,"%%%%Trailer\n"); 
@@ -487,8 +508,11 @@ void PsGraphClose( void )
 void PsStartPage( void )
 
 {
+    if( !BFileOpened ) {
+	PsGraphOpen();
+    }
     if( !BPageOpened ) {
-        BPageOpened = 1;
+        BPageOpened = YES;
         PsPageHeader();
     }
 }
@@ -497,7 +521,7 @@ void PsEndPage( void )
 
 {
     if( BPageOpened ) {
-        BPageOpened = 0;
+        BPageOpened = NO;
         PsStroke(FLUSH);
 	if( NClip ) fprintf(FP,"GR\n");
         fprintf(FP,"GR\n");

@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 2010,2018  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -45,6 +45,15 @@
  **  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  **  GNU General Public License for more details.
  **/
+
+/************************************************************************\
+ *
+ * revision log :
+ *
+ * 23.03.2010	ggu	changed v6.1.1
+ * 18.12.2018	ggu	changed VERS_7_5_52
+ *
+\************************************************************************/
 
 #include "eventque.h"
 

@@ -2,7 +2,7 @@
 #
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -17,6 +17,9 @@
 #	git config --global github.token MY_TOKEN
 # for more information see:
 # https://github.community/t5/How-to-use-Git-and-GitHub/How-to-create-full-release-from-command-line-not-just-a-tag/td-p/6895
+#
+# new authentication method:
+# curl -u username:token https://api.github.com/user
 #
 #---------------------------------------------------------------------
 
@@ -37,6 +40,8 @@ FullUsage()
   echo "  -h|-help           this help"
   echo "  -write             really write release"
   echo "  -tag tag           use tag to which apply release (default: last)"
+  echo "  -full_release      use RELEASE_NOTES for title and description"
+  echo "  -full title        title for release and -release_notes"
   echo "  -title title       use title for the release (default: tag)"
   echo "  -description text  use text as description (default: title)"
   echo "  -release_notes     use text in RELEASE_NOTES as description"
@@ -83,6 +88,13 @@ generate_release_notes()
 
   release_text=$( git-release_notes.pl $tag RELEASE_NOTES )
   release_text=$( json_escape "$release_text" )
+
+  # strip double quotes from text
+  #echo "--$release_text--"
+  release_text="${release_text::-1}"
+  release_text="${release_text:1}"
+  #echo "--$release_text--"
+  #exit 1
 }
 
 generate_post_data()
@@ -108,6 +120,7 @@ write="NO"
 draft="false"
 prerelease="false"
 release_notes="false"
+full_release="false"
 
 while [ -n "$1" ]
 do
@@ -115,6 +128,8 @@ do
         -write)         write="YES";;
         -tag)           tag=$2; shift;;
         -title)         title=$2; shift;;
+        -full_release)  full_release="true";;
+        -full)          title=$2; shift; release_notes="true";;
         -description)   description=$2; shift;;
         -release_notes) release_notes="true";;
         -draft)         draft="true";;
@@ -137,6 +152,11 @@ CheckDir
 [ -z "$tag" ] && tag=$( make tag )
 [ -z "$title" ] && title=$tag
 [ -z "$description" ] && description=$title
+
+if [ $full_release = "true" ]; then
+  release_notes="true"
+  title=$( git-release_notes.pl -title $tag RELEASE_NOTES )
+fi
 
 release_name=$title
 release_text=$description
@@ -184,8 +204,15 @@ fi
 #---------------------------------------------------------------------
 
 echo "Create release $tag for repo: $repo_full_name branch: $branch"
+
+#curl --data "$(generate_post_data)" \
+#   "https://api.github.com/repos/$repo_full_name/releases?access_token=$token"
+# example: curl -u username:token https://api.github.com/user
+# https://developer.github.com/v3/auth/#via-oauth-and-personal-access-tokens
+
 curl --data "$(generate_post_data)" \
-   "https://api.github.com/repos/$repo_full_name/releases?access_token=$token"
+   -u georgu:$token \
+   "https://api.github.com/repos/$repo_full_name/releases"
 
 #---------------------------------------------------------------------
 # end of routine

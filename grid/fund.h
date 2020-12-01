@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1994-1995  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,14 +24,15 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * fund.h - fundamental type declarations                               *
- *									*
- * Revision History:							*
- * 02-Dec-95: Number_list_type cancelled from fundamental types         *
- * 12-Apr-94: Extracted from grid.h -> new header file                  *
- *									*
+/************************************************************************\
+ *
+ * fund.h - fundamental type declarations
+ *
+ * revision log :
+ *
+ * 12.04.1994	ggu	Extracted from grid.h -> new header file
+ * 02.12.1995	ggu	Number_list_type cancelled from fundamental types
+ *
 \************************************************************************/
 
 

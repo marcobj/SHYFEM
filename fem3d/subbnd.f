@@ -1,7 +1,10 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1997-2001,2003-2006,2008-2019  Georg Umgiesser
+!    Copyright (C) 2005,2014  Christian Ferrarin
+!    Copyright (C) 2008  Andrea Cucco
+!    Copyright (C) 2012  Aaron Roland
 !
 !    This file is part of SHYFEM.
 !
@@ -393,6 +396,11 @@ c |bfmbcn|	File name that contains values for the bfm module.
 c |mercn|	File name that contains values for the mercury module.
 
 	call addfnm('mercn',' ')
+
+c |s4mern|      File name that contains values for the mercury module.
+
+        call addfnm('s4mern',' ')
+
 
 c |intpol|	Order of interpolation for the boundary values read
 c		in files. Use for 1 for stepwise (no) interpolation,
@@ -1724,6 +1732,8 @@ c********************************************************************
 	  name = 'bfmbcn'
         else if( what .eq. 'mercury' ) then
 	  name = 'mercn'
+        else if( what .eq. 's4mercury' ) then
+          name = 's4mern'
         else
           if( exists_bnd_file(what) ) then	!use name given in what
 	    name = what

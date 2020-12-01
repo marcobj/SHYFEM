@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2013,2015,2019-2020  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -31,6 +31,9 @@
 ! 16.02.2019	ggu	changed VERS_7_5_60
 ! 11.04.2019	ggu	added rcomputev
 ! 21.05.2019	ggu	changed VERS_7_5_62
+! 06.03.2020	ggu	custom routine set_fric_max()
+! 26.03.2020	ggu	new variable vis_max and routine set_vis_max()
+! 26.05.2020	ggu	rdistv is now defined on elements
 
 !==========================================================================
 	module mod_internal
@@ -42,8 +45,8 @@
         integer, private, save :: nel_internal = 0
         integer, private, save :: nlv_internal = 0
         
-        real, allocatable, save :: rcomputev(:)
-        real, allocatable, save :: rdistv(:)
+        real, allocatable, save :: rcomputev(:)	!compute all terms
+        real, allocatable, save :: rdistv(:)	!compute expl terms by dist
         real, allocatable, save :: fcorv(:)
         real, allocatable, save :: fxv(:,:)
         real, allocatable, save :: fyv(:,:)
@@ -52,6 +55,9 @@
         real, allocatable, save :: iuvfix(:)
         double precision, allocatable, save :: ddxv(:,:)
         double precision, allocatable, save :: ddyv(:,:)
+
+        real, save :: rfric_max = 1./1800.     !half hour time scale
+        real, save :: vis_max = 10.            !possibly highest value
 
 !==========================================================================
         contains
@@ -74,16 +80,16 @@
         end if
 
 	if( nkn_internal > 0 ) then
-         deallocate(rcomputev)
-         deallocate(rdistv)
-         deallocate(fcorv)
-         deallocate(fxv)
-         deallocate(fyv)
-         deallocate(momentxv)
-         deallocate(momentyv)
-         deallocate(iuvfix)
-         deallocate(ddxv)
-         deallocate(ddyv)
+          deallocate(rcomputev)
+          deallocate(rdistv)
+          deallocate(fcorv)
+          deallocate(fxv)
+          deallocate(fyv)
+          deallocate(momentxv)
+          deallocate(momentyv)
+          deallocate(iuvfix)
+          deallocate(ddxv)
+          deallocate(ddyv)
         end if
 
         nel_internal = nel
@@ -92,22 +98,51 @@
         
         if( nkn == 0 ) return
         
-         allocate (rcomputev(nel))
-         allocate (rdistv(nkn))
-         allocate (fcorv(nel))
-         allocate (fxv(nlv,nel))
-         allocate (fyv(nlv,nel))
-         allocate (momentxv(nlv,nkn))
-         allocate (momentyv(nlv,nkn))
-         allocate (iuvfix(nel))
-         allocate (ddxv(2*nlv,nel))
-         allocate (ddyv(2*nlv,nel))
+        allocate (rcomputev(nel))
+        allocate (rdistv(nel))
+        allocate (fcorv(nel))
+        allocate (fxv(nlv,nel))
+        allocate (fyv(nlv,nel))
+        allocate (momentxv(nlv,nkn))
+        allocate (momentyv(nlv,nkn))
+        allocate (iuvfix(nel))
+        allocate (ddxv(2*nlv,nel))
+        allocate (ddyv(2*nlv,nel))
         
-	 rcomputev = 1.
+	rcomputev = 1.
+	rdistv = 1.
 
         end subroutine mod_internal_init 
 
 !==========================================================================
         end module mod_internal
 !==========================================================================
+
+	subroutine set_fric_max(fmax)
+
+	use mod_internal
+
+	implicit none
+
+	real fmax
+
+	rfric_max = fmax
+
+	end
+
+!**************************************************************************
+
+	subroutine set_vis_max(fmax)
+
+	use mod_internal
+
+	implicit none
+
+	real fmax
+
+	vis_max = fmax
+
+	end
+
+!**************************************************************************
 

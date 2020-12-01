@@ -2,7 +2,7 @@
 #
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -12,7 +12,7 @@
 #
 #--------------------------------------------------
 
-except="Makefile INSTALL-LIST README copyright_notice.txt"
+except="Makefile INFO_INSTALL README CR copyright_notice.txt"
 
 CheckExe()
 {

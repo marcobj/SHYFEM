@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2017,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -27,6 +27,12 @@
 !
 ! still to do: implement stack for string
 !
+! revision log :
+!
+! 26.09.2017	ggu	changed VERS_7_5_32
+! 05.12.2017	ggu	changed VERS_7_5_39
+! 14.02.2019	ggu	changed VERS_7_5_56
+
 !===============================================================
 	module stack
 !===============================================================

@@ -2,7 +2,7 @@
 #
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -21,7 +21,7 @@ files=$(find . -newer VERSION -type f |
 	grep -v '\.a' | \
 	grep -v '\.swp' | \
 	grep -v 'param\.h' | \
-	grep -v 'CHECKLOG' | \
+	grep -v 'CHECKLOG\.tmp' | \
 	grep -v '\.mod')
 
 for file in $files

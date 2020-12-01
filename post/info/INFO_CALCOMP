@@ -1,0 +1,26 @@
+
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2020  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+
+
+plots
+plot
+factor
+where
+newpen
+
+symbol
+number
+scale
+axis
+line
+
+circle
+dashs
+grid
+shade

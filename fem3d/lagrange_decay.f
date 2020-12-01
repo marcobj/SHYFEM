@@ -1,7 +1,9 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2009-2010,2012,2014-2015,2018-2019  Georg Umgiesser
+!    Copyright (C) 2012  Michol Ghezzo
+!    Copyright (C) 2012  Francesca De Pascalis
 !
 !    This file is part of SHYFEM.
 !
@@ -215,7 +217,9 @@ c particles older than tdead are eliminated
 	
 	!tdead = 0 
 	!tdead = 30.5*86400
-	tdead = 15*86400
+	!tdead = 45*86400
+	!tdead = 65*86400
+	tdead = pld_day ![sec]
 
 	if( icall .eq. 0 ) then
 	  write(6,*) 'WARNING tdead (lagrange_decay):',tdead

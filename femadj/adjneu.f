@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 2003  Georg Umgiesser
+!    Copyright (C) 2003,2010,2015,2018-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -170,7 +170,7 @@ c deletes node
 	integer knew,kold,ie,ii,n,kk,i
 	integer kspecial
 
-	kspecial = 1138
+	kspecial = 0
 	bdebug = .false.
 	if( k .eq. kspecial ) bdebug = .true.
 

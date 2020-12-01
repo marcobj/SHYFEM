@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1995,1997  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,17 +24,18 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * meshut.h - mesh utility routines					*
- *									*
- * Revision History:							*
- * 16-Oct-97: new routines PrintLineList(), MakeNewLine()               *
- *              InsertInIndex(), InsertNodeInLine()                     *
- * 15-Oct-97: new routine MakeCoordsFromLine()                          *
- * 01-Aug-95: new routines inserted and hash routines transfered        *
- * 25-Jul-95: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * meshut.h - mesh utility routines
+ *
+ * revision log :
+ *
+ * 25.07.1995	ggu	routines written from scratch
+ * 01.08.1995	ggu	new routines inserted and hash routines transfered
+ * 15.10.1997	ggu	new routine MakeCoordsFromLine()
+ * 16.10.1997	ggu	new routines PrintLineList(), MakeNewLine()
+ * ...		ggu	InsertInIndex(), InsertNodeInLine()
+ *
 \************************************************************************/
 
 

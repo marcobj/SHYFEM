@@ -1,12 +1,11 @@
 
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
 #------------------------------------------------------------------------
-
 
 # makefile for fem/bin
 
@@ -19,6 +18,8 @@ DISTDIR  = $(FEMDIR)/femdist
 REMOTEDIR = /net/lagoon/usr/users/georg/fem/$(DIR)
 LOCALDIR  = $(FEMDIR)/$(DIR)
 UPFILES   = *
+
+SPECIAL = Makefile CR
 
 #----------------------------------------------------------
 
@@ -55,6 +56,12 @@ list:
 	pwd; ls
 
 depend: nothing
+
+exe:
+	chmod +x *
+
+noexe:
+	chmod -x $(SPECIAL)
 
 femsave: save
 	mv $(DIR).zip $(DISTDIR)

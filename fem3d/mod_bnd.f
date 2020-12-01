@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2015-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -46,7 +46,7 @@
         integer, private, save :: nbc_bnd = 0
 
 	integer, parameter :: nbvdim = 27	!total number of values
-	integer, parameter :: nbfdim = 16	!total number of files
+	integer, parameter :: nbfdim = 17	!total number of files
 
         character*6, save :: bnd_par_names(nbvdim) =
      +			(/
@@ -61,7 +61,7 @@
 	character*6, save :: bnd_file_names(nbfdim) =
      +			(/
      +                   'boundn','conzn ','saltn ','tempn '
-     +                  ,'bio2dn','tox3dn','mercn '
+     +                  ,'bio2dn','tox3dn','mercn ','s4mern'
      +                  ,'sed2dn','mud2dn','lam2dn','dmf2dn'
      +                  ,'bfm1bc','bfm2bc','bfm3bc','bfmbcn'
      +                  ,'vel3dn'
@@ -155,6 +155,7 @@
           allocate(bnd(nbvdim,nbb))
           allocate(bnd_file(nbfdim,nbb))
 	  bnd = 0
+	  bnd_file = ' '
 	end if
 
 	allocate(bnd_aux(nbvdim,nbb))

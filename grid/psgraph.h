@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1992,1994,1996-1997  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,17 +24,18 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * psgraph.h - graphic routines for postscript output			*
- *									*
- * Revision History:							*
- * 12-Sep-97: PsAdjustScale becomes static, PsWindow -> PsSetWorld      *
- * 11-Sep-97: minor modifications (PsGraphOpen,...)                     *
- * 23-Feb-96: new routines added (tailored for PS)                      *
- * 06-Apr-94: copyright notice added to file				*
- * ..-...-92: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * psgraph.h - graphic routines for postscript output
+ *
+ * revision log :
+ *
+ * 01.01.1992	ggu	routines written from scratch
+ * 06.04.1994	ggu	copyright notice added to file
+ * 23.02.1996	ggu	new routines added (tailored for PS)
+ * 11.09.1997	ggu	minor modifications (PsGraphOpen,...)
+ * 12.09.1997	ggu	PsAdjustScale becomes static, PsWindow -> PsSetWorld
+ *
 \************************************************************************/
 
 

@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2015,2018  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -22,6 +22,12 @@
 !    Contributions to this file can be found below in the revision log.
 !
 !--------------------------------------------------------------------------
+
+! revision log :
+!
+! 19.01.2015	ggu	changed VERS_7_1_3
+! 26.02.2015	ggu	changed VERS_7_1_5
+! 18.12.2018	ggu	changed VERS_7_5_52
 
 	logical bdebug_out
 	parameter (bdebug_out = .false.)

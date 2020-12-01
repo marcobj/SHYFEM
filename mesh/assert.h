@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1996  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -25,13 +25,14 @@
 
 
 
-/************************************************************************\ 
- *									*
- * assert.h - utility routines for assertion handling                   *
- *									*
- * Revision History:							*
- * ..-...-96: routines copied from "Writing Solid Code"                 *
- *									*
+/************************************************************************\
+ *
+ * assert.h - utility routines for assertion handling
+ *
+ * revision log :
+ *
+ * 01.01.1996	ggu	routines copied from "Writing Solid Code"
+ *
 \************************************************************************/
 
 

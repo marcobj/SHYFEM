@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2010,2014,2016,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -27,6 +27,16 @@
 !		CONSTANTS FOR SEDI3D
 ! ======================================================================
 ! Common block containing constants used for sedi3d
+
+! revision log :
+!
+! 23.03.2010	ggu	changed v6.1.1
+! 05.11.2014	ggu	changed VERS_7_0_5
+! 01.04.2016	ggu	changed VERS_7_5_7
+! 16.02.2019	ggu	changed VERS_7_5_60
+
+! ======================================================================
+
 
         INTEGER NLBDIM            !number of bed layer
         PARAMETER (NLBDIM=20)

@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1992,1994  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,18 +24,19 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * xgraph.c - graphic routines for X11					*
- *									*
- * Revision History:							*
- * 21-Mar-94: gcc-warnings, call to XGeometry corrected (unsigned)	*
- *		VelColors used for call to QAllocVelColors(),		*
- *		*ShadeColor() declared in xgraph.h,			*
- *		gustd.h not included anymore				*
- * 11-Feb-94: copyright notice added to all files			*
- * ..-...-92: routines written from scratch				*
- *									*
+/************************************************************************\
+ *
+ * xgraph.c - graphic routines for X11
+ *
+ * revision log :
+ *
+ * 01.01.1992	ggu	routines written from scratch
+ * 11.02.1994	ggu	copyright notice added to all files
+ * 21.03.1994	ggu	VelColors used for call to QAllocVelColors(),
+ * 21.03.1994	ggu	*ShadeColor() declared in xgraph.h,
+ * 21.03.1994	ggu	gustd.h not included anymore
+ * 21.03.1994	ggu	gcc-warnings, call to XGeometry corrected (unsigned)
+ *
 \************************************************************************/
 
 
@@ -181,8 +182,6 @@ static int TextSize   = 1;
 /*
 static int TextHeight = 0;
 */
-
-static int	     flag_useless=0;	/* just to avoid compiler warning */
 
 static int           XAct=0;
 static int           YAct=0;
@@ -1071,13 +1070,10 @@ void QSetGeometry( char *s )
 {
 	int x,y;
 	int width,height;	/* unsigned deleted 21.03.94 */
-	int flag;
 
-	flag = XGeometry( MyDisplay , MyScreen , s , NULL ,
+	(void) XGeometry( MyDisplay , MyScreen , s , NULL ,
 				MyBorder , 1 , 1 , 0 , 0 ,
 				&x , &y , &width , &height );
-
-	flag_useless = flag;
 
 	XMinPix = x;
 	YMinPix = y;

@@ -1,7 +1,9 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2017-2019  Georg Umgiesser
+!    Copyright (C) 2017  Leslie Aveytua
+!    Copyright (C) 2017  Donata Melaku Canu
 !
 !    This file is part of SHYFEM.
 !
@@ -27,7 +29,7 @@ c weutro_wdia - dianostic variables routines for weutro
 c
 c revision log :
 c
-c 10.10.2017	dmk&laa	written from scratch
+! 10.10.2017	dmc&laa	written from scratch
 c 26.10.2017	ggu	integrated into main trunk
 c 04.11.2017	ggu	changed VERS_7_5_34
 c 03.04.2018	ggu	changed VERS_7_5_43

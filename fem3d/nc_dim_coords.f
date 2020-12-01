@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2017-2020  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -40,6 +40,7 @@
 ! 13.07.2018	ggu	changed VERS_7_4_1
 ! 14.02.2019	ggu	changed VERS_7_5_56
 ! 16.02.2019	ggu	changed VERS_7_5_60
+! 08.01.2020	ggu	new values for time description
 !
 ! notes :
 !
@@ -483,20 +484,27 @@ c*****************************************************************
 
 	call nc_get_var_id(ncid,var,var_id)
 
-	if( bdebug ) write(6,*) 'looking: ',trim(var),var_id
 	do j=1,nwhere
           call nc_get_var_attr(ncid,var_id,trim(where(j)),atext)
-	if( bdebug ) write(6,*) '   ',trim(where(j)),'  ',trim(atext)
 	  if( atext == ' ' ) cycle
-	if( bdebug ) then
+	  call ncnames_get('var',atext,short)
+	  if( short /= ' ' ) exit
+	end do
+
+	if( .not. bdebug ) return
+
+! here the same thing, but with debug messages
+
+	write(6,*) 'looking: ',trim(var),var_id
+	do j=1,nwhere
+          call nc_get_var_attr(ncid,var_id,trim(where(j)),atext)
+	  write(6,*) '   ',trim(where(j)),'  ',trim(atext)
+	  if( atext == ' ' ) cycle
 	  !do i=1,20
 	  !  write(6,*) 'atext ',i,ichar(atext(i:i))
 	  !end do
-	end if
 	  call ncnames_get('var',atext,short)
-	if( bdebug ) then
-	write(6,*) '  .. ','  |',trim(atext),'|  ',trim(short)
-	end if
+	  write(6,*) '  .. ','  |',trim(atext),'|  ',trim(short)
 	  if( short /= ' ' ) exit
 	end do
 
@@ -509,7 +517,7 @@ c*****************************************************************
 c*****************************************************************
 c*****************************************************************
 c*****************************************************************
-c test routines
+c check routines
 c*****************************************************************
 c*****************************************************************
 c*****************************************************************
@@ -529,6 +537,8 @@ c*****************************************************************
 	integer nt,nx,ny,nz
 	character(*) tcoord,xcoord,ycoord,zcoord
 
+	integer i
+
         call nc_init_dims_and_coords(ncid,bverb)
 
 	nt = idims(2,0)
@@ -540,6 +550,12 @@ c*****************************************************************
 	xcoord = ccoords(1)
 	ycoord = ccoords(2)
 	zcoord = ccoords(3)
+
+	if( bverb ) then
+	  do i=0,3
+	    write(6,*) i,'n = ',idims(2,i),' s = ',trim(ccoords(i))
+	  end do
+	end if
 
         if( nt > 0 .and. tcoord == ' ' ) then
           write(6,*) 'nt = ',nt,'   tcoord = ',trim(tcoord)
@@ -735,6 +751,7 @@ c*****************************************************************
 	implicit none
 
 	call ncnames_add_dim('t','time')
+	call ncnames_add_dim('t','ntime')
 	call ncnames_add_dim('t','Time')
 	call ncnames_add_dim('t','ocean_time')
 
@@ -782,17 +799,21 @@ c*****************************************************************
 
 	logical, parameter :: bclip = .true.
 
+	call ncnames_add_coord('t','Time')
 	call ncnames_add_coord('t','time')
 	call ncnames_add_coord('t','ocean_time')
 	call ncnames_add_coord('t','averaged time since initialization')
 	call ncnames_add_coord('t','Julian day (UTC) of the station')
 	call ncnames_add_coord('t','minutes since',bclip)
+	call ncnames_add_coord('t','days since',bclip)
 
+	call ncnames_add_coord('x','lon')
 	call ncnames_add_coord('x','longitude')
 	call ncnames_add_coord('x','Longitude')
 	call ncnames_add_coord('x','Longitude of scalars')
 	call ncnames_add_coord('x','LONGITUDE',bclip)
 
+	call ncnames_add_coord('y','lat')
 	call ncnames_add_coord('y','latitude')
 	call ncnames_add_coord('y','Latitude')
 	call ncnames_add_coord('y','Latitude of scalars')
@@ -857,6 +878,7 @@ c*****************************************************************
 	call ncnames_add_var('airp','SFC PRESSURE')
 	call ncnames_add_var('airp','Pressure reduced to MSL')
 	call ncnames_add_var('airp','air_pressure')
+	call ncnames_add_var('airp','Sea Level Pressure')
 	call ncnames_add_var('wind','eastward_wind')
 	call ncnames_add_var('wind','northward_wind')
 	call ncnames_add_var('wind','U at 10 M')

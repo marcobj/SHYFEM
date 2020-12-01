@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1988,1990,1992,1998-1999,2001,2003-2004  Georg Umgiesser
+!    Copyright (C) 2008,2019-2020  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -62,6 +63,9 @@
 ! 12.04.2019	ggu	first finished draft
 ! 17.04.2019	ggu	tested on old venlag62
 ! 21.05.2019	ggu	changed VERS_7_5_62
+! 05.03.2020	ggu	output streamlined, set rfmax here
+! 26.03.2020	ggu	set vmax here
+! 09.04.2020	ggu	increase non computing elements with ndist
 !
 !************************************************************************
 
@@ -88,19 +92,24 @@
           real :: vdate
           real :: zdiff
 
-          integer :: ioper
-          integer :: iact
+          integer :: ioper		!operation mode (see below is_*)
+          integer :: iact		!where are we in itb
           integer :: imode
           real :: scal
+          real :: geyer
           double precision :: dstart
 
           real, allocatable :: hdep(:)
           integer, allocatable :: ieboc(:)
 
+          real, allocatable :: distfact(:)
+
         end type entry
 
 	integer, save :: nclose = 0	!total number of closing sects
 	integer, save :: nb13 = 0	!unit for output
+
+	integer, save :: ndist = 0	!distance for not computing terms
 
         integer, save, private :: ndim = 0
         type(entry), save, allocatable :: pentry(:)
@@ -204,16 +213,23 @@
 	integer kvert(10)
 
 	integer nkbnds,nbnds,itybnd
-	real hkv(nkn)		!aux array
+	real, save :: rfmax = 1./300.		!time scale 5 minutes
+	real, save :: vmax = 10.		!viscosity
+	real hkv(nkn)				!aux array
 	integer index(nkn)
+	integer color(nkn)
+	real dfact(nkn)
 
 	logical, save :: binit = .false.
 
-	if( binit ) return		!already initialized
+	if( binit ) return			!already initialized
 	binit = .true.
 
 	nbc = nbnds()
-	call makehkv_minmax(hkv,0)	!get average depths
+	call makehkv_minmax(hkv,0)		!get average depths
+
+	call set_fric_max(rfmax)  !set maximum friction (inverse tiemscale)
+	call set_vis_max(vmax)    !set maximum viscosity
 
 	do id=1,nclose
 
@@ -286,6 +302,22 @@
 	call trim_array(pentry(id)%ieboc,nieboc)
 
 !	-----------------------------------------------
+!	compute distance array around closing nodes
+!	-----------------------------------------------
+
+	call init_array(pentry(id)%distfact,nel)
+	color = 0.
+
+	do i=1,nkboc
+	  k = pentry(id)%kboc(i)
+	  color(k) = 1
+	end do
+
+	call flood_fill_progessive(color)
+	dfact = color
+	call adjust_distfact(ndist,dfact,pentry(id)%distfact)
+
+!	-----------------------------------------------
 !	set info if nodes are open boundary
 !	-----------------------------------------------
 
@@ -315,6 +347,8 @@
 	end do
 
 	write(6,*) 'closing sections initialized: ',nclose
+
+	call check_dist		!checks and plots
 
 !	-----------------------------------------------
 !	end of routine
@@ -392,9 +426,9 @@
 ! ibnd		number of open boundary to use for opening/closing
 !		...(kboc and ibnd are mutually esclusive)
 !
-! kref		reference node in section (used for mode)
+! kref		reference node for water level (used for mode)
 ! kin,kout	inner and outer node for section (used for mode)
-! kdir		node defining direction for icl=2,3 : direction = kdir-kref
+! kdir		node defining direction for icl=2,3,10: direction = kdir-kin
 !		...default for nodes kref=kin=kout=kdir and
 !		...kref is middle node in section
 !
@@ -409,18 +443,18 @@
 ! imode		= 100 * icl + iop
 !
 ! icl		0:no closing  1:forced closing
-!		2:vref=0 and change to positive dir. (empty basin)
-!		3:vref=0 and change to negative dir. (full basin)
-!		4:vref>vdate  5:vref<vdate
+!		2:vin=0 and change to positive dir. (empty basin)
+!		3:vin=0 and change to negative dir. (full basin)
+!		4:vin>vdate   5:vin<vdate
 !		6:zout>zdate  7:zout<zdate
-!		8:zin>zdate  9:zin<zdate
+!		8:zin>zdate   9:zin<zdate
 !		10:zref>zdate and positive velocity direction
 !		icl>20:immediate (e.g. 25 <=> icl=5 + immediate)
 !
-! iop		0:no opening  1:forced opening
-!		2:zin>zout  3:zin<zout	(same as 4,5 with zdiff=0.)
+! iop		0:no opening      1:forced opening
+!		2:zin>zout        3:zin<zout	(same as 4,5 with zdiff=0)
 !		4:zin-zout>zdiff  5:zin-zout<zdiff
-!		6:zout>zdate  7:zout<zdate
+!		6:zout>zdate      7:zout<zdate
 !		iop>20:immediate (e.g. 25 <=> icl=5 + immediate)
 !
 ! dsoft		time [s] over which opening/closing
@@ -435,6 +469,7 @@
 
 	use close
 	use shympi
+	use mod_internal
 
 	implicit none
 
@@ -475,6 +510,8 @@
 	ic=0				!&&&&   do not compute new uv-matrix
 	nsc = nclose
 
+	rcomputev = 1			!set all elements to compute
+
 	call get_act_dtime(dtime)
 	call get_act_timeline(aline)
 
@@ -491,7 +528,7 @@
 ! get parameters
 
         ioper  = pentry(id)%ioper
-        iact  = pentry(id)%iact
+        iact   = pentry(id)%iact
         imode  = pentry(id)%imode
         dsoft  = pentry(id)%dsoft
         dwait  = pentry(id)%dwait
@@ -503,7 +540,7 @@
 	call print_closing_info(id,'std')
 	bnewmode=.false.
         call get_new_mode(id,dtime,iact,imode,bnewmode)
-	if( bnewmode ) call print_closing_info(id,'***')
+	!if( bnewmode ) call print_closing_info(id,'***')
 
 	write(nb13,*)
 	write(nb13,'(1x,a,4i5)') 'id,iact,imode,ioper :'
@@ -569,8 +606,8 @@
 	  if( geyer <= 0. ) ioper = is_closed_waiting
 	  if( dtime >= dwait ) ioper = is_closed
 	  call set_geyer(id,geyer)
-	  write(6,*) 'ioper,geyer : ',ioper,geyer
-	  write(67,*) 'ioper,geyer : ',ioper,geyer
+	  !write(6,*) 'ioper,geyer : ',ioper,geyer
+	  !write(67,*) 'ioper,geyer : ',ioper,geyer
 	  write(nb13,*) 'ioper,geyer : ',ioper,geyer
 
 	  if( bfirst ) then
@@ -605,8 +642,8 @@
 	  if( dtime >= dwait ) ioper = is_open
 	  geyer = 1. - geyer
 	  call set_geyer(id,geyer)
-	  write(6,*) 'ioper,geyer : ',ioper,geyer
-	  write(67,*) 'ioper,geyer : ',ioper,geyer
+	  !write(6,*) 'ioper,geyer : ',ioper,geyer
+	  !write(67,*) 'ioper,geyer : ',ioper,geyer
 	  write(nb13,*) 'ioper,geyer : ',ioper,geyer
 
 	  if( bfirst ) then
@@ -617,8 +654,23 @@
 	end if
 
 !	----------------------------------------------
+!	handle no operations
+!	----------------------------------------------
+
+	if( bclos .and. bopen ) then
+	  write(6,*) 'both closing and opening: ',bclos,bopen
+	  stop 'error stop sp136: internal error (1)'
+	else if( .not. bclos .and. .not. bopen ) then	!out of operation
+	  if( ioper == is_closed ) then			!inlet is closed
+	    call set_geyer(id,0.)			!keep closed
+	  end if
+	end if
+
+!	----------------------------------------------
 !	remember variable parameters
 !	----------------------------------------------
+
+	call compute_aver_geyer(id,pentry(id)%geyer)
 
         pentry(id)%ioper = ioper
         pentry(id)%iact = iact
@@ -1166,8 +1218,43 @@
 
 !*****************************************************************
 
+	subroutine compute_aver_geyer(id,geyer)
+
+! geyer is 0 for closed, 1 for open
+
+	use basin
+	use close
+	use mod_internal
+
+	implicit none
+
+	integer id
+	real geyer
+
+	integer ie,n
+	real f,dist
+
+	n = 0
+	f = 0.
+
+	do ie=1,nel
+	  dist = pentry(id)%distfact(ie)
+	  if( dist <= 0. ) cycle
+	  f = f + rcomputev(ie)
+	  n = n + 1
+	end do
+
+	geyer = f / n
+
+	end
+
+!*****************************************************************
+
 	subroutine set_geyer(id,geyer)
 
+! geyer is 0 for closed, 1 for open
+
+	use basin
 	use close
 	use mod_internal
 
@@ -1177,18 +1264,26 @@
 	real geyer
 
 	integer nieboc,i,ie
-	real g
+	real g,f,dist
 
 	g = geyer
 	g = min(g,1.)
 	g = max(g,0.)
 
-	nieboc = size(pentry(id)%ieboc)
-
-	do i=1,nieboc
-	  ie = pentry(id)%ieboc(i)
-	  rcomputev(ie) = g
+	do ie=1,nel
+	  dist = pentry(id)%distfact(ie)
+	  if( dist <= 0. ) cycle
+	  f = 1. + dist*(g-1.)
+	  rcomputev(ie) = f
 	end do
+
+	!nieboc = size(pentry(id)%ieboc)
+	!pentry(id)%geyer = g
+
+	!do i=1,nieboc
+	!  ie = pentry(id)%ieboc(i)
+	!  rcomputev(ie) = g
+	!end do
 
 	end
 
@@ -1228,9 +1323,12 @@
 
 	integer iact,imode,ioper
 	integer kref,kin,kout
-	integer izin,izout,izref,izdate
-	real zin,zout,zref,zdate
+	integer izin,izout,izref,izdate,iflux
+	real zin,zout,zref,zdate,geyer,flux
 	double precision dtime
+	character*80 string1,string2
+	character*20 aline
+	integer, save :: icall = 0
 
 	call get_act_dtime(dtime)
 
@@ -1243,6 +1341,13 @@
 	kout = pentry(id)%kout
 
 	zdate = pentry(id)%zdate
+	geyer = pentry(id)%geyer
+	scal  = pentry(id)%scal
+	if( scal > 0. ) scal = 1.
+	if( scal < 0. ) scal = -1.
+
+	call get_barotropic_flux(id,flux)
+	iflux = nint(flux)
 
 	zin=znv(kin)
         zref=znv(kref)
@@ -1257,12 +1362,110 @@
 	izref = nint(100.*zref)
 	izdate = nint(100.*zdate)
 
+	if( id == 1 ) icall = icall + 1
+
+	string1 = '     time    id  iact imode ioper'
+     +			//' zdate  zref   zin  zout geyer  scal'
+
+	string2 = '      date and time   id iact mode oper'
+     +			//' zctr zref  zin zout geyer  scal   flux'
+
 	it = nint(dtime)
-	!if( id == 1 ) write(66,*) dtime
-	write(70+id,1000) it,id,iact,imode,ioper,izdate,izref,izin,izout
-	write(66,1000) it,id,iact,imode,ioper,izdate,izref,izin,izout
-	write(6,1000) it,id,iact,imode,ioper,izdate,izref,izin,izout
- 1000	format(i10,8i6)
+	call get_timeline(dtime,aline)
+	if( mod(icall-1,50) == 0 ) write(70+id,*) trim(string1)
+	write(70+id,1000) it,id,iact,imode,ioper
+     +			,izdate,izref,izin,izout,geyer,scal
+
+	if( id == 1 ) write(66,*) trim(string1)
+	write(66,1000) it,id,iact,imode,ioper
+     +			,izdate,izref,izin,izout,geyer,scal
+ 1000	format(i10,8i6,2f6.2)
+
+	if( id == 1 ) write(68,*) trim(string2)
+	write(68,1100) aline,id,iact,imode,ioper
+     +			,izdate,izref,izin,izout,geyer,scal,iflux
+ 1100	format(a20,8i5,2f6.2,i7)
+
+	end
+
+!*****************************************************************
+
+	subroutine adjust_distfact(ndist,fact,efact)
+
+! sets up array efact - will be between 1 (barriers) and 0 (far field)
+
+	use basin
+
+	implicit none
+
+	integer ndist
+	real fact(nkn)
+	real efact(nel)
+
+	integer k,ie,ii
+	real fdist,fdist2,f,fmax,fdiv
+
+	fdist = ndist + 1
+	!fdist2 = fdist/2
+	fdist2 = 0
+	fdiv = fdist - fdist2
+
+	do k=1,nkn
+	  if( fact(k) == 1 ) then		!starting point - closing 
+	    fact(k) = 1
+	  else if( fact(k) < fdist2 ) then
+	    fact(k) = 1
+	  else if( fact(k) > fdist ) then
+	    fact(k) = 0
+	  else
+	    f = fact(k) - fdist2
+	    fact(k) = 1. - f/fdiv
+	  end if
+	end do
+
+	where( fact > 1 ) fact = 1
+	where( fact < 0 ) fact = 0
+
+	do ie=1,nel
+	  fmax = 0.
+	  do ii=1,3
+	    k = nen3v(ii,ie)
+	    f = fact(k)
+	    fmax = max(fmax,f)
+	  end do
+	  efact(ie) = fmax
+	end do
+
+	end
+
+!*****************************************************************
+
+	subroutine check_dist
+
+	use basin
+	use close
+
+	implicit none
+
+	integer id
+	real dist(nel)
+	integer check(nel)
+
+	check = 0
+	do id=1,nclose
+	  dist = dist + pentry(id)%distfact
+	  where( pentry(id)%distfact > 0 ) check = check + 1
+	end do
+
+	if( maxval(check) > 1 ) then
+	  write(6,*) 'barriers are too close for chosen value of ndist'
+	  stop 'error stop check_dist: ndist too big'
+	end if
+
+	call basin_to_grd
+	call grd_flag_depth
+	call grd_set_element_depth(dist)
+	call grd_write('dist_close.grd')
 
 	end
 

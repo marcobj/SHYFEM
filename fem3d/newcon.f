@@ -1,7 +1,10 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1994,1996,1998-2019  Georg Umgiesser
+!    Copyright (C) 2009  Andrea Cucco
+!    Copyright (C) 2012,2014,2016  Christian Ferrarin
+!    Copyright (C) 2013  Debora Bellafiore
 !
 !    This file is part of SHYFEM.
 !
@@ -665,7 +668,7 @@ c-------------------------------------------------------------
 
 !$OMP CRITICAL
 	if(shympi_is_master()) then
-          write(iuinfo,*) 'stability_',what,': ',aline,sindex,istot
+          !write(iuinfo,*) 'stability_',what,': ',aline,sindex,istot
 	end if
 !$OMP END CRITICAL
 
@@ -1671,12 +1674,13 @@ c-----------------------------------------------------------------
 	if( icall == 0 ) then
 	 if( openmp_is_master() ) then
           call init_output_d('itmstb','idtstb',da_out)
+	  id = 0
           if( has_output_d(da_out) ) then
             call shyfem_init_scalar_file('stb',1,.true.,id)	!1 var, 2d
             da_out(4) = id
           end if
 	  icall = 1
-	  call info_output_d(da_out)
+	  if( id > 0 ) call info_output_d('conz_stab',da_out)
 	 end if
 	end if
 

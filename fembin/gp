@@ -2,7 +2,7 @@
 #
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -47,6 +47,7 @@ version=1.94
 ######################################################### defaults
 
 FEMDIR=${SHYFEMDIR:=$HOME/shyfem}
+FEMDIR=$HOME/shyfem
 
 fembin=$FEMDIR/fembin
 
@@ -66,7 +67,6 @@ ylog="NO"
 date="NO"
 offset=""
 date_format="%Y-%m-%d::%H:%M:%S"	#internal date format for gnuplot
-#xformat="%Y-%m-%d"			#how date is written in plot
 xformat=""				#how date is written in plot
 xrotate=0				#rotate x labels
 verbose="NO"
@@ -174,7 +174,6 @@ FullUsage()
   echo "   xdtics, xmtics, mesi, months or (custom)"
   echo "Column 0 indicates automatically generated index"
   echo "-u 0:all uses generated index on all data columns"
-  #echo "xformat defaults to %Y-%m-%d but can also include time if needed"
   echo "xformat is determined automatically but can be given explicitly"
   echo "  examples: %Y-%m-%d::%H:%M:%S   %d-%H   %H:%M:%S"
   echo "  -xformat option implies -date"
@@ -267,7 +266,7 @@ InsertFiles()
 
   for file in $files
   do
-    echo "inserting $file"
+    #echo "inserting $file"
     afiles[$n]=$file
     astyles[$n]=$s
     acolors[$n]=$c
@@ -384,6 +383,8 @@ HandleXaxis()
   days=$(( $hours / 24 ))
   if [ $days -lt 10 ]; then
     xformat=%d::%H
+    #xformat="%H:%M\n%y-%m-%d"
+    #xformat="%H:%M\n%Y-%m-%d"
     return
   elif [ $days -lt 30 ]; then
     xformat=%m-%d

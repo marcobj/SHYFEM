@@ -1,4 +1,50 @@
 
+19.05.2020	VERS_7_5_70	Covid edition
+
+	This is a big bug fix release and a pre-release for
+	the community model
+	It adds copyright notices to all files
+
+	copyright introduced to all files
+	closure routines adapted (mod_internal,newclose)
+	new version of femelab (femelab2,elab_resample,elab_check)
+	new utilities for handling fem files (subfemutil,subfemfile)
+	worked on BFM
+	mercury routines debugged, started restart
+	revisited strings description
+	offline restructured (suboff,offcat,offinf)
+	added lagrange_connect for connectivity
+	cleaned nudging routines in newbcl
+
+06.03.2020	VERS_7_5_69	Vincenzo edition
+
+	boxmodel in 3D revisited
+	better nudging with tau given by external file
+	closing routines adjourned
+	documentation upgraded
+	routines for vorticity
+	post processing checks for time step
+	regular output from shybas
+
+31.01.2020	VERS_7_5_68	Brexit edition
+
+	lagrangian: integrated some parts of connectivity
+	shyelab adjourned for computing vorticity in post processing
+	dummy routines for mercury
+	netcdf now writes all values as 3d
+
+20.12.2019	VERS_7_5_67
+
+	post processing for rain (femelab)
+	better processing of dated time series
+	ice cover introduced
+
+25.11.2019	VERS_7_5_66
+
+	minor release
+	femtime eliminated (in some files)
+	dynamaic implicit setting adapted (setimp)
+
 31.10.2019	VERS_7_5_65
 
 	started BFM integration
@@ -1000,7 +1046,7 @@
 
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #

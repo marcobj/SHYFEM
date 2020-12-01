@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2015-2019  Georg Umgiesser
+!    Copyright (C) 2015,2017  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -950,7 +951,7 @@ c gets flux and vel information for element and layer
 	    in = in + 1
 	    nn = nn + ii
 	    fp = fp + flux(ii)
-	  else
+	  else if( flux(ii) < 0. ) then
 	    io = io + 1
 	    no = no + ii
 	    fm = fm - flux(ii)

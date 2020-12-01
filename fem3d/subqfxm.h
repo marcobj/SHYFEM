@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2014,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -24,6 +24,11 @@
 !--------------------------------------------------------------------------
 
 ! may be already defined elsewhere
+! revision log :
+!
+! 05.11.2014	ggu	changed VERS_7_0_5
+! 16.02.2019	ggu	changed VERS_7_5_60
+
 	real, parameter  :: rhow = 1026.
         real, parameter  :: pi = 3.14159265358979323846
         real, parameter  :: deg2rad = pi/180.

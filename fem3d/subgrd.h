@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2015,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -22,6 +22,11 @@
 !    Contributions to this file can be found below in the revision log.
 !
 !--------------------------------------------------------------------------
+
+! revision log :
+!
+! 09.01.2015	ggu	changed VERS_7_0_12
+! 16.02.2019	ggu	changed VERS_7_5_60
 
         real xscale,yscale,zscale
         common /vscale/ xscale,yscale,zscale

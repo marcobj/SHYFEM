@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2017-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -26,6 +26,12 @@
 ! spline routines
 !
 !**********************************************************************
+
+! revision log :
+!
+! 05.12.2017	ggu	changed VERS_7_5_39
+! 24.01.2018	ggu	changed VERS_7_5_41
+! 14.02.2019	ggu	changed VERS_7_5_56
 
 !===============================================================
         module spline

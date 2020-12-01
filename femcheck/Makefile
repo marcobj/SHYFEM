@@ -1,7 +1,7 @@
 
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -46,7 +46,7 @@ clean:
 	-rm -f *~
 	cd parallel; make clean
 	cd copyright; make clean
+	cd netcdf; make clean
 
 cleanall: clean
-	-rm -f CHECKLOG COMPILER_LOG
 

@@ -2,7 +2,7 @@
 #
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -19,6 +19,7 @@
 # use lib ("$ENV{SHYFEMDIR}/femlib/perl","$ENV{HOME}/shyfem/femlib/perl");
 #
 # use html3;
+# use html::tooltip;
 # 
 # my $html = new html3;
 # $html->open_file_write("g.html");	
@@ -38,6 +39,10 @@
 # version 3.0	12.03.2016	new read routines
 # version 3.1	06.12.2018	documentation and some more routines
 # version 3.3	01.05.2019	scripts and style elements
+# version 3.4	06.06.2020	some enhancements reading tags
+# version 3.5	06.06.2020	other enhancements, embed image
+# version 3.6	07.09.2020	tooltips and other improvements
+# version 3.7	08.10.2020	insert geberal scripts
 #
 ##############################################################
 
@@ -152,6 +157,16 @@ sub print_version {
 
 sub write_header {
 
+  my ($self,$title,$rstyle,$extra) = @_;
+
+  $self->write_header_open($title);
+  $rstyle->() if $rstyle;
+  $self->insert_scripts();
+  $self->write_header_close($extra);
+}
+
+sub write_header_open {
+
   my ($self,$title) = @_;
 
   my $FH = $self->{file_handle_write};
@@ -159,8 +174,18 @@ sub write_header {
   print $FH "<html>\n";
   print $FH "<head>\n";
   print $FH "<title>$title</title>\n";
+}
+
+sub write_header_close {
+
+  my ($self,$extra) = @_;
+
+  $extra = "" unless $extra;
+
+  my $FH = $self->{file_handle_write};
+
   print $FH "</head>\n";
-  print $FH "<body>\n";
+  print $FH "<body $extra>\n";
   print $FH "\n";
 }
 
@@ -270,11 +295,15 @@ sub insert_table_caption {
 
 sub open_table_row {
 
-  my ($self) = @_;
+  my ($self,$extra) = @_;
 
   my $FH = $self->{file_handle_write};
 
-  print $FH "<tr>\n";
+  if( $extra ) {
+    print $FH "<tr $extra>\n";
+  } else {
+    print $FH "<tr>\n";
+  }
 }
 
 sub close_table_row {
@@ -288,12 +317,13 @@ sub close_table_row {
 
 sub insert_table_data {
 
-  my ($self,$data,$color) = @_;
+  my ($self,$data,$extra) = @_;
 
   my $FH = $self->{file_handle_write};
 
-  if( $color ) {
-    print $FH "<td><font color=\"$color\">$data</font></td>\n";
+  if( $extra ) {
+    print $FH "<td $extra>$data</td>\n";
+    #print $FH "<td><font color=\"$color\">$data</font></td>\n";
   } else {
     print $FH "<td>$data</td>\n";
   }
@@ -301,12 +331,13 @@ sub insert_table_data {
 
 sub insert_table_header {
 
-  my ($self,$data,$color) = @_;
+  my ($self,$data,$extra) = @_;
 
   my $FH = $self->{file_handle_write};
 
-  if( $color ) {
-    print $FH "<th><font color=\"$color\">$data</font></th>\n";
+  if( $extra ) {
+    print $FH "<th $extra>$data</th>\n";
+    #print $FH "<th><font color=\"$color\">$data</font></th>\n";
   } else {
     print $FH "<th>$data</th>\n";
   }
@@ -358,6 +389,32 @@ sub insert_list {
 }
 
 #-------------------------------------------------------------------
+#  insert arbitrary tag
+#-------------------------------------------------------------------
+
+sub open_tag {
+
+  my ($self,$tag,$extra) = @_;
+
+  my $FH = $self->{file_handle_write};
+
+  if( $extra ) {
+    print $FH "<$tag $extra>\n";
+  } else {
+    print $FH "<$tag>\n";
+  }
+}
+
+sub close_tag {
+
+  my ($self,$tag) = @_;
+
+  my $FH = $self->{file_handle_write};
+
+  print $FH "</$tag>\n";
+}
+
+#-------------------------------------------------------------------
 #  insert text
 #-------------------------------------------------------------------
 
@@ -377,11 +434,28 @@ sub insert_heading {
 
 sub insert_para {
 
-  my ($self,$data) = @_;
+  my ($self,$data,$extra) = @_;
 
   my $FH = $self->{file_handle_write};
 
-  print $FH "<p>$data</p>\n";
+  if( $extra ) {
+    print $FH "<p $extra>$data</p>\n";
+  } else {
+    print $FH "<p>$data</p>\n";
+  }
+}
+
+sub insert_pre {
+
+  my ($self,$data,$extra) = @_;
+
+  my $FH = $self->{file_handle_write};
+
+  if( $extra ) {
+    print $FH "<pre $extra>$data</pre>\n";
+  } else {
+    print $FH "<pre>$data</pre>\n";
+  }
 }
 
 sub insert_data {
@@ -411,6 +485,15 @@ sub insert_break {
   print $FH "<br>\n";
 }
 
+sub insert_vertical_space {
+
+  my ($self,$space) = @_;
+
+  my $FH = $self->{file_handle_write};
+
+  print $FH "<div style=\"position:relative; height:$space\"></div>\n";
+}
+
 sub insert_image {
 
   my ($self,$image,$options) = @_;
@@ -420,6 +503,27 @@ sub insert_image {
   $options = "" unless $options;
 
   print $FH "<img src=\"$image\" $options>";
+}
+
+sub embed_image {
+
+  # before using this, convert your image with "base64 image > image.txt"
+  # use format to identify image format: jpg, gif, png, ...
+  # use image to give name of image file (image.txt)
+
+  my ($self,$image,$format,$options) = @_;
+
+  my $FH = $self->{file_handle_write};
+
+  $options = "" unless $options;
+
+  print $FH "<img $options src=\"data:image/$format;base64,\n";
+  open(IMG,"<$image") || die "cannot open file: $image\n";
+  while(<IMG>) {
+    print $FH "$_";
+  }
+  close(IMG);
+  print $FH "\">";
 }
 
 #-------------------------------------------------------------------
@@ -457,8 +561,23 @@ sub find_next_tag { # finds and returns next available tag without reading it
     my $tag = $2;
     return $tag;
   } else {
-    return;
+    return "";
   }
+}
+
+sub skip_next_tag {
+
+  my ($self,$text,$tag) = @_;
+
+  unless( $tag ) {	#skip next tag whatever
+    $tag = $self->find_next_tag($text)
+  }
+
+  #print "skipping: $text\n";
+  my ($content,$options,$rest) = $self->get_tag($tag,$text);
+  #print "skipping rest: $rest\n";
+
+  return $rest;
 }
 
 sub get_nth_tag {
@@ -582,6 +701,75 @@ sub show_text { # shows limited number of chars of text
   my $ptext = substr($text,0,$n);
 
   print "$ptext\n";
+}
+
+sub show_lines { # shows limited number of lines
+
+  my ($self,$lines,$n) = @_;
+
+  $n = 10 unless $n;
+  my @f = split(/\n/,$lines);
+  foreach (@f) {
+    print "$_\n";
+    $n--;
+    last unless $n;
+  }
+}
+
+sub parse_options {
+
+  my ($self,$options) = @_;
+
+  my ($key,$value);
+  my %options = ();
+
+  return \%options unless $options;
+
+  $options =~ s/\n/ /g;
+
+  while ( $options =~ /^\s*([\w-]+)\s*=\s*/ ) {
+    #print "key: $options --- $1\n";
+    $key=$1;
+    $options =~ s/^\s*[\w-]+\s*=\s*//;
+    $value="";
+    if( $options =~ /^(.*?)\s*([\w-]+)\s*=\s*(.*)$/ ) {
+      my ($before,$match,$after) = ($1,$2,$3);
+      $value = $1;
+      #print "before delete: |$options|\n";
+      #print "before match after: |$before|$match|$after|\n";
+      $options="$match=$after";
+    }
+    $options{$key} = $value;
+  }
+  $options{$key} = $options;
+  #print "end: $options \n";
+  
+  foreach $key (keys %options) {
+    $options{$key} =~ s/^\"//;
+    $options{$key} =~ s/\"$//;
+  }
+  return \%options;
+}
+
+#-------------------------------------------------------------------
+# general scripts
+#-------------------------------------------------------------------
+
+sub insert_scripts
+{
+  my ($self) = @_;
+
+  my $FH = $self->{file_handle_write};
+
+  print $FH <<'EOT';
+        <script type="text/javascript">
+            function openTab(th)
+            {
+                window.open(th.name,'_blank');
+            }
+        </script>
+EOT
+
 }
 
 #-------------------------------------------------------------------
@@ -711,6 +899,212 @@ function my_showhide(pageID) {
 
 EOT
 
+}
+
+#-------------------------------------------------------------------
+# slideshow
+#-------------------------------------------------------------------
+
+sub insert_slideshow
+{
+  my ($self,$imgs,$captions) = @_;
+
+  my $ntot = @$imgs;
+
+  unless( $captions) {
+    my @aux = @$imgs;
+    $captions = \@aux;
+  }
+
+  my $FH = $self->{file_handle_write};
+
+  print $FH "<div class='slideshow-container'>\n";
+
+  for( my $i=1; $i<=$ntot; $i++ ) {
+    my $img = shift(@$imgs);
+    my $caption = shift(@$captions);
+    print $FH "<div class='mySlides fade'>\n";
+    #print $FH "  <div class='numbertext'>$i / $ntot</div>\n";
+    print $FH "  <img src=\"$img\" style='width:100%'>\n";
+    #print $FH "  <div class='text'>$caption</div>\n";
+    print $FH "</div>\n";
+  }
+
+  print $FH "<a class='prev' onclick='plusSlides(-1)'>&#10094;</a>\n";
+  print $FH "<a class='next' onclick='plusSlides(1)'>&#10095;</a>\n";
+  print $FH "</div>\n";
+
+  print $FH "<div style=\"text-align:center\">\n";
+  #print $FH "<span class=\"dot\" onclick=\"plusSlide(-1)\">-</span>\n";
+  for( my $i=1; $i<=$ntot; $i++ ) {
+    print $FH "<span class=\"dot\" onclick=\"currentSlide($i)\"></span>\n";
+  }
+  #print $FH "<span class=\"dot\" onclick=\"plusSlide(1)\">+</span>\n";
+  print $FH "</div>\n";
+}
+
+sub init_slideshow
+{
+  my ($self) = @_;
+
+  my $FH = $self->{file_handle_write};
+
+print $FH <<'EOT';
+
+<style>
+* {box-sizing: border-box}
+body {font-family: Verdana, sans-serif; margin:0}
+.mySlides {display: none}
+img {vertical-align: middle;}
+
+/* Slideshow container */
+.slideshow-container {
+  max-width: 1000px;
+  position: relative;
+  margin: auto;
+}
+
+/* Next & previous buttons */
+.prev, .next {
+  cursor: pointer;
+  position: absolute;
+  top: 50%;
+  width: auto;
+  padding: 16px;
+  margin-top: -22px;
+  color: white;
+  font-weight: bold;
+  font-size: 18px;
+  transition: 0.6s ease;
+  border-radius: 0 3px 3px 0;
+  user-select: none;
+}
+
+/* Position the "next button" to the right */
+.next {
+  right: 0;
+  border-radius: 3px 0 0 3px;
+}
+
+/* On hover, add a black background color with a little bit see-through */
+.prev:hover, .next:hover {
+  background-color: rgba(0,0,0,0.8);
+}
+
+/* Caption text */
+.text {
+  #color: #f2f2f2;
+  color: black
+  font-size: 15px;
+  padding: 8px 12px;
+  position: absolute;
+  bottom: 8px;
+  width: 100%;
+  text-align: center;
+}
+
+/* Number text (1/3 etc) */
+.numbertext {
+  #color: #f2f2f2;
+  color: black
+  font-size: 12px;
+  padding: 8px 12px;
+  position: absolute;
+  top: 0;
+}
+
+/* The dots/bullets/indicators */
+.dot {
+  cursor: pointer;
+  height: 15px;
+  width: 15px;
+  margin: 0 2px;
+  background-color: #bbb;
+  border-radius: 50%;
+  display: inline-block;
+  transition: background-color 0.6s ease;
+}
+
+.active, .dot:hover {
+  background-color: #717171;
+}
+
+/* Fading animation */
+.fade {
+  -webkit-animation-name: fade;
+  -webkit-animation-duration: 1.5s;
+  animation-name: fade;
+  animation-duration: 1.5s;
+}
+
+@-webkit-keyframes fade {
+  from {opacity: .4} 
+  to {opacity: 1}
+}
+
+@keyframes fade {
+  from {opacity: .4} 
+  to {opacity: 1}
+}
+
+/* On smaller screens, decrease text size */
+@media only screen and (max-width: 300px) {
+  .prev, .next,.text {font-size: 11px}
+}
+</style>
+
+EOT
+}
+
+sub init_slideshow_script
+{
+  my ($self) = @_;
+
+  my $FH = $self->{file_handle_write};
+
+print $FH <<'EOT';
+
+<script>
+var slideIndex = 1;
+showSlides(slideIndex);
+
+function plusSlides(n) {
+  showSlides(slideIndex += n);
+}
+
+function currentSlide(n) {
+  showSlides(slideIndex = n);
+}
+
+function showSlides(n) {
+  var i;
+  var slides = document.getElementsByClassName("mySlides");
+  var dots = document.getElementsByClassName("dot");
+  if (n > slides.length) {slideIndex = 1}    
+  if (n < 1) {slideIndex = slides.length}
+  for (i = 0; i < slides.length; i++) {
+      slides[i].style.display = "none";  
+  }
+  for (i = 0; i < dots.length; i++) {
+      dots[i].className = dots[i].className.replace(" active", "");
+  }
+  slides[slideIndex-1].style.display = "block";  
+  dots[slideIndex-1].className += " active";
+}
+</script>
+
+EOT
+}
+
+sub init_meta
+{
+  my ($self) = @_;
+
+  my $FH = $self->{file_handle_write};
+
+print $FH <<'EOT';
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+EOT
 }
 
 #-------------------------------------------------------------------

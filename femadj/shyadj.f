@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 2003-2004,2007-2009,2012  Georg Umgiesser
+!    Copyright (C) 2003-2004,2007-2009,2012,2015,2015  Georg Umgiesser
+!    Copyright (C) 2017-2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -280,7 +281,7 @@ c write to grd file
 	call show_strange_grades
 	call write_grid('new.grd')
 
-	if( bplot ) call qclose
+	call qclose	!this is safe to call
 
 	write(6,*) 'Successful completion.'//
      +			' Output has been written to new.grd'

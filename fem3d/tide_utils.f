@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2018-2019  Christian Ferrarin
+!    Copyright (C) 2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -36,6 +37,8 @@
 ! 29.03.2018	ccf	converted previous routines to tide_utils
 ! 13.02.2019	ccf	introduced more constituents
 ! 13.03.2019	ggu	changed VERS_7_5_61
+! 15.07.2020	ccf&ggu	new default value for itidana=-1 (no analysis)
+! 22.09.2020	ggu	correct warnings for PGI compiler
 !
 !********************************************************************
 
@@ -49,7 +52,7 @@
         integer, save           :: rtide    !parameter for the tidal potential
         real, save           	:: ltidec   !calibration coefficient for load tide
         real, allocatable, save :: zeqv(:)  !tidal equilibrium
-        integer, save           :: itidana = 0 !parameter for calling tidal analysis
+        integer, save           :: itidana = -1 !parameter for calling tidal analysis
 
         double precision, allocatable :: vvk(:,:) !astronomical argument adjustment for phase
         double precision, allocatable :: uvk(:,:) !nodal modulation factor for phase
@@ -419,7 +422,7 @@
      +         const_ar(k)%dood(3)*astr(1)+const_ar(k)%dood(4)*astr(4)+ 
      +         const_ar(k)%dood(5)*astr(5)+const_ar(k)%dood(6)*astr(2)+ 
      +    const_ar(k)%semi
-          vdbl = mod(vdbl,1.)
+          vdbl = mod(vdbl,1.D+0)
           j1 = jbase+1
           jl = jbase + const_ar(k)%nj
   

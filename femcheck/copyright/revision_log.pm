@@ -2,7 +2,7 @@
 
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2018  Georg Umgiesser
+#    Copyright (C) 1985-2020  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -20,7 +20,7 @@ sub get_revision_log
 
     chomp;
 
-    check_copyright();
+    check_copyright_old();
 
     if( $in_revision == 0 ) {
       if( /revision log :/) {		#start of revision log
@@ -28,7 +28,7 @@ sub get_revision_log
 	  print "more than one revision log in file $ARGV\n";
 	}
         $in_revision = 1;
-        $::has_revision_log = 1;
+        $::has_revision_log++;
       } else {
         check_revision(0);
       }
@@ -47,7 +47,7 @@ sub get_revision_log
         check_revision(1);
       }
       if( $in_revision ) {		#save revision log
-        my $item = parse_revision_line($_);
+        my $item = parse_revision_fortran_line($_);
         push(@revlog,$item) if $item;
       }
     }
@@ -90,7 +90,7 @@ sub is_end_of_revision_log
   }
 }
 
-sub parse_revision_line
+sub parse_revision_fortran_line
 {
     my $line = shift;
 
@@ -127,7 +127,7 @@ sub read_revision_log
     chomp;
     next if /^[cC!]\s*$/;
     next if /^\s*$/;
-    my $item = parse_revision_line($_);
+    my $item = parse_revision_fortran_line($_);
     push(@revlog,$item) if $item;
   }
   close(REV);
@@ -225,7 +225,7 @@ sub show_lines
 
 #--------------------------------------------------------------
 
-sub check_copyright
+sub check_copyright_old
 {
   $::has_copyright = 1 if /^[cC!]\s+Copyright \(C\)/;
   if( /^[cC!]\s+This file is part of SHYFEM/ ) {
@@ -245,7 +245,7 @@ sub skip_over_copyright
 
   while(<FILE>) {
     push(@copy,$_);
-    check_copyright();
+    check_copyright_old();
     if( /^!--------------------------/ ) {
       last if $::has_copyright;
     }
@@ -295,7 +295,7 @@ sub skip_over_revision_log
       }
     }
     push(@copy,$_);
-    check_copyright();
+    check_copyright_old();
   }
 
   if( $_ ) {
@@ -467,7 +467,7 @@ sub print_revision_log
 
 sub check_revision {
 
-  my $irv = shift;
+  my $irv = shift;	# 0 if not in rev section, 1 if inside
 
   return if /^[!cC]\s*$/;
   return if /^[!cC]\*\*\*/;
@@ -475,9 +475,9 @@ sub check_revision {
 
   if( my $iirv = check_new_revision() ) {
     if( $irv == 0 and $::warn ) {
-      if( $iirv != 2 ) {	#not a continuation line
+      #if( $iirv != 2 ) {	#not a continuation line
         print STDERR "new revision out of revision log ($ARGV): $_\n";
-      }
+      #}
     }
   } elsif( check_old_revision() ) {
     if( $irv == 0 and $::warn ) {
@@ -492,19 +492,34 @@ sub check_revision {
   }
 }
 
+sub parse_revision_line {
+
+  my $line = shift;
+
+  if( $line =~ /^[cC!]\s*$/ or $line =~ /^ \*\s*$/
+  				or $line =~ /^\#\s*$/ ) {
+    return ("","","");
+  } elsif( $line =~ /^..\s*revision log :\s*$/ ) {
+    return ("","","");
+  } elsif( $line =~ /^[cC!]\s+(\d{2}\.\d{2}\.\d{4})\s+(\S+)\s+(.+)\s*$/ ) {
+    return ($1,$2,$3);
+  } elsif( $line =~ /^\#\s+(\d{2}\.\d{2}\.\d{4})\s+(\S+)\s+(.+)\s*$/ ) {
+    return ($1,$2,$3);
+  } elsif( $line =~ /^ \*\s+(\d{2}\.\d{2}\.\d{4})\s+(\S+)\s+(.+)\s*$/ ) {
+    return ($1,$2,$3);
+  } elsif( $line =~ /^..\s*(\.\.\.)\s+(.+)\s*$/ ) {	#continuation line
+    return("","conti",$2);
+  } else {
+    return("","error","");
+  }
+}
+
 sub check_new_revision {
 
   if( /^[cC!]\s+(\d{2}\.\d{2}\.\d{4})\s+(\S+)\s+/ ) {
-    my $dev = $2;
     my $date = $1;
-    my $year = $date;
-    $year =~ s/^.*\.//;
-    my @devs = split(/\&/,$dev);
-    foreach my $d (@devs) {
-      #print STDERR "$d   $date  $::file\n" unless $::copy;
-      #$::devyear{$d} .= "$year,";
-      #$::devcount{$d}++;
-    }
+    my $dev = $2;
+    insert_developers($dev,$date);
     return 1;
   } elsif( /^[cC!]\s+\.\.\.\s+/ ) {	#continuation line
     return 2;
@@ -551,14 +566,165 @@ sub check_old_revision {
 
 sub check_obsolete_revision {
 
-  if( /^[cC!].*(\d{2}\s+\d{2}\s+\d{2,4})/ ) {
-    print STDERR "*** obsolete date ($ARGV): $_\n";
+  if( /^[cC!].*(\d{1,2}\s+\d{1,2}\s+\d{2,4})/ ) {	# 12 4 2018
+    print STDERR "*** obsolete date ($ARGV - 1): $_\n";
+    return 1;
+  } elsif( /^[cC!].*(\d{1,2}\/\d{1,2}\/\d{2,4})/ ) {	# 12/04/2018
+    print STDERR "*** obsolete date ($ARGV - 2): $_\n";
+    return 1;
+  } elsif( /^[cC!].*(\d{1,2}-\d{1,2}-\d{2,4})/ ) {	# 12-04-2018
+    print STDERR "*** obsolete date ($ARGV - 3): $_\n";
+    return 1;
+  } elsif( /^[cC!].*(\d{1,4}[-\/]\d{1,4}[-\/]\d{1,4})/ ) {# any with - or /
+    print STDERR "*** obsolete date ($ARGV - 4): $_\n";
+    return 1;
+  } elsif( /^[cC!].*(\d{1,4}\s+\d{1,4}\s+\d{1,4})/ ) {	# any with spaces
+    print STDERR "*** obsolete date ($ARGV - 5): $_\n";
     return 1;
   } else {
     return 0;
   }
 }
 
+#------------------------------------------------------------------
+#------------------------------------------------------------------
+#------------------------------------------------------------------
+
+sub is_code_type
+{
+  my $type = shift;
+
+  if( $type eq "fortran" or $type eq "c" ) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+sub get_comment_char
+{
+  my $type = shift;
+
+  if( $type eq "fortran" ) {
+    return "!";
+  } elsif( $type eq "c" ) {
+    return " *";
+  } elsif( $type eq "script" ) {
+    return "#";
+  } elsif( $type eq "text" ) {
+    return "#";
+  } elsif( $type eq "special" ) {
+    return "#";
+  } elsif( $type eq "tex" ) {
+    return "%";
+  } elsif( $type eq "ps" ) {
+    return "%";
+  } else {
+    return "";
+  }
+}
+
+sub find_h_type
+{
+  my $file = shift;
+
+  open FILE, "<$file";
+  my @lines = <FILE>;
+  close FILE;
+
+  foreach (@lines) {
+    return "fortran" if /^\s+integer/i;
+    return "fortran" if /^\s+real/i;
+    return "fortran" if /^\s+common/i;
+    return "c" if /^\s*void\s+/;
+    return "c" if /^\s*extern\s+/;
+    return "c" if /^\s*typedef\s+/;
+    return "c" if /^\s*int\s+/;
+    return "c" if /^\s*char\s+/;
+    return "c" if /^\s*\/\*/;
+  }
+
+  return "unknown";
+}
+
+sub find_file_type
+{
+  my $file = shift;
+
+  if( check_extension($file,".f",".f90",".F",".F90",".i",".inc",".nml") ) {
+    return "fortran";
+  } elsif( check_extension($file,".c") ) {
+    return "c";
+  } elsif( check_extension($file,".tex",".bib") ) {
+    return "tex";
+  } elsif( check_extension($file,".sh",".pl",".pm",".py") ) {
+    return "script";
+  } elsif( check_extension($file,".ps",".eps") ) {
+    return "ps";
+  } elsif( check_extension($file,".pdf",".gif",".jpg",".png") ) {
+    return "image";
+  } elsif( check_extension($file,".grd") ) {
+    return "grd";
+  } elsif( check_extension($file,".txt",".str",".make") ) {
+    return "text";
+  } elsif( check_exact($file,"makefile","Makefile","README","TODO") ) {
+    return "text";
+  } elsif( check_exact($file,"VERSION","COMMIT","LOG","RELEASE_NOTES") ) {
+    return "special";
+  } elsif( check_exact($file,"FAQ","INFO","BUG","Dockerfile") ) {
+    return "text";
+  } elsif( check_start($file,"INFO_","Rules.") ) {
+    return "text";
+  } elsif( check_extension($file,".o",".a",".mod") ) {
+    return "binary";
+  } elsif( check_extension($file,".tmp",".bak") ) {
+    return "tmp";
+  } elsif( check_extension($file,".h") ) {
+    return find_h_type($file);
+  }
+
+  my $text = `file $file`;
+  return "binary" if $text=~ /ELF 64-bit/;
+  return "script" if $text=~ /script/;
+
+  return "unknown";
+}
+
+sub check_extension
+{
+  my $file = shift;
+
+  foreach (@_) {
+    my $pattern = quotemeta($_);
+    return 1 if $file =~ /$pattern$/;
+  }
+  return 0;
+}
+
+sub check_start
+{
+  my $file = shift;
+
+  foreach (@_) {
+    my $pattern = quotemeta($_);
+    return 1 if $file =~ /\/$pattern/ or $file =~ /^$pattern/;
+  }
+  return 0;
+}
+
+sub check_exact
+{
+  my $file = shift;
+
+  foreach (@_) {
+    my $pattern = quotemeta($_);
+    return 1 if $file =~ /\/$pattern$/ or $file =~ /^$pattern$/;
+  }
+  return 0;
+}
+
+#------------------------------------------------------------------
+#------------------------------------------------------------------
 #------------------------------------------------------------------
 
 sub make_date {
@@ -620,34 +786,10 @@ sub init_revision {
   $::final_revlog = "";
 
   %::names = ();
-  make_names();
+  make_dev_names();
 }
 
 #------------------------------------------------------------------
-
-sub make_names {
-
-  %::names = (
-         'ggu' => 'Georg Umgiesser'
-        ,'aac' => 'Andrea Cucco'
-        ,'aar' => 'Aaron Roland'
-        ,'ccf' => 'Christian Ferrarin'
-        ,'cpb' => ''
-        ,'dbf' => 'Debora Bellafiore'
-        ,'dmk' => 'Donata Melaku Canu'
-        ,'erp' => 'Erik Pascolo'
-        ,'fdp' => 'Francesca De Pascalis'
-        ,'isa' => 'Isabella Scroccaro'
-        ,'ivn' => 'Ivan Federico'
-        ,'laa' => 'Leslie Aveytua'
-        ,'lcz' => 'Lucia Zampato'
-        ,'mbj' => 'Marco Bajo'
-        ,'mcg' => 'Michol Ghezzo'
-        ,'pzy' => 'Petras Zemlys'
-        ,'wmk' => 'William McKiver'
-        ,'git' => 'Git Versioning System'
-    );
-}
 
 #-------------------------------
 1;

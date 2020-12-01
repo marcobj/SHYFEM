@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2013,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -66,6 +66,11 @@ c                          iopp
 c iojj1((ngrdim3*maxdimnh) = position on the column of the general  matrix corresponding to the 
 c	                   pointer iopp
 
+
+! revision log :
+!
+! 12.09.2013	ggu	changed VERS_6_1_67
+! 16.02.2019	ggu	changed VERS_7_5_60
 
 	integer csrdimnh
 	parameter ( csrdimnh = 9 * neldim * nlvdim )

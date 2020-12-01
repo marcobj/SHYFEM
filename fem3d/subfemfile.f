@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2012-2020  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -72,6 +72,8 @@ c 14.11.2017	ggu	changed VERS_7_5_36
 c 05.12.2017	ggu	changed VERS_7_5_39
 c 03.04.2018	ggu	changed VERS_7_5_44
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 29.03.2020	ggu	better ntype handling
+c 11.11.2020	ggu	bug fix for nvers < 3 (define lmax in data read)
 c
 c notes :
 c
@@ -971,7 +973,7 @@ c reads data of the file
 	integer iunit		!file unit
 	integer nvers		!version of file format
 	integer np		!size of data (horizontal, nodes or elements)
-	integer lmax		!vertical values
+	integer lmax		!vertical values (return)
 	character*(*) string	!string explanation
 	integer ilhkv(np)	!number of layers in point k (node)
 	real hd(np)		!total depth
@@ -986,6 +988,7 @@ c reads data of the file
 
 	ierr = 0
 	npp = np
+	lmax = nlvddi
 
 	if( iformat == 1 ) then
 	  read(iunit,'(a)',err=13) text
@@ -1281,6 +1284,15 @@ c************************************************************
 c************************************************************
 
 	subroutine fem_file_make_type(ntype,imax,itype)
+        integer ntype,imax,itype(imax)
+        call fem_file_to_itype(ntype,imax,itype)
+        end
+
+c************************************************************
+
+	subroutine fem_file_to_itype(ntype,imax,itype)
+
+c ntype to itype
 
 	implicit none
 
@@ -1297,6 +1309,49 @@ c************************************************************
 	end do
 
 	end
+
+c************************************************************
+
+	subroutine fem_file_from_itype(ntype,imax,itype)
+
+c itype to ntype
+
+	implicit none
+
+	integer ntype
+	integer imax
+	integer itype(imax)
+
+	integer i,j,ifact
+
+	ntype = 0
+        ifact = 1
+	do i=1,imax
+	  ntype = ntype + ifact*itype(i)
+	  ifact=ifact*10
+	end do
+
+	end
+
+c************************************************************
+
+        subroutine fem_file_set_ntype(ntype,ipos,ival)
+
+	integer ntype
+	integer ipos
+	integer ival
+
+        integer imax
+	integer, allocatable :: itype(:)
+
+        imax = nint(log10(float(ntype)))
+        imax = max(imax+2,ipos)
+        allocate(itype(imax))
+	call fem_file_to_itype(ntype,imax,itype)
+        itype(ipos) = ival
+	call fem_file_from_itype(ntype,imax,itype)
+
+        end
 
 c************************************************************
 

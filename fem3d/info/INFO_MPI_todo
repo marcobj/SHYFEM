@@ -1,0 +1,30 @@
+
+#------------------------------------------------------------------------
+#
+#    Copyright (C) 1985-2020  Georg Umgiesser
+#
+#    This file is part of SHYFEM.
+#
+#------------------------------------------------------------------------
+
+
+* semi-implicit
+* istot > 1
+* wetting and drying
+nadist
+* area
+fluxes
+tilting
+write shy files ordered
+
+* 3d sigma
+* 3d zeta
+tvd
+- mix with omp
+
+sediments
+ecological models
+off-line
+lagrangian
+box-model
+

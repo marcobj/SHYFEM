@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2012,2015,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -24,6 +24,13 @@
 !--------------------------------------------------------------------------
 
 c extra data structure for grd files
+
+! revision log :
+!
+! 14.02.2012	ggu	changed VERS_6_1_44
+! 16.03.2012	ggu	changed VERS_6_1_48
+! 01.04.2015	ggu	changed VERS_7_1_7
+! 16.02.2019	ggu	changed VERS_7_5_60
 
 	integer nlidim
 	integer nlndim

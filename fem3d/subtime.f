@@ -1,7 +1,8 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1997-2012,2014-2020  Georg Umgiesser
+!    Copyright (C) 2008,2010,2014  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -114,6 +115,9 @@ c 09.02.2019	ggu	bug fix for syncronization of last time step
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 21.05.2019	ggu	changed VERS_7_5_62
 c 15.09.2019	ggu	small changes to account for synchorization time step
+c 08.02.2020	ggu	utility routines copied to new file
+c 16.02.2020	ggu	itunit eliminated
+c 16.03.2020	ggu	write also dtime to terminal
 c
 c**********************************************************************
 c**********************************************************************
@@ -142,6 +146,9 @@ c prints time after time step
 	character*4 atext
 	double precision dgetpar
 	logical dts_has_date
+
+	integer, parameter :: MyLongIntType = selected_int_kind (12)
+	integer (kind=MyLongIntType) :: inttime
 
 	integer, save :: icall = 0
 
@@ -227,7 +234,10 @@ c---------------------------------------------------------------
 	  if( isplit == 3 .or. idtorig == 0 ) then
             write(6,1007) dline,ddt,niter,nits,perc
 	  else if( idtfrac == 0 ) then
-            write(6,1005) dline,idt,niter,nits,perc
+	    inttime = nint(dtime)
+            !write(6,1005) dline,idt,niter,nits,perc
+            !write(6,1015) dline,dtime,idt,niter,nits,perc
+            write(6,1016) dline,inttime,idt,niter,nits,perc
 	  else
 	    frac = ' '
 	    write(frac,'(i9)') idtfrac
@@ -247,10 +257,12 @@ c---------------------------------------------------------------
 ! 1001   format(' time =',i12,'    dt =',i5,'    iterations ='
 !     +                 ,i8,' /',i8,f10.2,' %')
 ! 1002   format(i12,i9,5i3,i9,i8,' /',i8,f10.2,' %')
- 1003   format(19x,a4,8x,'dt',12x,'iterations',5x,'percent')
- 1005   format(3x,a20,1x,  i9,i10,' /',i10,f10.3,' %')
- 1006   format(3x,a20,1x,  a9,i10,' /',i10,f10.3,' %')
- 1007   format(3x,a20,1x,f9.2,i10,' /',i10,f10.3,' %')
+ 1003   format(17x,a4,9x,'dtime',4x,'dt',12x,'iterations',3x,'percent')
+ 1005   format(3x,a20,1x,       i9,i10,' /',i10,f10.3,' %')
+ 1015   format(1x,a20,1x,f13.0, i6,i10,' /',i10,f8.3, ' %')
+ 1016   format(1x,a20,1x,i13  , i6,i10,' /',i10,f8.3, ' %')
+ 1006   format(3x,a20,1x,       a9,i10,' /',i10,f10.3,' %')
+ 1007   format(3x,a20,1x, f9.2,    i10,' /',i10,f10.3,' %')
 	end
 
 c********************************************************************
@@ -326,12 +338,17 @@ c setup and check time parameters
         call dts_format_abs_time(atime,aline_act)
 
 	idt = nint(didt)
+	idtorig = idt
 	itanf = nint(dtanf)
 	itend = nint(dtend)
 	it = itanf
 
 	itunit = nint(dgetpar('itunit'))
-	idtorig = idt
+	if( itunit /= 1. ) then
+	  write(6,*) 'itunit = ',itunit
+	  write(6,*) 'this parameter is not supported anymore'
+	  stop 'error stop setup_time: itunit'
+	end if
 
 	end
 
@@ -477,11 +494,6 @@ c controls time step and adjusts it
 	  dtmin = dgetpar('idtmin')
 
           call getinfo(iuinfo)  !unit number of info file
-
-	  if( isplit .ge. 0 .and. itunit .ne. 1 ) then
-	    write(6,*) 'isplit, itunit: ',isplit,itunit
-	    stop 'error stop set_timestep: itunit /= 1 not allowed here'
-	  end if
 
         end if
 
@@ -758,243 +770,6 @@ c dt is the new time step, all the rest can be computed from dt
 c**********************************************************************
 c**********************************************************************
 c**********************************************************************
-
-	subroutine is_time_first(bfirst)
-
-c true if in initialization phase
-
-	implicit none
-
-	logical bfirst
-
-	include 'femtime.h'
-
-	bfirst = t_act .eq. dtanf
-
-	end
-
-c**********************************************************************
-
-	subroutine is_time_last(blast)
-
-c true if in last time step
-
-	implicit none
-
-	logical blast
-
-	include 'femtime.h'
-
-	blast = t_act .eq. dtend
-
-	end
-
-c**********************************************************************
-
-        subroutine get_act_dtime(dtact)
-
-c returns actual time (double)
-
-        implicit none
-
-	double precision dtact
-
-	include 'femtime.h'
-
-	dtact = t_act
-
-	end
-
-c**********************************************************************
-
-        subroutine get_timeline(dtime,aline)
-
-c returns time as string
-
-        implicit none
-
-	double precision dtime
-	character*(*) aline
-
-	include 'femtime.h'
-	double precision atime
-
-	atime = atime0 + dtime
-	call dts_format_abs_time(atime,aline)
-
-	end
-
-c**********************************************************************
-
-        subroutine get_act_timeline(aline)
-
-c returns actual time as string
-
-        implicit none
-
-	character*(*) aline
-
-	include 'femtime.h'
-
-	aline = aline_act
-
-	end
-
-c**********************************************************************
-
-        subroutine get_absolute_act_time(atime)
-
-c returns actual time
-
-        implicit none
-
-	double precision atime
-
-	include 'femtime.h'
-
-	atime = t_act + atime0
-
-	end
-
-c**********************************************************************
-
-        subroutine get_absolute_ref_time(atime_ref)
-
-c returns actual time
-
-        implicit none
-
-	double precision atime_ref
-
-	include 'femtime.h'
-
-	atime_ref = atime0
-
-	end
-
-c**********************************************************************
-
-        subroutine get_passed_dtime(dtime)
-
-c returns time passed since start of simulation
-
-        implicit none
-
-	double precision dtime
-
-	include 'femtime.h'
-
-	dtime = t_act - dtanf
-
-	end
-
-c**********************************************************************
-
-        subroutine get_first_dtime(dtime)
-
-c returns first (initial) time
-
-        implicit none
-
-	double precision dtime
-
-	include 'femtime.h'
-
-	dtime = dtanf
-
-	end
-
-c**********************************************************************
-
-        subroutine get_last_dtime(dtime)
-
-c returns end time
-
-        implicit none
-
-	double precision dtime
-
-	include 'femtime.h'
-
-	dtime = dtend
-
-	end
-
-c**********************************************************************
-
-        subroutine get_timestep(dt)
-
-c returns real time step (in real seconds)
-
-        implicit none
-
-	real dt		!time step (return)
-
-	include 'femtime.h'
-
-	!dt = idt/float(itunit)
-	dt = dt_act
-
-	end
-
-c**********************************************************************
-
-        subroutine get_orig_timestep(dt)
-
-c returns original real time step (in real seconds)
-
-        implicit none
-
-	real dt		!time step (return)
-
-	include 'femtime.h'
-
-	dt = idtorig/float(itunit)
-
-	end
-
-c********************************************************************
-c********************************************************************
-c********************************************************************
-
-	subroutine convert_to_dtime(aline,dtime)
-
-	implicit none
-
-	character*20 aline
-	double precision dtime
-
-	double precision atime,atime0
-
-	call convert_to_atime(aline,atime)
-
-        call get_absolute_ref_time(atime0)
-        dtime = atime - atime0
-
-	end subroutine convert_to_dtime
-
-c********************************************************************
-
-	subroutine convert_to_atime(aline,atime)
-
-	use iso8601
-
-	implicit none
-
-	character*20 aline
-	double precision atime
-
-	integer date,time,ierr
-
-        call string2date(aline,date,time,ierr)
-        if( ierr /= 0 ) stop 'error converting date'
-        call dts_to_abs_time(date,time,atime)
-
-	end subroutine convert_to_atime
-
-c********************************************************************
-c********************************************************************
-c********************************************************************
 
 	subroutine check_time(text)
 

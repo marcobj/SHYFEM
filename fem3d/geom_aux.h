@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2015,2019  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -30,6 +30,11 @@
 !        common /lenkv/lenkv
 !        integer linkv(nlkdim)
 !        common /linkv/linkv
+
+! revision log :
+!
+! 19.01.2015	ggu	changed VERS_7_1_2
+! 16.02.2019	ggu	changed VERS_7_5_60
 
         integer ieltv(3,neldim)
         common /ieltv/ieltv

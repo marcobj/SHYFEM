@@ -1,7 +1,7 @@
 
 /************************************************************************\
  *
- *    Copyright (C) 1985-2018  Georg Umgiesser
+ *    Copyright (C) 1994,1998  Georg Umgiesser
  *
  *    This file is part of SHYFEM.
  *
@@ -24,14 +24,15 @@
 \************************************************************************/
 
 
-/************************************************************************\ 
- *									*
- * ggraph.c - graphic routines for gcc under DOS			*
- *									*
- * Revision History:							*
- * 13-Feb-1998: adjourned to GRX2.0                                     *
- * 11-Dec-94: routines written from graph				*
- *									*
+/************************************************************************\
+ *
+ * ggraph.c - graphic routines for gcc under DOS
+ *
+ * revision log :
+ *
+ * 11.12.1994	ggu	routines written from graph
+ * 13.02.1998	ggu	adjourned to GRX2.0
+ *
 \************************************************************************/
 
 /*

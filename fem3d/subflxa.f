@@ -1,7 +1,9 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 1998-2000,2002-2003,2006-2007,2006-2007  Georg Umgiesser
+!    Copyright (C) 2009-2020  Georg Umgiesser
+!    Copyright (C) 2017  Christian Ferrarin
 !
 !    This file is part of SHYFEM.
 !
@@ -97,6 +99,7 @@ c 27.03.2018	ggu	new code for generic flux handling (fluxes_generic())
 c 03.04.2018	ggu	changed VERS_7_5_43
 c 06.07.2018	ggu	changed VERS_7_5_48
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 06.03.2020	ggu	new flux0d, get_barotropic_flux()
 c
 c notes :
 c
@@ -123,6 +126,7 @@ c******************************************************************
 	integer, save :: ns_flux = 0
 
         logical, save :: bflxinit = .false.
+        logical, save :: bflxalloc = .false.
         integer, save :: nsect = -1
         integer, save :: kfluxm = 0
         integer, save, allocatable :: kflux(:)
@@ -132,6 +136,7 @@ c******************************************************************
 
         integer, save, allocatable :: nlayers(:)
         real, save, allocatable :: fluxes(:,:,:)
+        real, save, allocatable :: flux0d(:)
 
         real, save, allocatable :: masst(:,:,:)
         real, save, allocatable :: saltt(:,:,:)
@@ -198,6 +203,7 @@ c******************************************************************
 	if( ns_flux > 0 ) then
           deallocate(nlayers)
           deallocate(fluxes)
+          deallocate(flux0d)
           deallocate(masst)
           deallocate(saltt)
           deallocate(tempt)
@@ -212,12 +218,17 @@ c******************************************************************
 
         allocate(nlayers(ns))
         allocate(fluxes(0:nl,3,ns))
+        allocate(flux0d(ns))
 
         allocate(masst(0:nl,3,ns))
         allocate(saltt(0:nl,3,ns))
         allocate(tempt(0:nl,3,ns))
         allocate(conzt(0:nl,3,ns))
         allocate(ssctt(0:nl,3,ns))
+
+	flux0d = 0.
+
+	bflxalloc = .true.
 
 	end
 
@@ -390,6 +401,25 @@ c******************************************************************
 	end
 
 c******************************************************************
+
+	subroutine get_barotropic_flux(is,flux0)
+
+	use flux
+
+	implicit none
+
+	integer is
+	real flux0
+
+	if( bflxalloc ) then
+	  flux0 = flux0d(is)
+	else
+	  flux0 = 0.
+	end if
+
+	end
+
+c******************************************************************
 c******************************************************************
 c******************************************************************
 c******************************************************************
@@ -519,6 +549,8 @@ c	-------------------------------------------------------
 	ivar = 0
 	call flxscs(kfluxm,kflux,iflux,az,fluxes,ivar,rhov)
 	call fluxes_accum(nlvdi,nsect,nlayers,dt,trm,masst,fluxes)
+
+	flux0d(:) = fluxes(0,1,:)		!remember barotropic fluxes
 
 	if( bsalt ) then
 	  ivar = 11

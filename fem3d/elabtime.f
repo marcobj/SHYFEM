@@ -1,7 +1,7 @@
 
 !--------------------------------------------------------------------------
 !
-!    Copyright (C) 1985-2018  Georg Umgiesser
+!    Copyright (C) 2016-2020  Georg Umgiesser
 !
 !    This file is part of SHYFEM.
 !
@@ -34,6 +34,7 @@
 ! 16.02.2019	ggu	changed VERS_7_5_60
 ! 21.05.2019	ggu	changed VERS_7_5_62
 ! 21.07.2019	ggu	handle and check time step
+! 06.03.2020	ggu	some enhancements
 
 !**************************************************************************
 
@@ -269,6 +270,8 @@
 	double precision, save :: dold = 0.
 	double precision, save :: dlast = 0.
 	double precision, save :: dtold = 0.
+	double precision, save :: dtmin = 0.
+	double precision, save :: dtmax = 0.
 
 	ichange = 0
 
@@ -298,6 +301,9 @@
 	else
 	  ichange = -1
 	end if
+
+	dtmin = min(dtmin,dt)		!we still have to use this
+	dtmax = max(dtmax,dt)
 
 	dold = dtime
 	icall = icall + 1
@@ -380,9 +386,9 @@
           else if( dt > 0. ) then
 	    idt = nint(dt)
 	    if( idt == dt ) then
-              write(6,*) 'time step [s] : ',idt
+              write(6,*) 'regular time step [s] : ',idt
 	    else
-              write(6,*) 'time step [s] : ',dt
+              write(6,*) 'regular time step [s] : ',dt
 	    end if
           end if
 
