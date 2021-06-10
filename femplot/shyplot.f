@@ -70,6 +70,7 @@
 ! 25.10.2018	ggu	changed VERS_7_5_51
 ! 18.12.2018	ggu	changed VERS_7_5_52
 ! 21.05.2019	ggu	changed VERS_7_5_62
+! 08.06.2021	ggu	forgot to call populate_strings()
 !
 ! notes :
 !
@@ -87,6 +88,8 @@
 
 	call plotutil_init('SHY')
 	call classify_files
+
+	call populate_strings
 
 	if( lgrfilename /= ' ' ) then
 	  call plot_lgr_file
@@ -771,6 +774,8 @@
 	!--------------------------------------------------------------
 	! set up params and modules
 	!--------------------------------------------------------------
+
+	call populate_strings
 
 	call shy_get_params(id,nkn,nel,npr,nlv,nvar)
 	call shy_get_ftype(id,ftype)
