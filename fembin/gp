@@ -12,8 +12,10 @@
 #
 #########################################################
 
-version=1.94
+version=1.96
 
+# 1.96	27.06.2021	use GetSecs and not busybox to get seconds
+# 1.95	04.12.2020	more documentation in help
 # 1.94	05.03.2018	do not used date if time col is 0
 # 1.93	01.03.2018	ignore lines starting with #
 # 1.92	16.02.2018	offset introduced (also relative)
@@ -65,6 +67,7 @@ grid="NO"
 xlog="NO"
 ylog="NO"
 date="NO"
+idate="NO"
 offset=""
 date_format="%Y-%m-%d::%H:%M:%S"	#internal date format for gnuplot
 xformat=""				#how date is written in plot
@@ -179,6 +182,10 @@ FullUsage()
   echo "  -xformat option implies -date"
   echo "offset is l,r,t,b in units of x and y axis (default 0,0,0,0)"
   echo "  use r for fraction of axis (e.g., 0,0,0.5r,0 for 50% on top of plot"
+  echo "in case of date/time format specify xrange as "
+  echo "  \"2020-12-01:\""
+  echo "  \"2020-12-01:2020-12-03\""
+  echo "  \"2020-12-01::00:00:00:2020-12-04::12:00:00"\"
   echo ""
 }
 
@@ -301,11 +308,11 @@ ShowFiles()
 
 #-------------------------------------------------------------------
 
-GetFirstDataLine()
+GetFirstAndLastDataLine()
 {
   file=${afiles[0]}	#we only look at first file
-  #first_data_line=$( grep --max-count 1 -v '^#' $file)
-  first_data_line=$( grep --max-count 1 -E -v '^\s*#' $file)
+  first_data_line=$( grep --max-count 1 -E -v '^\s*#' $file )
+  last_data_line=$( tac $file | grep --max-count 1 -E -v '^\s*#' )
 }
 
 CheckForDate()
@@ -361,8 +368,12 @@ HandleXaxis()
     echo "$xrange"
   fi
 
-  sec1=$( busybox date -D "%Y-%m-%d::%H:%M:%S" -d $first_time +%s )
-  sec2=$( busybox date -D "%Y-%m-%d::%H:%M:%S" -d $last_time +%s )
+  #GetSecs $first_time
+
+  sec1=$( GetSecs $first_time )
+  sec2=$( GetSecs $last_time )
+  #sec1=$( busybox date -D "%Y-%m-%d::%H:%M:%S" -d $first_time +%s )
+  #sec2=$( busybox date -D "%Y-%m-%d::%H:%M:%S" -d $last_time +%s )
   secs=$(( $sec2 - $sec1 ))
   [ $debug = "YES" ] && echo "time window: $secs seconds"
 
@@ -384,7 +395,7 @@ HandleXaxis()
   if [ $days -lt 10 ]; then
     xformat=%d::%H
     #xformat="%H:%M\n%y-%m-%d"
-    #xformat="%H:%M\n%Y-%m-%d"
+    xformat="%H:%M\n%Y-%m-%d"
     return
   elif [ $days -lt 30 ]; then
     xformat=%m-%d
@@ -408,6 +419,16 @@ HandleXaxis()
   fi
 
   [ $debug = "YES" ] && echo "automatically determined xformat: $xformat"
+}
+
+GetSecs()
+{
+  local date=$1
+
+  date=$( echo $date | sed -e 's/::/ /' )
+  #echo "GetSecs $1 $date"
+
+  date --date="$date" +%s
 }
 
 #-------------------------------------------------------------------
@@ -556,7 +577,35 @@ AdjustSpecial()
   mv out.tmp out.ps
 }
 
-QuoteXrange()
+DetermineXrange()
+{
+#  first_date=$( echo $first_data_line | sed -E 's/^\s*//' \
+#		| sed -E 's/\s+.*//' | sed -E 's/::/ /' )
+#  last_date=$( echo $last_data_line | sed -E 's/^\s*//' \
+#		| sed -E 's/\s+.*//' | sed -E 's/::/ /' )
+  first_date=$( echo $first_data_line | sed -E 's/^\s*//' \
+		| sed -E 's/\s+.*//' )
+  last_date=$( echo $last_data_line | sed -E 's/^\s*//' \
+		| sed -E 's/\s+.*//' )
+
+  echo "first and last date: $first_date - $last_date"
+
+  #fs=$( date --date "$first_date" +%s )
+  #ls=$( date --date "$last_date" +%s )
+  #echo "period: $fs $ls"
+
+  xrange=$( $xrange_pl -round "$first_date:$last_date" )
+  echo "after rounding xrange: $xrange"
+
+  #secs=$(( ls - fs ))
+  #hours=$(( $secs / 3600 ))
+  #days=$(( $hours / 24 ))
+  #months=$(( $days / 30 ))
+  #years=$(( $months / 12 ))
+  #echo "period: $secs $hours $days $months $years"
+}
+
+HandleXrange()
 {
   SplitXrange
 
@@ -567,7 +616,7 @@ QuoteXrange()
   xrange="$xrange:"
   [ -n "$xhigh" ] && xrange="$xrange\"$xhigh\""
 
-  #echo "QuoteXrange: $xrange"
+  #echo "HandleXrange: $xrange"
 }
 
 SplitXrange()
@@ -616,6 +665,7 @@ do
 	-ylog)		ylog="YES";;
 	-png)		terminal="png";;
 	-date)		date="YES";;
+	-idate)		idate="YES";;
 	-xformat)	xformat=$2; date="YES"; shift;;
 	-xrotate)	xrotate=$2; shift;;
 	-u)		using="using $2"; shift;;
@@ -653,11 +703,13 @@ fi
 
 ######################################################### handle Xaxis
 
-GetFirstDataLine
-
+GetFirstAndLastDataLine
 CheckForDate
+if [ "$idate" = "YES" ]; then
+  DetermineXrange
+fi
 if [ "$date" = "YES" ]; then
-  QuoteXrange		#must quote
+  HandleXrange		#splits and quotes
   HandleXaxis
 fi
 

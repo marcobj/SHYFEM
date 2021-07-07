@@ -128,6 +128,7 @@ c 14.02.2019	ggu	changed VERS_7_5_56
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
 c 12.02.2020	ggu	better error messages in set_last_layer()
+c 02.06.2021	ggu	call levels_reinit() changed to levels_hlv_reinit()
 c
 c notes :
 c
@@ -206,7 +207,7 @@ c check data structure
 c------------------------------------------------------------------
 
 	nlv_final = nlv
-	call levels_reinit(nlv_final)
+	call levels_hlv_reinit(nlv_final)
 
 	call check_vertical
 	call shympi_set_hlv(nlv,hlv)
@@ -622,7 +623,7 @@ c--------------------------------------------------------------
 	stop 'error stop adjust_levels: dimension too small'
    87	continue
 	write(6,*) 'nlv,hlv(nlv),hmax: ',nlv,hlv(nlv),hmax
-	stop 'error stop adjust_levels: hlv too low'
+	stop 'error stop adjust_levels: not enough layers'
    88	continue
 	write(6,*) 'hsigma: ',hsigma
 	write(6,*) 'for hybrid levels hsigma must be set'

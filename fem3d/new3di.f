@@ -265,6 +265,9 @@ c 16.07.2019	ggu	rmsdiff was not set to 0 (bug)
 c 26.03.2020	ggu	adjust viscosity in case of closure (rcomp)
 c 26.05.2020	ggu	new variable ruseterm to shut off selected terms
 c 04.06.2020	ggu	debug_new3di() for selected debug
+c 30.03.2021	ggu	copy to old into shyfem routine
+c 30.04.2021    clr&ggu adapted for petsc solver
+c 31.05.2021    ggu	eleminated bug for closing in hydro_transports_final()
 c
 c******************************************************************
 
@@ -283,6 +286,7 @@ c administrates one hydrodynamic time step for system to solve
 	!use basin, only : nkn,nel,ngr,mbw
 	use basin
 	use shympi
+        use mod_zeta_system, only : solver_type
 
 	implicit none
 
@@ -346,9 +350,9 @@ c-----------------------------------------------------------------
 c copy variables to old time level
 c-----------------------------------------------------------------
 
-	call copy_uvz		!copies uvz to old time level
-	call nonhydro_copy	!copies non hydrostatic pressure terms
-	call copy_depth		!copies layer structure
+	!call copy_uvz		!copies uvz to old time level
+	!call nonhydro_copy	!copies non hydrostatic pressure terms
+	!call copy_depth	!copies layer depth to old
 
 	call set_diffusivity	!horizontal viscosity/diffusivity (needs uvprv)
 
@@ -381,7 +385,9 @@ c-----------------------------------------------------------------
 	  call system_solve(nkn,znv)	!solves system matrix for z
 	  call system_get(nkn,znv)	!copies solution to new z
 
-	  call shympi_exchange_2d_node(znv)
+	  if(trim(solver_type) /= 'PETSc')then
+            call shympi_exchange_2d_node(znv)
+          endif
 
 	  call setweg(1,iw)		!controll intertidal flats
 	  !write(6,*) 'hydro: iw = ',iw,iloop,my_id
@@ -446,8 +452,7 @@ c-----------------------------------------------------------------
 c compute velocities on elements and nodes
 c-----------------------------------------------------------------
 
-	call ttov
-	call make_prvel
+	call compute_velocities
 
 c-----------------------------------------------------------------
 c end of routine
@@ -480,7 +485,8 @@ c semi-implicit scheme for 3d model
 	use levels
 	use basin
 	use shympi
-
+        use mod_zeta_system, only : kn,hia,hik,solver_type
+         
 	implicit none
 
 	real vqv(nkn)
@@ -494,15 +500,14 @@ c semi-implicit scheme for 3d model
         integer afix            !chao dbf
 	logical bcolin
 	logical bdebug
-	integer kn(3)
 	integer ie,i,j,j1,j2,n,m,kk,l,k,ie_mpi
 	integer ngl
 	integer ilevel
 	integer ju,jv
+        integer nel_loop
 
 	real azpar,ampar
 	real dt
-	real hia(3,3),hik(3)
 
 	!real az,am,af
 	!real zm
@@ -559,11 +564,18 @@ c-------------------------------------------------------------
 c-------------------------------------------------------------
 c loop over elements
 c-------------------------------------------------------------
+        if(trim(solver_type)=='PETSc')then
+          nel_loop=nel_unique
+        else
+          nel_loop=nel
+        endif
 
-	do ie_mpi=1,nel
-
-	ie = ie_mpi
-	ie = ip_sort_elem(ie_mpi)
+	do ie_mpi=1,nel_loop
+          if(trim(solver_type)=='PETSc')then
+            ie = ie_mpi
+          else
+            ie = ip_sort_elem(ie_mpi)
+          endif
 	!write(6,*) ie_mpi,ie,ipev(ie),nel
 
 c	------------------------------------------------------
@@ -698,9 +710,8 @@ c	------------------------------------------------------
 c	------------------------------------------------------
 c	in hia(i,j),hik(i),i,j=1,3 is system
 c	------------------------------------------------------
-
 	  !call system_assemble(ie,nkn,mbw,kn,hia,hik)
-	  call system_assemble(ie,kn,hia,hik)
+	  call system_assemble(ie)
 
 	  !call debug_new3di('zeta',0,ie,hia,hik)
 
@@ -708,6 +719,10 @@ c	------------------------------------------------------
 
 c-------------------------------------------------------------
 c end of loop over elements
+c-------------------------------------------------------------
+
+c-------------------------------------------------------------
+c Add additional flux boundary condition values to the rhs vector
 c-------------------------------------------------------------
 
 	call system_add_rhs(dt,nkn,vqv)
@@ -1472,8 +1487,9 @@ c-------------------------------------------------------------
 	ilevel=ilhv(ie)
 
 	rcomp = rcomputev(ie)		!use terms in element
-        afix=1-iuvfix(ie)       	!chao dbf
-	rfix = afix * rcomp
+        afix = 1 - iuvfix(ie)       	!chao dbf
+	!rfix = afix * rcomp		!bug for closing
+	rfix = afix
 
 c	------------------------------------------------------
 c	compute barotropic pressure term

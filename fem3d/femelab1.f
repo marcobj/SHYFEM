@@ -172,6 +172,8 @@ c--------------------------------------------------------------
         call clo_get_next_file(infile)
 	if( infile .eq. ' ' ) stop
 
+        call populate_strings
+
 	np = 0
 	call fem_file_read_open(infile,np,iformat,iunit)
 	if( iunit .le. 0 ) stop
@@ -430,7 +432,7 @@ c--------------------------------------------------------------
 	  atlast = atime
 
           if( boutput ) then
-	    if( bhuman ) then
+	    if( bhuman ) then		!dtime will be 0
 	      call dts_convert_from_atime(datetime,dtime,atime)
 	    end if
 	    np_out = np

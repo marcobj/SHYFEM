@@ -152,6 +152,8 @@ c 14.02.2020	ggu	nudging enhanced with reading of tau values
 c 05.03.2020	ggu	finished new nudging routines
 c 27.03.2020	ggu	cleaned new nudging routines
 c 17.09.2020    ggu     renamed sigma to sigma_stp
+c 24.03.2021    ggu     more diagnostic output in ts_dia()
+c 31.05.2021    ggu     changes in ts_dia(), debug section
 c
 c notes :
 c
@@ -212,7 +214,7 @@ c local
 	logical binitial_nos
 	logical boff
 	integer levdbg
-	integer ie
+	integer ie,ks
 	integer idtext,itmext
 	integer imin,imax
 	integer nintp,nvar
@@ -371,9 +373,9 @@ c		-> we iterate to the real solution
 		rhov = 0.		!rhov is rho^prime => 0
 		bpresv = 0.
 
-		call ts_dia('init before rhoset_shell')
+		!call ts_dia('init before rhoset_shell')
 		call rhoset_shell
-		call ts_dia('init after rhoset_shell')
+		!call ts_dia('init after rhoset_shell')
 
 c		--------------------------------------------
 c		initialize output files
@@ -394,7 +396,7 @@ c----------------------------------------------------------
 c normal call
 c----------------------------------------------------------
 
-	call ts_dia('begin normal call')
+	!call ts_dia('begin normal call')
 
 	call get_act_dtime(dtime)
 	call get_act_timeline(aline)
@@ -430,7 +432,7 @@ c----------------------------------------------------------
 	        call bnds_read_new(what,idsalt,dtime)
 	  end if
 	  
-	  call ts_dia('before T/D')
+	  !call ts_dia('before T/D')
 
 !$OMP TASK PRIVATE(what,dtime) FIRSTPRIVATE(thpar,wsink,robs,itemp) 
 !$OMP&     SHARED(idtemp,tempv,difhv,difv,difmol,tobsv,ttauv)
@@ -468,7 +470,7 @@ c----------------------------------------------------------
 !$OMP END TASK
 !$OMP TASKWAIT
 
-	  call ts_dia('after T/D')
+	  !call ts_dia('after T/D')
 
 	end if
 
@@ -506,7 +508,7 @@ c----------------------------------------------------------
 	rho_aux2 = rhov
 	rhov = rho_aux1
 	call rhoset_shell
-	call ts_dia('normal after rhoset_shell')
+	!call ts_dia('normal after rhoset_shell')
 
 c----------------------------------------------------------
 c compute min/max
@@ -521,6 +523,20 @@ c write results to file
 c----------------------------------------------------------
 
 	call bcl_write_output(dtime,da_out,itemp,isalt,irho)
+
+c----------------------------------------------------------
+c debug
+c----------------------------------------------------------
+
+	ks = 30280
+	ks = 29988
+	ks = 0
+
+	if( ks > 0 ) then
+	  call check_node(ks)
+	  call check_elems_around_node(ks)
+	  call check_nodes_around_node(ks)
+	end if
 
 c----------------------------------------------------------
 c end of routine
@@ -560,7 +576,9 @@ c sets rho iterating to real solution
 	end do
 
 	if( iter .gt. itermax ) then
-	  write(6,*) '*** warning: max iterations in rhoset_shell ',resid
+	  write(6,*) '*** warning: max iterations in rhoset_shell '
+	  write(6,*) '    strange values of T/S have been found'
+	  write(6,*) '    resid,iter: ',resid,iter
 	  call tsrho_check
 	end if
 
@@ -795,8 +813,8 @@ c checks values of t/s/rho
 	write(6,*) 'Rho min/max: ',rmin,rmax
 
 	write(6,*) 'checking for Nans...'
-        call check2Dr(nlvdi,nlv,nkn,saltv,-1.,+70.,text,'saltv')
         call check2Dr(nlvdi,nlv,nkn,tempv,-30.,+70.,text,'tempv')
+        call check2Dr(nlvdi,nlv,nkn,saltv, -1.,+70.,text,'saltv')
         call check2Dr(nlvdi,nlv,nkn,rhov,-2000.,+2000.,text,'rhov')
 
 	end
@@ -1100,6 +1118,7 @@ c writes output of T/S
 	  if( irho  .gt. 0 ) then
 	    call shy_write_scalar_record(id,dtime,13,nlvdi,rhov)
 	  end if
+	  call shy_sync(id)
 	end if
 
 	end
@@ -1131,36 +1150,66 @@ c*******************************************************************
 	subroutine ts_dia(string)
 
 	use mod_ts
+	use levels
+	use basin
 
 	implicit none
 
 	character*(*) string
 
+	logical berr
+	integer ke,k,l,lmax
 	real tmin,tmax,smin,smax
+	real t,s
 	character*20 aline
 	logical, save :: bwrite = .false.
 	logical, save :: bstop = .false.
+	real, parameter :: tstop = 100.
+	real, parameter :: twrite = 50.
+
+	integer ipext
 
 	tmin = minval(tempv)
 	tmax = maxval(tempv)
 	smin = minval(saltv)
 	smax = maxval(saltv)
 
-	if( tmin < -100 ) bstop = .true.
-	if( tmax >  100 ) bstop = .true.
-	if( smin < -100 ) bstop = .true.
-	if( smax >  100 ) bstop = .true.
+	if( tmin < -tstop ) bstop = .true.
+	if( tmax >  tstop ) bstop = .true.
+	if( smin < -tstop ) bstop = .true.
+	if( smax >  tstop ) bstop = .true.
 
 	call get_act_timeline(aline)
 
-	if( bwrite .or. bstop ) then
+	if( bstop ) then
 	  write(6,*) 'ts_dia: ',trim(string),'  ',aline
 	  write(6,*) 'saltv (min/max): ',smin,smax
 	  write(6,*) 'tempv (min/max): ',tmin,tmax
+	  write(6,*) 'for list of nodes see file fort.166'
+	  bwrite = .true.
+	end if
 
+	if( bwrite ) then
 	  write(166,*) 'ts_dia: ',trim(string),'  ',aline
 	  write(166,*) 'saltv (min/max): ',smin,smax
 	  write(166,*) 'tempv (min/max): ',tmin,tmax
+	  write(166,*) 'list of nodes with strange values:'
+	  write(166,*) '      layer     kintern     kextern' //
+     +				'            t                s'
+	  do k=1,nkn
+	    lmax = ilhkv(k)
+	    ke = ipext(k)
+	    do l=1,lmax
+	      s = saltv(l,k)
+	      t = tempv(l,k)
+	      berr = .false.
+	      if( t < -twrite .or. t > twrite ) berr = .true.
+	      if( s < -twrite .or. s > twrite ) berr = .true.
+	      if( berr ) then
+		write(166,*) l,k,ke,t,s
+	      end if
+	    end do
+	  end do
 	end if
 
 	if( bstop ) stop 'error stop ts_dia'

@@ -137,6 +137,7 @@ PARALLEL_MPI = NONE
 PARTS = NONE
 #PARTS = METIS
 #PARTSDIR = /usr/local
+#PARTSDIR = $(HOME)/lib/metis
 
 ##############################################
 # Solver for matrix solution
@@ -170,6 +171,38 @@ PARTS = NONE
 SOLVER = SPARSKIT
 #SOLVER = PARDISO
 #SOLVER = PARALUTION
+#SOLVER = PETSC
+#SOLVER = PETSC_AmgX
+
+##############################################
+#
+# PETSC and PETSC_AmgX solvers
+#
+##############################################
+
+# PETSC_DIR it the path to the PETSc installation folder, it is 
+# needed for both the PETSc and the PETSc_AmgX solvers
+PETSC_DIR =
+
+# The next 4 paths must be filled in for the PETSc_AmgX solver only.
+
+# AMGX_C_WRAPPER_DIR is the path to the amgx-c-wrapper folder
+# (https://github.com/tobiashuste/amgx-c-wrapper/ : 
+# amgx-c-wrapper is a C interface for the C++ AmgXWrapper) 
+AMGX_C_WRAPPER_DIR = ../amgx-c-wrapper/amgx-c-wrapper
+
+# AMGX_WRAPPER_DIR is the path to the C++ AmgXWrapper folder 
+# (https://github.com/barbagroup/AmgXWrapper : a wrapper that 
+# simplifies the usage of AmgX when using AmgX together with PETSc)
+AMGX_WRAPPER_DIR =
+
+# AMGX_DIR is the path to the installation folder of NVIDIA/AmgX, 
+# a GPU accelerated core solver library (https://github.com/NVIDIA/AMGX)
+AMGX_DIR =
+
+# CUDA_DIR is the path to the installation folder of CUDA where the following 
+# libraries must be installed: cusolver cusparse cublas cuda cudart
+CUDA_DIR =
 
 ##############################################
 #
@@ -487,9 +520,9 @@ ifeq ($(MVDEBUG),true)
   $(info WTABS = $(WTABS) )
 endif
 
-FGNU_GENERAL = 
+FGNU_GENERAL = -cpp
 ifdef MODDIR
-  FGNU_GENERAL = -J$(MODDIR)
+  FGNU_GENERAL = -cpp -J$(MODDIR)
 endif
 
 FGNU_PROFILE = 
@@ -547,6 +580,7 @@ ifeq ($(FORTRAN_COMPILER),GNU_G77)
   LINKER	= $(F77)
   LFLAGS	= $(FGNU_OPT) $(FGNU_PROFILE) $(FGNU_OMP)
   FFLAGS	= $(LFLAGS) $(FGNU_NOOPT) $(FGNU_WARNING)
+  FFLAG_SPECIAL	= $(LFLAGS) $(FGNU_WARNING)
   FINFOFLAGS	= --version
 endif
 
@@ -554,14 +588,15 @@ ifeq ($(FORTRAN_COMPILER),GNU_GFORTRAN)
   FGNU		= gfortran
   FGNU95	= gfortran
   ifneq ($(PARALLEL_MPI),NONE)
-    FGNU        = /usr/bin/mpif90
-    FGNU95      = /usr/bin/mpif90
+    FGNU        = mpif90
+    FGNU95      = mpif90
   endif
   F77		= $(FGNU)
   F95		= $(FGNU95)
   LINKER	= $(F77)
   LFLAGS	= $(FGNU_OPT) $(FGNU_PROFILE) $(FGNU_OMP)
   FFLAGS	= $(LFLAGS) $(FGNU_NOOPT) $(FGNU_WARNING) $(FGNU_GENERAL)
+  FFLAG_SPECIAL	= $(LFLAGS) $(FGNU_WARNING) $(FGNU_GENERAL)
   FINFOFLAGS	= --version
 endif
 
@@ -596,9 +631,9 @@ ifeq ($(PROFILE),true)
   FPGI_PROFILE = -Mprof
 endif
 
-FPGI_NOOPT = 
+FPGI_NOOPT = -cpp
 ifeq ($(DEBUG),true)
-  FPGI_NOOPT = -g -traceback -Ktrap=fp
+  FPGI_NOOPT = -g -traceback -Ktrap=fp -cpp
 endif
 
 FPGI_OPT   = -O
@@ -623,6 +658,7 @@ ifeq ($(FORTRAN_COMPILER),PGI)
   LINKER	= $(FPGI)
   LFLAGS	= $(FPGI_OPT) $(FPGI_PROFILE) $(FPGI_OMP) $(FPGI_BOUNDS)
   FFLAGS	= $(LFLAGS) $(FPGI_NOOPT) $(FPGI_WARNING) $(FPGI_GENERAL)
+  FFLAG_SPECIAL	= $(FFLAGS)
   FINFOFLAGS	= --version
 endif
  
@@ -674,6 +710,7 @@ ifeq ($(FORTRAN_COMPILER),IBM)
   F95		= xlf_r
   LINKER	= $(FIBM)
   FFLAGS	= $(FIBM_OMP)
+  FFLAG_SPECIAL	= $(FFLAGS)
   LFLAGS	= $(FIBM_OMP) -qmixed  -b64 -bbigtoc -bnoquiet -lpmapi -lessl -lmass -lmassvp4
 endif
  
@@ -693,9 +730,9 @@ ifeq ($(WARNING),true)
   FPG_WARNING =
 endif
 
-FPG_NOOPT = 
+FPG_NOOPT = -cpp
 ifeq ($(DEBUG),true)
-  FPG_NOOPT = -g
+  FPG_NOOPT = -g -cpp
 endif
 
 FPG_OPT   = -O
@@ -721,6 +758,7 @@ ifeq ($(FORTRAN_COMPILER),PORTLAND)
   LINKER	= $(F77)
   LFLAGS	= $(FPG_OPT) $(FPG_PROFILE) $(FPG_OMP)
   FFLAGS	= $(LFLAGS) $(FPG_NOOPT) $(FPG_WARNING)
+  FFLAG_SPECIAL	= $(FFLAGS)
   FINFOFLAGS	= -v
 endif
 
@@ -766,9 +804,9 @@ FINTEL_ERSEM = $(DEFINES)
 
 #-------------------------------------------------
 
-FINTEL_GENERAL =
+FINTEL_GENERAL = -fpp
 ifdef MODDIR
-  FINTEL_GENERAL = -module $(MODDIR)
+  FINTEL_GENERAL = -fpp -module $(MODDIR)
 endif
 
 FINTEL_PROFILE = 
@@ -832,14 +870,15 @@ endif
 
 ifeq ($(FORTRAN_COMPILER),INTEL)
   FINTEL	= ifort
-  #ifneq ($(PARALLEL_MPI),NONE)
-  #  FINTEL      = mpiifort
-  #endif
+  ifneq ($(PARALLEL_MPI),NONE)
+    FINTEL      = mpiifort
+  endif
   F77		= $(FINTEL)
   F95     	= $(F77)
   LINKER	= $(F77)
   LFLAGS	= $(FINTEL_OPT) $(FINTEL_PROFILE) $(FINTEL_OMP)
   FFLAGS	= $(LFLAGS) $(FINTEL_NOOPT) $(FINTEL_WARNING) $(FINTEL_GENERAL)
+  FFLAG_SPECIAL	= $(FFLAGS)
   FINFOFLAGS	= -v
 endif
 

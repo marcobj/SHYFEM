@@ -24,7 +24,7 @@
 !
 !--------------------------------------------------------------------------
 
-! SHY management routines
+! SHY file management routines
 !
 ! contents :
 !
@@ -58,10 +58,148 @@
 ! 13.09.2019	ggu	error handling in shy_peek_record
 ! 17.10.2019	ggu	introduced nvar_act
 ! 28.01.2020	ggu	utility code to change npr
+! 20.04.2021	ggu	new version 12 (writes empty record in header)
+! 23.06.2021    ggu     more documentation
 !
 !**************************************************************
 !**************************************************************
 !**************************************************************
+!
+! note :
+!
+! file structure
+!
+!	header record
+!	time record 1
+!	time record 2
+!	time record ...
+!
+! time record
+!
+!	data record for variable 1
+!	data record for variable 2
+!	data record for variable ...
+!	data record for variable nvar
+!
+! header record
+!
+!        write(iunit,err=99) idshy,nvers
+!        write(iunit,err=99) ftype
+!        write(iunit,err=99) nkn,nel,npr,nlv,nvar
+!        write(iunit,err=99) date,time
+!        write(iunit,err=99) title
+!        write(iunit,err=99) femver
+!        write(iunit,err=99) 
+!
+!        write(iunit,err=99) nen3v
+!        write(iunit,err=99) ipev
+!        write(iunit,err=99) ipv
+!        write(iunit,err=99) iarv
+!        write(iunit,err=99) iarnv
+!        write(iunit,err=99) xgv
+!        write(iunit,err=99) ygv
+!        write(iunit,err=99) hm3v
+!        write(iunit,err=99) hlv
+!        write(iunit,err=99) ilhv
+!        write(iunit,err=99) ilhkv
+!        write(iunit,err=99) 
+!
+! data record
+!
+!        write(iunit,iostat=ierr) dtime,ivar,n,m,lmax
+!	 if( lmax == 1 ) then
+!          write(iunit,iostat=ierr) ( c(1,i),i=1,n*m )
+!	 else if( m == 1 ) then
+!          write(iunit,iostat=ierr) (( c(l,i)
+!     +                 ,l=1,il(i) )
+!     +                 ,i=1,n )
+!	 else
+!	   stop 'error stop: impossible combination of m, lmax'
+!	 end if
+!
+! legend
+!
+! all variables and parameters are integer except where otherwise indicated
+!
+! idshy         id to identify shy file (must be 1617)
+! nvers         version of file format
+! ftype         type of shy file (see below)
+! nkn		total number of nodes
+! nel		total number of elements
+! npr		either 1 or 3, probably not used
+! nlv		total nuber of vertical layers
+! nvar		total number of variables in file
+! date          reference date (integer, YYYYMMDD)
+! time          reference time (integer, hhmmss)
+! title		title of simulation (character*80)
+! femver	version of shyfem (character*80)
+!
+! nen3v(3,nel)	element index
+! ipev(nel)	external element number
+! ipv(nkn)	external node number
+! iarv(nel)	element type
+! iarnv(nkn)	node type
+! xgv(nkn)	x-coordinate (real)
+! ygv(nkn)	y-coordinate (real)
+! hm3v(3,nel)	depth at each vertex of elements (real)
+! hlv(nlv)      layer depths (real, the bottom of each layer)
+! ilhv(nel)	total number of layers for each element
+! ilhkv(nkn)	total number of layers for each node
+!
+! dtime         time stamp (double precision, seconds)
+! ivar		identification number of variable
+! n		total number of horizontal values
+! m		can be 1 (normal) or 3 for vertex values
+! lmax          maximum number of layers given (1 for 2D)
+!
+! c(l,i)	data values (real)
+! i,l           index for horizontal/vertical dimension
+! il(i)		total number of layers for horizontal points
+!
+! possible values for ftype
+!
+! 0		no type
+! 1		hydro record (water levels, transports)
+! 2		scalar values on nodes
+! 3		scalar values on elements
+!
+! routines to write and read shy files
+!
+! shy_write_header()
+! shy_write_record()
+!
+! shy_read_header()
+! shy_read_record()
+!
+! for writing a shy file the calling sequence is
+!
+!	call shy_write_header()
+!	call write_time_record()	!write time record 1
+!	call write_time_record()	!write time record 2
+!	call write_time_record()	!write time record 3
+!	...
+!
+!	subroutine write_time_record()
+!	call shy_write_record()		!write first variable of time record
+!	call shy_write_record()		!write second variable of time record
+!	...
+!	call shy_write_record()		!write nvar variable of time record
+!	end subroutine
+!
+! for reading a shy file the calling sequence is
+!
+!	call shy_read_header()
+!	call read_time_record()		!read time record 1
+!	call read_time_record()		!read time record 2
+!	call read_time_record()		!read time record 3
+!	...
+!
+!	subroutine read_time_record()
+!	call shy_read_record()		!read first variable of time record
+!	call shy_read_record()		!read second variable of time record
+!	...
+!	call shy_read_record()		!read nvar variable of time record
+!	end subroutine
 
 !==================================================================
 	module shyfile
@@ -69,10 +207,10 @@
 
 	implicit none
 
-	integer, parameter, private :: shytype = 1617
+	integer, parameter, private :: idshy = 1617
 
 	integer, parameter, private :: minvers = 11
-	integer, parameter, private :: maxvers = 11
+	integer, parameter, private :: maxvers = 12
 
 	integer, parameter, private ::  no_type = 0
 	integer, parameter, private :: ous_type = 1
@@ -654,7 +792,7 @@
 	!write(6,*) 'shy_is_shy_file: ',ios,ntype,nvers,ftype
 
 	if( ios /= 0 ) return
-	if( ntype /= shytype ) return
+	if( ntype /= idshy ) return
 	if( ftype > 2 ) return
 	
 	if( nvers .lt. minvers .or. nvers .gt. maxvers ) return
@@ -701,7 +839,7 @@
 	!write(6,*) 'shy_is_lgr_file: ',ios,ntype,nvers,ftype
 
 	if( ios /= 0 ) return
-	if( ntype /= shytype ) return
+	if( ntype /= idshy ) return
 	if( ftype /= 3 ) return
 	
 	if( nvers .lt. minvers .or. nvers .gt. maxvers ) return
@@ -1036,7 +1174,7 @@
 	if( ios /= 0 ) return
 
 	ierr = 91
-	if( ntype /= shytype ) return
+	if( ntype /= idshy ) return
 	ierr = 92
 	if( nvers < minvers .or. nvers > maxvers ) return
 	pentry(id)%nvers = nvers
@@ -1066,6 +1204,12 @@
 	if( ios /= 0 ) return
 	call shy_set_femver(id,femver)
 
+	if( nvers > 11 ) then
+	  ierr = 7
+          read(iunit,iostat=ios) 
+	  if( ios /= 0 ) return
+	end if
+
 	ierr = 0
 
 	end subroutine shy_read_header_1
@@ -1091,6 +1235,7 @@
         read(iunit,err=99) pentry(id)%hlv
         read(iunit,err=99) pentry(id)%ilhv
         read(iunit,err=99) pentry(id)%ilhkv
+	if( pentry(id)%nvers > 11 ) read(iunit,err=99)
 
 	ierr = 0
 
@@ -1113,6 +1258,8 @@
 	do i=1,11
           read(iunit,err=99) 
 	end do
+
+	if( pentry(id)%nvers > 11 ) read(iunit,err=99)
 
 	ierr = 0
 
@@ -1297,12 +1444,13 @@
 	call shy_get_title(id,title)
 	call shy_get_femver(id,femver)
 
-        write(iunit,err=99) shytype,nvers
+        write(iunit,err=99) idshy,nvers
         write(iunit,err=99) ftype
         write(iunit,err=99) nkn,nel,npr,nlv,nvar
         write(iunit,err=99) date,time
         write(iunit,err=99) title
         write(iunit,err=99) femver
+        write(iunit,err=99) 
 
         write(iunit,err=99) pentry(id)%nen3v
         write(iunit,err=99) pentry(id)%ipev
@@ -1315,6 +1463,7 @@
         write(iunit,err=99) pentry(id)%hlv
         write(iunit,err=99) pentry(id)%ilhv
         write(iunit,err=99) pentry(id)%ilhkv
+        write(iunit,err=99) 
 
 	return
    99	continue
@@ -1369,7 +1518,7 @@
 	  nlin = nlvddi*n
 	  allocate(rlin(nlin))
           call vals2linear(lmax,n,m,il,c,rlin,nlin)
-	  write(iunit,iostat=ierr) ( rlin(i),i=1,nlin)
+	  write(iunit,iostat=ierr) ( rlin(i),i=1,nlin )
 !	  write(iunit,iostat=ierr) (( c(l,i)
 !     +			,l=1,il(i) )
 !     +			,i=1,n )

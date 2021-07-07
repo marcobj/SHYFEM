@@ -120,6 +120,8 @@ c 05.12.2017	ggu	changed VERS_7_5_39
 c 03.02.2019	ggu	in setdepth check for zero layer thickness
 c 14.02.2019	ggu	changed VERS_7_5_56
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 01.04.2021	ggu	dimension check in dep3dnod()
+c 02.06.2021	ggu	computing depth at node run over nkn_inner
 c
 c****************************************************************
 
@@ -212,9 +214,12 @@ c computes depth of node k for all layers
 	integer nlev	!total number of levels
 	real h(nlev)	!depth of layers
 
+	integer ndim
 	integer l
 
+	ndim = nlev
 	nlev = ilhkv(k)
+	if( nlev > ndim ) goto 99
 
 	if( mode .gt. 0 ) then
 	  do l=1,nlev
@@ -228,6 +233,10 @@ c computes depth of node k for all layers
 	  stop 'error stop dep3dnod: Cannot use mode = 0'
 	end if
 
+	return
+   99	continue
+	write(6,*) 'k,ndim,nlev: ',k,ndim,nlev
+	stop 'error stop dep3dnod: nlev>ndim'
 	end
 	
 c****************************************************************
@@ -979,6 +988,19 @@ c	  -------------------------------------------------------
 	      end if
 	    end if
 
+	    !do l=1,lmax
+	    !  if( hdkn(l,k) <= 0. ) then
+	    !    write(6,*) 'no volume in node ',k
+	    !    write(6,*) 'depth: ',h
+	    !    write(6,*) 'nlv,lmax: ',nlv,lmax
+	    !    write(6,*) 'nsigma: ',nsigma
+	    !    write(6,*) 'hlv: ',hlv
+	    !    write(6,*) 'hldv: ',hldv
+	    !    write(6,*) 'hdkn: ',hdkn(:,k)
+	    !    stop 'error stop setdepth: no volume in node'
+	    !  end if
+	    !end do
+
 	  end do
 
 !	  in hdkn is volume of finite volume around k
@@ -1039,7 +1061,7 @@ c compute depth at nodes
 c----------------------------------------------------------------
 
 	levmin = nsigma + 1
-	do k=1,nkn
+	do k=1,nkn_inner
 	  lmax = ilhkv(k)
 	  do l=levmin,lmax
 	    areafv = area(l,k)
@@ -1055,6 +1077,10 @@ c----------------------------------------------------------------
 	      write(6,*) 'error computing layer thickness'
 	      write(6,*) 'no layer depth in node: ',k,l,lmax
 	      write(6,*) 'depth: ',h
+	      write(6,*) 'nlv,lmax: ',nlv,lmax
+	      write(6,*) 'nsigma: ',nsigma
+	      write(6,*) 'hlv: ',hlv
+	      write(6,*) 'hldv: ',hldv
 	      write(6,*) 'additional information available in fort.666'
 	      call check_set_unit(666)
 	      call check_node(k)

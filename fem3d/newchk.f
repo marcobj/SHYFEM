@@ -106,6 +106,8 @@ c 19.04.2018	ggu	changed VERS_7_5_45
 c 14.02.2019	ggu	changed VERS_7_5_56
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 29.08.2020	ggu	added new routine check_nodes_around_node()
+c 27.03.2021	ggu	some femtime.h eliminated (not all), cleanup
+c 31.05.2021	ggu	write time line in node/elem debug
 c
 c*************************************************************
 
@@ -128,23 +130,24 @@ c nn	number of first array elements to be printed
 
 	implicit none
 
-c argument
 	integer iunit
 	integer nn
-c common
-	include 'femtime.h'
 
-c local
 	logical bmeteo
 	integer i,l,nk,ne
 	integer iu,ii
+	double precision dtime
+	character*20 aline
 
 	bmeteo = .false.
 
 	iu = iunit
 	if( iu .le. 0 ) iu = 6
 
-	write(iu,*) 'time:',it
+	call get_act_dtime(dtime)
+	call get_act_timeline(aline)
+
+	write(iu,*) 'time:',dtime,'  ',aline
 	write(iu,*) 'nn  :',nn
 	write(iu,*) 'nkn :',nkn
 	write(iu,*) 'nel :',nel
@@ -302,13 +305,9 @@ c checks important variables
 
 	implicit none
 
-	include 'param.h'
-
-	include 'femtime.h'
-
 	character*16 text
 
-	text = '*** value check'
+	text = '*** check_values'
 
 	call check1Dr(nkn,zov,-10.,+10.,text,'zov')
 	call check1Dr(nkn,znv,-10.,+10.,text,'znv')
@@ -326,7 +325,7 @@ c checks important variables
 	call check2Dr(nlvdi,nlv,nel,vlnv,-10.,+10.,text,'vlnv')
 
 	call check2Dr(nlvdi,nlv,nkn,tempv,-30.,+70.,text,'tempv')
-	call check2Dr(nlvdi,nlv,nkn,saltv,-1.,+50.,text,'saltv')
+	call check2Dr(nlvdi,nlv,nkn,saltv, -1.,+70.,text,'saltv')
 
 	call check2Dr(nlvdi,nlv,nkn,hdknv,0.,+10000.,text,'hdknv')
 	call check2Dr(nlvdi,nlv,nkn,hdkov,0.,+10000.,text,'hdkov')
@@ -349,8 +348,6 @@ c computes mass of T/S or any concentration ts
 c        real z(3,1)             !water level
 	integer mode
         real tstot              !total computed mass of ts
-c
-	include 'param.h'
 
 	double precision scalcont
 
@@ -374,17 +371,19 @@ c writes debug information on dry areas
 
 	implicit none
 
-c common
-	include 'femtime.h'
-
 	integer ie,iweg
+	double precision dtime
+	character*20 aline
 
 	iweg = 0
 	do ie=1,nel
 	  if( iwegv(ie) .ne. 0 ) iweg = iweg + 1
 	end do
 
-	write(6,*) 'drydry... ',it,iweg
+	call get_act_dtime(dtime)
+	call get_act_timeline(aline)
+
+	write(6,*) 'drydry... ',dtime,'  ',aline
 
 	end
 
@@ -521,10 +520,7 @@ c writes some min/max values to stdout
         implicit none
 
         character*(*) string
-c common
-	include 'femtime.h'
 
-c local
 	integer ie,l,k
 	real u,v,w,z,s,t,c
         real high
@@ -533,15 +529,23 @@ c local
         real utomax,utnmax,vtomax,vtnmax
         real hlvmax,h1vmax
         real bprmax
-c functions
+
 	integer ipext,ieext
+
+	double precision dtime
+	character*20 aline
 
 c-----------------------------------------------------
 c initial check and write
 c-----------------------------------------------------
 
         !return  !FIXME
-        write(6,*) '------------------ ',string,' ',it
+
+	call get_act_dtime(dtime)
+	call get_act_timeline(aline)
+
+        write(6,*) '------------------ ',trim(string)
+        write(6,*) '   time: ',dtime,'  ',aline
 
 c-----------------------------------------------------
 c check water levels and barotropic velocities
@@ -685,6 +689,7 @@ c checks mass conservation of single boxes (finite volumes)
 	real vbmax,vlmax,vrbmax,vrlmax
 	real vrwarn,vrerr
 	real qinput
+	character*20 aline
 	double precision vtotmax,vvv,vvm
 	real, allocatable :: vf(:,:)
 	real, allocatable :: va(:,:)
@@ -713,6 +718,8 @@ c----------------------------------------------------------------
 	am = ampar
         azt = 1. - az
 	call get_timestep(dt)
+
+	call get_act_timeline(aline)
 
 	allocate(vf(nlvdi,nkn),va(nlvdi,nkn))
 	vf = 0.
@@ -814,6 +821,9 @@ c----------------------------------------------------------------
 	        write(6,*) 'mass_conserve: ',l,k
 	        write(6,*) volo,voln,vdiff,vrdiff
 	        write(6,*) vdiv,vdiv*dt
+	    end if
+	    if( k == kss .and. l == 1 ) then
+	      write(182,*) aline,vdiff,vrdiff
 	    end if
 	  end do
 	  if( berror ) call check_node(k)
@@ -947,12 +957,7 @@ c*************************************************************
 
 	implicit none
 
-	include 'param.h'
-
 	include 'femtime.h'
-
-
-
 
 	integer icrc,iucrc
 	save iucrc
@@ -1116,14 +1121,17 @@ c writes debug information on node k
 
 	integer iu
 	integer l,lmax,kk
+	character*20 aline
 
 	integer ipext
 	real volnode
 
 	call check_get_unit(iu)
 	lmax = ilhkv(k)
+	call get_act_timeline(aline)
 
 	write(iu,*) '-------------------------------- check_node'
+	write(iu,*) 'time:          ',aline
 	write(iu,*) 'it,idt,k,kext: ',it,idt,k,ipext(k)
 	write(iu,*) 'lmax,inodv:    ',lmax,inodv(k)
 	write(iu,*) 'xgv,ygv:       ',xgv(k),ygv(k)
@@ -1164,22 +1172,24 @@ c writes debug information on element ie
 
 	implicit none
 
-	integer iunit
 	integer ie
-	real zmed
 
 	include 'femtime.h'
 
 	integer iu
 	integer l,lmax,ii
+	real zmed
+	character*20 aline
 
 	integer ieext
 
 	call check_get_unit(iu)
 	lmax = ilhv(ie)
 	zmed = sum(zenv(:,ie))/3.
+	call get_act_timeline(aline)
 
 	write(iu,*) '-------------------------------- check_elem'
+	write(iu,*) 'time:             ',aline
 	write(iu,*) 'it,idt,ie,ieext:  ',it,idt,ie,ieext(ie)
 	write(iu,*) 'lmax,iwegv,iwetv: ',lmax,iwegv(ie),iwetv(ie)
 	write(iu,*) 'area:             ',ev(10,ie)*12.

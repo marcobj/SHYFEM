@@ -62,6 +62,7 @@ c 14.05.2019	ggu	wrong definition of dimensions in nc_write_data_3d_reg
 c 16.05.2019	ggu	new version of nc_rewrite_3d_reg(), new nc_set_quiet()
 c 08.01.2020	ggu	allow for double user data
 c 29.01.2020	ggu	insert extra information for error message
+c 22.04.2021	ggu	accept short data type (NF_SHORT)
 c
 c notes :
 c
@@ -1528,6 +1529,9 @@ c reads time record trec of variable name
 	if( xtype .eq. NF_FLOAT ) then
 	  retval = nf_get_vara_real(ncid,var_id,istart,icount,data)
 	  call nc_handle_err(retval,'get_var_data')
+	else if( xtype .eq. NF_SHORT ) then
+	  retval = nf_get_vara_real(ncid,var_id,istart,icount,data)
+	  call nc_handle_err(retval,'get_var_data')
 	else if( xtype .eq. NF_DOUBLE ) then
 	  allocate(ddata(nlength))
 	  retval = nf_get_vara_double(ncid,var_id,istart,icount,ddata)
@@ -2675,6 +2679,13 @@ c*****************************************************************
 	  units = 'num km-2'
 	  cmin = 0.
 	  cmax = 50000.
+	else if( ivar .eq. 86 ) then	! ice thickness
+	  name = 'sea_ice_thickness'
+	  what = 'long_name'
+	  std = 'sea_ice_thickness'
+	  units = 'm'
+	  cmin = 0.
+	  cmax = 100.
 	else
 	  write(6,*) 'unknown variable: ',ivar
 	  stop 'error stop descr_var'

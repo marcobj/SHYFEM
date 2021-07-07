@@ -57,6 +57,10 @@
 ! 12.07.2019	ggu	some comments for shy_write_scalar_record()
 ! 27.09.2019	ggu	some lines commented for hydro output (HYD1)
 ! 17.10.2019	ggu	routines to check number of variables written (nvar_act)
+! 17.04.2021	ggu	writing shyfiles 2D now working in MPI mode
+! 22.04.2021	ggu	call file_sync() only on opened file
+! 02.06.2021	ggu	bug fix: use ng (nlv_global) for output arrays
+! 15.06.2021	ggu&clr	bug fix: use nl for lmax==1
 !
 ! notes :
 !
@@ -101,31 +105,31 @@
 
 	integer id
 
+	logical bdebug
 	integer nk,ne
+	integer k,iee,ii
 	integer np,nl,nvar
-	integer, allocatable :: nen_global(:,:)
-	integer, allocatable :: in(:),ie(:),nen3(:,:)
+	integer, allocatable :: in(:),ie(:)
 	real, allocatable :: xg(:),yg(:),hm3(:,:)
 
-	call shy_get_params(id,nk,ne,np,nl,nvar)
+	bdebug = .true.					!mpi_debug_ggguuu
+	bdebug = .false.				!mpi_debug_ggguuu
 
-	allocate(nen3(3,ne))
+	call shy_get_params(id,nk,ne,np,nl,nvar)
+	write(6,*) 'shy_copy_basin_to_shy: ',ne,nk
+
 	allocate(hm3(3,ne))
 	allocate(xg(nk),yg(nk))
 	allocate(ie(ne))
 	allocate(in(nk))
 
-	allocate(nen_global(3,nel))
-	call adjust_element_index(nen_global)
-
-	call shympi_exchange_array(nen_global,nen3)
-	call shy_set_elemindex(id,nen3)
+	call shy_set_elemindex(id,nen3v_global)
 
 	call shympi_exchange_array(xgv,xg)
 	call shympi_exchange_array(ygv,yg)
 	call shy_set_coords(id,xg,yg)
 
-	call shympi_exchange_array(hm3v,hm3)
+	call shympi_exchange_array_3(hm3v,hm3)
 	call shy_set_depth(id,hm3)
 
 	call shympi_exchange_array(ipev,ie)
@@ -136,6 +140,24 @@
 	call shympi_exchange_array(iarnv,in)
 	call shy_set_areacode(id,ie,in)
 
+	if( .not. bdebug ) return
+
+	call check_external_numbers
+
+	if( shympi_is_master() ) then		!mpi_debug_ggguuu
+
+	write(601,*) nk
+	do k=1,nk
+	  write(601,*) k,xg(k),yg(k)
+	end do
+
+	write(602,*) ne
+	do iee=1,ne
+	  write(602,*) iee,(hm3(ii,iee),ii=1,3)
+	end do
+
+	end if
+
 	end
 
 !****************************************************************
@@ -143,6 +165,7 @@
 	subroutine adjust_element_index(nen_global)
 
 ! we have to adjust the element index with info from the other domains
+! (probably not needed anymore)
 
 	use basin
 	use shympi
@@ -151,9 +174,11 @@
 
 	integer nen_global(3,nel)
 
-	integer id,ie,ii,k,ibase
+	integer id,ie,ii,k,ibase,nmax
+	integer iu
 	integer iint(nkn)
 
+	nmax = 0
 	do k=1,nkn
 	  iint(k) = k
 	end do
@@ -165,7 +190,9 @@
 	    k = nen3v(ii,ie)
 	    id = id_node(k)	!this is the domain the node belongs to
 	    ibase = nkn_cum_domains(id)
-	    nen_global(ii,ie) = ibase + iint(k)
+	    k = ibase + iint(k)
+	    nmax = max(nmax,k)
+	    nen_global(ii,ie) = k
 	  end do
 	end do
 
@@ -579,6 +606,10 @@ c-----------------------------------------------------
 	call shy_copy_basin_to_shy(id)
 	call shy_copy_levels_to_shy(id)
 
+	if( bopen ) then
+	  write(6,*) 'initialized shy file ',trim(file)
+	end if
+
 c-----------------------------------------------------
 c end of routine
 c-----------------------------------------------------
@@ -677,7 +708,7 @@ c-----------------------------------------------------
 
 	return
    97	continue
-	stop 'error stop shy_check_nvar: backspacing'
+	stop 'error stop shy_get_string_descriptions:: backspacing'
    99	continue
 	write(6,*) irec,nrec,nvar,ierr
 	if( nrec == 0 ) write(6,*) 'no valid records in file'
@@ -800,9 +831,13 @@ c-----------------------------------------------------
 	integer n,m,lmax,nlvdi		!n is local value
 	real c(nlvdi,m*n)
 
-	integer ierr,nn,nl,i
+	logical bdebug
+	integer ierr,nn,nl,i,ng
 	real, allocatable :: cl(:,:),cg(:,:)
 	character*80 file
+
+	bdebug = .true.					!mpi_debug_ggguuu
+	bdebug = .false.				!mpi_debug_ggguuu
 
 ! nlvdi cannot be greater than lmax
 ! lmax is global nlv or 1 if we output is 2d
@@ -820,6 +855,8 @@ c-----------------------------------------------------
 !	lmax > 1	nlvdi <= lmax
 
 	if( id <= 0 ) return
+
+	ng = nlv_global
 
 	if( n == nkn_local ) then
 	  nn = nkn_global
@@ -858,13 +895,34 @@ c-----------------------------------------------------
 	  cl(1,:) = c(1,:)
 	else
 	  nl = nlvdi
-	  allocate(cl(nl,n),cg(nl,nn))
+	  allocate(cl(nl,n),cg(ng,nn))
 	  cl = c
 	end if
 
 	cg = 0.
-	call shympi_exchange_array(cl,cg)
+	!write(6,*) 'exchanging... ',m,nl,lmax
+	if( m == 1 ) then
+	  call shympi_exchange_array(cl,cg)
+	else
+	  call shympi_exchange_array_3(cl,cg)
+	end if
+	!write(6,*) 'writing... ',m,nl,lmax
 	call shy_write_record(id,dtime,ivar,nn,m,lmax,nl,cg,ierr)
+
+	if( bdebug ) then
+	 if( shympi_is_master() ) then		!mpi_debug_ggguuu
+	  if( ivar == 1 .and. m == 1 ) then
+	    write(700,*) ivar,nn,m,lmax
+	    write(700,*) cg
+	  else if( ivar == 1 .and. m == 3 ) then
+	    write(701,*) ivar,nn,m,lmax
+	    write(701,*) cg
+	  else
+	    write(703,*) ivar,nn,m,lmax
+	    write(703,*) cg
+	  end if
+	 end if
+	end if
 
 	if( ierr /= 0 ) then
 	  write(6,*) 'error writing output file ',ierr
@@ -906,6 +964,7 @@ c-----------------------------------------------------
 ! a 3d MPI run has one domain with only one layer (nlvdi==1) and a 3d output
 ! therefore it is important to use shy_write_scalar_record2d() for 2d output
 
+	!write(6,*) 'writing scalar ',nlv
 	call shy_write_output_record(id,dtime,ivar,nkn,1,nlv,nlvddi,c)
 
 	end
@@ -964,6 +1023,8 @@ c-----------------------------------------------------
 	call shy_write_output_record(id,dtime,ivar,nel,1,nlv,nlvddi,u)
 	call shy_write_output_record(id,dtime,ivar,nel,1,nlv,nlvddi,v)
 
+	call shy_sync(id)
+
 	end
 
 !****************************************************************
@@ -996,6 +1057,22 @@ c-----------------------------------------------------
 	nvar_act = pentry(id)%nvar_act
 
 	end
+
+!**************************************************************
+
+        subroutine shy_sync(id)
+
+	use shyfile
+
+        implicit none
+
+        integer id
+
+	if( pentry(id)%is_opened ) then
+          call file_sync(pentry(id)%iunit)
+	end if
+
+        end subroutine shy_sync
 
 !****************************************************************
 ! next two debug routines to be deleted later
