@@ -97,6 +97,8 @@ c 27.01.2020	ggu	code to use full ice cover (ballcover)
 c 17.04.2020	ggu	wind conversion routines out of this file
 c 11.11.2020	ggu	new routine meteo_has_ice_file()
 c 03.06.2021	mbj	added Hersbach wind stress formulation
+c 26.01.2022	ggu	bug in short name of icecover fixed
+c 01.02.2022	ggu	automatically convert cloudcover from % to fraction
 c
 c notes :
 c
@@ -314,8 +316,6 @@ c DOCS  END
 !	  initialization of data files
 !	  ---------------------------------------------------------
 
-	  !call iff_init_global(nkn,nlv,ilhkv,hkv,hlv)	!should go to main
-
 	  call getfnm('wind',windfile)
 	  call getfnm('qflux',heatfile)
 	  call getfnm('rain',rainfile)
@@ -478,7 +478,7 @@ c DOCS  END
 
         if( .not. iff_is_constant(idheat) .or. icall == 1 ) then
           call meteo_convert_heat_data(idheat,nkn
-     +                       ,metaux,mettair,ppv,methum)
+     +                       ,metaux,mettair,metcc,ppv,methum)
         end if
 
 !	---------------------------------------------------------
@@ -1032,7 +1032,7 @@ c convert rain from mm/day to m/s
 	    call iff_set_var_description(id,1,ice)
 	  end if
 	else
-          if(string_is_this_short('ice',string)) then
+	  if(string_is_this_short('icecover',string)) then
 	    ictype = 1
 	  else
 	    write(6,*) 'description string for ice not recognized: '
@@ -1283,12 +1283,13 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 !*********************************************************************
 
         subroutine meteo_convert_heat_data(id,n
-     +                  ,metaux,mettair,ppv,methum)
+     +                  ,metaux,mettair,metcc,ppv,methum)
 
 	integer id
 	integer n
 	real metaux(n)		!this is the vapor information read
 	real mettair(n)
+	real metcc(n)
 	real ppv(n)
 	real methum(n)		!return
 
@@ -1300,6 +1301,7 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 	  !nothing to be done
         else
 	  call meteo_convert_temperature(n,mettair)
+	  call meteo_convert_cloudcover(n,metcc)
 	  call meteo_convert_vapor(ihtype,n
      +			,metaux,mettair,ppv,methum)
 	end if
@@ -1308,6 +1310,36 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 
 !*********************************************************************
 !*********************************************************************
+!*********************************************************************
+
+	subroutine meteo_convert_cloudcover(n,cc)
+
+! converts percent to fraction
+
+	use mod_meteo
+
+	implicit none
+
+	integer n
+	real cc(n)	!cloud cover
+
+	real maxcc
+	integer, save :: icall = 0
+	integer, save :: ncall = 1
+
+	if( any( cc > 1.5 ) ) then
+	  maxcc = maxval(cc)
+	  cc = cc / 100.
+	  icall = icall + 1
+	  if( mod(icall,ncall) == 0 ) then
+	    ncall = ncall * 2
+	    write(6,*) 'cloudcover in %... must convert to fraction'
+     +			,maxcc
+	  end if
+	end if
+
+	end subroutine meteo_convert_cloudcover
+
 !*********************************************************************
 
 	subroutine meteo_convert_temperature(n,tav)
