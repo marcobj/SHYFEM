@@ -1,5 +1,132 @@
 ============================================================
 
+Wed Mar 23 15:52:45 CET 2022
+
+bug fix in lgrelab1
+
+ fem3d/elabutil.f      |  3 ++
+ fem3d/lagrange_read.f |  2 ++
+ fem3d/lgrelab1.f      | 97 ++++++++++++++++++++++++++++++++++-----------------
+ 3 files changed, 70 insertions(+), 32 deletions(-)
+
+============================================================
+
+Tue Mar 22 16:02:01 CET 2022
+
+mailing list adjourned
+
+ fembin/bashutil.sh                               | 15 +++++++
+ fembin/git-pack                                  |  2 +-
+ fembin/mail_shyfem.sh                            | 52 ++++++++++++++++++------
+ femcheck/emails/addresses.txt                    |  2 +-
+ femcheck/emails/{mail_shyfem.sh => make_mail.sh} |  0
+ femcheck/emails/to_mail.txt                      |  1 -
+ 6 files changed, 57 insertions(+), 15 deletions(-)
+ renamed:
+    femcheck/emails/mail_shyfem.sh -> femcheck/emails/make_mail.sh
+
+============================================================
+
+Tue Mar 22 12:03:12 CET 2022
+
+New version 7_5_73
+
+
+============================================================
+
+Tue Mar 22 12:01:58 CET 2022
+
+upgraded to da_out, code cleaning
+
+ .gitignore                      |   2 +
+ LOG                             |  90 +++++++++++
+ RELEASE_NOTES                   |  12 ++
+ fem3d/Makefile                  |  14 +-
+ fem3d/atoxi3d.f                 | 149 +++++++++++-------
+ fem3d/bio3d.f                   |  67 ++++++--
+ fem3d/bio3d_util.f              | 165 +++++++++++++------
+ fem3d/lgrelab.f                 | 315 ++-----------------------------------
+ fem3d/mercury.f                 |   1 -
+ fem3d/newstab.f                 |   2 +-
+ fem3d/subconutil.f              | 241 +++++++++++++++++++++++++++-
+ fem3d/subres.f                  | 172 +-------------------
+ fem3d/subshyutil.f              |  36 ++++-
+ fem3d/subver.f                  |   1 +
+ femdoc/final/shyfem.pdf         | Bin 314489 -> 314489 bytes
+ obsolete/lgrelab.f              | 340 ++++++++++++++++++++++++++++++++++++++++
+ {fem3d => obsolete}/subcon1.f   |   0
+ {fem3d => obsolete}/suboutput.f |   0
+ 18 files changed, 993 insertions(+), 614 deletions(-)
+ new file:
+   obsolete/lgrelab.f
+ renamed:
+    fem3d/subcon1.f -> obsolete/subcon1.f
+    fem3d/suboutput.f -> obsolete/suboutput.f
+
+============================================================
+
+Mon Mar 21 20:14:39 CET 2022
+
+bug fix in subtime.f
+
+ fem3d/subcus.f  | 4 +---
+ fem3d/subtime.f | 9 +++++----
+ 2 files changed, 6 insertions(+), 7 deletions(-)
+
+============================================================
+
+Mon Mar 21 16:48:59 CET 2022
+
+lgrelab, new da_out framework
+
+ fem3d/Makefile        |  14 ++-
+ fem3d/atoxi3d.f       |   5 +-
+ fem3d/bdist.f         |  11 +-
+ fem3d/lagrange_read.f |  87 +++++++++++----
+ fem3d/lgrelab1.f      | 178 +++++++++++++++++++----------
+ fem3d/mercury.f       |  72 ++----------
+ fem3d/newconz.f       |   1 -
+ fem3d/newnohydro.f    |  40 ++-----
+ fem3d/newnudge.f      |  16 ++-
+ fem3d/newpoi.f        |  16 +--
+ fem3d/newstab.f       |  75 +++++++------
+ fem3d/subcon1.f       |  12 +-
+ fem3d/subconutil.f    | 238 +++++++++++++++++++++++++++++++++++++++
+ fem3d/subcus.f        |  49 ++++----
+ fem3d/subfvl.f        |  27 ++---
+ fem3d/submeteo2.f     |  30 +++--
+ fem3d/suboff.f        |  15 ++-
+ fem3d/subres.f        | 302 +++++++++++++-------------------------------------
+ fem3d/subshyutil.f    |  10 +-
+ fem3d/subtime.f       |  10 +-
+ fem3d/subvola.f       |  18 +--
+ fem3d/subwaves.f      |   5 +-
+ fembin/bashutil.sh    |  11 ++
+ 23 files changed, 719 insertions(+), 523 deletions(-)
+ new file:
+   fem3d/subconutil.f
+
+============================================================
+
+Sun Mar 20 09:53:15 CET 2022
+
+update for netcdf
+
+ fem3d/netcdf.f     |  8 ++++++
+ fem3d/subshyutil.f | 81 ++++++++++++++++++++++++++++++++----------------------
+ 2 files changed, 56 insertions(+), 33 deletions(-)
+
+============================================================
+
+Fri Mar 18 15:31:37 CET 2022
+
+bugfix in suboutputd.f - no write of flx file
+
+ fem3d/suboutputd.f | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+============================================================
+
 Wed Mar 16 08:34:43 CET 2022
 
 new routine femadd

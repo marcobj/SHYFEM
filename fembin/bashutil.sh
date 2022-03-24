@@ -12,6 +12,17 @@
 #
 #------------------------------------------------------------------------
 
+var()
+{
+  # https://www.howtogeek.com/782514/
+
+  set -e 		# exit after error
+  set -eo pipefail	# exit after error, even in pipes
+  set -u 		# complain because of non initialized variables
+  set -x		# write execution of script
+  set -euxo pipefail	# all of the above
+}
+
 func()
 {
   return $1
@@ -25,6 +36,20 @@ If()
 
   if func 0; then echo "ok"; else echo "false"; fi
   if func 1; then echo "ok"; else echo "false"; fi
+}
+
+PatternMatching()
+{
+  echo "================================="
+  echo "pattern matching"
+  echo "================================="
+
+  vech="Bar"
+  echo "match for B* in $vech:"
+  [[ $vech = B* ]] && echo "Start with B" || echo "Not matched"
+  vech="Car"
+  echo "match for B* in $vech:"
+  [[ $vech = B* ]] && echo "Start with B" || echo "Not matched"
 }
 
 Loop()
@@ -232,6 +257,7 @@ Test()
   If
   Arithmetics
   ReadFromFile
+  PatternMatching
 }
 
 Test

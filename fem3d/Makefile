@@ -351,10 +351,11 @@ SOBJS   = \
           subbnd.o \
           subexta.o subdep.o subflxa.o subflx3d.o subflx.o \
 	  subdum.o subcus.o \
+	  subconutil.o \
 	  $(BCTSOBJS) \
 	  $(QFLUX) \
 	  $(GRDOBJS) \
-	  subnos.o subcon1.o subrnd.o sublin.o \
+	  subnos.o $(OBSOLETE) subrnd.o sublin.o \
 	  submod.o subuti.o subele.o subgeo.o subdts.o \
 	  links.o sublnka.o sublnks.o sublnku.o \
 	  debug.o subhisto.o subnosa.o subfvl.o \
@@ -373,7 +374,7 @@ SOBJS   = \
 
 HTOBJS = \
 	subver.o \
-	subcst.o subsys.o subnsh.o subtime.o suboutput.o suboutputd.o \
+	subcst.o subsys.o subnsh.o subtime.o suboutputd.o \
 	subbas.o subnev.o \
 	subnsu.o subn35.o subdep.o \
 	subdef.o subfil.o subnls.o \
@@ -384,7 +385,7 @@ HTOBJS = \
 	subous.o subousa.o \
 	subbnd.o subnos.o \
 	subwat.o subn11.o subdry.o \
-	subcus.o subcon1.o \
+	subcus.o $(OBSOLETE) \
 	subtide.o tide_utils.o \
 	subres.o subuti.o subutil.o \
 	sublin.o subvola.o subgeo.o debug.o \
@@ -393,6 +394,7 @@ HTOBJS = \
 	$(QFLUX) \
 	$(MUD_FILES) $(GOTM_OBJ) \
 	subbndo.o subbnds.o \
+	subconutil.o \
 	intp.o subssf.o \
 	bdist.o links.o sublnka.o sublnkd.o sublnks.o sublnku.o \
 	sedi3d.o sedtrans05.o subwaves.o substress.o \
@@ -439,6 +441,11 @@ VPOBJS = \
 
 # objects for output routines
 
+OBSOLETE = suboutput.o subcon1.o
+OBSOLETE_OUT = suboutput.o
+OBSOLETE = 
+OBSOLETE_OUT = 
+
 OUTOBJS = $(PARMOD) subnls.o subsss.o subround.o subscn.o \
 	  subfil.o subdef.o subnsu.o subssv.o \
 	  subbas.o subsys.o \
@@ -447,7 +454,7 @@ OUTOBJS = $(PARMOD) subnls.o subsss.o subround.o subscn.o \
 	  debug.o subreg.o subnev.o \
 	  subfemfile.o subfemutil.o \
 	  $(TSOBJS) \
-	  subvintp.o subver.o sigmautil.o suboutput.o suboutputd.o \
+	  subvintp.o subver.o sigmautil.o suboutputd.o $(OBSOLETE_OUT) \
 	  subclo.o \
 	  mod_depth.o mod_hydro.o mod_hydro_print.o \
 	  mod_geom.o mod_geom_dynamic.o \
@@ -1250,6 +1257,7 @@ extelab1.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/evgeom.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
 		../femlib/mod/shyfem_strings.mod 
+femadd.o: ../femlib/mod/clo.mod ../femlib/mod/fem_util.mod
 femcombine.o: ../femlib/mod/clo.mod ../femlib/mod/fem_util.mod
 femelab1.o: ../femlib/mod/clo.mod ../femlib/mod/elabtime.mod \
 		../femlib/mod/elabutil.mod \
@@ -1330,8 +1338,6 @@ lagrange_vertical.o: ../femlib/mod/basin.mod \
 		../femlib/mod/mod_hydro.mod \
 		../femlib/mod/mod_hydro_vel.mod \
 		../femlib/mod/mod_lagrange.mod 
-lgrelab.o: ../femlib/mod/basin.mod ../femlib/mod/mod_depth.mod \
-		param.h 
 lgrelab1.o: ../femlib/mod/basin.mod ../femlib/mod/clo.mod \
 		../femlib/mod/elabtime.mod \
 		../femlib/mod/elabutil.mod \
@@ -1788,8 +1794,8 @@ subboxa.o: ../femlib/mod/basin.mod ../femlib/mod/evgeom.mod \
 		../femlib/mod/mod_layer_thickness.mod \
 		../femlib/mod/mod_meteo.mod \
 		../femlib/mod/mod_ts.mod simul.h 
-subcon1.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
-		../femlib/mod/mod_depth.mod femtime.h simul.h 
+subconutil.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
+		../femlib/mod/mod_ts.mod femtime.h 
 subcoo.o: ../femlib/mod/mod_system.mod
 subcoord.o: ../femlib/mod/basin.mod ../femlib/mod/shympi.mod
 subcst.o: ../femlib/mod/basin.mod ../femlib/mod/mod_bnd.mod \
@@ -1994,7 +2000,6 @@ subousa.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_hydro.mod \
 		../femlib/mod/shyfile.mod ../femlib/mod/shympi.mod \
 		simul.h 
-suboutput.o: femtime.h
 suboutputd.o: femtime.h
 subpara.o: ../femlib/mod/mod_system.mod \
 		../femlib/mod/mod_system_interface.mod 
@@ -2016,8 +2021,7 @@ subres.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_depth.mod \
 		../femlib/mod/mod_hydro.mod \
 		../femlib/mod/mod_hydro_baro.mod \
-		../femlib/mod/mod_layer_thickness.mod \
-		../femlib/mod/mod_ts.mod simul.h 
+		../femlib/mod/mod_layer_thickness.mod simul.h 
 subrst.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
 		../femlib/mod/mod_geom_dynamic.mod \
 		../femlib/mod/mod_hydro.mod \
