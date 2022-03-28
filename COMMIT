@@ -1,5 +1,63 @@
 ============================================================
 
+Sat Mar 26 17:47:53 CET 2022
+
+New version 7_5_74
+
+
+============================================================
+
+Sat Mar 26 17:47:27 CET 2022
+
+forgot RELEASE_NOTES
+
+ RELEASE_NOTES | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+============================================================
+
+Sat Mar 26 17:44:46 CET 2022
+
+new intermediate release with small bug fix
+
+ LOG                     |  14 ++++++++++++++
+ fem3d/subver.f          |   7 ++++---
+ femdoc/final/shyfem.pdf | Bin 314489 -> 314491 bytes
+ 3 files changed, 18 insertions(+), 3 deletions(-)
+
+============================================================
+
+Sat Mar 26 08:41:30 CET 2022
+
+small bug in basutil_smooth.f
+
+ fem3d/Makefile                 | 11 +++--------
+ fem3d/basutil_smooth.f         | 38 +++++++++++++++++++-------------------
+ fem3d/subww3.f                 |  8 ++++++++
+ {fem3d => obsolete}/scalintp.f |  0
+ 4 files changed, 30 insertions(+), 27 deletions(-)
+ renamed:
+    fem3d/scalintp.f -> obsolete/scalintp.f
+
+============================================================
+
+Fri Mar 25 09:03:55 CET 2022
+
+prepared for WW3 coupling
+
+ Makefile                  |   2 +-
+ Rules.make                |  35 +++++++--
+ fem3d/Makefile            | 153 +++++++++++++++++++++++++------------
+ fem3d/shyfem.f            |   1 +
+ fem3d/subww3.f            | 188 +++-------------------------------------------
+ fem3d/subww3_dummy.f      |  61 +++++++++++++++
+ femcheck/rules/Rules.dist |  35 +++++++--
+ 7 files changed, 240 insertions(+), 235 deletions(-)
+ new file:
+   fem3d/subww3_dummy.f
+
+============================================================
+
 Wed Mar 23 15:52:45 CET 2022
 
 bug fix in lgrelab1
