@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #------------------------------------------------------------------------
 #
@@ -16,6 +16,7 @@
 # 05.03.2018	ggu	adapted to new write statement of shyfem
 # 30.05.2018	ggu	more info to terminal (end date)
 # 03.04.2020	ggu	use new time format
+# 01.12.2022	ggu	cleaner output
 #
 # still to do: command line options:
 #
@@ -38,6 +39,9 @@ if [ $# -eq 0 ]; then
 fi
 
 server=$( hostname )
+
+Finished=()
+Running=()
 
 #----------------------------------------------------------------
 
@@ -196,20 +200,22 @@ HandleRunningSimulation()
   WriteOutput
 }
 
+WriteHeader()
+{
+    echo "  total     done      todo                  file"
+}
+
 WriteOutput()
 {
-  if [ $format = 0 ]; then
     if [ $done = "finished" ]; then
-      #echo "$file:  total: $total  finished at $todo UTC"
-      echo "$file:  total: $total  finished at $todo"
+      #echo "  $total  $done  $todo  $file"
+      line="  $total  $done  $todo  $file"
+      echo "$line"
+      Finished+=( "$line" )
     else
-      echo "$file:  total: $total  done: $done  todo: $todo"
+      echo "  $total  $done  $todo              $file"
+      Running+=( "  $total  $done  $todo              $file" )
     fi
-  elif [ $format = 1 ]; then
-    echo "  $total  $done  $todo  $file"
-  else
-    echo "*** wrong output format: $format"
-  fi
 }
 
 #----------------------------------------------------------------
@@ -249,11 +255,24 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+WriteHeader
+
 for file in $files
 do
   #echo "estimating $file"
   HandleSimulation $file
 done
 
+exit 0
+
+echo "test finished"
+echo ${Finished[*]}
+for t in ${Finished[@]}
+do
+  echo "$t"
+done
+
+echo "test running"
+echo ${Running[@]}
 #----------------------------------------------------------------
 

@@ -60,7 +60,7 @@ c       integer nbndo                   !total number of OB nodes
 c
 c	real xynorm(2,kbcdim)		!normal direction for OB node
 c
-c	integer iopbnd(nknddi)		!if >0 pointer into array irv
+c	integer iopbnd(nkn)		!if >0 pointer into array irv
 c					!if <0 internal boundary (= -ibc)
 c
 c	integer ibcnod(kbcdim)		!number of boundary
@@ -76,8 +76,13 @@ c	iopbnd(k) = 0            no open BC
 c	iopbnd(k) > 0            external open BC (ibtyp=1,2)
 c	iopbnd(k) < 0            internal open BC (ibtyp=3)
 c
+c all dimensions are dynamical and not static
+c they are setup in mod_bndo_init()
+c
 c the initialization routines should be called only after the
 c ... arrays kantv and ieltv have been setup
+c
+c--------------------------------------------------------------------------
 c
 c revision log :
 c
@@ -111,6 +116,10 @@ c 05.12.2017	ggu	changed VERS_7_5_39
 c 03.04.2018	ggu	changed VERS_7_5_43
 c 19.04.2018	ggu	changed VERS_7_5_45
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 26.04.2022	ggu	implementing OB in more than one domain
+c 03.05.2022	ggu	lots of debug code integrated
+c 22.03.2023	ggu	relax error condition on one node open boundary
+c 09.05.2023    lrp     introduce top layer index variable
 c
 c***********************************************************************
 
@@ -122,30 +131,30 @@ c sets up bndo data structure
 	use mod_bound_geom
 	use mod_geom
 	use basin
+	use shympi
 
 	implicit none
 
 	logical bexternal
-	logical berror
+	logical berror,bdebug
 	integer k,nodes,itype
 	integer i,ibc
 	integer inext,ilast,knext,klast
-	integer ie,n
+	integer ie,n,ngood,ie_mpi,id
 	integer ii,iii,ib,in,kn,nb,j
 	integer nbc
+	integer iunit,kint,kext
 	real area
 	real dx,dy
 
-	integer nkbnds,itybnd,kbnds,ipext,nbnds
+	integer nkbnds,itybnd,kbnds,ipext,ipint,nbnds
 	real areaele
 
 c----------------------------------------------------------
 c set up array iopbnd
 c----------------------------------------------------------
 
-	do k=1,nkn
-	  iopbnd(k) = 0
-	end do
+	iopbnd(:) = 0
 
 	nbndo = 0
         ndebug = 0              !unit number for debug (in common block)
@@ -156,24 +165,40 @@ c----------------------------------------------------------
 	  nodes = nkbnds(ibc)
 	  itype = itybnd(ibc)
 
+	  ngood = 0
 	  bexternal = ( itype .ge. 1 .and. itype .le. 2 
      +      		    .or. itype .ge. 31 .and. itype .le. 39 )
 
 	  do i=1,nodes
 	    k = kbnds(ibc,i)
 	    if( k <= 0 ) cycle
-	    if( bexternal ) then
+	    !if( bexternal ) then
+	    if( .true. ) then
+	      ngood = ngood + 1
 	      nbndo = nbndo + 1
 	      if( nbndo .gt. kbcdim ) goto 99
 	      iopbnd(k) = nbndo
 	      ibcnod(nbndo) = ibc
 	      kbcnod(nbndo) = k
 	      itynod(nbndo) = itype
+	      bexnod(nbndo) = bexternal		!flag this node as external
 	    else
 	      iopbnd(k) = -ibc
 	    end if
 	  end do
 
+	  if( ngood == 0 ) then
+	    !boundary not in domain
+	  else if( ngood == nodes ) then
+	    !boundary fully in domain
+	  else if( itype == 2 ) then	!boundary only partially in domain
+	    write(6,*) 'ngood,nodes: ',ngood,nodes
+	    write(6,*) 'boundary is only partially in domain'
+	    write(6,*) 'cannot handle flux OB in different domains yet'
+	    stop 'error stop bndo_init: boundary between domains'
+	  else			!zeta boundary - should be able to handle
+	    !
+	  end if
 	end do
 
 c----------------------------------------------------------
@@ -184,11 +209,18 @@ c----------------------------------------------------------
 	  k = kbcnod(i)
 	  ibc = ibcnod(i)
 
+	  itype = itybnd(ibc)
+	  bexternal = bexnod(i)
+
+	  if( .not. bexternal ) cycle
+
 	  knext = kantv(1,k)
 	  klast = kantv(2,k)
 
-	  inext = iopbnd(knext)
-	  ilast = iopbnd(klast)
+	  inext = 0
+	  ilast = 0
+	  if( knext > 0 ) inext = iopbnd(knext)
+	  if( klast > 0 ) ilast = iopbnd(klast)
 
 c	  -------------------------------
 c	  internal consistency check
@@ -213,18 +245,14 @@ c	  adjacent boundary nodes must be of same boundary
 c	  -------------------------------
 
 	  if( inext .gt. 0 ) then
-	   if( ibcnod(inext) .ne. ibc ) then
-	    goto 98
-	   end if
+	    if( ibcnod(inext) .ne. ibc ) goto 98
 	  end if
 	  if( ilast .gt. 0 ) then
-	   if( ibcnod(ilast) .ne. ibc ) then
-	    goto 98
-	   end if
+	    if( ibcnod(ilast) .ne. ibc ) goto 98
 	  end if
 
 c	  -------------------------------
-c	  get normal direction
+c	  get normal direction (might be wrong in case of domain border)
 c	  -------------------------------
 
 	  if( inext .gt. 0 .and. ilast .gt. 0 ) then	!inner node in OB
@@ -237,11 +265,18 @@ c	  -------------------------------
 	    dx = xgv(k) - xgv(klast)
 	    dy = ygv(k) - ygv(klast)
 	  else
-	    write(6,*) 'One node open boundary not permitted'
-	    write(6,*) i,k,ipext(k)
-	    write(6,*) 'node number (external): ',ipext(k)
-	    write(6,*) 'boundary: ',ibc
-	    stop 'error stop bndo'
+	    id = id_node(k)
+	    if( id == my_id ) then
+	      write(6,*) 'One node open boundary not permitted'
+	      write(6,*) i,k,ipext(k)
+	      write(6,*) 'node number (external): ',ipext(k)
+	      write(6,*) 'domain: ',my_id
+	      write(6,*) 'boundary: ',ibc
+	      stop 'error stop bndo'
+	    else
+	      dx = 0.
+	      dy = 0.
+	    end if
 	  end if
 
 	  xynorm(1,i) = -dy			!x-component
@@ -256,16 +291,18 @@ c----------------------------------------------------------
 	  nopnod(i) = 0
 	end do
 
-	do ie=1,nel
+	do ie_mpi=1,nel
 
-	  !call elebase(ie,n,ibase)
+	  ie = ip_sort_elem(ie_mpi)
 	  n = 3
 	  area = areaele(ie)
 
 	  do ii=1,n
 	    k = nen3v(ii,ie)
 	    ib = iopbnd(k)
-	    if( ib .gt. 0 ) then		!insert inner nodes
+	    bexternal = bexnod(ib)
+	    !if( ib .gt. 0 ) then		!insert inner nodes
+	    if( bexternal ) then		!insert inner nodes
 	      do iii=1,n
 		kn = nen3v(iii,ie)
 	        in = iopbnd(kn)
@@ -282,9 +319,17 @@ c----------------------------------------------------------
 c scale weights to unit
 c----------------------------------------------------------
 
+	iunit = 730 + my_id
+	kext = 6651
+	kext = 0
+	kint = ipint(kext)
+
 	berror = .false.
 
 	do i=1,nbndo
+
+	  bexternal = bexnod(i)
+	  if( .not. bexternal ) cycle
 
 	  nb = nopnod(i)
 	  if( nb .le. 0 ) then
@@ -306,6 +351,14 @@ c----------------------------------------------------------
 	    end if
 	  end do
 	  
+	  bdebug = ( kint == kbcnod(i) )
+	  if( bdebug ) then
+	    iunit = 730 + my_id
+	    write(iunit,*) '--------- bndo_init ------------'
+	    write(iunit,*) i,kint,kext,nb,id_node(k)
+	    write(iunit,*) (wopnodes(j,i),j=1,nb)
+	    write(iunit,*) '--------- end bndo_init ------------'
+	  end if
 	end do
 
 	if( berror ) stop 'error stop bndo'
@@ -461,6 +514,8 @@ c checks if node k is a zeta boundary
 	end
 
 c***********************************************************************
+c***********************************************************************
+c***********************************************************************
 
         subroutine bndo_setbc(what,nlvddi,cv,rbc,uprv,vprv)
 
@@ -469,6 +524,7 @@ c
 c simply calls bndo_impbc() and bndo_adjbc()
 
 	use basin
+	use shympi
 
         implicit none
 
@@ -479,18 +535,46 @@ c simply calls bndo_impbc() and bndo_adjbc()
 	real uprv(nlvddi,nkn)
 	real vprv(nlvddi,nkn)
 
+	logical bdebug
+	integer k,iunit,kext
+	integer ipint
+
+	iunit = 730 + my_id
+	kext = 6651
+	kext = 0
+	k = ipint(kext)
+	bdebug = ( k > 0 )
+
 c----------------------------------------------------------
 c simply imposes whatever is in rbc
 c----------------------------------------------------------
 
+	if( bdebug ) then
+	write(iunit,*) '------------ bndo_setbc 1 -------'
+	write(iunit,*) cv(:,k)
+	write(iunit,*) rbc(:,k)
+	end if
+	
         call bndo_impbc(what,nlvddi,cv,rbc)
 
 c----------------------------------------------------------
 c adjusts for ambient value, no gradient or outgoing flow
 c----------------------------------------------------------
 
+	if( bdebug ) then
+	write(iunit,*) '------------ bndo_setbc 2 -------'
+	write(iunit,*) cv(:,k)
+	write(iunit,*) rbc(:,k)
+	end if
+	
 	call bndo_adjbc(what,nlvddi,cv,uprv,vprv)
 
+	if( bdebug ) then
+	write(iunit,*) '------------ bndo_setbc 3 -------'
+	write(iunit,*) cv(:,k)
+	write(iunit,*) rbc(:,k)
+	end if
+	
 c----------------------------------------------------------
 c end of routine
 c----------------------------------------------------------
@@ -515,13 +599,14 @@ c imposes boundary conditions on open boundary
         real cv(nlvddi,nkn)
         real rbc(nlvddi,nkn)	!boundary condition (3D)
 
-        logical bgrad0
+        logical blevel,bfix
         logical bdebug
         integer i,j,k,l
         integer ibc,ibcold
-        integer nb,nlev
+        integer nb,lmax,lmin
         integer ibtyp
-        real value
+        real value,rb
+	real, parameter :: flag = -999.
 
         integer ifemopa
 
@@ -541,15 +626,26 @@ c imposes boundary conditions on open boundary
 	    ibcold = ibc
 	  end if
 
+	  blevel = ibtyp .eq. 1
+	  bfix = ibtyp .eq. 5
+          lmax = ilhkv(k)
+          lmin = jlhkv(k)
+
+	!if( bfix ) then
+	!write(6,*) 'bfix: ',ibc,ibtyp
+	!end if
+
           if( iopbnd(k) .ne. i ) then
 	    stop 'error stop bndo_impbc: internal error (11)'
 	  end if
 
-	  if( ibtyp .eq. 1 ) then
-            nlev = ilhkv(k)
-
-            do l=1,nlev
-              cv(l,k) = rbc(l,k)
+	  if( blevel .or. bfix ) then
+	if( bfix ) then
+	!write(6,*) 'fixing bound: ',k,ibtyp,ibc,rbc(1,k)
+	end if
+            do l=lmin,lmax
+	      rb = rbc(l,k)
+              if( rb .ne. flag ) cv(l,k) = rb
             end do
 	  end if
 
@@ -564,11 +660,14 @@ c***********************************************************************
 c adjusts boundary conditions on open boundary (values on bnd already set)
 c
 c adjusts for ambient value, no gradient or outgoing flow
+c
+c this is only done one level boundaries ( ibtyp == 1 )
 
 	use mod_bndo
 	use mod_bound_geom
 	use levels
 	use basin, only : nkn,nel,ngr,mbw
+	use shympi
 
 	implicit none
 
@@ -587,14 +686,15 @@ c adjusts for ambient value, no gradient or outgoing flow
 	integer i,j,k,l
 	integer ibtyp,igrad0
 	integer ibc,ibcold
-	integer nb,nlev,ko
+	integer nb,nlev,flev,ko
         integer ntbc,nlevko
 	real dx,dy
 	real scal,bc,weight,tweight
 	real value
 	character*20 aline
 
-	integer ipext
+	integer kint,kext,iunit
+	integer ipext,ipint
 
 	integer ifemopa
 
@@ -605,6 +705,11 @@ c adjusts for ambient value, no gradient or outgoing flow
 
 	bgrad0 = .false.
 	blevel = .false.
+
+	iunit = 730 + my_id
+	kext = 6651
+	kext = 0
+	kint = ipint(kext)
 
 	if( bdebug ) then
 	  if( ndebug .eq. 0 ) then
@@ -620,6 +725,7 @@ c adjusts for ambient value, no gradient or outgoing flow
 	  k = kbcnod(i)
 	  nb = nopnod(i)
 	  ibc = ibcnod(i)
+	  bdebug = ( k == kint )
 
 	  if( iopbnd(k) .ne. i ) then
 	    stop 'error stop bndo_adjbc: internal error (11)'
@@ -638,8 +744,9 @@ c adjusts for ambient value, no gradient or outgoing flow
 	  dx = xynorm(1,i)
 	  dy = xynorm(2,i)
 	  nlev = ilhkv(k)
+	  flev = jlhkv(k)
 
-	  do l=1,nlev
+	  do l=flev,nlev
 	    scal = dx * uprv(l,k) + dy * vprv(l,k)
 	    bout = scal .le. 0.				!outgoing flow
 	    bamb = cv(l,k) .le. -990.			!make ambient value

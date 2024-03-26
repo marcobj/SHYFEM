@@ -69,24 +69,19 @@
 ! 12.02.2019	ccf	stress computed in substress.f
 ! 11.11.2020	ggu	get_ice_all() renamed to get_ice_cover_all()
 ! 20.03.2022	ggu	converted convert_time -> convert_time_d
+! 30.03.2022	ggu	bug: in write_wwm nlev was not set before call
+! 09.05.2023    lrp     introduce top layer index variable
+! 25.01.2024    ggu     in parwaves() introduced OMP parallelization
 !
 !**************************************************************
 c DOCS  START   S_wave
 c
-c SHYFEM could be coupled with the spectral wind wave unstructured
-c model WWMIII or computes wave characteristics using empirical
-c prediction equations.
-c
-c This empirical wave module is used to calculate the wave height 
-c and period from wind speed, fetch and depth using the EMPIRICAL 
-c PREDICTION EQUATIONS FOR SHALLOW WATER \cite{shoreprot:84}.
-c
-c WWMIII is not provided in the SHYFEM distribution.
-c The coupling of SHYFEM with WWMIII is done through the FIFO PIPE 
-c mechanism. The numerical mesh need to be converted to the GR3 
-c format using the bas2wwm program. WWMIII needs its own input 
-c parameter file (wwminput.nml). The use of the coupled SHYFEM-WWMIII
-c model require additional software which is not described here.
+c SHYFEM could be coupled with:
+c \begin{itemize}
+c \item empirical prediction equations
+c \item spectral wind wave unstructured model WWMIII
+c \item unstructured WAVEWATCH III model (WW3)
+c \end{itemize}
 c
 c The wave module writes in the WAV file the following output:
 c \begin{itemize}
@@ -101,6 +96,19 @@ c section. These parameter are the same used for writting tracer
 c concentration, salinity and water temperature. If |idtwav| is not
 c defined, then the wave module does not write any results. The wave 
 c results can be plotted using |plots -wav|.
+c
+c \subsubsection{Empirical wave model}
+c This empirical wave module is used to calculate the wave height 
+c and period from wind speed, fetch and depth using the EMPIRICAL 
+c PREDICTION EQUATIONS FOR SHALLOW WATER \cite{shoreprot:84}.
+c
+c \subsubsection{Wind wave model WWMIII}
+c WWMIII is not provided in the SHYFEM distribution.
+c The coupling of SHYFEM with WWMIII is done through the FIFO PIPE 
+c mechanism. The numerical mesh need to be converted to the GR3 
+c format using the bas2wwm program. WWMIII needs its own input 
+c parameter file (wwminput.nml). The use of the coupled SHYFEM-WWMIII
+c model require additional software which is not described here.
 c
 c In case of SHYFEM-WWMIII coupling several variables are exchanged 
 c between the two models:
@@ -137,7 +145,6 @@ c For more information about WWMIII and its couling with SHYFEM please refer
 c to Roland et al. \cite{roland:coupled09} and Ferrarin et al. 
 c \cite{ferrarin:morpho08}.
 c DOCS  END
-
 
 c**************************************************************
 
@@ -279,11 +286,11 @@ c**************************************************************
 	use mod_roughness
 	use levels, only : nlvdi,nlv
 	use basin, only : nkn,nel,ngr,mbw
+	!use pkonst
 
         implicit none
 
 c common
-	include 'param.h'
 	include 'pkonst.h'
 
 c local
@@ -550,12 +557,10 @@ c local
 
         implicit none
 
-	!include 'param.h'
-
-	real, allocatable	:: ddl(:,:) !3D layer depth (in the middle of layer)
+	real, allocatable	:: ddl(:,:) !3D layer depth (mid-layer)
 	real, allocatable 	:: h(:)
         integer it              !time [s]
-        integer k,l,nlev,lmax
+        integer k,l,nlev,flev,lmax
 	real u,v
 	double precision tempvar,dtime
 
@@ -566,7 +571,7 @@ c local
 
 !       -----------------------------------------------
 !       Same time step, do write
-!       -----------------------------------------------
+!       ------------------- ----------------------------
 
 	call get_act_dtime(dtime)
 	it = dtime
@@ -580,7 +585,8 @@ c local
 	  ddl = 0.
 
           do k = 1,nkn
-	    call dep3dnod(k,+1,nlev,h)
+	    nlev = nlv
+	    call dep3dnod(k,+1,flev,nlev,h)
             ddl(1,k) = - 0.5 * h(1)
             do l = 2,nlev
               ddl(l,k) = ddl(l-1,k) - 0.5 * (h(l) + h(l-1))
@@ -699,8 +705,6 @@ c local
 
         implicit none
 
-        !include 'param.h'
-
         real SXX3D(nlv,nkn)       !radiation stress xx
         real SYY3D(nlv,nkn)       !radiation stress yy
         real SXY3D(nlv,nkn)       !radiation stress xy
@@ -747,11 +751,9 @@ c local
 	use evgeom
 	use levels
 	use basin
+	!use pkonst
 
         implicit none
-
-c parameters
-        !include 'param.h'
 
 c arguments
         double precision stokesx(nlv,nkn) !x stokes velocity
@@ -1124,35 +1126,12 @@ c --- aux variable
 c --- local variable
 
 	logical debug
-        real depele             !element depth function [m]
-        real hbr		!limiting wave height [m]
-        real dep,depe
-        real gh,gx,hg
-	real wis,wid
-	real wmin,wmax
-	real wx,wy,fice
-        real auxh,auxh1,auxt,auxt1
-        integer ie,icount,ii,k
-	integer id,nvar,czero,hzero
+        !integer ie,icount,ii,k
+	integer id,nvar
 	double precision dtime
 
-        real, parameter :: g = 9.81		!gravity acceleration [m2/s]
-
-        real ah1,ah2,ah3,eh1,eh2,eh3,eh4
-        real at1,at2,at3,et1,et2,et3,et4
-c------------------------------------------------------ Hurdle and Stive
-c        parameter(ah1=0.25,ah2=0.6,eh1=0.75)
-c        parameter(eh2=0.5,ah3=4.3e-05,eh3=1.,eh4=2.)
-c        parameter(at1=8.3,at2=0.76,et1=0.375)
-c        parameter(et2=1./3.,at3=4.1e-05,et3=1.,et4=3.)
-c------------------------------------------------------ SPM
-        parameter(ah1=0.283,ah2=0.53,eh1=3./4.)
-        parameter(eh2=1.,ah3=0.00565,eh3=1./2.,eh4=1.)
-        parameter(at1=7.54,at2=0.833,et1=3./8.)
-        parameter(et2=1.,at3=0.0379,et3=1./3.,et4=1.)
-c------------------------------------------------------
-
         real getpar
+        real depele             !element depth function [m]
 
         logical has_output_d,next_output_d
 
@@ -1214,19 +1193,7 @@ c       -------------------------------------------------------------
 c	get wind speed and direction
 c       -------------------------------------------------------------
 
-	do ie=1,nel
-	  wx = 0.
-	  wy = 0.
-	  do ii=1,3
-	    k = nen3v(ii,ie)
-	    fice = 1. - awice*icecover(k)
-	    wx = wx + fice * wxv(k)
-	    wy = wy + fice * wyv(k)
-	  end do
-	  wx = wx / 3.
-	  wy = wy / 3.
-          call c2p(wx,wy,winds(ie),windd(ie))
-	end do
+	call compute_wind_values(icecover)
 
 c       -------------------------------------------------------------
 c	get wind fetch (fet is fetch on elements)
@@ -1234,21 +1201,108 @@ c       -------------------------------------------------------------
 
         call fetch(windd,fet,daf)
 
-	if( debug ) then
-	  write(155,*) '----------------------------------------'
-	  do ie=1,nel,nel/10
-	    write(155,*) ipev(ie),fet(ie),daf(ie),winds(ie),windd(ie)
-	  end do
-	  ie = 1743
-	  write(155,*) ipev(ie),fet(ie),daf(ie),winds(ie),windd(ie)
-	  write(155,*) '----------------------------------------'
+c       -------------------------------------------------------------------
+c       compute wave values
+c       -------------------------------------------------------------------
+
+        call compute_wave_parameters
+
+c       -------------------------------------------------------------------
+c       copy to global values
+c       -------------------------------------------------------------------
+
+        call e2n2d(waeh,waveh,v1v)
+        call e2n2d(waep,wavep,v1v)
+        call e2n2d(waed,waved,v1v)
+
+	wavepp = wavep                  !peak period is not computed
+
+c       -------------------------------------------------------------------
+c       write results to file (WAV)
+c       -------------------------------------------------------------------
+
+        if( next_output_d(da_wav) ) then
+	  id = nint(da_wav(4))
+	  call get_act_dtime(dtime)
+	  call shy_write_scalar_record2d(id,dtime,231,waveh)
+	  call shy_write_scalar_record2d(id,dtime,232,wavep)
+	  call shy_write_scalar_record2d(id,dtime,233,waved)
+	  call shy_sync(id)
 	end if
 
 c       -------------------------------------------------------------------
-c       start loop on elements
+c       end of routine
 c       -------------------------------------------------------------------
 
-        do ie = 1,nel
+        end
+
+c**************************************************************
+c**************************************************************
+c**************************************************************
+
+        subroutine compute_wave_parameters
+
+        use basin
+
+        implicit none
+
+        integer ie
+        integer nchunk
+
+!$OMP PARALLEL 
+!$OMP SINGLE
+
+        call omp_compute_chunk(nel,nchunk)
+
+        do ie=1,nel
+!$OMP TASK FIRSTPRIVATE(ie)
+!$OMP&     SHARED(nchunk)
+!$OMP&     DEFAULT(NONE)
+          call compute_waves_on_element(ie)
+!$OMP END TASK
+        end do
+
+!$OMP END SINGLE
+!$OMP TASKWAIT  
+!$OMP END PARALLEL      
+
+        end
+
+c**************************************************************
+
+	subroutine compute_waves_on_element(ie)
+
+	use basin
+	use mod_meteo
+	use mod_parwaves
+
+	implicit none
+
+	integer ie
+
+        real ah1,ah2,ah3,eh1,eh2,eh3,eh4
+        real at1,at2,at3,et1,et2,et3,et4
+c------------------------------------------------------ Hurdle and Stive
+c        parameter(ah1=0.25,ah2=0.6,eh1=0.75)
+c        parameter(eh2=0.5,ah3=4.3e-05,eh3=1.,eh4=2.)
+c        parameter(at1=8.3,at2=0.76,et1=0.375)
+c        parameter(et2=1./3.,at3=4.1e-05,et3=1.,et4=3.)
+c------------------------------------------------------ SPM
+        parameter(ah1=0.283,ah2=0.53,eh1=3./4.)
+        parameter(eh2=1.,ah3=0.00565,eh3=1./2.,eh4=1.)
+        parameter(at1=7.54,at2=0.833,et1=3./8.)
+        parameter(et2=1.,at3=0.0379,et3=1./3.,et4=1.)
+
+        real, parameter :: g = 9.81		!gravity acceleration [m2/s]
+
+	integer icount
+	real dep,depe
+	real wis,wid
+	real gh,gx,hg
+	real auxh,auxh1,auxt,auxt1
+	real hbr			!limiting wave height [m]
+
+	real depele
 
           icount = 1
 
@@ -1340,41 +1394,58 @@ c         -----------------------------------------------------------------
           end if 
 20        continue
 
-        end do
-
-	!wmin = minval(winds)
-	!wmax = maxval(winds)
-	!czero = count( winds == 0. )
-	!hzero = count( waeh == 0. )
-	!write(6,*) 'wmin/wmax: ',wmin,wmax,czero,hzero
-
-c       -------------------------------------------------------------------
-c       copy to global values and write of results (file WAV)
-c       -------------------------------------------------------------------
-
-        call e2n2d(waeh,waveh,v1v)
-        call e2n2d(waep,wavep,v1v)
-        call e2n2d(waed,waved,v1v)
-
-	wavepp = wavep
-
-        if( next_output_d(da_wav) ) then
-	  id = nint(da_wav(4))
-	  call get_act_dtime(dtime)
-	  call shy_write_scalar_record2d(id,dtime,231,waveh)
-	  call shy_write_scalar_record2d(id,dtime,232,wavep)
-	  call shy_write_scalar_record2d(id,dtime,233,waved)
-	  call shy_sync(id)
-	end if
-
-c       -------------------------------------------------------------------
-c       end of routine
-c       -------------------------------------------------------------------
-
         end
 
 c**************************************************************
-c**************************************************************
+
+	subroutine compute_wind_values(icecover)
+
+	use basin
+	use mod_meteo
+	use mod_parwaves
+
+	implicit none
+
+	real icecover(nkn)
+	
+	integer ie,ii,k
+        integer nchunk
+	real wx,wy,fice
+	
+!$OMP PARALLEL 
+!$OMP SINGLE
+
+        call omp_compute_chunk(nel,nchunk)
+
+	do ie=1,nel
+
+!$OMP TASK FIRSTPRIVATE(ie)
+!$OMP&     PRIVATE(wx,wy,ii,k,fice)
+!$OMP&     SHARED(nel,nchunk,icecover,nen3v,wxv,wyv,winds,windd)
+!$OMP&     DEFAULT(NONE)
+
+	  wx = 0.
+	  wy = 0.
+	  do ii=1,3
+	    k = nen3v(ii,ie)
+	    fice = 1. - awice*icecover(k)
+	    wx = wx + fice * wxv(k)
+	    wy = wy + fice * wyv(k)
+	  end do
+	  wx = wx / 3.
+	  wy = wy / 3.
+          call c2p(wx,wy,winds(ie),windd(ie))
+
+!$OMP END TASK
+
+	end do
+
+!$OMP END SINGLE
+!$OMP TASKWAIT  
+!$OMP END PARALLEL      
+
+	end
+
 c**************************************************************
 
         subroutine fetch(windd,fet,daf)
@@ -1394,50 +1465,47 @@ c grid given the wind direction.
         real xe,ye		!element point coordinates [m]
 	real fff,ddd
         real rad,wdir,wid
-	double precision wddir
-        integer ie,ierr
-	integer iespecial
-	integer icaver,icmax
+        integer ie,ierr,nchunk
 
         rad = 45. / atan (1.)
-	iespecial = 1743
-	iespecial = 0
-	icaver = 0
-	icmax = 0
 
 c --- loop over elements
 
+!$OMP PARALLEL 
+!$OMP SINGLE
+
+        call omp_compute_chunk(nel,nchunk)
+
         do ie = 1,nel
           
+!$OMP TASK FIRSTPRIVATE(ie,rad)
+!$OMP&     PRIVATE(xe,ye,wid,wdir,ierr,fff,ddd)
+!$OMP&     SHARED(nel,nchunk,windd,fet,daf)
+!$OMP&     DEFAULT(NONE)
+        
           call baric_cart(ie,xe,ye)
 
 	  wid = windd(ie)
           wdir = wid / rad		!from deg to rad
 
 	  ierr = 0
-	  if( ie == iespecial ) ierr = 1			!debug mode
 	  call fetch_element(ie,xe,ye,wdir,fff,ddd,ierr)
-	  icaver = icaver + ierr
-	  icmax = max(icmax,ierr)
 
 	  if( ierr .ge. 1000 ) then
 	    write(6,*) 'warning: iteration exceeded: ',ie
-	    ierr = 1
-	    wddir = wdir
-	    write(156,*) 'iterations in parametric wave model: '
-	    write(156,*) 0,0
-	    write(156,*) ie,wddir
-	    call fetch_element(ie,xe,ye,wdir,fff,ddd,ierr)
+            stop 'error stop fetch: iterations'
 	  end if
 
           fet(ie) = fff
           daf(ie) = ddd
 	  
-	end do
+!$OMP END TASK
 
-	icaver = icaver/nel
+        end do
 
-	!write(156,*) 'stats parametric wave model: ',icaver,icmax
+!$OMP END SINGLE
+!$OMP TASKWAIT  
+!$OMP END PARALLEL      
 
 	end
 

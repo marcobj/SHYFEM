@@ -70,6 +70,12 @@ c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
 c 01.04.2021	ggu	new routine handle_gotm_init()
 c 01.04.2021	ggu	debug code - look for iudbg
+c 29.03.2022	ggu	do not need gotm support if running 2d simulation
+c 07.04.2022	ggu	ie_mpi for bnstress, exchange visv,difv, debug code
+c 09.04.2022	ggu	lots of debug code added
+c 02.05.2023    ggu     fix mpi bug for nlv==1
+c 09.05.2023    lrp     introduce top layer index variable
+c 06.06.2023    ggu     minor change writing n2max
 c
 c**************************************************************
 
@@ -137,7 +143,7 @@ c---------------------------------------------------------------
 
 
 	integer k,l
-	integer nlev
+	integer nlev,flev
 	integer mode
 	real ri,vis,dif
 	real diftur,vistur
@@ -186,9 +192,9 @@ c------------------------------------------------------
 	do k=1,nkn
 
 	    nlev = nlvdi
-	    call dep3dnod(k,mode,nlev,h)
+	    call dep3dnod(k,mode,flev,nlev,h)
 
-	    do l=1,nlev-1
+	    do l=flev,nlev-1
 	      ri = buoyf2(l,k) / shearf2(l,k)
 	      vis = vistur*(1.+a*ri)**alpha
 	      dif = diftur*(1.+b*ri)**beta
@@ -198,15 +204,15 @@ c------------------------------------------------------
 	      richard(l,k) = ri
 	    end do
 
-            if( nlev .eq. 1 ) then
-	      visv(0,k) = vistur
-	      difv(0,k) = diftur
-	      visv(1,k) = vistur
-	      difv(1,k) = diftur
-	      richard(1,k) = 0.
+            if( nlev .eq. flev ) then
+	      visv(flev-1,k) = vistur
+	      difv(flev-1,k) = diftur
+	      visv(flev,k) = vistur
+	      difv(flev,k) = diftur
+	      richard(flev,k) = 0.
             else
-	      visv(0,k) = visv(1,k)
-	      difv(0,k) = difv(1,k)
+	      visv(flev-1,k) = visv(flev,k)
+	      difv(flev-1,k) = difv(flev,k)
 	      visv(nlev,k) = visv(nlev-1,k)
 	      difv(nlev,k) = difv(nlev-1,k)
 	      richard(nlev,k) = richard(nlev-1,k)
@@ -261,11 +267,11 @@ c---------------------------------------------------------------
 
 	real taub(nkn)
 
-	integer iunit,iudbg
+	integer iunit,iudbg,kdebug,iuout,iwhat
 	integer ioutfreq,ks
 	integer k,l
 	integer laux
-	integer nlev
+	integer nlev,flev,numOfLev
 	real g
 	real czdef
 	save czdef
@@ -274,7 +280,7 @@ c---------------------------------------------------------------
 	double precision depth		!total depth [m]
 	double precision z0s,z0b	!surface/bottom roughness length [m]
 	double precision rlmax,dz0
-	integer nltot
+	integer nltot,iudeb
 	logical bwrite
 
 	double precision, parameter :: dz0min = 1.1	!min value for dz0=d/z0
@@ -284,14 +290,13 @@ c---------------------------------------------------------------
 
 	real dtreal
 	real getpar
+	integer ipext
 
-	logical bwave,has_waves,bgotm
+	logical bwave,has_waves,bgotm,bdeb
 	save bwave
 
 	character*80 fn	
-	integer icall
-	save icall
-	data icall / 0 /
+	integer, save :: icall = 0
 
 	integer, save	:: levdbg
 
@@ -311,7 +316,16 @@ c------------------------------------------------------
 
 	if( icall .lt. 0 ) return
 
+	kdebug = 8
+	kdebug = -1
+	iudeb = 0
+	iwhat = 0
+	if( kdebug > 0 ) iudeb = 760 + my_id
+
 	if( icall .eq. 0 ) then
+
+	  if( nlv_global <= 1 ) icall = -1	!avoid nlv==1 mpi bug
+	  if( icall < 0 ) return
 
 	  call has_gotm(bgotm)
 	  if( .not. bgotm ) then
@@ -324,9 +338,6 @@ c------------------------------------------------------
 	  czdef = getpar('czdef')
 	  bwave = has_waves()
           levdbg = nint(getpar('levdbg'))
-
-	  if( nlvdi <= 1 ) icall = -1
-	  if( icall < 0 ) return
 
 c         --------------------------------------------------------
 c         Initializes gotm arrays 
@@ -347,6 +358,7 @@ c         --------------------------------------------------------
 	  write(*,*) 'finished initializing GOTM turbulence model'
 
 	  icall = 1
+	  call shympi_barrier
 	end if
 
 	call get_timestep(dtreal)
@@ -361,7 +373,6 @@ c------------------------------------------------------
 
 	!call shympi_comment('exchanging taub')
 	call shympi_exchange_2d_node(taub)
-	!call shympi_barrier
 
 c------------------------------------------------------
 c set up buoyancy frequency and shear frequency
@@ -371,41 +382,50 @@ c------------------------------------------------------
  	buoyf2 = 0.
 	call setm2n2(nlvdi,buoyf2,shearf2)
 
+	!write(6,*) 'm2n2: ',maxval(buoyf2),maxval(shearf2)
+
 c------------------------------------------------------
 c call gotm for each water column
 c------------------------------------------------------
 
 	rlmax = 0.
 	nltot = 0
+	bdeb = .false.
 
 	do k=1,nkn
 
-	    nlev = nlvdi
-	    call dep3dnod(k,+1,nlev,h)		!here nlev is passed back
+	    bdeb = ( kdebug > 0 .and. ipext(k) == kdebug )
+	    call save_gotm_set_debug(bdeb)
 
-	    if( count( h(1:nlev) <= 0. ) > 0 ) goto 97
-            if( nlev .eq. 1 ) goto 1
+	    nlev = nlvdi
+	    call dep3dnod(k,+1,flev,nlev,h)		!here nlev,flev is passed back
+            numOfLev = nlev-flev+1
+
+	    if( count( h(flev:nlev) <= 0. ) > 0 ) goto 97
+            if( nlev .eq. flev ) goto 1
+
+	    if( numOfLev < 1 .or. numOfLev > 10000 ) goto 96
 
 c           ------------------------------------------------------
 c           update boyancy and shear-frequency vectors
 c           ------------------------------------------------------
 
-	    do l=1,nlev-1
+	    do l=flev,nlev-1
 	      laux = nlev - l
 	      nn(laux) = buoyf2(l,k)
 	      ss(laux) = shearf2(l,k)
 	    end do
 	    nn(0) = 0.
-	    nn(nlev) = 0.
+	    nn(numOfLev) = 0.
 	    ss(0) = ss(1)
-	    ss(nlev) = ss(nlev-1)
+	    ss(numOfLev) = ss(numOfLev-1)
 
 c           ------------------------------------------------------
 c           compute layer thickness and total depth
 c           ------------------------------------------------------
 
 	    depth = 0.
-	    do l=1,nlev
+	    do l=flev,nlev
 	      hh(nlev-l+1) = h(l)
 	      depth = depth + h(l)
 	    end do
@@ -461,13 +481,42 @@ c           ------------------------------------------------------
 c           call GOTM turbulence routine
 c           ------------------------------------------------------
 
+	    !write(6,*) 'before do_gotm_turb: nlev = ',k,nlev,nlvdi
+	    if( bdeb .and. iudeb > 0 ) then
+	      iwhat = iwhat + 1
+	      iuout = iudeb
+              call gotm_debug_write_f(iuout,iwhat,k,nlev
+     +			,dt,depth
+     +			,u_taus,u_taub,z0s,z0b
+     +			,hh,nn,ss,num,nuh,ken,dis,len)
+	      iuout = iudeb + 100
+              call gotm_debug_write_u(iuout,iwhat,k,nlev
+     +			,dt,depth
+     +			,u_taus,u_taub,z0s,z0b
+     +			,hh,nn,ss,num,nuh,ken,dis,len)
+	    end if
+
  	    call do_gotm_turb   (
-     &				  nlev,dt,depth
+     &				  numOfLev,dt,depth
      &				 ,u_taus,u_taub
      &				 ,z0s,z0b,hh
      &	                         ,nn,ss
      &				 ,num,nuh,ken,dis,len
      &				 )
+
+	    if( bdeb .and. iudeb > 0 ) then
+	      iwhat = iwhat + 1
+	      iuout = iudeb
+              call gotm_debug_write_f(iuout,iwhat,k,nlev
+     +			,dt,depth
+     +			,u_taus,u_taub,z0s,z0b
+     +			,hh,nn,ss,num,nuh,ken,dis,len)
+	      iuout = iudeb + 100
+              call gotm_debug_write_u(iuout,iwhat,k,nlev
+     +			,dt,depth
+     +			,u_taus,u_taub,z0s,z0b
+     +			,hh,nn,ss,num,nuh,ken,dis,len)
+	    end if
 
 c           ------------------------------------------------------
 c           copy back to node vectors
@@ -480,7 +529,7 @@ c           ------------------------------------------------------
 	    rls_gotm(:,k)  = len(:)
 
 	    bwrite = .false.
-	    do l=0,nlev
+	    do l=0,numOfLev
 	      rlmax = max(rlmax,len(l))	!ggu
 	      if( len(l) .gt. 100. ) then
 		nltot = nltot + 1
@@ -527,7 +576,7 @@ c           ------------------------------------------------------
 c           update viscosity and diffusivity
 c           ------------------------------------------------------
 
-	    do l=0,nlev
+	    do l=flev-1,nlev
 	      laux = nlev - l
 	      visv(l,k) = num(laux)
 	      difv(l,k) = nuh(laux)
@@ -536,12 +585,15 @@ c           ------------------------------------------------------
     1     continue
 	end do
 
+	call shympi_exchange_3d0_node(visv)
+	call shympi_exchange_3d0_node(difv)
+
 	iudbg = 654
 	iudbg = 0
 	if( iudbg > 0 ) then
 	  k=2201
 	  nlev = nlvdi
-	  call dep3dnod(k,+1,nlev,h)
+	  call dep3dnod(k,+1,flev,nlev,h)
 	  write(iudbg,*) 'shell: ',it,k,nlev,numv_gotm(:,k)
 	  !write(iudbg,*) 'depth: ',k,nlev,h(1:nlev)
 	end if
@@ -551,8 +603,8 @@ c           ------------------------------------------------------
 	ks = 0			!internal node number
 	ioutfreq = 3600		!output frequency
 	if( ks .gt. 0 .and. mod(it,ioutfreq) .eq. 0 ) then
-	  write(188,*) it,nlev,(visv(l,ks),l=1,nlev)
-	  write(189,*) it,nlev,(difv(l,ks),l=1,nlev)
+	  write(188,*) it,nlev,(visv(l,ks),l=flev,nlev)
+	  write(189,*) it,nlev,(difv(l,ks),l=flev,nlev)
 	end if
 
 c------------------------------------------------------
@@ -560,11 +612,67 @@ c end of routine
 c------------------------------------------------------
 
 	return
+   96	continue
+	write(6,*) 'wrong number of layers: ',numOfLev
+	stop 'error stop gotm_shell: wrong nlev'
    97	continue
 	write(6,*) 'layers without depth...'
 	write(6,*) k,nlev
-	write(6,*) h(1:nlev)
+	write(6,*) h(flev:nlev)
 	stop 'error stop gotm_shell: no layer'
+	end
+
+c**************************************************************
+
+	subroutine gotm_debug(iu,iwhat,k,nlev,dt,depth
+     +			,u_taus,u_taub,z0s,z0b
+     +			,hh,nn,ss,num,nuh,ken,dis,len)
+
+	implicit none
+
+	integer iu,iwhat,k,nlev
+	double precision dt,depth
+	double precision u_taus,u_taub
+	double precision z0s,z0b
+	double precision :: hh(0:nlev)
+	double precision :: nn(0:nlev), ss(0:nlev)
+
+	double precision :: num(0:nlev), nuh(0:nlev)
+	double precision :: ken(0:nlev), dis(0:nlev)
+	double precision :: len(0:nlev)
+
+	integer iuu
+
+	iuu = iu + 100
+
+	      write(iu,*) k,iwhat,nlev
+	      write(iu,*) dt,depth
+	      write(iu,*) u_taus,u_taub
+	      write(iu,*) z0s,z0b
+	      write(iu,*) hh(0:nlev)
+	      write(iu,*) nn(0:nlev)
+	      write(iu,*) ss(0:nlev)
+	      write(iu,*) num(0:nlev)
+	      write(iu,*) nuh(0:nlev)
+	      write(iu,*) ken(0:nlev)
+	      write(iu,*) dis(0:nlev)
+	      write(iu,*) len(0:nlev)
+	      flush(iu)
+
+	      write(iuu) k,iwhat,nlev
+	      write(iuu) dt,depth
+	      write(iuu) u_taus,u_taub
+	      write(iuu) z0s,z0b
+	      write(iuu) hh(0:nlev)
+	      write(iuu) nn(0:nlev)
+	      write(iuu) ss(0:nlev)
+	      write(iuu) num(0:nlev)
+	      write(iuu) nuh(0:nlev)
+	      write(iuu) ken(0:nlev)
+	      write(iuu) dis(0:nlev)
+	      write(iuu) len(0:nlev)
+	      flush(iuu)
+
 	end
 
 c**************************************************************
@@ -605,7 +713,7 @@ c handles initialization of gotm
 	implicit none
 
 	logical bdebug
-	integer k,l,lmax,laux
+	integer k,l,lmax,lmin,laux
 	integer, save :: iudbg = 0
 	integer, save :: icall = 0
 
@@ -635,7 +743,8 @@ c handles initialization of gotm
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-	  do l=0,lmax
+	  lmin = jlhkv(k)
+	  do l=lmin-1,lmax
 	    laux = lmax - l
 	    visv(l,k) = numv_gotm(laux,k)
 	    difv(l,k) = nuhv_gotm(laux,k)
@@ -649,7 +758,7 @@ c handles initialization of gotm
 	write(iudbg,*) '----------------'
 	k=2201
 	lmax = 10
-	call dep3dnod(k,+1,lmax,h)
+	call dep3dnod(k,+1,lmin,lmax,h)
 	write(iudbg,*) 'init: ',k,ilhkv(k),numv_gotm(:,k)
 	write(iudbg,*) '----------------'
 	end if
@@ -898,7 +1007,7 @@ c bug fix in computation of shearf2 -> abs() statements to avoid negative vals
 	include 'pkonst.h'
 	include 'femtime.h'
 
-	integer k,l,nlev
+	integer k,l,nlev,flev
 	real aux,dh,du,dv,m2,dbuoy
 	real h(nldim)
 	real cnpar			!numerical "implicitness" parameter
@@ -915,8 +1024,8 @@ c bug fix in computation of shearf2 -> abs() statements to avoid negative vals
  
         do k=1,nkn
 	  nlev = nldim
-          call dep3dnod(k,+1,nlev,h)
-          do l=1,nlev-1
+          call dep3dnod(k,+1,flev,nlev,h)
+          do l=flev,nlev-1
             dh = 0.5 * ( h(l) + h(l+1) )
             dbuoy = aux * ( rhov(l,k) - rhov(l+1,k) )
             n2 = dbuoy / dh
@@ -962,7 +1071,7 @@ c bug fix in computation of shearf2 -> abs() statements to avoid negative vals
 	if( nfreq .gt. 0. ) nperiod = 1. / nfreq
 	if( iuinfo .le. 0 ) call getinfo(iuinfo)
 	if(shympi_is_master()) then
-	  write(iuinfo,*) 'n2max: ',it,n2max,nfreq,nperiod
+	  write(iuinfo,*) 'n2max: ',n2max,nfreq,nperiod
 	end if
 
 	end
@@ -988,7 +1097,7 @@ c taub (stress at bottom) is accumulated and weighted by area
 	real czdef
 	real taub(nkn)
 
-	integer k,ie,ii,n,nlev
+	integer k,ie,ii,n,nlev,lmin,ie_mpi
 	real aj,taubot
 
 c	---------------------------------------------------
@@ -1001,7 +1110,9 @@ c	---------------------------------------------------
 c	accumulate
 c	---------------------------------------------------
 
-        do ie=1,nel
+        do ie_mpi=1,nel
+
+	  ie = ip_sort_elem(ie_mpi)
  
           !call elebase(ie,n,ibase)
 	  n = 3
@@ -1017,7 +1128,7 @@ c	---------------------------------------------------
 	end do
 
 !       shympi_elem: exchange taub
-!       for area as weight use surface value areakv(1,k)
+!       for area as weight use surface value areakv(lmin,k)
         !call shympi_comment('shympi_elem: exchange taub')
         call shympi_exchange_and_sum_2d_nodes(taub)
 
@@ -1025,8 +1136,11 @@ c	---------------------------------------------------
 c	compute bottom stress
 c	---------------------------------------------------
 
-	if( any( areakv(1,:) <= 0. ) ) stop 'error stop bnstress: (2)'
-        taub = taub / areakv(1,:)
+	do k=1,nkn
+	  lmin = jlhkv(k)
+	  if( areakv(lmin,k) <= 0. ) stop 'error stop bnstress: (2)'
+	  taub(k) = taub(k) / areakv(lmin,k)
+	end do
 
 	end
 
@@ -1128,7 +1242,7 @@ c**************************************************************
 
 	implicit none
 
-	integer k,lmax,l
+	integer k,lmax,lmin,numOfLev,l
 	real rho0,rhoair
 	real cd,cb
 	real wx,wy
@@ -1155,15 +1269,17 @@ c**************************************************************
 	do k=1,nkn
 
 	  lmax = ilhkv(k)
+	  lmin = jlhkv(k)
+	  numOfLev = lmax-lmin+1
 	  ubot = uprv(lmax,k)
 	  vbot = vprv(lmax,k)
 	  call get_wind(k,wx,wy)
 	  taus = rhoair * cd * (wx*wx+wy*wy)
 	  taub = rho0 * cb * (ubot*ubot+vbot*vbot)
 
-          call keps(lmax,dt,rho0
+          call keps(numOfLev,dt,rho0
      +		,taus,taub
-     +		,hdknv(1,k),uprv(1,k),vprv(1,k)
+     +		,hdknv(lmin,k),uprv(lmin,k),vprv(lmin,k)
      +		,rhov(1,k),visv(0,k),difv(0,k),tken(0,k),eps(0,k))
 
 	end do
@@ -1275,6 +1391,133 @@ c**************************************************************
 	write(iunit) (ss(l),l=0,ndim)
 	write(iunit) (hh(l),l=0,ndim)
 
+	end
+
+c**************************************************************
+
+        subroutine gotm_debug_write_f(iu,iwhat,k,nlev
+     +			,dt,depth
+     +                  ,u_taus,u_taub,z0s,z0b
+     +                  ,hh,nn,ss,num,nuh,ken,dis,len)
+
+        implicit none
+
+        integer iu,iwhat,k,nlev
+        double precision dt,depth
+        double precision u_taus,u_taub
+        double precision z0s,z0b
+        double precision :: hh(0:nlev)
+        double precision :: nn(0:nlev), ss(0:nlev)
+
+        double precision :: num(0:nlev), nuh(0:nlev)
+        double precision :: ken(0:nlev), dis(0:nlev)
+        double precision :: len(0:nlev)
+
+	integer ndim,l
+
+	ndim = nlev
+
+	write(iu,*) iwhat,k,nlev
+	write(iu,*) dt,depth
+	write(iu,*) u_taus,u_taub
+	write(iu,*) z0s,z0b
+	write(iu,*) (hh(l),l=0,ndim)
+	write(iu,*) (nn(l),l=0,ndim)
+	write(iu,*) (ss(l),l=0,ndim)
+	write(iu,*) (num(l),l=0,ndim)
+	write(iu,*) (nuh(l),l=0,ndim)
+	write(iu,*) (ken(l),l=0,ndim)
+	write(iu,*) (dis(l),l=0,ndim)
+	write(iu,*) (len(l),l=0,ndim)
+	flush(iu)
+
+	end
+
+c**************************************************************
+
+        subroutine gotm_debug_write_u(iu,iwhat,k,nlev
+     +			,dt,depth
+     +                  ,u_taus,u_taub,z0s,z0b
+     +                  ,hh,nn,ss,num,nuh,ken,dis,len)
+
+        implicit none
+
+        integer iu,iwhat,k,nlev
+        double precision dt,depth
+        double precision u_taus,u_taub
+        double precision z0s,z0b
+        double precision :: hh(0:nlev)
+        double precision :: nn(0:nlev), ss(0:nlev)
+
+        double precision :: num(0:nlev), nuh(0:nlev)
+        double precision :: ken(0:nlev), dis(0:nlev)
+        double precision :: len(0:nlev)
+
+	integer ndim,l
+
+	ndim = nlev
+
+	write(iu) iwhat,k,nlev
+	write(iu) dt,depth
+	write(iu) u_taus,u_taub
+	write(iu) z0s,z0b
+	write(iu) (hh(l),l=0,ndim)
+	write(iu) (nn(l),l=0,ndim)
+	write(iu) (ss(l),l=0,ndim)
+	write(iu) (num(l),l=0,ndim)
+	write(iu) (nuh(l),l=0,ndim)
+	write(iu) (ken(l),l=0,ndim)
+	write(iu) (dis(l),l=0,ndim)
+	write(iu) (len(l),l=0,ndim)
+	flush(iu)
+
+	end
+
+c**************************************************************
+
+        subroutine gotm_debug_read_u(iu,iwhat,k,nlev
+     +			,dt,depth
+     +                  ,u_taus,u_taub,z0s,z0b
+     +                  ,hh,nn,ss,num,nuh,ken,dis,len,ierr)
+
+        implicit none
+
+        integer iu,iwhat,k,nlev,ierr
+        double precision dt,depth
+        double precision u_taus,u_taub
+        double precision z0s,z0b
+        double precision :: hh(0:nlev)
+        double precision :: nn(0:nlev), ss(0:nlev)
+
+        double precision :: num(0:nlev), nuh(0:nlev)
+        double precision :: ken(0:nlev), dis(0:nlev)
+        double precision :: len(0:nlev)
+
+	integer ndim
+
+	ndim = nlev
+	ierr = 0
+
+	read(iu,end=1) iwhat,k,nlev
+	if( nlev > ndim ) goto 99
+	read(iu) dt,depth
+	read(iu) u_taus,u_taub
+	read(iu) z0s,z0b
+	read(iu) hh(0:nlev)
+	read(iu) nn(0:nlev)
+	read(iu) ss(0:nlev)
+	read(iu) num(0:nlev)
+	read(iu) nuh(0:nlev)
+	read(iu) ken(0:nlev)
+	read(iu) dis(0:nlev)
+	read(iu) len(0:nlev)
+
+    1	continue
+	ierr = -1
+	return
+   99	continue
+	write(6,*) ndim,nlev
+	stop 'error stop gotm_run_debug: dimensions'
 	end
 
 c**************************************************************

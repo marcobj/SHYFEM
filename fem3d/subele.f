@@ -32,7 +32,7 @@ c function depele(ie,mode)
 c       computes total (average) depth of element ie
 c subroutine dep3dele(ie,mode,nlev,h)
 c       computes (average) depth of element ie for all layers
-c subroutine dep3dnod(k,mode,nlev,h)
+c subroutine dep3dnod(k,mode,flev,nlev,h)
 c       computes depth of node k for all layers
 c function zetaele(ie,mode)
 c       computes (average) zeta of element ie
@@ -122,6 +122,11 @@ c 14.02.2019	ggu	changed VERS_7_5_56
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 01.04.2021	ggu	dimension check in dep3dnod()
 c 02.06.2021	ggu	computing depth at node run over nkn_inner
+c 06.04.2022	ggu	area and depth routines adapted with ie_mpi
+c 11.10.2022	ggu	new routine initialize_layer_depth
+c 02.04.2023	ggu	to compute total mass only run over nkn_inner
+c 09.05.2023    lrp     introduce top layer index variable
+c 05.06.2023    lrp     introduce z-star
 c
 c****************************************************************
 
@@ -200,7 +205,7 @@ c computes (average) depth of element ie for all layers
 
 c****************************************************************
 
-	subroutine dep3dnod(k,mode,nlev,h)
+	subroutine dep3dnod(k,mode,flev,nlev,h)
 
 c computes depth of node k for all layers
 
@@ -211,22 +216,24 @@ c computes depth of node k for all layers
 
 	integer k	!number of node
 	integer mode	!-1: old zeta   0: no zeta   1: new zeta
-	integer nlev	!total number of levels
+	integer nlev	!index of bottom layer
+	integer flev    !index of top layer
 	real h(nlev)	!depth of layers
 
 	integer ndim
 	integer l
 
 	ndim = nlev
+	flev = jlhkv(k)
 	nlev = ilhkv(k)
 	if( nlev > ndim ) goto 99
 
 	if( mode .gt. 0 ) then
-	  do l=1,nlev
+	  do l=flev,nlev
 	    h(l) = hdknv(l,k)
 	  end do
 	else if( mode .lt. 0 ) then
-	  do l=1,nlev
+	  do l=flev,nlev
 	    h(l) = hdkov(l,k)
 	  end do
 	else
@@ -235,7 +242,9 @@ c computes depth of node k for all layers
 
 	return
    99	continue
-	write(6,*) 'k,ndim,nlev: ',k,ndim,nlev
+	write(6,*) 'k,ndim,flev,nlev: ',k,ndim,flev,nlev
+	write(6,*) 'old: ',hdkov(:,k)
+	write(6,*) 'new: ',hdknv(:,k)
 	stop 'error stop dep3dnod: nlev>ndim'
 	end
 	
@@ -653,21 +662,23 @@ c sets up area for nodes
 
 	implicit none
 
-	integer k,l,ie,ii
-	integer nlev,n
+	integer k,l,ie,ii,ie_mpi
+	integer nlev,flev,n
 	real areael,areafv
 	real areaele
 
 	areakv = 0.
 
-	do ie=1,nel
+	do ie_mpi=1,nel
+	  ie = ip_sort_elem(ie_mpi)
 	  n = 3
 	  areael = areaele(ie)
 	  areafv = areael / n
 	  nlev = ilhv(ie)
 	  do ii=1,n
 	    k = nen3v(ii,ie)
-	    do l=1,nlev
+	    flev = jlhkv(k)
+	    do l=flev,nlev
 	      areakv(l,k) = areakv(l,k) + areafv
 	    end do
 	  end do
@@ -831,6 +842,17 @@ c shell (helper) for copydepth
 
 c***********************************************************
 
+	subroutine initialize_layer_depth
+
+	implicit none
+
+	call make_new_depth
+	call copy_depth
+
+	end
+
+c***********************************************************
+
 	subroutine make_new_depth
 
 c shell (helper) for setdepth
@@ -917,14 +939,22 @@ c sets up depth array for nodes
 
         logical bdebug
         logical bsigma
-	integer k,l,ie,ii
-	integer lmax,n,nlev,nsigma,levmin
+	integer k,l,ie,ii,ie_mpi
+	integer lmax,lmin,lmink,n,nlev,nsigma,levmin
 	real hfirst,hlast,h,htot,z,zmed,hm
 	real hacu,hlevel,hsigma,hsig
 	real hmin
 
 	real areael,areafv
 	real areaele
+
+	integer lmin3v(3)
+	integer nadapt(4)    !number of adaptive sigma level
+        integer ladapt(4)    !level of last adaptive sigma level	
+        real hadapt(4)       !depth of last adaptive sigma level
+        real cadapt(levdim,3) !coefficients of adaptive sigma level
+	real hl(levdim,3)
+	real hzad,hnod
 
         bdebug = .false.
 	hmin = -99999.
@@ -945,7 +975,9 @@ c----------------------------------------------------------------
 	bsigma = nsigma .gt. 0
 	hfirst = hldv(1)
 
-	do ie=1,nel
+	do ie_mpi=1,nel
+
+	  ie = ip_sort_elem(ie_mpi)
 
 	  !call elebase(ie,n,ibase)
 	  n = 3
@@ -953,8 +985,17 @@ c----------------------------------------------------------------
 	  areafv = areael / n
 
 	  lmax = ilhv(ie)
+	  lmin = jlhv(ie)
 	  hm = hev(ie)
 	  zmed = 0.
+	  do ii=1,n
+	    k = nen3v(ii,ie)
+	    lmin3v(ii) = jlhkv(k)
+ 	  end do	  
+
+          call compute_zadaptive_info(ie,nlv,lmin3v,lmax,
+     +		hlv,zenv(:,ie),hm3v(:,ie),nadapt,ladapt,hadapt,cadapt)
+	  call set_zadapt_info(ie,nadapt,hadapt)
 
 c	  -------------------------------------------------------
 c	  nodal values
@@ -963,28 +1004,40 @@ c	  -------------------------------------------------------
 	  do ii=1,n
 
 	    k = nen3v(ii,ie)
+	    lmink = jlhkv(k)
 	    htot = hm3v(ii,ie)
 	    z = zenv(ii,ie)
-	    hsig = min(htot,hsigma) + z		!total depth of sigma layers
 	    zmed = zmed + z
+	    hsig = min(htot,hsigma) + z		!total depth sigma layers
+	    hzad = hadapt(ii) + z		!total depth z-surface-adaptive layers
+            if ( ladapt(ii).eq.lmax ) hzad = htot + z	!z-surface-adaptive bottom layer
 
 	    do l=1,nsigma
-	      hdkn(l,k) = - hsig * hldv(l)	!these have already depth
+	      hl(l,ii) = - hsig * hldv(l)
+	      hdkn(l,k) = hl(l,ii)		!these have already depth
 	    end do
+            do l=lmink,ladapt(ii)
+	      hl(l,ii) = - hzad * cadapt(l,ii)
+              hdkn(l,k) = hdkn(l,k) + areafv * hl(l,ii)
+  	    end do
 
-	    if( lmax .gt. nsigma ) then
-	      if( lmax .eq. 1 ) then
-	        h = htot + z
-	        hdkn(1,k) = hdkn(1,k) + areafv * h
+	    if( lmax .gt. (nsigma+ladapt(ii)) ) then
+	      if( lmax .eq. lmin ) then
+		hl(lmin,ii) = htot + z
+	        hdkn(lmin,k) = hdkn(lmin,k) + areafv * hl(lmin,ii)
 	      else
-	        levmin = nsigma + 1
+	        levmin = nsigma + nadapt(ii) + lmink
 	        do l=levmin,lmax-1
-	          hdkn(l,k) = hdkn(l,k) + areafv * hldv(l)
+		  hl(l,ii) = hldv(l)
+	          hdkn(l,k) = hdkn(l,k) + areafv * hl(l,ii)
 	        end do
-	        if( levmin .eq. 1 ) hdkn(1,k) = hdkn(1,k) + areafv * z
-	        hlast = htot - hlv(lmax-1)
+	        if( levmin .eq. lmink ) then
+		  hl(lmink,ii) = hl(lmink,ii) + z
+		  hdkn(lmink,k) = hdkn(lmink,k) + areafv * z
+		end if
+		hl(lmax,ii) = htot - hlv(lmax-1)
 		if( hlast .lt. 0. ) goto 77
-	        hdkn(lmax,k) = hdkn(lmax,k) + areafv * hlast
+	        hdkn(lmax,k) = hdkn(lmax,k) + areafv * hl(lmax,ii)
 	      end if
 	    end if
 
@@ -1019,23 +1072,31 @@ c	  -------------------------------------------------------
 	  do l=1,nsigma
 	    hden(l,ie) = - hsig * hldv(l)
 	  end do
+          do l=lmin,ladapt(4) 
+	    do ii=1,n
+	      hden(l,ie) = hden(l,ie) + hl(l,ii) 
+	    end do
+	    hden(l,ie) = hden(l,ie)/n  
+	  end do
 
-	  if( lmax .gt. nsigma ) then
-	    if( lmax .eq. 1 ) then
-	      hden(1,ie) = htot + zmed
+	  if( lmax .gt. (nsigma+ladapt(4)) ) then
+	    if( lmax .eq. lmin ) then
+	      hden(lmin,ie) = htot + zmed
 	    else
-	      levmin = nsigma + 1
+	      levmin = nsigma + nadapt(4) + lmin
 	      do l=levmin,lmax-1
 	        hden(l,ie) = hldv(l)
 	      end do
-	      if( levmin .eq. 1 ) hden(1,ie) = hden(1,ie) + zmed
+	      if( levmin .eq. lmin ) then
+	        hden(lmin,ie) = hden(lmin,ie) + zmed
+	      end if
 	      hlast = htot - hlv(lmax-1)
 	      if( hlast .lt. 0. ) goto 77
 	      hden(lmax,ie) = hlast
 	    end if
 	  end if
 
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    h = hden(l,ie)
 	    if( h <= hmin ) then
 	      write(6,*) 'error computing layer thickness'
@@ -1060,9 +1121,10 @@ c----------------------------------------------------------------
 c compute depth at nodes
 c----------------------------------------------------------------
 
-	levmin = nsigma + 1
 	do k=1,nkn_inner
 	  lmax = ilhkv(k)
+	  lmin = jlhkv(k)
+	  levmin = nsigma + lmin
 	  do l=levmin,lmax
 	    areafv = area(l,k)
 	    if( areafv .gt. 0. ) then
@@ -1071,7 +1133,7 @@ c----------------------------------------------------------------
 	      exit
 	    end if
 	  end do
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    h = hdkn(l,k)
 	    if( h <= hmin ) then
 	      write(6,*) 'error computing layer thickness'
@@ -1131,25 +1193,22 @@ c computes content of water mass in total domain
 	double precision masscont
 	integer mode
 
-	integer k,l,nlev
-	real mass
+	integer k,l,nlev,flev
 	double precision total
         real volnode
 
-!SHYMPI_ELEM - should be total nodes to use - FIXME shympi
-
 	total = 0.
 
-	do k=1,nkn
+	do k=1,nkn_inner
 	  nlev = ilhkv(k)
-	  do l=1,nlev
+          flev = jlhkv(k)
+	  do l=flev,nlev
 	    total = total + volnode(l,k,mode)
 	  end do
 	end do
 
-	mass = total
-	mass = shympi_sum(mass)
-	masscont = mass
+	total = shympi_sum(total)
+	masscont = total
 
 	end
 
@@ -1170,18 +1229,16 @@ c computes content of scalar in total domain
 	real scal(nlvdi,nkn)
 
 	logical, parameter :: bdebug = .false.
-	integer k,l,nlev
-	real mass
+	integer k,l,nlev,flev
 	double precision total
         real volnode
 
-!SHYMPI_ELEM - should be total nodes to use - FIXME shympi
-
 	total = 0.
 
-	do k=1,nkn
+	do k=1,nkn_inner
 	  nlev = ilhkv(k)
-	  do l=1,nlev
+	  flev = jlhkv(k)
+	  do l=flev,nlev
 	    total = total + volnode(l,k,mode) * scal(l,k)
 	    if( bdebug .and. scal(l,k) .gt. 0. ) then
 		write(6,*) 'scalcont: ',l,k,scal(l,k)
@@ -1189,9 +1246,8 @@ c computes content of scalar in total domain
 	  end do
 	end do
 
-	mass = total
-	mass = shympi_sum(mass)
-	scalcont = mass
+	total = shympi_sum(total)
+	scalcont = total
 
 	end
 
@@ -1210,14 +1266,15 @@ c computes content of scalar at node k
         integer mode,k
         real scal(nlvdi,nkn)
  
-        integer l,nlev
+        integer l,nlev,flev
         double precision total
         real volnode
  
         total = 0.
  
           nlev = ilhkv(k)
-          do l=1,nlev
+	  flev = jlhkv(k)
+          do l=flev,nlev
             total = total + volnode(l,k,mode) * scal(l,k)
           end do
  
@@ -1241,14 +1298,15 @@ c computes content of scalar at node k (with given depth)
         real scal(nlvdi,nkn)
         real depth
  
-        integer l,nlev
+        integer l,nlev,flev
         double precision total
         real areanode
  
         total = 0.
  
           nlev = ilhkv(k)
-          do l=1,nlev
+	  flev = jlhkv(k)
+          do l=flev,nlev
             total = total + depth * areanode(l,k) * scal(l,k)
           end do
  

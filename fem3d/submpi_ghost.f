@@ -30,9 +30,53 @@
 ! 22.02.2018	ggu	changed VERS_7_5_42
 ! 16.02.2019	ggu	changed VERS_7_5_60
 ! 21.05.2019	ggu	changed VERS_7_5_62
+! 10.04.2022	ggu	adjourned call to shympi_check_array()
+! 10.03.2023    ggu     new routine ghost_debug()
+! 18.03.2023	ggu	resolved problem exchanging elements (ghost nodes)
+! 20.03.2023	ggu	new subroutine ghost_handle()
+! 24.03.2023	ggu	bug fix... ic not defined
+! 27.03.2023	ggu	bug fix... iloop == 4 eliminated
+! 27.03.2023	ggu	bug fix... no ieaux
+! 19.04.2023	ggu	in ghost_exchange adapt call to shympi_check_array()
 
 !*****************************************************************
 !*****************************************************************
+!*****************************************************************
+
+	subroutine ghost_handle
+
+! handles ghost nodes (general routine
+
+	use shympi
+
+	implicit none
+
+        call ghost_make         !here also call to shympi_alloc_ghost()
+        !call ghost_debug
+        call ghost_write
+        call ghost_check
+
+!       -----------------------------------------------------
+!       debug output for ghost nodes
+!       -----------------------------------------------------
+
+        write(6,*) 'mpi my_unit: ',my_unit
+        write(6,'(a,9i7)') ' mpi domain: ',my_id,n_ghost_areas
+        write(6,'(a,5i7)') 'nkn: '
+     +                  ,nkn_global,nkn_local,nkn_unique
+     +                  ,nkn_inner,nkn_local-nkn_inner
+        write(6,'(a,5i7)') 'nel: '
+     +                  ,nel_global,nel_local,nel_unique
+     +                  ,nel_inner,nel_local-nel_inner
+
+        call shympi_syncronize
+
+        call shympi_alloc_buffer(n_ghost_max)		!really not needed
+
+        call ghost_exchange
+
+	end
+
 !*****************************************************************
 
 	subroutine ghost_make
@@ -44,12 +88,15 @@
 
 	implicit none
 
-	integer nc,k,id,i,n,ncsmax,ia,ic,ie,ii,id1,id2,iu
+	integer k,id,i,n,ncsmax,ia,ic,ie,ii,iu,iu5,iu6
+	integer nc,nc_in,nc_out
 	integer iea,ies,iloop,id0
+	integer iext,kext
 	integer iaux(nkn)
 	integer, allocatable :: ncs(:)
 	integer, allocatable :: ga(:)
-	integer, allocatable :: ieaux(:)
+
+	integer ipext,ieext
 
 !	--------------------------------------------------
 !	find total number of neibor ghost areas
@@ -69,6 +116,10 @@
 	  if( ncs(n) > 0 ) n_ghost_areas = n_ghost_areas + 1
 	end do
 
+	write(my_unit,*) 'debug ghost: ',my_id
+	write(my_unit,*) n_ghost_areas
+	write(my_unit,*) ncs
+
 !	--------------------------------------------------
 !	collect info on neibor ghost areas
 !	--------------------------------------------------
@@ -86,6 +137,9 @@
 	  end if
 	end do
 
+	write(my_unit,*) ga
+	write(my_unit,*) 'outer_max: ',ncsmax
+
 	n_ghost_nodes_max = ncsmax	!outer ghost nodes
 
 !	--------------------------------------------------
@@ -98,7 +152,8 @@
 	  iaux = 0
 	  do ie=1,nel
 	    if( shympi_is_inner_elem(ie) ) cycle
-	    if( id_elem(1,ie) /= ic .and. id_elem(2,ie) /= ic ) cycle
+	    if( id_elem(2,ie) /= ic .and. id_elem(3,ie) /= ic ) cycle
+	    !if( all(id_elem(1:3,ie) /= ic ) ) cycle	!GGUghost
 	    do ii=1,3
 	      k = nen3v(ii,ie)
 	      iaux(k) = iaux(k) + 1
@@ -113,6 +168,8 @@
 	  ncsmax = max(ncsmax,nc)
 	end do
 
+	write(my_unit,*) 'inner_max: ',ncsmax
+
 	n_ghost_nodes_max = max(n_ghost_nodes_max,ncsmax)
 
 !	--------------------------------------------------
@@ -121,16 +178,13 @@
 
 	ncs = 0
 	do ie=1,nel
-	  id1 = id_elem(1,ie)
-	  id2 = id_elem(2,ie)
-	  if( id1 == -1 ) cycle				!only my_id
-	  if( id2 == -1 .or. id1 == id2 ) then		!just one col
-	    id = id1
+	  n = id_elem(0,ie)
+	  do i=1,n
+	    id = id_elem(i,ie)
+	    if( id == my_id ) cycle
+	    if( id == -1 ) cycle
 	    ncs(id) = ncs(id) + 1
-	  else if( id1 /= id2 ) then			!two cols
-	    ncs(id1) = ncs(id1) + 1
-	    ncs(id2) = ncs(id2) + 1
-	  end if
+	  end do
 	end do
 
 	ncsmax = 0
@@ -139,15 +193,21 @@
 	  ncsmax = max(ncsmax,ncs(ic))
 	end do
 	n_ghost_elems_max = ncsmax
+	write(my_unit,*) 'maximum elem: ',ncsmax
 
 !	--------------------------------------------------
 !	allocate ghost arrays
 !	--------------------------------------------------
 
 	n_ghost_max = max(n_ghost_nodes_max,n_ghost_elems_max)
+	write(my_unit,*) 'n_ghost_max: ',n_ghost_max
 	call shympi_alloc_ghost(n_ghost_max)
 	ghost_areas(1,:) = ga(:)
 	deallocate(ga)
+	ncsmax = n_ghost_max
+
+	iu5 = 500 + my_id
+	!write(iu5,*) 'ncsmax: ',ncsmax,nkn,nel
 
 !	--------------------------------------------------
 !	set up list of outer ghost nodes
@@ -161,11 +221,13 @@
 	  do k=1,nkn
 	    id = id_node(k)
 	    if( id /= ic ) cycle
+	    if( id == my_id ) cycle
 	    nc = nc + 1
 	    if( nc > ncsmax ) goto 99
 	    ghost_nodes_out(nc,ia) = k
 	  end do
 	  ghost_areas(2,ia) = nc
+	  if( nc > ncsmax ) goto 99	!just to be sure...
 	end do
 
 !	--------------------------------------------------
@@ -179,11 +241,13 @@
 	  iaux = 0
 	  do ie=1,nel
 	    if( shympi_is_inner_elem(ie) ) cycle
-	    if( id_elem(1,ie) /= ic .and. id_elem(2,ie) /= ic ) cycle
+	    !if( id_elem(2,ie) /= ic .and. id_elem(3,ie) /= ic ) cycle
+	    if( any(id_elem(1:3,ie) == ic ) ) then
 	    do ii=1,3
 	      k = nen3v(ii,ie)
 	      iaux(k) = iaux(k) + 1
 	    end do
+	    end if
 	  end do
 	  nc = 0
 	  do k=1,nkn
@@ -204,73 +268,38 @@
 
 	do ia=1,n_ghost_areas
 	  ic = ghost_areas(1,ia)
-	  nc = 0
-	  ies = 0
+	  nc_in = 0
+	  nc_out = 0
 	  do ie=1,nel
-	    id0 = id_elem(0,ie)
-	    id1 = id_elem(1,ie)
-	    id2 = id_elem(2,ie)
-	    if( id1 /= ic .and. id2 /= ic ) cycle
-	    if( id0 /= my_id .and. id0 /= ic ) then	!special element
-	      if( ies > 0 ) then
-		write(*,*)my_id,ic,' (',id0,id1,id2,') ; ', nc,ie,ies
-	        stop 'error stop make_ghost: internal error (11)'
-	      end if
-	      ies = ie
-	      cycle
+	    if( shympi_is_inner_elem(ie) ) cycle
+	    id0 = id_elem(1,ie)
+	    if( .not. any(id_elem(1:3,ie)==ic) ) cycle
+	    if( id0 == my_id ) then
+	      nc_in = nc_in + 1
+	      if( nc_in > ncsmax ) goto 99
+	      ghost_elems_in(nc_in,ia) = ie
+	    else
+	      if( id0 /= ic ) cycle	!no inner element for this outer
+	      nc_out = nc_out + 1
+	      if( nc_out > ncsmax ) goto 99
+	      ghost_elems_out(nc_out,ia) = ie
 	    end if
-	    nc = nc + 1
-	    if( nc > ncsmax ) goto 99
-	    ghost_elems_in(nc,ia) = ie
-	    ghost_elems_out(nc,ia) = ie
+	    !write(iu5,'(7i8)') nc_in,nc_out,ie,id_elem(:,ie)
 	  end do
-	  if( ies > 0 ) then
-	    iloop = 4
-	    nc = nc + 1
-	    if( nc > ncsmax ) goto 99
-	    ghost_elems_in(nc,ia) = ies
-	    ghost_elems_out(nc,ia) = ies
-	  end if
-	  ghost_areas(4,ia) = nc
-	  ghost_areas(5,ia) = nc
+	  ghost_areas(4,ia) = nc_out
+	  ghost_areas(5,ia) = nc_in
 	end do
-
-!	--------------------------------------------------
-!	invert inner index
-!	--------------------------------------------------
-
-	iloop = 4
-
-	allocate(ieaux(n_ghost_max))
-
-	do ia=1,n_ghost_areas
-	  ic = ghost_areas(1,ia)
-	  nc = ghost_areas(4,ia)
-	  iea = 0
-	  do i=1,nc
-	    ie = ghost_elems_in(i,ia)
-	    id = id_elem(0,ie)
-	    if( id == ic ) then
-	      iea = iea + 1
-	      ieaux(iea) = ie
-	    end if
-	  end do
-	  do i=1,nc
-	    ie = ghost_elems_in(i,ia)
-	    id = id_elem(0,ie)
-	    if( id /= ic ) then
-	      iea = iea + 1
-	      ieaux(iea) = ie
-	    end if
-	  end do
-	  if( iea /= nc ) stop 'error stop ghost_make: internal error (9)'
-	  
-	  ghost_elems_in(1:nc,ia) = ieaux(1:nc)
 
 !	--------------------------------------------------
 !	write debug information
 !	--------------------------------------------------
 
+	if( bmpi_debug ) then
+
+	do ia=1,n_ghost_areas
+	  ic = ghost_areas(1,ia)
+	  nc = ghost_areas(4,ia)
+	  if( nc > ncsmax ) goto 99
 	  write(my_unit,*) 'node test: ',my_id,nkn
 	  do k=1,nkn
 	    write(my_unit,*) k,ipv(k),id_node(k)
@@ -279,31 +308,102 @@
 	  do ie=1,nel
 	    write(my_unit,*) ie,ipev(ie),id_elem(:,ie)
 	  end do
-	  write(my_unit,*) 'ghost test: ',my_id,ia,ic,nc
-	  write(my_unit,*) '   inner...'
+	  write(my_unit,*) 'ghost test: ',my_id,ia,ic
+	  nc = ghost_areas(5,ia)
+	  write(my_unit,*) '   inner elems...',nc
 	  do i=1,nc
 	    ie = ghost_elems_in(i,ia)
-	    write(my_unit,*) i,ie,ipev(ie),id_elem(0,ie)
+	    if( ie < 1 ) goto 97
+	    if( ie > nel ) goto 97
+	    write(my_unit,*) i,ie,ipev(ie),id_elem(1,ie)
 	  end do
-	  write(my_unit,*) '   outer...'
+	  nc = ghost_areas(4,ia)
+	  write(my_unit,*) '   outer elems...',nc
 	  do i=1,nc
 	    ie = ghost_elems_out(i,ia)
-	    write(my_unit,*) i,ie,ipev(ie),id_elem(0,ie)
+	    if( ie < 1 ) goto 97
+	    if( ie > nel ) goto 97
+	    write(my_unit,*) i,ie,ipev(ie),id_elem(1,ie)
 	  end do
 	end do
+
+	iu = 300 + my_id
+	write(iu,'(a,6i10)') 'looking for tripple points',my_id
+	do ie=1,nel
+	  if( id_elem(0,ie) == 3 ) then
+	    iext = ieext(ie)
+	    write(iu,'(a,6i10)') 'tripple: ',ie,iext,id_elem(:,ie)
+	  end if
+	end do
+	flush(iu)
+
+	iu6 = 600 + my_id
+	do ia=1,n_ghost_areas
+	  ic = ghost_areas(1,ia)
+	  nc = ghost_areas(2,ia)
+	  write(iu6,*) '----------------------'
+	  write(iu6,*) 'color',my_id,ic
+	  write(iu6,*) '----------------------'
+	  write(iu6,*) 'outer nodes',my_id,ic,nc
+	  do i=1,nc
+	    k = ghost_nodes_out(i,ia)
+	    if( id_node(k) == my_id ) stop 'error stop 600 2'
+	    kext = ipext(k)
+	    write(iu6,*) i,k,kext
+	  end do
+	  nc = ghost_areas(3,ia)
+	  write(iu6,*) 'inner nodes',my_id,ic,nc
+	  do i=1,nc
+	    k = ghost_nodes_in(i,ia)
+	    if( id_node(k) /= my_id ) stop 'error stop 600 3'
+	    kext = ipext(k)
+	    write(iu6,*) i,k,kext
+	  end do
+	  nc = ghost_areas(4,ia)
+	  write(iu6,*) 'outer elems',my_id,ic,nc
+	  do i=1,nc
+	    ie = ghost_elems_out(i,ia)
+	    if( id_elem(1,ie) == my_id ) stop 'error stop 600 4'
+	    iext = ieext(ie)
+	    write(iu6,*) i,ie,iext
+	  end do
+	  nc = ghost_areas(5,ia)
+	  write(iu6,*) 'inner elems',my_id,ic,nc
+	  do i=1,nc
+	    ie = ghost_elems_in(i,ia)
+	    if( id_elem(1,ie) /= my_id ) stop 'error stop 600 5'
+	    iext = ieext(ie)
+	    write(iu6,*) i,ie,iext
+	  end do
+	end do
+	flush(iu6)
+
+	end if
 
 !	--------------------------------------------------
 !	end of routine
 !	--------------------------------------------------
 
 	deallocate(ncs)
-	deallocate(ieaux)
+
+	write(my_unit,*) 'finished setting up ghost: ',my_id
+	flush(my_unit)
 
 	return
+   97	continue
+	write(6,*) 'no elements in list',ia,nc,ie
+	write(6,*) ghost_elems_in(1:nc,ia)
+	write(6,*) ghost_elems_out(1:nc,ia)
+	flush(iu)
+	flush(iu5)
+	stop 'error stop ghost_make: internal error (8)'
    99	continue
 	write(6,*) 'iloop = ',iloop
+	write(6,*) 'my_id = ',my_id
 	write(6,*) ia,id,nc,ncsmax
-	stop 'error stop ghost_make: internal error (1)'
+	flush(iu)
+	flush(iu5)
+	stop 'error stop ghost_make: internal error (7)'
 	end
 
 !*****************************************************************
@@ -358,40 +458,156 @@
 
 	integer ia,ic,nc,i,k,ie
 
+	write(my_unit,*) 'writing ghost node info for my_id: ',my_id
+
 	write(my_unit,*) 'n_ghost_areas = ',n_ghost_areas
+	write(my_unit,*) 'ghost_areas: ',ghost_areas
+
 	do ia=1,n_ghost_areas
+	  write(my_unit,*) 'handling ghost_area: ',ia
+	  write(my_unit,*) 'ghost_area: ',ghost_areas(:,ia)
 	  ic = ghost_areas(1,ia)
 	  nc = ghost_areas(2,ia)
+	  write(my_unit,*) 'ghost_area color: ',ic
 	  write(my_unit,*) 'nkn inner,unique,local: '
      +     				,nkn_inner,nkn_unique,nkn_local
 	  write(my_unit,*) 'nodes outer: ',ic,nc
+	  flush(my_unit)
 	  do i=1,nc
+	    write(my_unit,*) i,ia
+	  flush(my_unit)
 	    k = ghost_nodes_out(i,ia)
+	    write(my_unit,*) k
+	  flush(my_unit)
 	    write(my_unit,*) k,ipv(k),xgv(k),ygv(k)
+	  flush(my_unit)
 	  end do
 	  nc = ghost_areas(3,ia)
 	  write(my_unit,*) 'nodes inner: ',ic,nc
+	  flush(my_unit)
 	  do i=1,nc
 	    k = ghost_nodes_in(i,ia)
 	    write(my_unit,*) k,ipv(k),xgv(k),ygv(k)
+	  flush(my_unit)
 	  end do
 	  nc = ghost_areas(4,ia)
 	  write(my_unit,*) 'nel inner,unique,local: '
      +     				,nel_inner,nel_unique,nel_local
+	  flush(my_unit)
 	  write(my_unit,*) 'elems outer: ',ic,nc
+	  flush(my_unit)
 	  do i=1,nc
 	    ie = ghost_elems_out(i,ia)
 	    write(my_unit,*) ie,ipev(ie)
+	  flush(my_unit)
 	  end do
 	  nc = ghost_areas(5,ia)
 	  write(my_unit,*) 'elems inner: ',ic,nc
+	  flush(my_unit)
 	  do i=1,nc
 	    ie = ghost_elems_in(i,ia)
 	    write(my_unit,*) ie,ipev(ie)
+	  flush(my_unit)
 	  end do
 	end do
 
+	write(my_unit,*) 'finished writing ghost node info'
+	  flush(my_unit)
+
 	end
+
+!*****************************************************************
+
+	subroutine ghost_debug
+
+	use shympi
+	use basin
+
+	implicit none
+
+	integer ia,ic,nc,i,k,ie,iu
+	integer kext,iext
+	integer ipext,ieext
+
+	iu = 200 + my_id
+
+	write(iu,*) '=================================='
+	write(iu,*) 'writing ghost_debug: ',my_id
+	write(iu,*) '=================================='
+
+	write(iu,*) 'n_ghost_areas = ',n_ghost_areas
+	write(iu,*) 'ghost_areas: ',ghost_areas
+	write(iu,*) 'ghost_nodes_out: ',ghost_nodes_out
+	write(iu,*) 'ghost_nodes_in: ',ghost_nodes_in
+	write(iu,*) 'ghost_elems_out: ',ghost_elems_out
+	write(iu,*) 'ghost_elems_in: ',ghost_elems_in
+
+	do ia=1,n_ghost_areas
+	  ic = ghost_areas(1,ia)
+	  write(iu,*) '-----------------------------'
+	  write(iu,*) 'ghost color:',ia,ic
+	  write(iu,*) '-----------------------------'
+	  nc = ghost_areas(2,ia)
+	  write(iu,*) 'outer nodes',nc
+	  do i=1,nc
+	    k = ghost_nodes_out(i,ia)
+	    kext = ipext(k)
+	    write(iu,*) i,k,kext
+	  end do
+	  nc = ghost_areas(3,ia)
+	  write(iu,*) 'inner nodes',nc
+	  do i=1,nc
+	    k = ghost_nodes_in(i,ia)
+	    kext = ipext(k)
+	    write(iu,*) i,k,kext
+	  end do
+	  nc = ghost_areas(4,ia)
+	  write(iu,*) 'outer elems',nc
+	  do i=1,nc
+	    ie = ghost_elems_out(i,ia)
+	    iext = ieext(ie)
+	    write(iu,*) i,ie,iext
+	  end do
+	  nc = ghost_areas(5,ia)
+	  write(iu,*) 'inner elems',nc
+	  do i=1,nc
+	    ie = ghost_elems_in(i,ia)
+	    iext = ieext(ie)
+	    write(iu,*) i,ie,iext
+	  end do
+	end do
+
+	write(iu,*) 'finished writing ghost_debug'
+	flush(iu)
+
+	end
+
+!*****************************************************************
+
+        subroutine ghost_debug_1
+
+        use shympi
+        use basin
+
+        implicit none
+
+        integer ia,ic,nc,i,k,ie,iu
+
+        iu = 200 + my_id
+
+        write(iu,*) 'writing ghost debug: ',my_id
+
+        write(iu,*) 'n_ghost_areas = ',n_ghost_areas
+        write(iu,*) 'ghost_areas: ',ghost_areas
+        write(iu,*) 'ghost_nodes_out: ',ghost_nodes_out
+        write(iu,*) 'ghost_nodes_in: ',ghost_nodes_in
+        write(iu,*) 'ghost_elems_out: ',ghost_elems_out
+        write(iu,*) 'ghost_elems_in: ',ghost_elems_in
+
+        write(iu,*) 'finished writing ghost debug'
+        flush(iu)
+
+        end
 
 !*****************************************************************
 !*****************************************************************
@@ -511,23 +727,66 @@
 
 	implicit none
 
+	logical, parameter :: be = .true.
+	logical, parameter :: bn = .false.
 	integer i
-	integer num_elems(nel)
-	integer num_nodes(nkn)
-
+	integer, allocatable :: num_elems(:)
+	integer, allocatable :: num_nodes(:)
+	integer, allocatable :: num_e(:)
+	integer, allocatable :: num_n(:)
+	
+	allocate(num_elems(nel))
+	allocate(num_nodes(nkn))
 	num_elems = ipev
 	num_nodes = ipv
 
+	write(6,*) 'start exchange ghost',my_id
+	flush(6)
+	call shympi_syncronize
+
 	call shympi_exchange_2d_node(ipv)
+	write(6,*) 'exchange ghost nodes',my_id,nkn
+	flush(6)
+	call shympi_syncronize
 	call shympi_exchange_2d_elem(ipev)
+	write(6,*) 'exchange ghost elems',my_id,nel
+	flush(6)
+	call shympi_syncronize
 
 	call shympi_check_2d_node(ipv,'ghost ipv')
+	write(6,*) 'check ghost nodes',my_id
+	flush(6)
+	call shympi_syncronize
 	call shympi_check_2d_elem(ipev,'ghost ipev')
+	write(6,*) 'check ghost elems',my_id
+	flush(6)
+	call shympi_syncronize
 
-	call shympi_check_array(nkn,num_nodes,ipv,'ghost ipv')
-	call shympi_check_array(nel,num_elems,ipev,'ghost ipev')
+	allocate(num_e(nel))
+	allocate(num_n(nkn))
+	num_e = ipev
+	num_n = ipv
 
+	call shympi_syncronize
+	write(6,*) 'extra checks',my_id
+	flush(6)
+
+	i = count( num_nodes /= num_n )
+	write(6,*) 'different nodes: ',my_id,i
+	i = count( num_elems /= num_e )
+	write(6,*) 'different elems: ',my_id,i
+	flush(6)
+	call shympi_syncronize
+
+	call shympi_check_array(bn,1,nkn,nkn,num_nodes,ipv,'ghost ipv')
+	call shympi_check_array(be,1,nel,nel,num_elems,ipev,'ghost ipev')
+	call shympi_check_array(bn,1,nkn,nkn,num_n,ipv,'ghost ipv')
+	call shympi_check_array(be,1,nel,nel,num_e,ipev,'ghost ipev')
+
+	call shympi_syncronize
 	write(6,*) 'ghost_exchange: finished exchange...',my_id
+	flush(6)
+	!stop
 
 	end
 

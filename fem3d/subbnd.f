@@ -142,6 +142,8 @@ c 25.10.2018	ggu	changed VERS_7_5_51
 c 18.12.2018	ggu	changed VERS_7_5_52
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
+c 20.03.2023	ggu	relax condition of no holes for ibtyp == 3
+c 24.05.2023	ggu	in ckbnds() more debug, new boundary_debug()
 c
 c************************************************************************
 
@@ -652,6 +654,8 @@ c checks boundary information read from STR
 
 	bstop = .false.
 
+	call shympi_syncronize
+
 	do i=1,nbc
 
 	 ibc = i
@@ -681,6 +685,7 @@ c checks boundary information read from STR
          call get_bnd_ipar(ibc,'ibtyp',ibtyp)
          if(ibtyp.ge.0.and.ibtyp.le.3) then !$$ibtyp3
 	 else if(ibtyp.eq.4) then		 !$$ibtyp11
+	 else if(ibtyp.eq.5) then		 !$$ibtyp11
 	 else if(ibtyp.eq.11) then		 !$$ibtyp11
 	 else if(ibtyp.ge.30.and.ibtyp.le.33) then	 !$$ibtyp11
 	 else if(ibtyp.ge.50.and.ibtyp.le.53) then	 !$$ibtyp11
@@ -692,7 +697,7 @@ c checks boundary information read from STR
 	   bstop=.true.
 	 end if
 
-	 if( ibtyp .gt. 0 ) then
+	 if( ibtyp == 1 ) then
 	   call get_boundary_file(ibc,'zeta',file)
            call get_bnd_par(ibc,'period',period)
 	   if( period .le. 0. .and. file .eq. ' ' ) then
@@ -756,13 +761,14 @@ c checks boundary information read from STR
            else if( .not. shympi_is_inner_node(knode) ) then
              !knode = 0		!we keep ghost node
 	   end if
-	   if( knode /= 0 ) then
+	   if( knode > 0 ) then
 	     if( kmanf == 0 ) kmanf = k
 	     kmend = k
 	   else
 	     istop = istop + 1
 	   end if
 	   irv(k)=knode
+	   !write(6,*) k,knode,kmanf,kmend,istop
 	 end do
 
 	 kmtot = kmend-kmanf+1
@@ -776,22 +782,73 @@ c checks boundary information read from STR
      +			,kranf,krend,kmanf,kmend
            if( shympi_is_parallel() ) then
              if( istop == krtot ) then
-               write(6,*) 'boundary completely in one domain... ok'
+               !write(6,*) 'boundary not in this domain... ok'
                call set_bnd_ipar(ibc,'ibtyp',0)
              else if( istop == krtot-kmtot ) then
                write(6,*) 'boundary in more than one domain... ok'
              else
-	       stop 'error stop ckbnds: internal error'
+	       if( ibtyp == 1 .or. ibtyp == 2 ) then	!no holes allowed
+	         write(6,*) my_id,krtot,kmtot,istop,krtot-kmtot
+	         write(6,*) 'there are holes in the node list'
+	         call boundary_debug(ibc)
+		 call error_stop('ckbnds','internal error (1)')
+	       end if
              end if
            else
-	     stop 'error stop ckbnds: no MPI and missing nodes'
+	     call error_stop('ckbnds','no MPI and missing nodes')
            end if
          end if
 
 	end do
 
-	!call shympi_exit(0)
-	if( bstop ) stop 'error stop: ckbnds'
+	call shympi_syncronize
+	if( bstop ) call error_stop('ckbnds','general error')
+
+	end
+
+c********************************************************************
+
+	subroutine boundary_debug(ibc)
+
+	use mod_bnd
+	use mod_bound_geom
+	use shympi
+
+	implicit none
+
+	integer ibc
+
+	integer k,kranf,krend,kmanf,kmend,knode
+	integer id,iu
+	integer ipint
+
+	iu = 600 + my_id
+
+	write(iu,*) '==============================='
+	write(iu,*) 'boundary_debug: ',my_id
+	write(iu,*) '==============================='
+
+         call get_bnd_ipar(ibc,'kranf',kranf)
+         call get_bnd_ipar(ibc,'krend',krend)
+         call get_bnd_ipar(ibc,'kmanf',kmanf)
+         call get_bnd_ipar(ibc,'kmend',kmend)
+
+	write(iu,*) 'boundary_debug: ',kranf,krend
+	write(iu,*) 'boundary_debug: ',kmanf,kmend
+
+	do k=kranf,krend
+	   if( k == 0 ) cycle
+	   knode=irv(k)		!$$EXTINW
+	   id = -1
+	   if( knode > 0 ) id = id_node(knode)
+	   write(iu,*) k,knode,id
+	end do
+
+	write(iu,*) '==============================='
+	write(iu,*) 'end of boundary_debug: ',my_id
+	write(iu,*) '==============================='
+
+	flush(6)
 
 	end
 

@@ -45,6 +45,9 @@ c 09.05.2017	ggu	changed VERS_7_5_26
 c 26.05.2017	ccf	handle particles on open boundary
 c 25.10.2018	ggu	changed VERS_7_5_51
 c 16.02.2019	ggu	changed VERS_7_5_60
+c 22.05.2023	ggu	get_layer_thickness() was missing an argument
+c 05.06.2023    lrp     introduce z-star
+c 28.09.2023    lrp     bug fix for zstar (wrong declaration nadapt/hadapt)
 c
 c******************************************************
 
@@ -169,9 +172,12 @@ c computes layer thickness for element ie
 	integer nlev,nsigma,ii,lmax_act
 	real hsigma
 	real z,h
+        integer nadapt(4)
+        real hadapt(4)
 
         !call compute_sigma_info(nlev,hlv,nsigma,hsigma)
 	call get_sigma_info(nlev,nsigma,hsigma)
+        call get_zadapt_info(ie,nadapt,hadapt) 
 	lmax_act = ilhv(ie)
 	if( lmax_act > lmax ) goto 99
 	if( lmax_act > nlev ) goto 99
@@ -184,7 +190,8 @@ c computes layer thickness for element ie
 	end do
 	z = z / 6.
 
-        call get_layer_thickness(lmax,nsigma,hsigma,z,h,hlv,hl)
+  	call get_layer_thickness(lmax,1,nsigma,nadapt(4),
+     +				 hsigma,hadapt(4),z,h,hlv,hl)
 	htot = h
 	htotz = h + z
 
@@ -656,7 +663,7 @@ c copies internal coordinates to new element - avoid falling on vertex
 	if( abs(xi(ia2)+xi(ia3)-1.) > eps ) goto 99
 
 	!---------------------------------------
-	! look for neigboring element
+	! look for neighboring element
 	!---------------------------------------
 
 	ieb = ieltv(ia1,ie)

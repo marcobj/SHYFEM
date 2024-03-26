@@ -122,7 +122,7 @@ c 05.12.2017	ggu	changed VERS_7_5_39
 c 24.01.2018	ggu	changed VERS_7_5_41
 c 03.04.2018	ggu	changed VERS_7_5_43
 c 19.04.2018	ggu	changed VERS_7_5_45
-c 11.05.2018	ggu	new routine exchange_vertical() to compute global nlv,hlv
+c 11.05.2018	ggu	new exchange_vertical() to compute global nlv,hlv
 c 06.07.2018	ggu	changed VERS_7_5_48
 c 14.02.2019	ggu	changed VERS_7_5_56
 c 16.02.2019	ggu	changed VERS_7_5_60
@@ -130,6 +130,9 @@ c 13.03.2019	ggu	changed VERS_7_5_61
 c 12.02.2020	ggu	better error messages in set_last_layer()
 c 02.06.2021	ggu	call levels_reinit() changed to levels_hlv_reinit()
 c 20.07.2021	ggu	test if file has been opened for velocities
+c 21.10.2022	ggu	in init_vertical() bug fix - update sigma_info (GGUBS)
+c 28.04.2023	ggu	possible nkn=nel bug flagged with GGU_NKN_NEL
+c 03.03.2024    ggu     bug fix in init_file_uv() - reset np
 c
 c notes :
 c
@@ -149,7 +152,8 @@ c set up time independent vertical vectors
 
 	integer nlv_est,nlv_read,nlv_final
 	integer nlv_e,nlv_k
-	real hmax
+	integer nlvaux,nsigma
+	real hmax,hsigma
 	real, allocatable :: hlv_aux(:)
 
 	write(6,*) 'setting up vertical structure'
@@ -207,6 +211,9 @@ c------------------------------------------------------------------
 c check data structure
 c------------------------------------------------------------------
 
+	call get_sigma_info(nlvaux,nsigma,hsigma) !to change nlv info !GGUBS
+	call set_sigma_info(nlv,nsigma,hsigma)
+	
 	nlv_final = nlv
 	call levels_hlv_reinit(nlv_final)
 
@@ -228,6 +235,7 @@ c**************************************************************
 ! exchanges vertical structure between domains
 !
 ! to be deleted...
+! should be really deleted... is never called FIXME
 
 	use shympi
 
@@ -1619,12 +1627,14 @@ c initializes water level from file
 	  stop 'error stop init_file_uv: np'
 	end if
 
+        np = nkn		!velocities must be on node - relax later
+
         call iff_init(dtime,name,nvar,np,lmax,nintp
      +                          ,nodes,uvconst,idvel)
         call iff_set_description(idvel,ibc,what)
 
         call iff_read_and_interpolate(idvel,dtime)
-	if( np == nkn ) then
+	if( np == nkn ) then	!possible GGU_NKN_NEL bug
           call iff_time_interpolate(idvel,dtime,1,np,lmax,uprv)
           call iff_time_interpolate(idvel,dtime,2,np,lmax,vprv)
 	  call prtouv

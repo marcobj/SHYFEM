@@ -7,6 +7,10 @@
 #
 #------------------------------------------------------------------------
 
+git branch				#see all local branches
+git branch -r				#see all remote branches
+git branch -a				#see all branches (local and remote)
+git branch -v				#verbose
 
 git branch new_branch			#creates new branch
 git checkout new_branch			#switches to new branch
@@ -17,7 +21,7 @@ git checkout -b new_branch		#creates new_branch and switches to it
 git checkout develop			#goes back to develop
 git merge new_branch			#merges new_branch into develop
 
-git push origin new_branch		#pushes new branch to remote
+git push --set-upstream origin new_branch	#pushes new branch to remote
 
 git fetch				#get info on new branch
 git checkout --track remote/origin/new_branch	#now git push works

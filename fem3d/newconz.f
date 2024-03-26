@@ -88,6 +88,9 @@ c 22.06.2021	ggu	age computation introduced (bage)
 c 28.06.2021	ggu	bug fix for age and OMP
 c 15.02.2022	ggu	read iage/bage from STR file
 c 16.02.2022	ggu	compute age in days
+c 29.03.2022	ggu	eliminated error with profile=check
+c 02.04.2023    ggu     only master writes to iuinfo
+c 19.04.2023    ggu     init tracer file output only once, syncronize
 c
 c*********************************************************************
 
@@ -100,6 +103,7 @@ c initializes tracer computation
 	use levels, only : nlvdi,nlv
 	use basin, only : nkn,nel,ngr,mbw
 	use para
+	use shympi
 
 	implicit none
 
@@ -185,6 +189,8 @@ c-------------------------------------------------------------
 	end if  
 
         if( .not. has_restart(4) ) then	!no restart of conzentrations
+	  ! see if we have to initialize from file
+	  ! array is also initialized with reference concentration
 	  if( nvar == 1 ) then 
 	    call conz_init_file(dtime,nvar,nlvdi,nlv,nkn,cdefs,cnv)
 	  else
@@ -199,7 +205,12 @@ c-------------------------------------------------------------
 	call tracer_write_init
 	call tracer_write
 
-        call getinfo(ninfo)
+	if( iuinfo == 0 ) then
+	  iuinfo = -1
+          if( shympi_is_master() ) call getinfo(iuinfo)
+        end if
+
+	
 	binfo = levdbg > 0
 	binfo = .true.
 
@@ -216,6 +227,40 @@ c-------------------------------------------------------------
 	iprogr = nint(getpar('iprogr'))
 	if( level .le. 0 ) iprogr = 0
 
+	call shympi_exchange_3d_node(cnv)
+
+	end
+
+c*********************************************************************
+
+	subroutine check_cnv
+
+	use mod_conz
+	use levels, only : nlvdi,nlv
+	use basin, only : nkn,nel,ngr,mbw
+	use shympi
+
+	implicit none
+
+	integer iunit,k,l,ic
+	double precision dtime
+
+        if( .not. allocated(cnv) ) return
+
+	call get_act_dtime(dtime)
+
+        iunit = 654 + my_id
+        write(iunit,*) 'testing cnv (ggguuu):',size(cnv),dtime
+        do k=1,nkn,nkn/5
+          do l=1,nlvdi,nlvdi/4
+            !write(iunit,*) l,k,cnv(l,k)
+          end do
+        end do
+
+	ic = count( cnv /= 1. )
+
+        write(iunit,*) 'difference: ',ic,size(cnv)
+	
 	end
 
 c*********************************************************************
@@ -254,6 +299,7 @@ c*********************************************************************
 	use mod_diff_visc_fric
 	use levels, only : nlvdi,nlv
 	use basin, only : nkn,nel,ngr,mbw
+	!use shympi
 
 	implicit none
 
@@ -403,15 +449,20 @@ c*********************************************************************
 	subroutine tracer_write_init
 
 	use mod_conz
+	!use shympi
 
 	implicit none
 
 	integer nvar,id
+	integer, save :: icall = 0
 	logical has_output_d
 
-        call init_output_d('itmcon','idtcon',da_out)
+	if( icall > 0 ) return
+	icall = 1
 
 	nvar = iconz
+
+        call init_output_d('itmcon','idtcon',da_out)
 
         if( has_output_d(da_out) ) then
 	  call shyfem_init_scalar_file('conz',nvar,.false.,id)
@@ -481,19 +532,22 @@ c-------------------------------------------------------------
      +						,conzv(1,1,i))
 	    end do
           end if
-        end if
 
-        call getinfo(ninfo)
+	  call shy_sync(id)
+
+        end if
 
 c-------------------------------------------------------------
 c write to info file
 c-------------------------------------------------------------
 
 	if( iconz == 1 ) then
-	  if( iprogr .gt. 0 .and. mod(icall_conz,iprogr) .eq. 0 ) then
+	  if( iprogr .gt. 0 ) then
+	   if( mod(icall_conz,iprogr) .eq. 0 ) then
 	    stop 'error stop tracer_write: iprogr not supported'
 	    !call extract_level(nlvdi,nkn,level,cnv,v1v)
 	    !call wrnos2d_index(it,icall_conz,'conz','concentration',v1v)
+	   end if
 	  end if
 
           if( binfo ) then
@@ -502,8 +556,10 @@ c-------------------------------------------------------------
 	    cmin = shympi_min(cmin)
 	    cmax = shympi_max(cmax)
 	    call get_act_timeline(aline)
-            write(ninfo,2021) ' conzmima: ',aline,cmin,cmax,ctot
- 2021       format(a,a20,2f10.4,e14.6)
+	    if( iuinfo > 0 ) then
+              write(iuinfo,2021) ' conzmima: ',aline,cmin,cmax,ctot
+ 2021         format(a,a20,2f10.4,e14.6)
+	    end if
           end if
 	else
 	  !write(65,*) it,massv

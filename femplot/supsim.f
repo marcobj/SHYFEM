@@ -143,6 +143,7 @@ c 13.03.2019	ggu	in plobas use parameters from STR file
 c 21.05.2019	ggu	changed VERS_7_5_62
 c 13.07.2021	ggu	better box plotting
 c 21.10.2021	ggu	allow for vertical velocity overlay
+c 01.02.2023	ggu	use real area in plobox()
 c
 c notes :
 c
@@ -794,21 +795,31 @@ c plots element type values
 	integer area(nel)
         character*(*) title
 
+	logical bmincol
 	integer iamax,iamin
 	real pmin,pmax,flag
+	integer color(nel)
 	real pa(nel)
 	real getpar
+
+	bmincol = .true.
 
 	call qstart
         call annotes(title)
 	call bash(0)
 
-	iamin = minval(area)
-	iamax = maxval(area)
+	color = area
+	bmincol = ( nint(getpar('icolmin')) /= 0 )
+	if( bmincol ) then
+	  call transform_color_to_min(color)
+	end if
+
+	iamin = minval(color)
+	iamax = maxval(color)
         if( bminmax ) write(6,*) 'min/max: ',nel,iamin,iamax
 	call colset_reg(iamin,iamax)
 
-	pa = area
+	pa = color
 
         call qcomm('Plotting area of '//trim(title))
         call isoline(pa,nel,0.,3)			!plot on elements
@@ -840,12 +851,13 @@ c interprets element type as boxes and plots
 	real x,y,a
 	real pmin,pmax,flag
 	real pa(nel)
+	double precision :: area
 	character*80 string
 	integer, allocatable :: na(:)
 	integer, allocatable :: connect(:,:,:)
+	double precision, allocatable :: aa(:)
 	double precision, allocatable :: xa(:)
 	double precision, allocatable :: ya(:)
-	double precision, allocatable :: area(:)
 
 	real getpar,area_elem
 
@@ -862,24 +874,28 @@ c interprets element type as boxes and plots
 
 	allocate(connect(0:ngr,nkn,2))
 	allocate(na(0:iamax))
+	allocate(aa(0:iamax))
 	allocate(xa(0:iamax))
 	allocate(ya(0:iamax))
-	allocate(area(0:iamax))
 	connect = 0
 	na = 0
+	aa = 0.
 	xa = 0.
 	ya = 0.
 	area = 0.
 	do ie=1,nel
 	  ia = iarv(ie)
-	  area(ia) = area(ia) + area_elem(ie)
+	  area = area_elem(ie)
+	  aa(ia) = aa(ia) + 3*area
 	  do ii=1,3
 	    k = nen3v(ii,ie)
 	    x = xgv(k)
 	    y = ygv(k)
 	    na(ia) = na(ia) + 1
-	    xa(ia) = xa(ia) + x
-	    ya(ia) = ya(ia) + y
+	    !xa(ia) = xa(ia) + x
+	    !ya(ia) = ya(ia) + y
+	    xa(ia) = xa(ia) + area*x
+	    ya(ia) = ya(ia) + area*y
 	    i2 = mod(ii,3) + 1
 	    k2 = nen3v(i2,ie)
 	    call insert_connect(ngr,nkn,k,k2,ia,connect)
@@ -887,8 +903,10 @@ c interprets element type as boxes and plots
 	end do
 	do ia=0,iamax
 	  if( na(ia) > 0 ) then
-	    xa(ia) = xa(ia) / na(ia)
-	    ya(ia) = ya(ia) / na(ia)
+	    !xa(ia) = xa(ia) / na(ia)
+	    !ya(ia) = ya(ia) / na(ia)
+	    xa(ia) = xa(ia) / aa(ia)
+	    ya(ia) = ya(ia) / aa(ia)
 	  end if
 	end do
 
@@ -917,7 +935,7 @@ c interprets element type as boxes and plots
 	  if( na(ia) > 0 ) then
 	    x = xa(ia)
 	    y = ya(ia)
-	    a = area(ia)
+	    a = aa(ia)
 	    write(string,'(i10)') ia
 	    string = adjustl(string)
 	    write(6,*) ia,x,y,a,trim(string)
@@ -2529,6 +2547,35 @@ c*****************************************************************
 	if( .not. bregplot ) return
 
 	call getgeo(x0,y0,dx,dy,flag)
+
+	end
+
+c*****************************************************************
+
+	subroutine transform_color_to_min(ids)
+
+	use basin
+	use mod_color
+
+	implicit none
+
+	integer ids(nel)
+
+	integer nmax,ncol,i
+	integer, allocatable :: matrix(:,:)
+	integer color(nel)
+	integer ecv(3,nel)
+
+	call connect_init(nkn,nel,nen3v)
+	call connect_get_ecv(nel,ecv)
+	call make_elem_matrix(nel,ecv,ids,nmax,matrix)
+	call color_graph(nel,ids,nmax,matrix,ncol,color)
+	call release_color_matrix(matrix)
+	call connect_release
+
+	write(6,*) 'needed colors for coloring: ',ncol
+
+	ids = color
 
 	end
 

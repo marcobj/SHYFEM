@@ -128,10 +128,7 @@ actdate=`date "+%d.%m.%y %H:%M:%S"`
 
 ##################################################### control if files do exist
 
-if [ ! -f $hpfile ]; then
-	echo "No such file : $hpfile"
-	exit 1
-elif [ ! -x $hpfile ]; then
+if [ ! -x $hpfile ]; then
 	echo "Program not executable : $hpfile"
 	exit 1
 elif [ ! -f $strfile ]; then
@@ -200,8 +197,11 @@ fi
     fi
     echo "$command > $logfile 2>&1 &" >> $tmpfil
 
+    chmod +x $tmpfil
+      status=$?
+      echo "executing $tmpfil   status = $status"
     if [ $attime = "now" ]; then
-      ./$tmpfil > /dev/null 2>&1
+      $tmpfil
     else 
       $at -f $tmpfil $attime > /dev/null 2>&1
     fi

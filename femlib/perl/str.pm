@@ -2,7 +2,7 @@
 #
 #------------------------------------------------------------------------
 #
-#    Copyright (C) 1985-2020  Georg Umgiesser
+#    Copyright (C) 1985-2023  Georg Umgiesser
 #
 #    This file is part of SHYFEM.
 #
@@ -10,6 +10,13 @@
 #
 # str utility routines
 #
+# version	1.10    02.11.2023      die if section is not found
+# version	1.9     30.10.2023      bug fix for writing section with decrp
+# version	1.8     26.06.2023      new routine has_section()
+# version	1.7     11.06.2023      parameter nocomment implemented
+# version	1.6     08.06.2023      write extra section with description
+# version	1.5     30.03.2023      prepared new number section
+# version 	1.4	16.01.2022	parses extra section with description
 # version 	1.3	24.11.2014	finds section now, can insert values
 # version 	1.2	11.05.2011	restructured and commented
 # version 	1.1	?
@@ -27,6 +34,13 @@
 # $str->read_str($file);
 # $str->print_sections();
 # $str->write_str();
+#
+#------------------------------------------------
+#
+# todo:
+#
+# write number section better (more compact)
+# finish write_line_80() and use while writing array, number, param section
 #
 ##############################################################
 
@@ -54,6 +68,7 @@ sub new
 			,section_types	=>	undef
 			,verbose	=>	0
 			,quiet		=>	0
+			,nocomment	=>	0
 		};
 
     bless $self;
@@ -70,7 +85,7 @@ sub make_arrays {
 
   my ($self) = @_;
 
-  my @param_sections = qw/ para bound name color legvar wrt sedtr waves /;
+  my @param_sections = qw/ para bound name color legvar wrt sedtr waves close /;
   my @number_sections = qw/ extra flux levels /;
   my @table_sections = qw/ area extts /;
   my @title_sections = qw/ title /;
@@ -114,6 +129,13 @@ sub set_verbose {
   my ($self,$value) = @_;
 
   $self->{verbose} = $value;
+}
+
+sub set_nocomment {
+
+  my ($self,$value) = @_;
+
+  $self->{nocomment} = $value;
 }
 
 # section defaults to "para"
@@ -199,6 +221,8 @@ sub get_section {
 	  return $sect if( $sect->{id} eq $section_id );
   }
 
+  die "*** Cannot find section: $section_id\n";
+
   return;
 }
 
@@ -271,7 +295,7 @@ sub read_str {
   $self->delete_str();	#erase info on last str file
 
   $self->{file} = $file;
-  print STDERR "reading file: $file\n" unless $self->{quiet};
+  print STDERR "reading file: $file\n" if $self->{verbose};
 
   while( <STR_FILE> ) {
 
@@ -371,10 +395,9 @@ sub parse_param_section {
   my $debug = 0;
   my $data = $sect->{data};
   my $items = $sect->{items};
+  my $name = $sect->{name};
   my $dline = join(" ",@$data);
   $dline .= "  ";	# just to be sure that there is some ws at the end
-
-  #print STDERR "parsing section $sect->{name}\n";
 
   while( $dline =~ /^\s*(\w+)\s*=\s*/ ) {
 	my $name = $1;
@@ -447,16 +470,74 @@ sub parse_number_section {
 
   my ($self,$sect) = @_;
 
+  my ($dline,$description);
+
   my $data = $sect->{data};
-  my $dline = join(" ",@$data);
+  my $name = $sect->{name};
+  my @number = ();
+  my @description = ();
 
-  $dline =~ s/,/ /g;		#subst comma with white space
-  $dline =~ s/^\s+//;
-  $dline =~ s/\s+$//;
+  print STDERR "parsing number section... $name\n" if $self->{verbose};
 
-  my @f = split(/\s+/,$dline);
+  foreach my $line (@$data) {
+    if( $line =~ /(.+)\'(.+)\'/ ) {	# with description... ' ' must be last
+      $dline = $1;
+      $description = $2;
+    } else {
+      $dline = $line;			# do not touch data section
+      $description = "";
+    }
+    $dline =~ s/,/ /g;		# subst comma with white space
+    $dline =~ s/^\s+//;
+    $dline =~ s/\s+$//;
+    my @f = split(/\s+/,$dline);
+    push(@number,@f);
+    push(@description,$description) if $description;
+    if( $description and $name eq "flux" ) {
+      push(@number,0);		#insert 0 to divide section
+    }
+  }
 
-  $sect->{array} = \@f;
+  my $n = @number;
+  my $d = @description;
+  my $b = count_blocks(\@number);
+  if( $d > 0 ) {
+    if( $name eq "extra" and $n != $d ) {
+      print STDERR "number of descriptions not matching numbers given\n";
+      die "error in section $name: $d $n\n";
+    } elsif( $name eq "flux" and $b != $d ) {
+      print STDERR "number of descriptions not matching blocks given\n";
+      die "error in section $name: $d $b\n";
+    } elsif( $name eq "levels" ) {
+      print STDERR "no description allowed in this section\n";
+      die "error in section $name: $d $n\n";
+    }
+  }
+
+  if( $name eq "extra" ) {
+    $sect->{array} = \@number;
+    $sect->{description} = \@description;
+  } elsif( $name eq "flux" ) {
+    $sect->{array} = \@number;
+    $sect->{description} = \@description;
+  } elsif( $name eq "levels" ) {
+    $sect->{array} = \@number;
+    $sect->{description} = \@description;
+  }
+
+  return;
+
+  # this is a debug section
+
+  print STDERR "section $name: $n $b $d\n";
+
+  foreach my $dd (@description) {
+    print STDERR "$dd\n";
+  }
+  foreach my $nn (@number) {
+    print STDERR "$nn\n";
+  }
+  
 }
 
 sub parse_table_section {
@@ -471,6 +552,24 @@ sub skip_section {
   my ($self,$sect) = @_;
 
   # no parsing
+}
+
+sub count_blocks {
+
+  my $list = shift;
+
+  my $nblocks = 0;
+  my $in_block = 0;
+
+  foreach my $n (@$list) {
+    $in_block = 0 if $n == 0;
+    if( $n > 0 and $in_block == 0 ) {
+      $in_block = 1;
+      $nblocks++;
+    }
+  }
+
+  return $nblocks;
 }
 
 #-----------------------------------------------------------------
@@ -576,10 +675,13 @@ sub write_section {
   $self->write_start_of_section($sect);
 
   #print "+++++++++ type: $type  $name  ($data)\n";
+
   if( $type eq "param" ) {
     $self->write_param_section($sect);
   } elsif( $type eq "comment" ) {
-    $self->write_comment_section($sect);
+    if( $self->{nocomment} == 0 ) {
+      $self->write_comment_section($sect);
+    }
   } elsif( $type eq "title" ) {
     $self->write_title_section($sect);
   } elsif( $type eq "number" ) {
@@ -664,32 +766,120 @@ sub write_title_section {
   my $hash = $sect->{hash};
 
   print "$self->{title}\n";
-  print "$self->{simul}\n";
-  print "$self->{basin}\n";
+  print "\t$self->{simul}\n";
+  print "\t$self->{basin}\n";
 }
 
 sub write_number_section {
 
   my ($self,$sect) = @_;
 
+  my $name = $sect->{name};
   my $data = $sect->{array};
+  my $description = $sect->{description};
+  my $na = @$data;
+  my $nd = @$description;
+  my $nb = count_blocks($data);
 
-  write_array($data);
+  #print STDERR " blocks: $name $na $nd $nb\n";
+
+  if( $nd == 0 ) {
+    write_array($data);
+  } elsif( $na == $nd ) {	# section without blocks
+    write_array_with_description($data,$description);
+  } elsif( $nb == $nd ) {	# section with blocks
+    write_array_blocks_with_description($data,$description);
+  } else {
+    die "cannot write number section $name: $na $nd $nb\n";
+  }
+}
+
+sub write_array_blocks_with_description {
+
+  my ($array,$description) = @_;
+
+  my $nval = 5;			# how many values on one line
+
+  my $na = @$array;
+  my $nd = @$description;
+
+  #print STDERR "array $na\n";
+  #foreach my $f (@$array) {
+  #  print STDERR "$f ";
+  #}
+  #print STDERR "\n";
+  #print STDERR "description $nd\n";
+  #foreach my $f (@$description) {
+  #  print STDERR "$f ";
+  #}
+  #print STDERR "\n";
+
+  my $j = 0;
+  my $in_block = 0;
+  my $to_print = 0;
+  my $line = "";
+
+  for( my $i=0; $i<$na; $i++ ) {
+    my $item = $array->[$i];
+    if( $item == 0 ) {
+      next if( $in_block == 0 );
+      $j = 0;
+      $in_block = 0;
+      my $descr = shift(@$description);
+      $line .= "    '" . $descr . "'";
+      $to_print = 1;
+    } else {
+      $j++;
+      $in_block = 1;
+      $line .= "  $item";
+      if( $j == $nval ) {
+        $to_print = 1;
+        $j = 0;
+      }
+    }
+    if( $to_print ) {
+      print "$line\n";
+      $to_print = 0;
+      $line = "";
+    }
+  }
+}
+
+sub write_array_with_description {
+
+  my ($array,$description) = @_;
+
+  my $na = @$array;
+
+  for( my $i=0; $i<$na; $i++ ) {
+    my $item = $array->[$i];
+    my $descr = $description->[$i];
+    $descr = "'" . $descr . "'";
+    print "\t$item\t$descr\n";
+  }
 }
 
 sub write_array {
 
   my ($array,$extra) = @_;
 
+  my $nval = 5;			# how many values on one line
+  my $line = "";
+
   print "$extra" if $extra;
+
+  my $na = @$array;
 
   my $i = 0;
   foreach my $item (@$array) {
     $i++;
     print "   $item";
-    print "\n" if $i%5 == 0;
+    if( $item == 0 or $i == $nval ) {
+      print "\n";
+      $i = 0;
+    }
   }
-  print "\n" unless $i%5 == 0;
+  print "\n" unless $i == 0;
 }
 
 sub write_table_section {
@@ -712,6 +902,33 @@ sub write_unknown_section {	# simply copy
   foreach my $line (@$data) {
     print "$line\n";
   }
+}
+
+#-----------------------------------------------------------------
+# utilities
+#-----------------------------------------------------------------
+
+sub has_section {
+
+  my ($self,$sectname) = @_;
+
+  my $sections = $self->{sections};
+  my $sequence = $self->{sequence};
+
+  foreach my $section (@$sequence) {
+    my $sect = $sections->{$section};
+    my $name = $sect->{name};
+    #print STDERR "section $name\n";
+    return 1 if $name eq $sectname;
+  }
+  return 0;
+}
+
+sub write_line_80
+{
+  my $line = shift;
+
+  # not yet ready...
 }
 
 #-----------------------------------------------------------------

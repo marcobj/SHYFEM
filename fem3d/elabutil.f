@@ -83,6 +83,10 @@
 ! 25.01.2022    ggu     new option -grdcoord to plot fem grid
 ! 27.01.2022    ggu     new options -rmin,-rmax,-rfreq
 ! 07.03.2022    ggu     new options -changetime to shift time reference
+! 03.05.2022    ggu     new option -nlgtype
+! 05.12.2022    ggu     -facts and -offset working with TS files
+! 09.03.2023    ggu     setting -facts, -offset in one subroutine
+! 10.03.2023    ggu     map renamed to influencemap
 !
 !************************************************************
 
@@ -146,6 +150,7 @@
 
         character*80, save :: newstring		= ' '
         character*80, save :: factstring	= ' '
+        character*80, save :: offstring		= ' '
 
         character*80, save :: regstring		= ' '
         character*80, save :: rbounds		= ' '
@@ -172,7 +177,7 @@
 
         character*80, save :: areafile		= ' '
         character*80, save :: datefile		= ' '
-	logical, save :: bmap 			= .false.
+	logical, save :: binfluencemap 		= .false.
 
 	integer, save :: nnodes			= 0
 	integer, save, allocatable :: nodesi(:)		!internal nodes
@@ -200,6 +205,7 @@
 	logical, save :: blgdens		= .false.
 	logical, save :: blgtype		= .false.
 	logical, save :: blg2d			= .false.
+	integer, save :: nlgtype		= 0
 
         character*80, save :: infile		= ' '
         integer, save, allocatable :: ieflag(:)
@@ -304,6 +310,7 @@
 	call elabutil_set_out_options
 	call elabutil_set_extract_options
 
+	call elabutil_set_ts_options
 	call elabutil_set_fem_options
 	call elabutil_set_reg_options
 	call elabutil_set_shy_options
@@ -462,6 +469,36 @@
 
 !************************************************************
 
+	subroutine elabutil_set_facts_options
+
+	use clo
+
+	if( clo_has_option('facts') ) return
+
+        call clo_add_option('facts fstring',' '
+     +			,'apply factors to data in data-file')
+        call clo_add_option('offset ostring',' '
+     +			,'apply factors to data in data-file')
+        call clo_add_com('    fstring and ostring is comma'
+     +			// ' separated factors,'
+     +                  // ' empty for no change')
+
+	end subroutine elabutil_set_facts_options
+
+!************************************************************
+
+	subroutine elabutil_set_ts_options
+
+	use clo
+
+	if( .not. bshowall .and. .not. btsfile ) return
+
+	call elabutil_set_facts_options
+
+	end subroutine elabutil_set_ts_options
+
+!************************************************************
+
 	subroutine elabutil_set_fem_options
 
 	use clo
@@ -485,10 +522,8 @@
      +			,'substitute string description in fem-file')
         call clo_add_com('    sstring is comma separated strings,'
      +                  //' empty for no change')
-        call clo_add_option('facts fstring',' '
-     +			,'apply factors to data in fem-file')
-        call clo_add_com('    fstring is comma separated factors,'
-     +                  //' empty for no change')
+
+	call elabutil_set_facts_options
 
 	end subroutine elabutil_set_fem_options
 
@@ -586,7 +621,7 @@
      +			,'line delimiting areas for -averbas option')
         call clo_add_option('dates date-file',' '
      +			,'give dates for averaging in file')
-        call clo_add_option('map',.false.
+        call clo_add_option('influencemap',.false.
      +			,'computes influence map from multi-conz')
 
 	call clo_show_next_options
@@ -630,6 +665,8 @@
      +                  //' when computing the ')
         call clo_add_com('     particle density/age')
         call clo_add_option('lgtype',.false.,'compute density per type')
+        call clo_add_option('nlgtype max-type',0
+     +			,'max number of types to compute')
 
         end subroutine elabutil_set_lgr_options
 
@@ -688,6 +725,8 @@
 	if( bshowall .or. btsfile ) then
           call clo_get_option('convert',bconvert)
           call clo_get_option('date0',sdate0)
+          call clo_get_option('facts',factstring)
+          call clo_get_option('offset',offstring)
 	end if
 
 	if( bshowall .or. bfemfile ) then
@@ -699,6 +738,7 @@
           call clo_get_option('coord',scoord)
           call clo_get_option('newstring',newstring)
           call clo_get_option('facts',factstring)
+          call clo_get_option('offset',offstring)
 	end if
 
 	if( bshowall .or. bfemfile .or. bshyfile .or. blgrfile ) then
@@ -732,13 +772,14 @@
 	if( bshowall .or. bshyfile ) then
           call clo_get_option('areas',areafile)
           call clo_get_option('dates',datefile)
-          call clo_get_option('map',bmap)
+          call clo_get_option('influencemap',binfluencemap)
 	end if
 
 	if( bshowall .or. blgrfile ) then
           call clo_get_option('lgmean',blgmean)
           call clo_get_option('lgdens',blgdens)
           call clo_get_option('lgtype',blgtype)
+          call clo_get_option('nlgtype',nlgtype)
           call clo_get_option('lg2d',blg2d)
 	end if
 
@@ -796,9 +837,10 @@
         boutput = boutput .or. bsplit
 	boutput = boutput .or. outformat /= 'native'
         boutput = boutput .or. bsumvar
-        boutput = boutput .or. bmap
+        boutput = boutput .or. binfluencemap
         boutput = boutput .or. bresample
         boutput = boutput .or. newstring /= ' '
+        boutput = boutput .or. sextract /= ' '
 
         !btrans is added later
 	!if( bsumvar ) boutput = .false.

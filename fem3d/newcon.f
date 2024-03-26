@@ -264,6 +264,11 @@ c 21.05.2019	ggu	changed VERS_7_5_62
 c 31.05.2021	ggu	possibly write stability index to inf file
 c 15.02.2022	ggu	new routine limit_scalar() implemented
 c 19.02.2022	ggu	write nodes where limit is exceeded
+c 06.04.2022	ggu	adapted to regular assembling over elems (ie_mpi)
+c 07.04.2022	ggu	debug code (kdebug)
+c 03.05.2022	ggu	exchanging twice around bndo_setbc() -> improve
+c 09.05.2023    lrp     introduce top layer index variable
+c 31.05.2023    ggu     in conzstab, use ie_mpi, run over nkn_unique (bug fix)
 c
 c*********************************************************************
 
@@ -566,6 +571,7 @@ c shell for scalar T/D
 	use levels, only : nlvdi,nlv
 	use basin, only : nkn,nel,ngr,mbw
 	use shympi
+	use shympi_debug
 
 	implicit none
 
@@ -600,12 +606,13 @@ c local
 	real, allocatable :: gradxv(:,:)	!gradient in x for tvd
 	real, allocatable :: gradyv(:,:)	!gradient in y for tvd
 
-	logical btvd,btvd1
+	logical btvd,btvd1,bdebggu
 	integer isact
 	integer istot
 	integer itvd
 	integer itvdv
 	integer iuinfo
+	integer iunit,k
 	integer levdbg
         real dt,dtstep
 	real eps
@@ -614,13 +621,18 @@ c local
 	real azpar,adpar,aapar
 	real ssurface
 	real wsinkl				!local sinking
+	double precision dtime
 	character*20 aline
 c function
 	real getpar
+	integer ipint
 
 c-------------------------------------------------------------
 c start of routine
 c-------------------------------------------------------------
+
+	iunit = 888 + my_id
+	iunit = 0
 
 c-------------------------------------------------------------
 c initialization
@@ -663,6 +675,7 @@ c check stability criterion -> set istot
 c-------------------------------------------------------------
 
 	call get_timestep(dt)
+	call get_act_dtime(dtime)
 	call get_act_timeline(aline)
 
 	saux = 0.
@@ -686,7 +699,7 @@ c-------------------------------------------------------------
 c set up TVD scheme
 c-------------------------------------------------------------
 
-	call tvd_init(itvd)
+	!call tvd_init(itvd)	!is called in shyfem
 
 c-------------------------------------------------------------
 c set up flux boundary conditions (temporary) -> put in sbflux
@@ -700,6 +713,8 @@ c to increase stability when treating outflow flux boundary
 c this is needed only for discharge < 0 in order to use always the
 c ambient tracer concentration
 
+	!write(iunit,*) 'istot = ',istot,dtime
+
 c-------------------------------------------------------------
 c transport and diffusion
 c-------------------------------------------------------------
@@ -710,7 +725,7 @@ c-------------------------------------------------------------
 
 	  dtstep = -((istot-isact)*dt)/istot
 
-	  call make_scal_flux(what,rcv,cnv,sbflux,sbconz,ssurface)
+	  call make_scal_flux(what,isact,rcv,cnv,sbflux,sbconz,ssurface)
 	  !call check_scal_flux(what,cnv,sbconz)
 
 	  if( what /= 'temp' ) then
@@ -743,11 +758,9 @@ c-------------------------------------------------------------
 
 	  call limit_scalar(what,dtstep,cnv)
 
-          call bndo_setbc(what,nlvddi,cnv,rcv,uprv,vprv)
-
-cccgguccc!$OMP CRITICAL
           call shympi_exchange_3d_node(cnv)
-cccgguccc!$OMP END CRITICAL
+          call bndo_setbc(what,nlvddi,cnv,rcv,uprv,vprv)
+          call shympi_exchange_3d_node(cnv)
 
 	end do
 
@@ -777,6 +790,8 @@ c-------------------------------------------------------------
 	deallocate(saux)
 	deallocate(sbflux,sbconz)
 	deallocate(gradxv,gradyv)
+
+	if( iunit > 0 ) flush(iunit)
 
 c-------------------------------------------------------------
 c end of routine
@@ -855,7 +870,6 @@ c DPGGU -> introduced double precision to stabilize solution
 	use mod_diff_aux
 	use mod_bound_dynamic
 	use mod_area
-	use mod_ts
 	use mod_hydro_vel
 	use mod_hydro
 	use evgeom
@@ -887,15 +901,16 @@ c arguments
         real azpar,adpar,aapar			!$$azpar
 	integer istot,isact
 c local
-	logical bdebug,bdebug1,btvdv
-	integer k,ie,ii,l,iii,ll,ibase,ntot
+	logical bdebug,bdebug1,btvdv,bdebggu
+	integer k,ie,ii,l,iii,ll,ibase,ntot,ie_mpi
 	integer lstart
-	integer ilevel
+	integer ilevel,jlevel
 	integer itot,isum	!$$flux
 	logical berror
 	integer kn(3)
         integer ip(3,3)
         integer n,i,ipp
+	integer icount,icc,iunit
 	integer elems(maxlnk)
         double precision mflux,qflux,cconz
 	double precision loading
@@ -953,16 +968,16 @@ c local (new)
 	double precision cauxh(nlvddi)
 	double precision cauxl(nlvddi)
 c tvd
-	logical btvd,bgradup
-	integer ic,kc,id,kd,ippp
+	logical btvd
+	integer ic,kc,id,kdebug,ippp
 	integer ies
 	integer iext
 	double precision fls(3)
         double precision wws
 
 c functions
-c	integer ipint,ieint
-	integer ipext
+	integer ipint,ieint
+	integer ipext,ieext
 	integer ithis
 
         if(nlv.ne.nlev) stop 'error stop conz3d_orig: nlv/=nlev'
@@ -971,15 +986,17 @@ c----------------------------------------------------------------
 c initialize variables and parameters
 c----------------------------------------------------------------
 
+	kdebug = ipint(3371)
+	kdebug = -1
+	iunit = 888 + my_id
+	!write(iunit,*) kdebug,nkn_inner,nkn
+
         bdebug1 = .true.
         bdebug1 = .false.
 	bdebug=.false.
 	berror=.false.
-	!btvdv =.false.
-	!btvdv =.true.		!use vertical tvd
 
 	btvd = itvd .gt. 0
-	bgradup = itvd .eq. 2	!use upwind gradient for tvd scheme
 	btvdv = itvdv .gt. 0
 
 	az=azpar		!$$azpar
@@ -1023,6 +1040,12 @@ c	----------------------------------------------------------------
           end do
 	end do
 
+	if( kdebug > 0 ) then
+	  write(iunit,*) 'init --------',ipext(kdebug),ilhkv(kdebug)
+	  write(iunit,*) co1(1,kdebug)
+	  write(iunit,*) co(1,kdebug)
+	end if
+	
 c	----------------------------------------------------------------
 c	aux elements inside element
 c	----------------------------------------------------------------
@@ -1064,7 +1087,9 @@ c----------------------------------------------------------------
 c loop over elements
 c----------------------------------------------------------------
 
-        do ie=1,nel
+        do ie_mpi=1,nel
+
+	ie = ip_sort_elem(ie_mpi)
 
 	do ii=1,3
           k=nen3v(ii,ie)
@@ -1077,12 +1102,13 @@ c----------------------------------------------------------------
 	aj4=4.*aj
 	aj12=12.*aj
         ilevel=ilhv(ie)
+        jlevel=jlhv(ie)
 
 c	----------------------------------------------------------------
 c	set up vectors for use in assembling contributions
 c	----------------------------------------------------------------
 
-        do l=1,ilevel
+        do l=jlevel,ilevel
 	  hdv(l) = hdeov(l,ie)		!use old time step -> FIXME
           !haver(l) = 0.5 * ( hdeov(l,ie) + hdenv(l,ie) )
           haver(l) = rso*hdenv(l,ie) + rsot*hdeov(l,ie)
@@ -1126,13 +1152,14 @@ c	compute vertical fluxes (w/o vertical TVD scheme)
 c	----------------------------------------------------------------
 
 	wws = 0.	!sinking velocity alread in wl
-	call vertical_flux_ie(btvdv,ie,ilevel,dt,wws,cl,wl,hold,vflux)
+	call vertical_flux_ie(btvdv,ie,ilevel,jlevel,
+     +			      dt,wws,cl,wl,hold,vflux)
 
 c----------------------------------------------------------------
 c loop over levels
 c----------------------------------------------------------------
 
-        do l=1,ilevel
+        do l=jlevel,ilevel
 
         us=az*utlnv(l,ie)+azt*utlov(l,ie)             !$$azpar
         vs=az*vtlnv(l,ie)+azt*vtlov(l,ie)
@@ -1215,7 +1242,7 @@ c	  if we are in last layer, w(l,ii) is zero
 c	  if we are in first layer, w(l-1,ii) is zero (see above)
 
 	  w = wl(l-1,ii)		!top of layer
-	  if( l .eq. 1 ) w = 0.		!surface -> no transport (WZERO)
+	  if( l .eq. jlevel ) w = 0.	!surface -> no transport (WZERO)
 	  if( w .ge. 0. ) then
 	    fw(ii) = aat*w*cl(l,ii)
 	    flux_top = w*cl(l,ii)
@@ -1240,19 +1267,6 @@ c	  if we are in first layer, w(l-1,ii) is zero (see above)
 
 	  flux_tot1 = aat * ( flux_top - flux_bot )
 	  flux_tot = aat * ( vflux(l-1,ii) - vflux(l,ii) )
-
-c	  if( .not. btvdv ) then
-c	  if( flux_tot .ne. flux_tot1 .or. flux_tot .ne. fw(ii) ) then
-c	   !if( ie .eq. 100 ) then
-c	    write(6,*) '********** vflux   ',ie,ii,l,ilevel
-c	    write(6,*) fw(ii),flux_tot1,flux_tot
-c	    write(6,*) flux_top,flux_bot
-c	    do ll=0,ilevel
-c	    write(6,*) ll,vflux(ll,ii)
-c	    end do
-c	   !end if
-c	  end if
-c	  end if
 
 	  fw(ii) = flux_tot
 	end do
@@ -1331,6 +1345,15 @@ c	----------------------------------------------------------------
      +					)
      +		         )
 	  cle(l,ii) = cle(l,ii) + cexpl
+	  k = nen3v(ii,ie)
+	  if( k == kdebug ) then
+	    write(iunit,*) 'cexpl'
+	    write(iunit,*) hold(l,ii)*cl(l,ii)
+	    write(iunit,*) hold(l,ii)*fnudge(ii)
+	    write(iunit,*) fl(ii)
+	    write(iunit,*) 'fw: ',fw(ii)
+	    write(iunit,*) fd(ii),rk3*hmed*wdiff(ii)
+	  end if
 	  !k=kn(ii)
 	  !cn(l,k) = cn(l,k) + cexpl
 	end do
@@ -1369,7 +1392,7 @@ c clm -> top
 	!end do
 
 	do ii=1,3
-          do l=1,ilevel
+          do l=jlevel,ilevel
 	    ccle(l,ii,ie) =            cle(l,ii)
 	    cclm(l,ii,ie) = aj4 * dt * clm(l,ii)
 	    cclp(l,ii,ie) = aj4 * dt * clp(l,ii)
@@ -1405,16 +1428,13 @@ c----------------------------------------------------------------
 ! in this case we would only need the following arrays:
 ! cn(l),clow(l),chigh(l),cdiag(l) (one dimensional arrays over the vertical)
 
-	do k=1,nkn
-	  call get_elems_around(k,maxlnk,n,elems)
-	  ilevel = ilhkv(k)
-	  do i=1,n
-	    ie = elems(i)
-	    ii = ithis(k,ie)
-	    if( ii == 0 .or. nen3v(ii,ie) /= k ) then
-	      stop 'error stop: cannot find ii...'
-	    end if
-	    do l=1,ilevel
+	do ie_mpi=1,nel
+	  ie = ip_sort_elem(ie_mpi)
+	  ilevel = ilhv(ie)
+          jlevel = jlhv(ie)
+	  do ii=1,3
+	    k = nen3v(ii,ie)
+	    do l=jlevel,ilevel
 	      cn(l,k)    = cn(l,k)    + ccle(l,ii,ie)
 	      clow(l,k)  = clow(l,k)  + cclm(l,ii,ie)
 	      chigh(l,k) = chigh(l,k) + cclp(l,ii,ie)
@@ -1422,6 +1442,24 @@ c----------------------------------------------------------------
 	    end do
 	  end do
 	end do
+	  
+	!do k=1,nkn
+	!  call get_elems_around(k,maxlnk,n,elems)
+	!  ilevel = ilhkv(k)
+	!  do i=1,n
+	!    ie = elems(i)
+	!    ii = ithis(k,ie)
+	!    if( ii == 0 .or. nen3v(ii,ie) /= k ) then
+	!      stop 'error stop: cannot find ii...'
+	!    end if
+	!    do l=1,ilevel
+	!      cn(l,k)    = cn(l,k)    + ccle(l,ii,ie)
+	!      clow(l,k)  = clow(l,k)  + cclm(l,ii,ie)
+	!      chigh(l,k) = chigh(l,k) + cclp(l,ii,ie)
+	!      cdiag(l,k) = cdiag(l,k) + cclc(l,ii,ie)
+	!    end do
+	!  end do
+	!end do
 
         !call shympi_comment('shympi_elem: exchange scalar')
 	if( shympi_partition_on_elements() ) then
@@ -1442,7 +1480,8 @@ c in case of negative flux (qflux<0) must check if node is OBC (BUG_2010_01)
 
 	do k=1,ntot
 	  ilevel = ilhkv(k)
-	  do l=1,ilevel
+	  jlevel = jlhkv(k)
+	  do l=jlevel,ilevel
             !mflux = cbound(l,k)		!mass flux has been passed
 	    cconz = cbound(l,k)		!concentration has been passed
 	    qflux = mfluxv(l,k)
@@ -1476,7 +1515,8 @@ c----------------------------------------------------------------
 
 	  do k=1,ntot
 	   ilevel = ilhkv(k)
-	   do l=1,ilevel
+	   jlevel = jlhkv(k)
+	   do l=jlevel,ilevel
 	    if(cdiag(l,k).ne.0.) then
 	      cn(l,k)=cn(l,k)/cdiag(l,k)
 	    end if
@@ -1487,16 +1527,17 @@ c----------------------------------------------------------------
 
 	do k=1,ntot
 	  ilevel = ilhkv(k)
-	  aux=1./cdiag(1,k)
-	  chigh(1,k)=chigh(1,k)*aux
-	  cn(1,k)=cn(1,k)*aux
-	  do l=2,ilevel
+	  jlevel = jlhkv(k)
+	  aux=1./cdiag(jlevel,k)
+	  chigh(jlevel,k)=chigh(jlevel,k)*aux
+	  cn(jlevel,k)=cn(jlevel,k)*aux
+	  do l=jlevel+1,ilevel
 	    aux=1./(cdiag(l,k)-clow(l,k)*chigh(l-1,k))
 	    chigh(l,k)=chigh(l,k)*aux
 	    cn(l,k)=(cn(l,k)-clow(l,k)*cn(l-1,k))*aux
 	  end do
 	  lstart = ilevel-1
-	  do l=lstart,1,-1	!$$LEV0 bug 14.08.1998 -> ran to 0
+	  do l=lstart,jlevel,-1	!$$LEV0 bug 14.08.1998 -> ran to 0
 	    cn(l,k)=cn(l,k)-cn(l+1,k)*chigh(l,k)
 	  end do
 	end do
@@ -1509,6 +1550,11 @@ c----------------------------------------------------------------
 	  end do
 	end do
 
+	if( kdebug > 0 ) then
+	  write(iunit,*) 'end --------',ipext(kdebug),ilhkv(kdebug)
+	  write(iunit,*) cn(1,kdebug)
+	end if
+	
 c----------------------------------------------------------------
 c end of routine
 c----------------------------------------------------------------
@@ -1597,9 +1643,9 @@ c common
 	include 'mkonst.h'
 c local
 	logical bdebug,bdebug1
-	integer k,ie,ii,l,iii,id
+	integer k,ie,ii,l,iii,id,ie_mpi
 	integer lstart
-	integer ilevel
+	integer ilevel,jlevel
 	logical berror
 	integer kn(3)
         real sindex,rstol,raux
@@ -1775,7 +1821,9 @@ c-----------------------------------------------------------------
 c loop over elements
 c-----------------------------------------------------------------
 
-        do ie=1,nel
+        do ie_mpi=1,nel
+
+	ie = ip_sort_elem(ie_mpi)
 
 	do ii=1,3
           k=nen3v(ii,ie)
@@ -1787,10 +1835,11 @@ c-----------------------------------------------------------------
 	aj=ev(10,ie)    !area of triangle / 12
 	aj4=4.*aj
         ilevel=ilhv(ie)
+        jlevel=jlhv(ie)
 
 c set up vectors for use in assembling contributions
 
-        do l=1,ilevel
+        do l=jlevel,ilevel
 	  hdv(l) = hdeov(l,ie)		!use old time step -> FIXME
           haver(l) = 0.5 * ( hdeov(l,ie) + hdenv(l,ie) )
 	  present(l) = 1.
@@ -1826,7 +1875,7 @@ c-----------------------------------------------------------------
 c loop over levels
 c-----------------------------------------------------------------
 
-        do l=1,ilevel
+        do l=jlevel,ilevel
 
         us=az*utlnv(l,ie)+azt*utlov(l,ie)             !$$azpar
         vs=az*vtlnv(l,ie)+azt*vtlov(l,ie)
@@ -1937,7 +1986,7 @@ c	--------------------------------------------------------
 c
 c	cdiag contains volume of finite node
 
-        do l=1,ilevel
+        do l=jlevel,ilevel
 	  do ii=1,3
 	    k=kn(ii)
             hmed = min(hold(l,ii),hnew(l,ii))
@@ -1964,11 +2013,12 @@ c-----------------------------------------------------------------
         stabpoint = 0.		!point source max stability index
         kstab = 0		!node with highest stabind
 
-	do k=1,nkn
+	do k=1,nkn_unique
 	  bdebug1 = k .eq. -1
 	  ilevel = ilhkv(k)
+	  jlevel = jlhkv(k)
           if( is_zeta_bound(k) ) cycle
-	  do l=1,ilevel
+	  do l=jlevel,ilevel
             voltot = cdiag(l,k)
             flxtot = chigh(l,k) + clow(l,k) + cn(l,k) + co(l,k)
 	    if( bdebug1 ) write(99,*) k,l,voltot,flxtot
@@ -2063,7 +2113,7 @@ c arguments
 	real cn(nlvddi,nkn)
 	real mass
 c local
-	integer k,l,lmax
+	integer k,l,lmax,lmin
         double precision vol
 	double precision sum,masstot
 	real volnode
@@ -2074,8 +2124,9 @@ c local
 
         do k=1,nkn
 	  lmax = ilhkv(k)
+	  lmin = jlhkv(k)
           sum = 0.
-          do l=1,lmax
+          do l=lmin,lmax
             vol = volnode(l,k,mode)
             sum = sum + cn(l,k) * vol
           end do
@@ -2159,7 +2210,7 @@ c checks min/max property
 	real eps
 
 	logical bwrite,bstop
-	integer k,ie,l,ii,lmax,ierr
+	integer k,ie,l,ii,lmax,lmin,ierr
 	integer levdbg
 	real amin,amax,c,qflux,dmax
 	real drmax,diff
@@ -2182,13 +2233,14 @@ c---------------------------------------------------------------
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
+	  lmin = jlhkv(k)
 	  amin = +1.e+30
 	  amax = -1.e+30
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    amin = min(amin,cov(l,k))
 	    amax = max(amax,cov(l,k))
 	  end do
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    rmin(l,k) = amin
 	    rmax(l,k) = amax
 	  end do
@@ -2200,7 +2252,8 @@ c---------------------------------------------------------------
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-	  do l=1,lmax
+	  lmin = jlhkv(k)
+	  do l=lmin,lmax
 	    qflux = mfluxv(l,k)
 	    if( qflux .gt. 0. ) then
 	      c = sbconz(l,k)
@@ -2216,7 +2269,8 @@ c---------------------------------------------------------------
 
 	do ie=1,nel
 	  lmax = ilhv(ie)
-	  do l=1,lmax
+	  lmin = jlhv(ie)
+	  do l=lmin,lmax
 	    amin = +1.e+30
 	    amax = -1.e+30
 	    do ii=1,3
@@ -2246,7 +2300,8 @@ c---------------------------------------------------------------
 	 !if( .not. is_external_boundary(k) ) then	!might be relaxed
 	 if( .not. is_zeta_bound(k) ) then	!might be relaxed
 	  lmax = ilhkv(k)
-	  do l=1,lmax
+	  lmin = jlhkv(k)
+	  do l=lmin,lmax
 	    c = cnv(l,k)
 	    !rm1 = rmin(l,k)
 	    !rm2 = rmax(l,k)

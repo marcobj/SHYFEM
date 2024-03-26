@@ -316,6 +316,9 @@ ECOLOGICAL = NONE
 # The model can be coupled with the WW3 wave model.
 # This feature is still experimental. Use with care.
 #
+# Please specify in WW3DIR the base directory of WW3.
+# The source code of WW3 should therefore be found in "$WW3DIR/model/src".
+#
 # The WW3 wave model also needs additional
 # libraries metis and parmetis
 #
@@ -348,7 +351,7 @@ FLUID_MUD = false
 # DEFINE VERSION
 ##############################################
 
-RULES_MAKE_VERSION = 1.8
+RULES_MAKE_VERSION = 1.10
 DISTRIBUTION_TYPE = experimental
 
 ##############################################
@@ -382,6 +385,11 @@ ifeq ($(FORTRAN_COMPILER),GNU_G77)
     RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
     RULES_MAKE_MESSAGE = "g77 and PARALLEL_MPI/=NONE are incompatible"
   endif
+endif
+
+ifeq ($(SOLVER),)
+  RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
+  RULES_MAKE_MESSAGE = "No solver chosen. Please set SOLVER"
 endif
 
 ifneq ($(FORTRAN_COMPILER),INTEL)
@@ -425,6 +433,18 @@ ifeq ($(ECOLOGICAL),BFM)
     RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
     RULES_MAKE_MESSAGE = "BFM model needs NETCDF support"
   endif
+endif
+
+ifneq ($(PARALLEL_MPI),NONE)
+  ifeq ($(PARALLEL_OMP),true)
+    RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
+    RULES_MAKE_MESSAGE = "OMP and MPI parallelization are incompatible"
+  endif
+endif
+
+ifeq ($(PARALLEL_MPI),ELEM)
+  RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
+  RULES_MAKE_MESSAGE = "MPI on element partition is not yet ready"
 endif
 
 ##############################################
@@ -543,6 +563,10 @@ endif
 
 # next solves incompatibility of option -Wtabs between version 4 and higher
 
+WNOINIT = 
+ifeq ($(GMV_LE_8),true)
+  WNOINIT = -Wno-uninitialized
+endif
 WTABS = -Wno-tabs
 ifeq ($(GMV_LE_4),true)
   WTABS = -Wtabs
@@ -551,8 +575,10 @@ endif
 # next solves compiler warnings of possible not initialized code (version <= 8)
 
 WNOUNINITIALIZED = 
-ifeq ($(GMV_LE_8),true)
-  WNOUNINITIALIZED = -Wno-uninitialized
+ifeq ($(FORTRAN_COMPILER),GNU_GFORTRAN)
+  ifeq ($(GMV_LE_8),true)
+    WNOUNINITIALIZED = -Wno-uninitialized
+  endif
 endif
 
 ##############################################
@@ -574,9 +600,36 @@ ifeq ($(WARNING),true)
   FGNU_WARNING = -Wall -pedantic
   FGNU_WARNING = -Wall $(WTABS) -Wno-unused -Wno-uninitialized
   FGNU_WARNING = -Wall $(WTABS) -Wno-unused
-  FGNU_WARNING = -Wall $(WTABS) -Wno-unused \
-			-Wno-conversion -Wno-unused-dummy-argument \
-			-Wno-zerotrip
+  FGNU_WARNING = -Wall $(WTABS) -Wno-unused -Wno-conversion \
+				-Wno-unused-dummy-argument -Wno-zerotrip
+
+  ARON_ORIG = -g -ggdb -ffree-line-length-none -fbacktrace \
+	-Wall -Wextra -Wconversion  -Wno-unused  -Wno-unused-dummy-argument \
+	-fno-realloc-lhs -Werror=return-type  -Werror=unused-value \
+	-Werror=strict-aliasing -Werror=type-limits -Werror=pedantic \
+	-pedantic-errors -Werror=strict-aliasing -Werror=type-limits \
+	-Werror=pedantic -pedantic-errors
+  ARON_GENERAL = -g -ggdb -ffree-line-length-none -fbacktrace \
+	-fno-realloc-lhs -Werror=return-type -Wsurprising \
+	-Werror=strict-aliasing -Werror=type-limits
+  ARON_UNUSED = -Wno-unused  -Wno-unused-dummy-argument -Werror=unused-value
+  ARON_PEDANTIC = -Werror=pedantic -pedantic-errors
+  ARON_STRICT = -Wextra -Wconversion -pedantic-errors
+  GGU_INIT = -finit-integer=98765432 -finit-real=snan -finit-logical=true
+  GGU_INIT = -finit-integer=98765432 -finit-real=inf -finit-logical=true
+  #GGU_INIT =
+
+  FGNU_WARNING = -Wall $(WTABS) -Wno-conversion \
+		$(ARON_GENERAL) $(ARON_UNUSED) \
+		$(GGU_INIT) -ffpe-trap=zero,invalid,overflow
+
+#			-Wconversion #-pedantic-errors
+#			-Wconversion -Wdo-subscript
+#			-Wno-conversion 
+#			-Wdo-subscript
+# -Wextra		-Wcompare-reals   -Wdo-subscript
+# -pedantic-errors	Obsolescent feature
+
 endif
 
 FGNU_BOUNDS = 
@@ -869,6 +922,7 @@ FINTEL_NOOPT = -g -traceback
 ifeq ($(DEBUG),true)
   FINTEL_TRAP = -fp-trap-all=common
   FINTEL_TRAP = -ftrapuv -debug all -fpe0
+  FINTEL_TRAP = -debug all # WW3_ARON
   FINTEL_NOOPT = -xP
   FINTEL_NOOPT = -CU -d1
   FINTEL_NOOPT = -CU -d5
@@ -888,6 +942,8 @@ ifeq ($(OPTIMIZE),HIGH)
   FINTEL_OPT   = -O3
   FINTEL_OPT   = -O3 -xhost
   FINTEL_OPT   = -O2 -xhost
+  FINTEL_OPT   = -O2
+  FINTEL_OPT   = -O1 -assume byterecl -no-wrap-margin # WW3_ARON
   #FINTEL_OPT   = -O3 -mcmodel=medium
   #FINTEL_OPT   = -O3 -mcmodel=large
 endif

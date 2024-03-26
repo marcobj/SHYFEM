@@ -60,6 +60,9 @@
 ! 28.01.2020	ggu	utility code to change npr
 ! 20.04.2021	ggu	new version 12 (writes empty record in header)
 ! 23.06.2021    ggu     more documentation
+! 15.10.2021    ggu     some checks for vertical dim in shy_write_record()
+! 28.04.2023    ggu     update function calls for belem
+! 07.06.2023    ggu     new version 13 - simpar introduced
 !
 !**************************************************************
 !**************************************************************
@@ -200,6 +203,13 @@
 !	...
 !	call shy_read_record()		!read nvar variable of time record
 !	end subroutine
+!
+! versions:
+!
+!	< 11	not supported
+!	11	stable version
+!	12	insert empty record after header
+!	13	new values simpar
 
 !==================================================================
 	module shyfile
@@ -210,7 +220,7 @@
 	integer, parameter, private :: idshy = 1617
 
 	integer, parameter, private :: minvers = 11
-	integer, parameter, private :: maxvers = 12
+	integer, parameter, private :: maxvers = 13
 
 	integer, parameter, private ::  no_type = 0
 	integer, parameter, private :: ous_type = 1
@@ -219,6 +229,8 @@
 	integer, parameter, private :: ext_type = 4
 	integer, parameter, private :: flx_type = 5
 
+	integer, parameter :: nsimpar = 3		!size of simpar array
+
 	type, private :: entry
 
 	  integer :: iunit
@@ -226,6 +238,8 @@
 	  integer :: ftype
 	  integer :: nkn,nel,npr,nlv,nvar
 	  integer :: date,time
+	  integer :: nsimpar
+	  real :: simpar(nsimpar)
 	  character*80 :: title
 	  character*80 :: femver
           integer, allocatable :: nen3v(:,:)
@@ -321,6 +335,8 @@
 	pentry(id)%nvar = 0
 	pentry(id)%date = 0
 	pentry(id)%time = 0
+	pentry(id)%nsimpar = nsimpar
+	pentry(id)%simpar(:) = 0
 	pentry(id)%title = ' '
 	pentry(id)%femver = ' '
 
@@ -703,7 +719,10 @@
         write(6,*) 'nvar:     ',pentry(id)%nvar
         write(6,*) 'date:     ',pentry(id)%date
         write(6,*) 'time:     ',pentry(id)%time
-        write(6,*) 'title:    ',trim(pentry(id)%title)
+        write(6,*) 'nsimpar:  ',pentry(id)%nsimpar
+        write(6,*) 'hzmin/off:',pentry(id)%simpar(1:2)
+        write(6,*) 'nzadapt:  ',nint(pentry(id)%simpar(3))        
+	write(6,*) 'title:    ',trim(pentry(id)%title)
         write(6,*) 'femver:   ',trim(pentry(id)%femver)
 
         write(6,*) 'allocated:',pentry(id)%is_allocated
@@ -996,6 +1015,26 @@
 
 !************************************************************
 
+	subroutine shy_get_simpar(id,simpar)
+	integer id
+	real simpar(:)
+	integer nsp
+	nsp = size(simpar)
+	if( nsp /= nsimpar ) stop 'error stopshy_get_simpar: nsp/=nsimpar'
+	simpar(:) = pentry(id)%simpar(:)
+	end subroutine shy_get_simpar
+
+	subroutine shy_set_simpar(id,simpar)
+	integer id
+	real simpar(:)
+	integer nsp
+	nsp = size(simpar)
+	if( nsp /= nsimpar ) stop 'error stopshy_set_simpar: nsp/=nsimpar'
+	pentry(id)%simpar(:) = simpar(:)
+	end subroutine shy_set_simpar
+
+!************************************************************
+
 	subroutine shy_get_femver(id,femver)
 	integer id
 	character*(*) femver
@@ -1164,6 +1203,8 @@
 	integer ftype
 	integer nkn,nel,npr,nlv,nvar
 	integer date,time
+	integer nsp
+	real simpar(nsimpar)
 	character*80 title
 	character*80 femver
 
@@ -1194,18 +1235,28 @@
 	if( ios /= 0 ) return
 	call shy_set_date(id,date,time)
 
-	ierr = 5
+        if( nvers >= 13 ) then          !simpar
+        ierr = 5
+        read(iunit,iostat=ios) nsp
+        if( ios /= 0 ) return
+        if( nsp /= nsimpar ) return
+        read(iunit,iostat=ios) simpar(1:nsp)
+        if( ios /= 0 ) return
+        call shy_set_simpar(id,simpar)
+        end if
+
+	ierr = 6
         read(iunit,iostat=ios) title
 	if( ios /= 0 ) return
 	call shy_set_title(id,title)
 
-	ierr = 6
+	ierr = 7
         read(iunit,iostat=ios) femver
 	if( ios /= 0 ) return
 	call shy_set_femver(id,femver)
 
-	if( nvers > 11 ) then
-	  ierr = 7
+	if( nvers >= 12 ) then		!empty record to close header
+	  ierr = 99
           read(iunit,iostat=ios) 
 	  if( ios /= 0 ) return
 	end if
@@ -1271,10 +1322,12 @@
 
 !**************************************************************
 
-	subroutine shy_read_record(id,dtime,ivar,n,m,lmax,nlvddi,c,ierr)
+	subroutine shy_read_record(id,dtime,belem
+     +				,ivar,n,m,lmax,nlvddi,c,ierr)
 
 	integer id,ierr
 	double precision dtime
+	logical belem
 	integer ivar
 	integer n,m
 	integer lmax
@@ -1283,6 +1336,7 @@
 
 	integer iunit
 	integer i,k,ie,l,j,nlin
+	integer nkn,nel
 	integer, allocatable :: il(:)
 	real, allocatable :: rlin(:)
 
@@ -1295,15 +1349,14 @@
 	if( ierr /= 0 ) return
 
 	allocate(il(n))
-	if( n == pentry(id)%nkn ) then
-	  il = pentry(id)%ilhkv
-	else if( n == pentry(id)%nel ) then
+	if( belem ) then
+	  nel = pentry(id)%nel
+	  if( n /= nel ) stop 'error stop shy_read_record: n/=nel'
 	  il = pentry(id)%ilhv
 	else
-	  write(6,*) n,pentry(id)%nkn,pentry(id)%nel
-	  write(6,*) 'cannot determine layer pointer'
-	  call shy_info(id)
-	  stop 'error stop shy_read_record: layer pointer'
+	  nkn = pentry(id)%nkn
+	  if( n /= nkn ) stop 'error stop shy_read_record: n/=nkn'
+	  il = pentry(id)%ilhkv
 	end if
 
 	if( lmax <= 1 ) then
@@ -1397,8 +1450,10 @@
 	iunit = pentry(id)%iunit
 
 	backspace(iunit,iostat=ierr)
+	!write(6,*) 'first:',ierr
 	if( ierr /= 0 ) return
 	backspace(iunit,iostat=ierr)
+	!write(6,*) 'second:',ierr
 
 	end subroutine shy_back_record
 
@@ -1429,6 +1484,7 @@
 	integer ftype
 	integer nkn,nel,npr,nlv,nvar
 	integer date,time
+	real simpar(nsimpar)
 	character*80 title
 	character*80 femver
 
@@ -1443,11 +1499,14 @@
 	call shy_get_date(id,date,time)
 	call shy_get_title(id,title)
 	call shy_get_femver(id,femver)
+	call shy_get_simpar(id,simpar)
 
         write(iunit,err=99) idshy,nvers
         write(iunit,err=99) ftype
         write(iunit,err=99) nkn,nel,npr,nlv,nvar
         write(iunit,err=99) date,time
+        write(iunit,err=99) nsimpar
+        write(iunit,err=99) simpar(:)
         write(iunit,err=99) title
         write(iunit,err=99) femver
         write(iunit,err=99) 
@@ -1473,11 +1532,13 @@
 
 !**************************************************************
 
-	subroutine shy_write_record(id,dtime,ivar,n,m,lmax,nlvddi,c,ierr)
+	subroutine shy_write_record(id,dtime,ivar
+     +				,belem,n,m,lmax,nlvddi,c,ierr)
 
 	integer id,ierr
 	double precision dtime
 	integer ivar
+	logical belem
 	integer n,m
 	integer lmax
 	integer nlvddi
@@ -1486,6 +1547,7 @@
 	logical b3d
 	integer iunit
 	integer i,k,ie,l,j,nlin
+	integer nkn,nel
 	integer, allocatable :: il(:)
 	real, allocatable :: rlin(:)
 
@@ -1501,14 +1563,14 @@
 
 	if( b3d ) then
 	  allocate(il(n))
-	  if( n == pentry(id)%nkn ) then
-	    il = pentry(id)%ilhkv
-	  else if( n == pentry(id)%nel ) then
+	  if( belem ) then
+	    nel = pentry(id)%nel
+	    if( n /= nel ) stop 'error stop shy_read_record: n/=nel'
 	    il = pentry(id)%ilhv
 	  else
-	    write(6,*) n,pentry(id)%nkn,pentry(id)%nel
-	    write(6,*) 'cannot determine layer pointer'
-	    stop 'error stop shy_read_record: layer pointer'
+	    nkn = pentry(id)%nkn
+	    if( n /= nkn ) stop 'error stop shy_read_record: n/=nkn'
+	    il = pentry(id)%ilhkv
 	  end if
 	end if
 
@@ -1517,6 +1579,10 @@
 	else if( m == 1 ) then
 	  nlin = nlvddi*n
 	  allocate(rlin(nlin))
+	  !write(601,*) 'before vals2linear...'
+	  !write(601,*) id,ivar,n
+	  !write(601,*) lmax,nlvddi
+	  if( lmax /= nlvddi ) goto 99
           call vals2linear(lmax,n,m,il,c,rlin,nlin)
 	  write(iunit,iostat=ierr) ( rlin(i),i=1,nlin )
 !	  write(iunit,iostat=ierr) (( c(l,i)
@@ -1534,6 +1600,10 @@
 
 	if( b3d ) deallocate(il)
 
+	return
+   99	continue
+	write(6,*) lmax,nlvddi
+	stop 'error stop shy_write_record: lmax /= nlvddi'
 	end subroutine shy_write_record
 
 !==================================================================

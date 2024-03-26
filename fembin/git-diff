@@ -23,7 +23,7 @@ nowhite="NO"
 zip="NO"
 tool=""
 
-tools="tkdiff xxdiff kdiff3"
+tools="tkdiff xxdiff kdiff3 vimdiff"
 
 mkdir -p $HOME/tmp
 
@@ -50,6 +50,7 @@ FullHelp()
   echo "    -name                  only show name of files that differ"
   echo "    -zip                   zip all changed files to changed.zip"
   echo "    -tool tool             use routine tool for comparing"
+  echo "    -nogui                 use diff instead of graphical tool"
   echo "  tag can be origin to see diff between fetch and pull"
   echo "  tag can be HEAD-# to see diff between last # tag (HEAD-0 is actual)"
   echo "  possible tools for comparing: $tools"
@@ -114,6 +115,7 @@ do
 	-name)		options="$options --name-only";;
 	-zip)		zip="YES";;
         -tool)          tool=$2; shift;;
+        -nogui)         tool=diff;;
         --*)            options="$options $1";;
         *)              HandleFiles $1;;
   esac

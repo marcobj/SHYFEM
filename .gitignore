@@ -16,6 +16,7 @@ private
 
 /lib
 /bin
+/save
 bugs
 
 femmpi
@@ -147,11 +148,13 @@ fem3d/noselab
 fem3d/ouselab
 fem3d/extelab
 fem3d/shyelab
+fem3d/shyfile
 fem3d/shyfem
 fem3d/shypre
 fem3d/shybas
 fem3d/shypart
 fem3d/shyparts
+fem3d/shyparts_orig
 fem3d/flxelab
 fem3d/nos2shy
 fem3d/ous2shy
@@ -226,12 +229,14 @@ fembin/noselab
 fembin/ouselab
 fembin/extelab
 fembin/shyelab
+fembin/shyfile
 fembin/shyfem
 fembin/shympi
 fembin/shypre
 fembin/shybas
 fembin/shypart
 fembin/shyparts
+fembin/shyparts_orig
 fembin/flxelab
 fembin/shyadj
 fembin/adjele
@@ -261,6 +266,12 @@ fembin/femtide
 fembin/grid
 fembin/mesh
 fembin/exgrd
+
+fembin/compile.sh
+fembin/usemod.pl
+
+femutil/netcdf/ncinfo
+femutil/netcdf/ncbgc
 
 #-----------------------------------------------
 # compiled examples

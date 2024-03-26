@@ -39,6 +39,9 @@
 ! 11.05.2018	ggu	changed VERS_7_5_47
 ! 16.02.2019	ggu	changed VERS_7_5_60
 ! 13.03.2019	ggu	changed VERS_7_5_61
+! 19.03.2023	ggu	temporary bug fix for dimension n2max (GGU18)
+! 22.03.2023	ggu	new routine mod_system_realloc2d()
+! 02.05.2023	ggu	use ncopy for re-allocating
 !
 ! notes :
 !
@@ -211,6 +214,9 @@
         matrix%nlv_system = nlv
 
 	n2max = 7*nkn
+	n2max = 8*nkn					!GGU17
+	!n2max = 10*nkn					!GGU18
+	!write(6,*) 'mod_system_init n2max: ',n2max
 	n3max = 6*nkn*nlv + nkn*(2+3*nlv)
 	if( .not. bsys3d ) n3max = 1
 
@@ -245,6 +251,9 @@
         allocate(matrix%i2coo(n2max))
         allocate(matrix%j2coo(n2max))
         allocate(matrix%c2coo(n2max))
+	matrix%i2coo = 0
+	matrix%j2coo = 0
+	matrix%c2coo = 0
 
         allocate(matrix%i3coo(n3max))
         allocate(matrix%j3coo(n3max))
@@ -252,6 +261,52 @@
         allocate(matrix%back3coo(4,n3max))
 
         end subroutine mod_system_init
+
+!****************************************************************
+
+        subroutine mod_system_realloc2d(n2zero,matrix)
+
+        integer  :: n2zero
+	type(smatrix) :: matrix
+
+	logical bdebug
+	integer n,i,ncopy
+	integer, allocatable :: iaux(:)
+
+	bdebug = .false.
+
+	n = matrix%n2max
+	allocate(iaux(n2zero))
+	ncopy = min(n2zero,size(matrix%i2coo))
+
+	if( bdebug ) then
+	    write(6,*) 'mod_system_realloc2d: ',n
+	    write(6,*) (matrix%i2coo(i),i=1,n,n/10)
+	    write(6,*) (matrix%i2coo(i),i=n2zero-3,n2zero+3)
+	    write(6,*) (matrix%j2coo(i),i=1,n,n/10)
+	    write(6,*) (matrix%j2coo(i),i=n2zero-3,n2zero+3)
+	    write(6,*) (matrix%c2coo(i),i=1,n,n/10)
+	end if
+
+	iaux = 0.
+	iaux(1:ncopy) = matrix%i2coo(1:ncopy)
+        deallocate(matrix%i2coo)
+        allocate(matrix%i2coo(n2zero))
+	matrix%i2coo = iaux
+
+	iaux = 0.
+	iaux(1:ncopy) = matrix%j2coo(1:ncopy)
+        deallocate(matrix%j2coo)
+        allocate(matrix%j2coo(n2zero))
+	matrix%j2coo = iaux
+
+        deallocate(matrix%c2coo)
+        allocate(matrix%c2coo(n2zero))
+
+	matrix%n2max = n2zero
+	!stop
+
+        end subroutine mod_system_realloc2d
 
 !****************************************************************
 

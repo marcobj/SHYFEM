@@ -108,6 +108,7 @@ c 16.02.2019	ggu	changed VERS_7_5_60
 c 29.08.2020	ggu	added new routine check_nodes_around_node()
 c 27.03.2021	ggu	some femtime.h eliminated (not all), cleanup
 c 31.05.2021	ggu	write time line in node/elem debug
+c 02.04.2023	ggu	only master writes to iuinfo
 c
 c*************************************************************
 
@@ -306,32 +307,42 @@ c checks important variables
 	implicit none
 
 	character*16 text
+	
+	real, parameter :: zero = 0.
+	real, parameter :: zmax = 10.
+	real, parameter :: vmax = 10.
+	real, parameter :: umax = 100000.
+	real, parameter :: hmax = 100000.
+	real, parameter :: smin = -1.
+	real, parameter :: smax = 70.
+	real, parameter :: tmin = -30.
+	real, parameter :: tmax = 70.
 
 	text = '*** check_values'
 
-	call check1Dr(nkn,zov,-10.,+10.,text,'zov')
-	call check1Dr(nkn,znv,-10.,+10.,text,'znv')
+	call check1Dr(nkn,zov,-zmax,zmax,text,'zov')
+	call check1Dr(nkn,znv,-zmax,zmax,text,'znv')
 
-	call check2Dr(3,3,nel,zeov,-10.,+10.,text,'zeov')
-	call check2Dr(3,3,nel,zenv,-10.,+10.,text,'zenv')
+	call check2Dr(3,3,nel,zeov,-zmax,zmax,text,'zeov')
+	call check2Dr(3,3,nel,zenv,-zmax,zmax,text,'zenv')
 
-	call check1Dr(nel,unv,-10000.,+10000.,text,'unv')
-	call check1Dr(nel,vnv,-10000.,+10000.,text,'vnv')
+	call check1Dr(nel,unv,-umax,umax,text,'unv')
+	call check1Dr(nel,vnv,-umax,umax,text,'vnv')
 
-	call check2Dr(nlvdi,nlv,nel,utlnv,-10000.,+10000.,text,'utlnv')
-	call check2Dr(nlvdi,nlv,nel,vtlnv,-10000.,+10000.,text,'vtlnv')
+	call check2Dr(nlvdi,nlv,nel,utlnv,-umax,umax,text,'utlnv')
+	call check2Dr(nlvdi,nlv,nel,vtlnv,-umax,umax,text,'vtlnv')
 
-	call check2Dr(nlvdi,nlv,nel,ulnv,-10.,+10.,text,'ulnv')
-	call check2Dr(nlvdi,nlv,nel,vlnv,-10.,+10.,text,'vlnv')
+	call check2Dr(nlvdi,nlv,nel,ulnv,-vmax,vmax,text,'ulnv')
+	call check2Dr(nlvdi,nlv,nel,vlnv,-vmax,vmax,text,'vlnv')
 
-	call check2Dr(nlvdi,nlv,nkn,tempv,-30.,+70.,text,'tempv')
-	call check2Dr(nlvdi,nlv,nkn,saltv, -1.,+70.,text,'saltv')
+	call check2Dr(nlvdi,nlv,nkn,tempv,tmin,tmax,text,'tempv')
+	call check2Dr(nlvdi,nlv,nkn,saltv,smin,smax,text,'saltv')
 
-	call check2Dr(nlvdi,nlv,nkn,hdknv,0.,+10000.,text,'hdknv')
-	call check2Dr(nlvdi,nlv,nkn,hdkov,0.,+10000.,text,'hdkov')
+	call check2Dr(nlvdi,nlv,nkn,hdknv,zero,hmax,text,'hdknv')
+	call check2Dr(nlvdi,nlv,nkn,hdkov,zero,hmax,text,'hdkov')
 
-	call check2Dr(nlvdi,nlv,nel,hdenv,0.,+10000.,text,'hdenv')
-	call check2Dr(nlvdi,nlv,nel,hdeov,0.,+10000.,text,'hdeov')
+	call check2Dr(nlvdi,nlv,nel,hdenv,zero,hmax,text,'hdenv')
+	call check2Dr(nlvdi,nlv,nel,hdeov,zero,hmax,text,'hdeov')
 
 	end
 
@@ -641,7 +652,12 @@ c computes and writes total water volume
 	double precision masscont
 	character*20 aline
 
-	integer, save :: ninfo = 0
+	integer, save :: iuinfo = 0
+
+	if( iuinfo == 0 ) then
+	  iuinfo = -1
+          if(shympi_is_master()) call getinfo(iuinfo)
+	end if
 
 	if( mode .ne. 1 .and. mode .ne. -1 ) then
 	  write(6,*) 'mode = ',mode
@@ -650,10 +666,9 @@ c computes and writes total water volume
 
 	mtot = masscont(mode)
 
-        if(shympi_is_master()) then
-	  if( ninfo .eq. 0 ) call getinfo(ninfo)
+        if( iuinfo > 0 ) then
 	  call get_act_timeline(aline)
-	  write(ninfo,*) 'total_volume: ',aline,mtot
+	  write(iuinfo,*) 'total_volume: ',aline,mtot
 	end if
 
         end
@@ -671,13 +686,14 @@ c checks mass conservation of single boxes (finite volumes)
 	use evgeom
 	use levels
 	use basin
+	use shympi
 
 	implicit none
 
 	include 'mkonst.h'
 
 	logical berror,bdebug
-	integer ie,l,ii,k,lmax,mode,ks,kss
+	integer ie,l,ii,k,lmin,lmax,mode,ks,kss
 	integer levdbg
 	real am,az,azt,dt,azpar,ampar
 	real areafv,b,c
@@ -696,15 +712,16 @@ c checks mass conservation of single boxes (finite volumes)
 
 	real volnode,areanode,getpar
 
-	integer ninfo
-	save ninfo
-	data ninfo /0/
+	integer, save :: iuinfo = 0
 
 c----------------------------------------------------------------
 c initialize
 c----------------------------------------------------------------
 
-	if( ninfo .eq. 0 ) call getinfo(ninfo)
+	if( iuinfo == 0 ) then
+	  iuinfo = -1
+          if(shympi_is_master()) call getinfo(iuinfo)
+	end if
 
 	vrwarn = getpar('vreps')
 	vrerr = getpar('vrerr')
@@ -731,6 +748,7 @@ c----------------------------------------------------------------
 
         do ie=1,nel
           areafv = 4. * ev(10,ie)               !area of triangle / 3
+	  lmin = jlhv(ie)
           lmax = ilhv(ie)
           do l=1,lmax
             do ii=1,3
@@ -755,13 +773,14 @@ c----------------------------------------------------------------
 	ks = 0
 	if( ks .gt. 0 ) then
 	  k = ks
+	  lmin = jlhkv(k)
 	  lmax = ilhkv(k)
-	  write(77,*) '-------------'
-	  write(77,*) k,lmax
-	  write(77,*) (vf(l,k),l=1,lmax)
-	  write(77,*) (wlnv(l,k),l=1,lmax)
+	  write(77,*) '------------- mass_conserve'
+	  write(77,*) k,lmin,lmax
+	  write(77,*) (vf(l,k),l=lmin,lmax)
+	  write(77,*) (wlnv(l,k),l=lmin,lmax)
 	  vtotmax = 0.
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    vtotmax = vtotmax + vf(l,k)
 	  end do
 	  write(77,*) 'from box: ',vtotmax
@@ -769,6 +788,7 @@ c----------------------------------------------------------------
 
 	vtotmax = 0.
 	do k=1,nkn
+	  lmin = jlhkv(k)
           lmax = ilhkv(k)
 	  abot = 0.
 	  vvv = 0.
@@ -801,8 +821,9 @@ c----------------------------------------------------------------
 	  bdebug = k .eq. kss
 	  if( bdebug ) write(78,*) '============================='
 	  berror = .false.
+	  lmin = jlhkv(k)
           lmax = ilhkv(k)
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    voln = volnode(l,k,+1)
 	    volo = volnode(l,k,-1)
 	    vdiv = vf(l,k)
@@ -923,7 +944,9 @@ c	vrlmax 		!relative error for each box
 	  end if
 	end if
 
-	write(ninfo,*) 'mass_balance: ',vbmax,vlmax,vrbmax,vrlmax
+	if( iuinfo > 0 ) then
+	  write(iuinfo,*) 'mass_balance: ',vbmax,vlmax,vrbmax,vrlmax
+	end if
 
 	deallocate(vf,va)
 
@@ -1120,37 +1143,38 @@ c writes debug information on node k
 	include 'femtime.h'
 
 	integer iu
-	integer l,lmax,kk
+	integer l,lmax,lmin,kk
 	character*20 aline
 
 	integer ipext
 	real volnode
 
 	call check_get_unit(iu)
+        lmin = jlhkv(k)
 	lmax = ilhkv(k)
 	call get_act_timeline(aline)
 
 	write(iu,*) '-------------------------------- check_node'
-	write(iu,*) 'time:          ',aline
-	write(iu,*) 'it,idt,k,kext: ',it,idt,k,ipext(k)
-	write(iu,*) 'lmax,inodv:    ',lmax,inodv(k)
-	write(iu,*) 'xgv,ygv:       ',xgv(k),ygv(k)
-	write(iu,*) 'zov,znv:       ',zov(k),znv(k)
-	write(iu,*) 'hkv,hkv+znv:   ',hkv(k),hkv(k)+znv(k)
-	write(iu,*) 'hdkov:         ',(hdkov(l,k),l=1,lmax)
-	write(iu,*) 'hdknv:         ',(hdknv(l,k),l=1,lmax)
-	write(iu,*) 'areakv:        ',(areakv(l,k),l=1,lmax)
-	write(iu,*) 'volold:        ',(volnode(l,k,-1),l=1,lmax)
-	write(iu,*) 'volnew:        ',(volnode(l,k,+1),l=1,lmax)
-	write(iu,*) 'wlnv:          ',(wlnv(l,k),l=0,lmax)
-	write(iu,*) 'mfluxv:        ',(mfluxv(l,k),l=1,lmax)
-	write(iu,*) 'tempv:         ',(tempv(l,k),l=1,lmax)
-	write(iu,*) 'saltv:         ',(saltv(l,k),l=1,lmax)
-	write(iu,*) 'visv:          ',(visv(l,k),l=0,lmax)
-	write(iu,*) 'difv:          ',(difv(l,k),l=0,lmax)
-	write(iu,*) 'qpnv:          ',(qpnv(l,k),l=1,lmax)
-	write(iu,*) 'uprv:          ',(uprv(l,k),l=1,lmax)
-	write(iu,*) 'vprv:          ',(vprv(l,k),l=1,lmax)
+	write(iu,*) 'time:            ',aline
+	write(iu,*) 'it,idt,k,kext:   ',it,idt,k,ipext(k)
+	write(iu,*) 'lmin,lmax,inodv: ',lmin,lmax,inodv(k)
+	write(iu,*) 'xgv,ygv:         ',xgv(k),ygv(k)
+	write(iu,*) 'zov,znv:         ',zov(k),znv(k)
+	write(iu,*) 'hkv,hkv+znv:     ',hkv(k),hkv(k)+znv(k)
+	write(iu,*) 'hdkov:           ',(hdkov(l,k),l=1,lmax)
+	write(iu,*) 'hdknv:           ',(hdknv(l,k),l=1,lmax)
+	write(iu,*) 'areakv:          ',(areakv(l,k),l=1,lmax)
+	write(iu,*) 'volold:          ',(volnode(l,k,-1),l=1,lmax)
+	write(iu,*) 'volnew:          ',(volnode(l,k,+1),l=1,lmax)
+	write(iu,*) 'wlnv:            ',(wlnv(l,k),l=0,lmax)
+	write(iu,*) 'mfluxv:          ',(mfluxv(l,k),l=1,lmax)
+	write(iu,*) 'tempv:           ',(tempv(l,k),l=1,lmax)
+	write(iu,*) 'saltv:           ',(saltv(l,k),l=1,lmax)
+	write(iu,*) 'visv:            ',(visv(l,k),l=0,lmax)
+	write(iu,*) 'difv:            ',(difv(l,k),l=0,lmax)
+	write(iu,*) 'qpnv:            ',(qpnv(l,k),l=1,lmax)
+	write(iu,*) 'uprv:            ',(uprv(l,k),l=1,lmax)
+	write(iu,*) 'vprv:            ',(vprv(l,k),l=1,lmax)
 	write(iu,*) '-------------------------------------------'
 
 	end
@@ -1177,13 +1201,14 @@ c writes debug information on element ie
 	include 'femtime.h'
 
 	integer iu
-	integer l,lmax,ii
+	integer l,lmin,lmax,ii
 	real zmed
 	character*20 aline
 
 	integer ieext
 
 	call check_get_unit(iu)
+        lmin = jlhv(ie)
 	lmax = ilhv(ie)
 	zmed = sum(zenv(:,ie))/3.
 	call get_act_timeline(aline)
@@ -1191,7 +1216,8 @@ c writes debug information on element ie
 	write(iu,*) '-------------------------------- check_elem'
 	write(iu,*) 'time:             ',aline
 	write(iu,*) 'it,idt,ie,ieext:  ',it,idt,ie,ieext(ie)
-	write(iu,*) 'lmax,iwegv,iwetv: ',lmax,iwegv(ie),iwetv(ie)
+	write(iu,*) 'lmin,lmax:        ',lmin,lmax
+        write(iu,*) 'iwegv,iwetv:      ',iwegv(ie),iwetv(ie)
 	write(iu,*) 'area:             ',ev(10,ie)*12.
 	write(iu,*) 'nen3v  :          ',(nen3v(ii,ie),ii=1,3)
 	write(iu,*) 'hev,hev+zenv:     ',hev(ie),hev(ie)+zmed

@@ -145,6 +145,8 @@ c 13.03.2019	ggu	changed VERS_7_5_61
 c 14.05.2019	ggu	in fm_extra_setup() use double precision
 c 21.05.2019	ggu	changed VERS_7_5_62
 c 01.04.2020	ggu	new routine make_reg_box()
+c 11.04.2022	ggu	new routine condense_valid_coordinates for single nodes
+c 25.11.2022	ggu	new routine recollocate_nodes() and ipg array
 c
 c notes :
 c
@@ -1316,13 +1318,68 @@ c****************************************************************
 	real femval(np)		!interpolated values on nodes (return)
 	integer ierr		!error code (return)
 
+	integer nc
+	integer nodesc(np),ipg(np)
 	real xp(np),yp(np)
 
-	call bas_get_special_coordinates(np,nodes,xp,yp)
+	call condense_valid_coordinates(np,nodes,nc,nodesc,ipg)
+	call bas_get_special_coordinates(nc,nodesc,xp,yp)
 
 	call intp_reg(nx,ny,x0,y0,dx,dy,flag,regval
-     +				,np,xp,yp,femval,ierr)
+     +				,nc,xp,yp,femval,ierr)
 
+	call recollocate_nodes(np,nc,ipg,femval)
+
+	end
+
+c****************************************************************
+
+	subroutine condense_valid_coordinates(np,nodes,nc,nodesc,ipg)
+
+	implicit none
+
+	integer np,nc
+	integer nodes(np)
+	integer nodesc(np)
+	integer ipg(np)		!pointer to good nodes
+
+	integer i,k
+
+	nc = 0
+	do i=1,np
+	  k = nodes(i)
+	  if (k == 0 ) cycle
+	  nc = nc + 1
+	  nodesc(nc) = k
+	  ipg(nc) = i
+	end do
+
+	end
+
+c****************************************************************
+
+	subroutine recollocate_nodes(np,nc,ipg,femval)
+
+	implicit none
+
+	integer np		!size of original nodes
+	integer nc		!size of condensed nodes
+	integer ipg(nc)		!pointer to nodes
+	real femval(np)		!data (2D)
+
+	integer i
+	real femaux(nc)
+	real, parameter :: flag = -777.
+
+	if( np == nc ) return	!nothing to do
+
+	femaux(1:nc) = femval(1:nc)
+	femval = flag
+
+	do i=1,nc
+	  femval(ipg(i)) = femaux(i)
+	end do
+	
 	end
 
 c****************************************************************

@@ -96,6 +96,19 @@ c 03.04.2018	ggu	changed VERS_7_5_43
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
 c 26.05.2020	ggu	use rdistv now on elements and ruseterm
+c 30.03.2022	ggu	compiler bug with PGI (PGI_ggguuu) - no solution
+c 04.04.2022	ggu	exchange momentx/yv arrays
+c 08.04.2022	ggu	ie_mpi introduced computing advective terms
+c 09.04.2022	ggu	ie_mpi also in baroclinic section, some debug code
+c 15.10.2022	ggu	some new debug code, bpresxv,bpresyv local
+c 21.10.2022	ggu	allocate big array saux that was on stack
+c 18.03.2023	ggu	adjusted horizontal diffusion for mpi
+c 27.03.2023	ggu	tripple point routines in new file submpi_tripple.f
+c 29.03.2023	ggu	handle tripple points, new horizontal diffusion routine
+c 29.03.2023	ggu	exchange rindex between domains
+c 09.05.2023    lrp     introduce top layer index variable
+c 24.05.2023    ggu     momentum_viscous_stability(): must run over nel_unique
+c 05.06.2023    lrp     introduce z-star
 c
 c notes :
 c
@@ -192,6 +205,77 @@ c-------------------------------------------
 
 c******************************************************************
 
+        subroutine momentum_viscous_stability_old(ahpar,rindex,dstab)
+
+c computes stability for viscosity
+c
+c stability is computed for dt == 1
+
+        use mod_geom
+        use mod_internal
+        use mod_diff_visc_fric
+        use evgeom
+        use levels
+        use basin
+	use shympi
+
+        implicit none
+
+        real ahpar
+        real rindex
+        real dstab(nlvdi,nel)
+
+        logical bdebug
+        integer ie,ii,iei,l,lmax,lmin,lmaxi
+        real u,v,ui,vi
+        real anu,ax,ay
+        real area,areai
+        real dt
+        real a,ai,amax,afact,r
+
+        rindex = 0.
+        if( ahpar .le. 0 ) return
+
+        amax = 0.
+        bdebug = .false.
+
+        do ie=1,nel
+
+          lmax = ilhv(ie)
+          lmin = jlhv(ie)
+          area = 12. * ev(10,ie)
+          r = rdistv(ie)
+
+          do l=lmin,lmax
+
+            a = 0.
+            do ii=1,3
+              iei = ieltv(ii,ie)
+              if( iei .le. 0 ) iei = ie
+
+              lmaxi = ilhv(iei)
+              !if( l > lmaxi ) cycle
+              areai = 12. * ev(10,iei)
+
+              anu = ahpar * difhv(l,ie)
+              ai = 2. * anu / ( area + areai )
+              a = a + ai
+            end do
+
+            a = a * r
+            amax = max(amax,a)
+            dstab(l,ie) = a
+
+          end do
+
+        end do
+
+        rindex = shympi_max(amax)
+
+        end
+
+c******************************************************************
+
 	subroutine momentum_viscous_stability(ahpar,rindex,dstab)
 
 c computes stability for viscosity
@@ -204,6 +288,8 @@ c stability is computed for dt == 1
 	use evgeom
 	use levels
 	use basin
+	use shympi
+	use shympi_tripple
 
 	implicit none
 
@@ -211,49 +297,88 @@ c stability is computed for dt == 1
 	real rindex
 	real dstab(nlvdi,nel)
 
-	integer ie,ii,iei,l,lmax,k
+	integer ie,ii,iei,l,lmax,lmin,lmaxi
+	integer itr
+	integer, save :: icall = 0
 	real u,v,ui,vi
 	real anu,ax,ay
 	real area,areai
 	real dt
 	real a,ai,amax,afact,r
+	real al(nlvdi)
+
+	!real, allocatable :: dstab2d(:),dstab2dg(:),rdistvg(:)
+	!real, allocatable :: raux(:),rauxg(:)
+	!integer, allocatable :: iext(:),iextg(:)
 
 	rindex = 0.
 	if( ahpar .le. 0 ) return
 
 	amax = 0.
+	dstab = 0.
 
-	do ie=1,nel
+	!allocate(dstab2d(nel),dstab2dg(nel_global))
+	!allocate(iext(nel),iextg(nel_global))
+	!allocate(raux(nel),rauxg(nel_global))
+	!allocate(rdistvg(nel_global))
+
+	do ie=1,nel_unique
 
 	  lmax = ilhv(ie)
+          lmin = jlhv(ie)
 	  area = 12. * ev(10,ie)
-
 	  r = rdistv(ie)
+	  al(1:lmax) = 0.
 
-	  do l=1,lmax
+	  do ii=1,3
 
-	    a = 0.
-	    do ii=1,3
-              iei = ieltv(ii,ie)
-	      k = nen3v(ii,ie)
-              if( iei .le. 0 ) iei = ie
+            iei = ieltv(ii,ie)
+            if( iei .le. 0 ) iei = ie
 
-              areai = 12. * ev(10,iei)
+	    lmaxi = ilhv(iei)
+            areai = 12. * ev(10,iei)
+	    itr = ietrp(ii,ie)
+	    if( itr > 0 ) then
+	      call tripple_point_get_la(itr,lmaxi,areai)
+	    end if
 
+	    do l=lmin,lmax
+	      !if( l > lmaxi ) exit
 	      anu = ahpar * difhv(l,ie)
               ai = 2. * anu / ( area + areai )
-              a = a + ai
+              al(l) = al(l) + ai
 	    end do
-
-	    a = a * r
-	    amax = max(amax,a)
-	    dstab(l,ie) = a
 
           end do
 
+	  al(1:lmax) = r * al(1:lmax)
+	  dstab(1:lmax,ie) = al(1:lmax)
+	  a = maxval(al(1:lmax))
+	  !dstab2d(ie) = a
+	  !raux(ie) = maxval(difhv(:,ie))
+	  amax = max(amax,a)
+
 	end do
 
-	rindex = amax
+	rindex = shympi_max(amax)
+
+! debug section
+
+	icall = icall + 1
+	if( icall > 0 ) return
+
+	do ie=1,nel
+	  !iext(ie) = ipev(ie)
+	end do
+	!call shympi_l2g_array(dstab2d,dstab2dg)
+	!call shympi_l2g_array(iext,iextg)
+	!call shympi_l2g_array(rdistv,rdistvg)
+	if( my_id == 0 ) then
+	do ie=1,nel_global
+	  !write(270,*) icall,ie,iextg(ie),dstab2dg(ie)
+	  !write(270,*) icall,ie,iextg(ie),dstab2dg(ie),rdistvg(ie)
+	end do
+	end if
 
 	end
 
@@ -268,10 +393,120 @@ c******************************************************************
 	use evgeom
 	use levels
 	use basin, only : nkn,nel,ngr,mbw
+	use shympi
+	use shympi_tripple
 
 	implicit none
 
-	integer ie,ii,iei,l,lmax
+	integer ie,ii,iei,l,lmax,lmaxi
+	integer iext,ies,iu,ineib,nl,itr,ieneib
+	integer noslip
+	real u,v,ui,vi
+	real anu,ahpar,ax,ay
+	real area,areai
+	real dt
+	real a,ai,afact
+	real rdist!,rcomp,ruseterm
+	logical bnoslip,bdebug
+	real, parameter :: axymax = 1.e+2
+
+	real uiv(nlv_global)
+	real viv(nlv_global)
+
+	integer ieext,ieint
+	real getpar
+
+	call get_timestep(dt)
+
+        ahpar = getpar('ahpar')
+	if( ahpar .le. 0 ) return
+
+	nl = nlv_global
+
+	call tripple_points_handle
+
+        noslip = nint(getpar('noslip'))
+	bnoslip = noslip .ne. 0
+
+	bdebug = .false.
+
+	do ie=1,nel_unique
+
+	  !bdebug = ( ie == ies )
+
+          !rcomp = rcomputev(ie)           !use terms (custom elements)
+          !ruseterm = min(rcomp,rdist)     !use terms (both)
+
+	  lmax = ilhv(ie)
+	  area = 12. * ev(10,ie)
+          rdist = rdistv(ie)              !use terms (distance from OB)
+
+	  do ii=1,3
+            afact = 1.
+            iei = ieltv(ii,ie)
+            if( bnoslip .and. iei .eq. 0 ) afact = -1.
+            if( iei .le. 0 ) iei = ie
+	    lmaxi = ilhv(iei)
+            areai = 12. * ev(10,iei)
+
+	    itr = ietrp(ii,ie)
+	    if( itr > 0 ) then
+	      !write(6,*) 'handling tripple point ',itr
+	      call tripple_point_get_values(itr,nl,lmaxi,areai,uiv,viv)
+	    end if
+
+	    do l=1,lmax
+	      !if( l > lmaxi ) exit
+
+	      u  = utlov(l,ie)
+	      v  = vtlov(l,ie)
+
+	      ui = afact * utlov(l,iei)
+	      vi = afact * vtlov(l,iei)
+	      if( itr > 0 ) then
+		ui = afact * uiv(l)
+		vi = afact * viv(l)
+	      end if
+
+	      anu = ahpar * difhv(l,ie)
+              ai = 2. * anu / ( area + areai )
+
+	      ax = rdist * ai * ( ui - u )
+	      ay = rdist * ai * ( vi - v )
+
+	      ! we insert with minus sign because f is on left side
+
+	      fxv(l,ie) = fxv(l,ie) - ax
+	      fyv(l,ie) = fyv(l,ie) - ay
+	    end do
+          end do
+
+	end do
+
+	call shympi_exchange_3d_elem(fxv)		!ggu_diff
+	call shympi_exchange_3d_elem(fyv)
+
+	end
+
+c******************************************************************
+
+	subroutine set_diff_horizontal_old
+
+! old routine - cannot handle tripple points
+
+	use mod_geom
+	use mod_internal
+	use mod_diff_visc_fric
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin, only : nkn,nel,ngr,mbw
+	use shympi
+
+	implicit none
+
+	integer ie,ii,iei,l,lmax,lmaxi
+	integer iext,ies,iu
 	integer noslip
 	real u,v,ui,vi
 	real anu,ahpar,ax,ay
@@ -279,11 +514,14 @@ c******************************************************************
 	real dt
 	real a,ai,amax,afact
 	real rdist!,rcomp,ruseterm
-	logical bnoslip
+	logical bnoslip,bdebug
 
+	integer ieext,ieint
 	real getpar
 
 	call get_timestep(dt)
+
+	call tripple_points_handle
 
         ahpar = getpar('ahpar')
 	if( ahpar .le. 0 ) return
@@ -292,8 +530,13 @@ c******************************************************************
 	bnoslip = noslip .ne. 0
 
 	amax = 0.
+	bdebug = .false.
 
-	do ie=1,nel
+	do ie=1,nel_unique
+	!do ie=1,nel
+
+	  bdebug = ie == ies
+	  bdebug = .false.
 
           rdist = rdistv(ie)              !use terms (distance from OB)
           !rcomp = rcomputev(ie)           !use terms (custom elements)
@@ -313,6 +556,8 @@ c******************************************************************
               if( bnoslip .and. iei .eq. 0 ) afact = -1.
               if( iei .le. 0 ) iei = ie
 
+	      lmaxi = ilhv(iei)
+	      !if( l > lmaxi ) cycle
               areai = 12. * ev(10,iei)
 
 	      anu = ahpar * difhv(l,ie)
@@ -325,7 +570,7 @@ c******************************************************************
 	      ax = rdist * ai * ( ui - u )
 	      ay = rdist * ai * ( vi - v )
 
-	      fxv(l,ie) = fxv(l,ie) - ax	!- because f is on left side
+	      fxv(l,ie) = fxv(l,ie) - ax	!minus because f is on left side
 	      fyv(l,ie) = fyv(l,ie) - ay
 	    end do
 	    amax = max(amax,a)
@@ -333,8 +578,8 @@ c******************************************************************
 
 	end do
 
-	amax = amax * dt
-	!write(99,*) 'stability viscosity: ',amax
+	call shympi_exchange_3d_elem(fxv)		!ggu_diff
+	call shympi_exchange_3d_elem(fyv)
 
 	end
 
@@ -351,10 +596,11 @@ c sets arrays momentx/yv
 	use evgeom
 	use levels
 	use basin
+	use shympi
 
         implicit none
 
-        integer ii,ie,k,l,lmax
+        integer ii,ie,k,l,lmax,lmin,ie_mpi
         real b,c
         real ut,vt
         real uc,vc
@@ -364,11 +610,13 @@ c sets arrays momentx/yv
 	real xadv,yadv
 	real area,vol
 
-	real saux(nlvdi,nkn)
+	real, allocatable :: saux(:,:)
 
 c---------------------------------------------------------------
 c initialization
 c---------------------------------------------------------------
+
+	allocate(saux(nlvdi,nkn))
 
 	saux = 0.
 	momentxv = 0.
@@ -378,9 +626,11 @@ c---------------------------------------------------------------
 c accumulate momentum that flows into nodes (weighted by flux)
 c---------------------------------------------------------------
 
-	do ie=1,nel
+	do ie_mpi=1,nel
+	  ie = ip_sort_elem(ie_mpi)
 	  lmax = ilhv(ie)
-	  do l=1,lmax
+	  lmin = jlhv(ie)
+	  do l=lmin,lmax
             h = hdeov(l,ie)
 	    ut = utlov(l,ie)
 	    vt = vtlov(l,ie)
@@ -404,7 +654,8 @@ c---------------------------------------------------------------
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-	  do l=1,lmax
+	  lmin = jlhkv(k)
+	  do l=lmin,lmax
             h = hdkov(l,k)
 	    if( saux(l,k) .gt. 0 ) then		!flux into node
 	      momentxv(l,k) = momentxv(l,k) / saux(l,k)
@@ -415,6 +666,13 @@ c---------------------------------------------------------------
 	    end if
 	  end do
 	end do
+
+c---------------------------------------------------------------
+c exchange arrays
+c---------------------------------------------------------------
+
+	call shympi_exchange_3d_node(momentxv)
+	call shympi_exchange_3d_node(momentyv)
 
 c---------------------------------------------------------------
 c end of routine
@@ -434,6 +692,7 @@ c******************************************************************
 	use evgeom
 	use levels
 	use basin
+	use shympi
 
         implicit none
 
@@ -443,7 +702,7 @@ c******************************************************************
 	real wtop,wbot
 
         integer ihwadv  	! vertical advection for momentum
-        integer ii,ie,k,l,lmax
+        integer ii,ie,k,l,lmax,lmin,ie_mpi
         real b,c
         real ut,vt
         real uc,vc
@@ -474,15 +733,20 @@ c---------------------------------------------------------------
 c compute advective contribution
 c---------------------------------------------------------------
 
-	do ie=1,nel
+	uc = 0.
+	vc = 0.
+
+	do ie_mpi=1,nel
+	  ie = ip_sort_elem(ie_mpi)
           wtop = 0.0
 	  lmax = ilhv(ie)
+	  lmin = jlhv(ie)
 
           rdist = rdistv(ie)              !use terms (distance from OB)
           rcomp = rcomputev(ie)           !use terms (custom elements)
           ruseterm = min(rcomp,rdist)     !use terms (both)
 
-	  do l=1,lmax
+	  do l=lmin,lmax
 
 c	    ---------------------------------------------------------------
 c	    horizontal advection
@@ -493,9 +757,15 @@ c	    ---------------------------------------------------------------
 	    vol = area * h
   	    ut = utlov(l,ie)
   	    vt = vtlov(l,ie)
+	    !this throws a floating point exception with PGI (PGI_ggguuu)
+	    !write(6,*) 'PGI_ggguuu adv a ',ie,l,lmax,h
+	    !write(6,*) 'PGI_ggguuu adv h = ',h
+	    !write(6,*) 'PGI_ggguuu adv b ',ut,vt,uc,vc
+	    !write(6,*) 'PGI_ggguuu adv c ',ut*h,vt*h
+	    !write(6,*) 'PGI_ggguuu adv d ',ut/h,vt/h
+	    !flush(6)	!PGI_ggguuu
             uc = ut / h
             vc = vt / h
-
 	    xadv = 0.
 	    yadv = 0.
 	    wbot = 0.
@@ -603,6 +873,7 @@ c stability is computed for dt == 1
 	use evgeom
 	use levels
 	use basin
+	use shympi
 
 	implicit none
 
@@ -610,7 +881,7 @@ c stability is computed for dt == 1
 	real rindex		   !stability index (return)
 	real astab(nlvdi,nel)      !stability matrix (return)
 
-	integer ie,l,ii,k,lmax,iweg
+	integer ie,l,ii,k,lmax,lmin,iweg
 	real cc,cmax
 	real ut,vt
 	real area,h,vol
@@ -622,8 +893,9 @@ c stability is computed for dt == 1
 	do ie=1,nel
 	  area = 12. * ev(10,ie)
 	  lmax = ilhv(ie)
+	  lmin = jlhv(ie)
 	  iweg = iwegv(ie)
-	  do l=1,lmax
+	  do l=lmin,lmax
 
             h = hdenv(l,ie)
 	    vol = area * h
@@ -650,7 +922,7 @@ c stability is computed for dt == 1
 	  end do
 	end do
 
-	rindex = cmax
+	rindex = shympi_max(cmax)
 	!call compute_stability_stats(1,cc)
 
 	end
@@ -754,15 +1026,14 @@ c******************************************************************
 
         real rhop,presbt,presbcx,presbcy,dprescx,dprescy,br,cr!dbf
         real b,c
+	real, allocatable :: bpresxv(:,:), bpresyv(:,:)
 
         call get_timestep(dt)
 
-        do ie=1,nel
-                do l=1,nlv
-                        bpresxv(l,ie) = 0.
-                        bpresyv(l,ie) = 0.
-                enddo
-        enddo
+	allocate(bpresxv(nlv,nel))
+	allocate(bpresyv(nlv,nel))
+	bpresxv = 0.
+	bpresyv = 0.
 
         do ie=1,nel
             presbcx = 0.
@@ -911,12 +1182,12 @@ c do not use this routine !
         do ie=1,nel
           presbcx = 0.
           presbcy = 0.
-	  lmin = ilmv(ie)
+	  lmin = jlhv(ie)
           lmax = ilhv(ie)
 
 	  px(0) = presbcx
 	  py(0) = presbcy
-          do l=1,lmax
+          do l=lmin,lmax
             hhi = hdeov(l,ie)
             hhi = hldv(l)
             hlayer = 0.5 * hhi
@@ -967,6 +1238,8 @@ c this routine works with Z and sigma layers
 	use evgeom
 	use levels
 	use basin
+	use shympi
+	use shympi_debug
 
         implicit none
          
@@ -978,6 +1251,8 @@ c---------- DEB SIG
 	!real hkkom(0:nlvdi,nkn)	!average depth of layer at node
 	real, allocatable :: hkko(:,:)	!depth of interface at node
 	real, allocatable :: hkkom(:,:)	!average depth of layer at node
+	!real, allocatable :: aux2d(:)	!temporary
+	!real, allocatable :: aux3d(:,:)	!temporary
 	real hele
 	real helei
 	real alpha,aux,bn,cn,bt,ct
@@ -989,9 +1264,11 @@ c---------- DEB SIG
 	integer llup(3),lldown(3)
 c---------- DEB SIG
 
-	logical bsigma,bsigadjust
-        integer k,l,ie,ii,lmax,lmin,nsigma
-	real hsigma,hdep
+	logical bdebug,bdebugggu
+	logical bsigma,bzadapt,badapt,bmoveinterface,bsigadjust
+	integer iudbg,iedbg
+        integer k,l,ie,ii,lmax,lmin,nsigma,ie_mpi
+	real hsigma,hdep,htot
         double precision hlayer,hint,hhk,hh,hhup,htint
 	double precision dzdx,dzdy,zk
         double precision xbcl,ybcl
@@ -1000,20 +1277,37 @@ c---------- DEB SIG
 	double precision rhoup,psigma
 	double precision b3,c3
 	double precision rdist,rcomp,ruseterm
+	double precision dtime
+
+	integer ipext,ieext
+	integer nzadapt
+	integer nadapt(4)
+	real hadapt(4)
 
 	bsigadjust = .false.		!regular sigma coordinates
 	bsigadjust = .true.		!interpolate on horizontal surfaces
 
+	call get_act_dtime(dtime)
+	bdebug = .false.
+	bdebugggu = .false.
+	!bdebugggu = ( dtime == 11100. )
+	if( bdebugggu) write(610,*) 'time: ',dtime
+
 	call get_sigma(nsigma,hsigma)
 	bsigma = nsigma .gt. 0
+	call get_nzadapt_info(nzadapt)
+	bzadapt = nzadapt .gt. 1
+	bmoveinterface = bsigma .or. bzadapt	!interfaces not aligned to geopotentials
 
         raux=grav/rowass
 	psigma = 0.
 	
 	allocate(hkko(0:nlvdi,nkn))
 	allocate(hkkom(0:nlvdi,nkn))
+	!allocate(aux3d(nlvdi,nkn))
+	!allocate(aux2d(nkn))
 
-	if( bsigma .and. bsigadjust ) then	!-------------- DEB SIG
+	if( bmoveinterface .and. bsigadjust ) then	!-------------- DEB SIG
 	  do k=1,nkn
 	    lmax=ilhkv(k)
 	    hkko(0,k)=-zov(k)	!depth of interface on node
@@ -1028,31 +1322,41 @@ c---------- DEB SIG
 	  end do
 	end if
 	 
-        do ie=1,nel
+	iudbg = 430 + my_id
+	iedbg = 1888
+	iedbg = 0
+
+        do ie_mpi=1,nel
+	  ie = ip_sort_elem(ie_mpi)
+          call get_zadapt_info(ie,nadapt,hadapt)
+	  !bdebugggu = ( dtime == 11100. .and. ie == 932 )
+	  !bdebug = ( iedbg > 0 .and. ieext(ie) == iedbg )
           rdist = rdistv(ie)              !use terms (distance from OB)
           rcomp = rcomputev(ie)           !use terms (custom elements)
           ruseterm = min(rcomp,rdist)     !use terms (both)
 
           presbcx = 0.
           presbcy = 0.
-	  lmin = ilmv(ie)
+	  lmin = jlhv(ie)
           lmax = ilhv(ie)
 	  brup=0.
 	  crup=0.
 	  hhup=0.
-          do l=1,lmax		!loop over layers to set up interface l-1
+          do l=lmin,lmax		!loop over layers to set up interface l-1
 	    bsigma = l .le. nsigma
+	    badapt = l .le. (nadapt(4)+lmin-1)
+	    bmoveinterface = bsigma .or. badapt
 
 	    htint = 0.				!depth of layer top interface
 	    if( l .gt. 1 ) htint = hlv(l-1)
 
             hlayer = hdeov(l,ie)		!layer thickness
-	    if( .not. bsigma ) hlayer = hldv(l)
+	    if( (.not. bsigma) .and. (.not. badapt)) hlayer = hldv(l)
 
             hh = 0.5 * hlayer
 	    hint = hh + hhup			!interface thickness
                 
-	    if( bsigma .and. bsigadjust ) then	!-------------- DEB SIG
+	    if( bmoveinterface .and. bsigadjust ) then	!-------------- DEB SIG
 	      hele = 0.
 	      helei = 0.
 	      do ii=1,3
@@ -1121,12 +1425,12 @@ c---------- DEB SIG
               b = ev(3+ii,ie)		!gradient in x
               c = ev(6+ii,ie)		!gradient in y
 
-	      if( l .eq. nsigma ) then	!last sigma layer
+	      if( l .eq. nsigma .or. l .eq. nadapt(4) ) then !last mov layer
 	        brl = brl + b * rhop
 	        crl = crl + c * rhop
 	      end if
 
-	      if( bsigma .and. bsigadjust ) then 
+	      if( bmoveinterface .and. bsigadjust ) then 
 		lu = llup(ii)
 		ld = lldown(ii)
 		if( ld .eq. 1 ) then		!above surface
@@ -1151,21 +1455,38 @@ c---------- DEB SIG
               br = br + b * rhop
               cr = cr + c * rhop
 
-              if (bsigma) then
+              if (bmoveinterface) then
 	       if( bsigadjust ) then
 		psigma = 0.
 	       else
                 psigma = psigma + (rhoup-rhop)/hint
-                hdep = hm3v(ii,ie) + zov(k)
-                hhk = -htint * hdep
-                zk = -hhk               !transform depth in z
+		htot = hm3v(ii,ie) 
+                if (bsigma) then 
+		   hsigma = htot !min(htot,hsigma)	  !FIXME lrp: this should be the min(htot,hsigma)
+		   hdep = hsigma + zov(k)
+                   hhk = -htint * hdep
+                   zk = -(hhk) !- zov(k))                 !FIXME lrp: add free-surface
+		else        
+		  if (l.le.(nadapt(ii)+lmin-1)) then 
+ 		    hdep = hadapt(ii) + zov(k)
+		    if ( nadapt(ii).eq.lmax ) then 
+		      hdep = htot + zov(k)   		  !bottom layer
+		      hadapt(ii) = htot
+	            end if  
+                    hhk = htint/hadapt(ii) * hdep 
+		    zk = 0.
+		    if (l.gt.1) zk = -(hhk - zov(k))      !transform depth in z		    
+		  else
+		    zk = htint
+		  end if
+		end if 
                 dzdx = dzdx + b * zk
                 dzdy = dzdy + c * zk
 	       end if
               end if
             end do
 
-	    if( bsigma .and. bsigadjust ) then 
+	    if( bmoveinterface .and. bsigadjust ) then 
               if(nb.eq.2)then
 	        brint = brup
 	        crint = crup
@@ -1195,7 +1516,7 @@ c---------- DEB SIG
 
 	    brup=br
 	    crup=cr
-	    if( l .eq. nsigma ) then
+	    if( l .eq. nsigma .or. l .eq. nadapt(4) ) then
 	      brup=brl
 	      crup=crl
 	    end if
@@ -1204,6 +1525,17 @@ c---------- DEB SIG
 
             presbcx = presbcx + hint * ( brint - dzdx * psigma )
 	    presbcy = presbcy + hint * ( crint - dzdy * psigma )
+
+	    if( bdebug ) then
+	      write(iudbg,*) 'end terms'
+	      write(iudbg,*) ieext(ie),ie,l,ii
+	      write(iudbg,*) ruseterm,raux,hlayer
+	      write(iudbg,*) presbcx,presbcy
+	      write(iudbg,*) hint,psigma
+	      write(iudbg,*) brint,dzdx
+	      write(iudbg,*) crint,dzdy
+	      flush(iudbg)
+	    end if
 
             xbcl =  ruseterm * raux * hlayer * presbcx
             ybcl =  ruseterm * raux * hlayer * presbcy
@@ -1224,5 +1556,7 @@ c---------- DEB SIG
 	stop 'error stop set_barocl_new_interface: internal error'
         end
 
+c**********************************************************************
+c**********************************************************************
 c**********************************************************************
 

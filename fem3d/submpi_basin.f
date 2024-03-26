@@ -33,10 +33,45 @@
 ! 11.05.2018	ggu	changed VERS_7_5_47
 ! 16.02.2019	ggu	changed VERS_7_5_60
 ! 21.05.2019	ggu	changed VERS_7_5_62
+! 05.04.2022	ggu	new routine check_global_indices()
+! 12.04.2022	ggu	possibility to partition online now
+! 10.03.2023	ggu	new call to ghost_debug()
+! 20.03.2023	ggu	ghost node calls transferred to submpi_ghost.f
+! 20.03.2023	ggu	call to write_grd_domain() at end of shympi_setup()
+! 12.04.2023	ggu	protect from nkn == nel
 
+! notes :
+!
+! shympi_setup
+!
+!	handle_partition
+!	make_domain
+!
+!      	make_index(my_id,nkn,n_lk,nodes,nindex)
+!	make_index(my_id,nel,n_le,elems,eindex)
+!      	shympi_alloc_id(n_lk,n_le)
+!      	shympi_alloc_sort(n_lk,n_le)
+!      	adjust_indices(n_lk,n_le,nodes,elems,nindex,eindex)
+!
+!	transfer_domain
+!
+!	ghost_handle
+!       	ghost_make         !here also call to shympi_alloc_ghost()
+!       	ghost_check
+!       	ghost_debug
+!       	ghost_write
+!
+!       	ghost_exchange
+!
+!       shympi_univocal_nodes
+!
 !*****************************************************************
 
 	subroutine shympi_setup
+
+! this sets up the single domains
+! it should be called right after shympi_init
+! it does nothing if there is only one thread
 
 	use basin
 	use shympi
@@ -47,15 +82,13 @@
 	integer icust
 	integer n,nn
 	integer n_lk,n_le
-	integer nnp,nep
 	integer nkn_tot,nel_tot
 	integer nodes(nkn)
 	integer elems(nel)
 	integer nindex(nkn)
 	integer eindex(nel)
 	integer area_node(nkn)
-	integer area_elem(nel)
-	integer vals(n_threads)
+	integer ivals(n_threads)
 
 	if( .not. bmpi ) return
 
@@ -67,14 +100,31 @@
 	  write(6,*) 'setting up mpi with number of threads: ',n_threads
 	end if
 
-	call basin_get_partition(nkn,nel,nnp,nep,area_node,area_elem)
+!      -----------------------------------------------------
+!      check if nkn == nel (global)
+!      -----------------------------------------------------
+
+       if( nkn /= nkn_global ) stop 'error stop nkn /= nkn_global'
+       if( nel /= nel_global ) stop 'error stop nel /= nel_global'
+       if( nkn == nel ) then
+         write(6,*) 'my_id,nkn,nel: ',my_id,nkn,nel
+         stop 'error stop nkn == nel (global)'
+       end if
+
+!	-----------------------------------------------------
+!	-----------------------------------------------------
+!	do partitioning
+!	-----------------------------------------------------
+
+	call handle_partition(area_node)
 
 !	=====================================================================
 !	the next call is custom call
 !	sets array area_node(), with values from 0 to n_threads-1
+!	was used only for testing ... not used anymore
 !	=====================================================================
 
-	call make_custom_domain_area(area_node)
+!	call make_custom_domain_area(area_node)
 
 !	=====================================================================
 !	from here on everything is general
@@ -89,6 +139,10 @@
 	  call shympi_stop('error stop: thread/domain mismatch')
 	end if
 
+!	-----------------------------------------------------
+!	set up domain
+!	-----------------------------------------------------
+
 	call make_domain(my_id,area_node,nodes,elems,nc)
 
 	call make_index(my_id,nkn,n_lk,nodes,nindex)
@@ -97,6 +151,9 @@
 	call shympi_alloc_sort(n_lk,n_le)
 	call adjust_indices(n_lk,n_le,nodes,elems,nindex,eindex)
 
+!	-----------------------------------------------------
+!	debug output
+!	-----------------------------------------------------
 
 	if( my_unit > 0 ) then
 	  write(my_unit,*) 'nodes in domain: ',nkn_local
@@ -105,8 +162,15 @@
 	  write(my_unit,'(10i7)') (eindex(i),i=1,nel_local)
 	end if
 
+!	-----------------------------------------------------
+!	transfers global domain to local domain
+!	-----------------------------------------------------
+
 	call transfer_domain(nkn_local,nel_local,nindex,eindex)
-	!call make_domain_final(area_node,nindex,eindex)
+
+!	-----------------------------------------------------
+!	debug output
+!	-----------------------------------------------------
 
 	if( my_unit > 0 ) then
 	  write(my_unit,*) 'my_id: ',my_id
@@ -121,34 +185,31 @@
 	  end do
 	end if
 
-	call ghost_make		!here also call to shympi_alloc_ghost()
-	call ghost_check
-	call ghost_write
+!	-----------------------------------------------------
+!	set up ghost nodes
+!	-----------------------------------------------------
 
-	write(6,*) 'mpi my_unit: ',my_unit
-	write(6,'(a,9i7)') ' mpi domain: ',my_id,n_ghost_areas
-	write(6,'(a,5i7)') 'nkn: '
-     +			,nkn_global,nkn_local,nkn_unique
-     +			,nkn_inner,nkn_local-nkn_inner
-	write(6,'(a,5i7)') 'nel: '
-     +			,nel_global,nel_local,nel_unique
-     +			,nel_inner,nel_local-nel_inner
+	call ghost_handle
 
-	call shympi_syncronize
-
-	call shympi_alloc_buffer(n_ghost_max)	!should probably be 1
-	call ghost_exchange
+!	-----------------------------------------------------
+!	other stuff
+!	-----------------------------------------------------
 
         call shympi_univocal_nodes
 
 !	-----------------------------------------------------
-!	exchange info on domains
+!	gather info on domains
 !	-----------------------------------------------------
 
-	call shympi_gather(nkn_local,vals)
-	nkn_domains = vals
-	call shympi_gather(nel_local,vals)
-	nel_domains = vals
+	call shympi_gather(nkn_local,ivals)
+	nkn_domains = ivals
+	call shympi_gather(nel_local,ivals)
+	nel_domains = ivals
+
+	call shympi_gather(nkn_unique,ivals)
+	nkn_domains_u = ivals
+	call shympi_gather(nel_unique,ivals)
+	nel_domains_u = ivals
 
 	nk_max = maxval(nkn_domains)
 	ne_max = maxval(nel_domains)
@@ -159,16 +220,8 @@
 	  nel_cum_domains(i) = nel_cum_domains(i-1) + nel_domains(i)
 	end do
 
-	!write(6,*) 'domain gather: ',n_threads,my_id,nkn,nel
-	!write(6,*) nkn_domains
-	!write(6,*) nkn_cum_domains
-	!write(6,*) nel_domains
-	!write(6,*) nel_cum_domains
-	!call shympi_finalize
-	!stop
-
 !	-----------------------------------------------------
-!	write to terminal
+!	write to terminal and final check
 !	-----------------------------------------------------
 
 	call shympi_syncronize
@@ -189,11 +242,28 @@
 
 	call shympi_syncronize
 
-	!call shympi_stop('forced stop in shympi_setup')
+!      -----------------------------------------------------
+!      check if nkn == nel (local)
+!      -----------------------------------------------------
+
+       if( nkn /= nkn_local ) stop 'error stop nkn /= nkn_local'
+       if( nel /= nel_local ) stop 'error stop nel /= nel_local'
+       if( nkn == nel ) then
+         write(6,*) 'my_id,nkn,nel: ',my_id,nkn,nel
+         !stop 'error stop nkn == nel (local)'
+       end if
+
+!	-----------------------------------------------------
+!	write domain*.grd files
+!	-----------------------------------------------------
+
+	if( bmpi_debug ) call write_grd_domain
 
 !	-----------------------------------------------------
 !	end of routine
 !	-----------------------------------------------------
+
+	!call shympi_stop('forced stop in shympi_setup')
 
 	end
 
@@ -207,6 +277,8 @@
 !
 ! nodes is my_id for proper nodes, >= 0 for ghost nodes and -1 else
 ! elems is my_id for proper elems, -2 for border elems and -1 else
+!
+! nkn and nel are still global values
 
 	use basin
 
@@ -255,7 +327,7 @@
 	end do
 
 !	-----------------------------------------------------
-!	flag elements - my_id if internal, -2 if border
+!	flag elements - my_id if internal, -2 if border, else -1
 !	-----------------------------------------------------
 
 	do ie=1,nel
@@ -272,18 +344,22 @@
 	      k = nen3v(ii,ie)
 	      nodes(k) = -2		!flag temporarily
 	    end do
+	  else
+	    !nothing, leave -1
 	  end if
 	end do
 
 !	-----------------------------------------------------
-!	flag nodes - my_id if internal, area if border
+!	flag nodes - my_id if internal, area if border, else -1
 !	-----------------------------------------------------
 
 	do k=1,nkn
 	  if( n_area(k) == my_id ) then
-	    nodes(k) = my_id
+	    nodes(k) = n_area(k)
 	  else if( nodes(k) == -2 ) then
 	    nodes(k) = n_area(k)
+	  else
+	    !nothing, leave -1
 	  end if
 	end do
 
@@ -328,101 +404,39 @@
 
 !*****************************************************************
 
-	subroutine make_domain_final(area_node,nindex,eindex)
-
-! sets id_node, id_elem
-!
-! only for check - not used anymore
-!
-! id_node: either my_id for inner node or other for ghost node
-! id_elem:
-!    (-1,-1) for inner
-!    (id,-1) or (id,id) for border to color id (1 or two nodes)
-!    (id1,id2) for border to two colors id1 and id2
-
-	use basin
-	use shympi
-
-	implicit none
-
-	integer area_node(nkn)
-	integer nindex(nkn_local)
-	integer eindex(nel_local)
-
-	integer ie,k,ii,n,i
-	integer iaux
-
-	!id_node = -1
-	!id_elem = -1
-
-!	-----------------------------------------------------
-!	sets id_node
-!	-----------------------------------------------------
-
-	do i=1,nkn_local
-	  k = nindex(i)
-	  iaux = area_node(k)
-	  if( iaux /= id_node(i) ) then
-	    write(6,*) 'difference...: ',i,k,iaux,id_node(i)
-	    stop 'error stop make_domain_final'
-	  end if
-	end do
-
-!	-----------------------------------------------------
-!	sets id_elem
-!	-----------------------------------------------------
-
-	do ie=1,nel
-	  n = 0
-	  do ii=1,3
-	    k = nen3v(ii,ie)
-	    if( id_node(k) == my_id ) n = n + 1
-	  end do
-	  if( n == 3 ) then		!internal elem
-	    !nothing - leave at -1
-	    !id_elem(1,ie) = my_id
-	    if( id_elem(0,ie) /= my_id ) goto 99
-	    if( any(id_elem(1:2,ie)/=-1) ) goto 99
-	  else if( n > 0 ) then		!border elem
-	    n = 0
-	    do ii=1,3
-	      k = nen3v(ii,ie)
-	      if( id_node(k) /= my_id ) then
-	        n = n + 1
-		if( id_elem(n,ie) /= id_node(k) ) goto 99
-		id_elem(n,ie) = id_node(k)
-	      end if
-	    end do
-	    !if( id_elem(1,ie) == id_elem(2,ie) ) id_elem(2,ie) = -1
-	  else				!error
-	    write(6,*) 'writing error message...'
-	    write(6,*) n,ie,my_id
-	    do ii=1,3
-	      k = nen3v(ii,ie)
-	      write(6,*) ii,k,id_node(k)
-	    end do
-	    stop 'error stop make_domain_final: internal error (1)'
-	  end if
-	end do
-
-!	-----------------------------------------------------
-!	end of routine
-!	-----------------------------------------------------
-
-	return
-   99	continue
-	write(6,*) my_id,ie,n,k,id_node(k)
-	write(6,*) id_elem(:,ie)
-	stop 'error stop make_domain_final: elems...'
-	end
-
-!*****************************************************************
-
 	subroutine adjust_indices(n_lk,n_le
      +				,nodes,elems,nindex,eindex)
 
 ! computes nkn_local/unique/inner and nel_local/unique/inner
 ! also rearranges eindex to keep track of this
+! nen3v is still global
+
+!--------------------------------------------------------------
+!
+! id_node: 
+!
+!    either my_id for inner node or other for ghost node
+!
+! id_elem:
+!
+!    (1,my_id,-1,-1) for inner
+!    (2,my_id,id,-1) for border to color id (2 nodes my_id, 1 node id)
+!    (3,my_id,id1,id2) for border to two colors id1 and id2 (tripple point)
+!
+! if main domain for element is not my_id, then here are the possibilities:
+!
+!    (2,id,my_id,-1) for two nodes id, one node my_id
+!    (3,id1,my_id,id2) for triple point, main color is id1
+!    (3,id1,id2,my_id) for triple point, main color is id1
+!
+! impossible constellation:
+!
+!    (2,my_id,id,id) -> must be (2,my_id,id,-1)
+!    (3,my_id,id,id) -> must be (3,my_id,id1,id2)
+!
+! in id_elem(1) is always the main domain of the element
+!
+!--------------------------------------------------------------
 
 	use basin
 	use shympi
@@ -442,8 +456,8 @@
 	integer n1,n2
 	integer iunique(n_le)
 	integer idiff(n_le)
-	integer id_aux(0:2,nel)		!total elements
-	logical bthis,bexchange
+	integer id_aux(0:3,nel)		!total elements
+	logical bthis,bexchange,bwrite
 
 	bexchange = .false.
 	bexchange = .true.
@@ -483,9 +497,10 @@
 
 	do i=1,nel_local
 	  ie = eindex(i)
-	  n = elems(ie)
+	  n = elems(ie)		!is -2 if border element
 	  if( n /= my_id ) exit
-	  id_aux(0,ie) = n
+	  id_aux(0,ie) = 1
+	  id_aux(1,ie) = n
 	end do
 
 	nel_inner = i-1
@@ -517,11 +532,12 @@
 	    end if
 	  end do
 	  if( it == 2 ) then			!two nodes with my_id
-	    id_aux(0,ie) = my_id
+	    id_aux(0,ie) = 2
+	    id_aux(1,ie) = my_id
 	    is = 6 - is
 	    k = nen3v(is,ie)
 	    n = nodes(k)
-	    id_aux(1,ie) = n
+	    id_aux(2,ie) = n
 	  else if( it == 1 ) then		!one node only with my_id
 	    is1 = mod(is,3) + 1
 	    is2 = mod(is1,3) + 1
@@ -530,26 +546,32 @@
 	    n1 = nodes(k1)
 	    n2 = nodes(k2)
 	    if( n1 /= n2 ) then			!all three nodes are different
+	      id_aux(0,ie) = 3
 	      kmin = minval(nen3v(:,ie))
 	      k = nen3v(is,ie)
 	      if( kmin == k ) then
-	        id_aux(0,ie) = my_id
+	        id_aux(1,ie) = my_id
+	        id_aux(2,ie) = n1
+	        id_aux(3,ie) = n2
 	      else if( kmin == k1 ) then
-	        id_aux(0,ie) = n1
+	        id_aux(1,ie) = n1
+	        id_aux(2,ie) = my_id
+	        id_aux(3,ie) = n2
 	      else
-	        id_aux(0,ie) = n2
+	        id_aux(1,ie) = n2
+	        id_aux(2,ie) = my_id
+	        id_aux(3,ie) = n1
 	      end if
-	      id_aux(1,ie) = n1
-	      id_aux(2,ie) = n2
 	    else				!two nodes of other color
 	      n = nodes(k1)
-	      id_aux(0,ie) = n
-	      id_aux(1:2,ie) = n
+	      id_aux(0,ie) = 2
+	      id_aux(1,ie) = n
+	      id_aux(2,ie) = my_id
 	    end if
 	  else
 	    stop 'error stop adjust_indices: internal error (1)'
 	  end if
-	  if( id_aux(0,ie) == my_id ) then
+	  if( id_aux(1,ie) == my_id ) then
 	    iu = iu + 1
 	    iunique(iu) = ie
 	  else
@@ -563,6 +585,10 @@
 	end if
 
 	nel_unique = nel_inner + iu
+
+	if( nel_unique + id /= nel_local ) then
+	  stop 'error stop adjust_indices: internal error (3)'
+	end if
 
 	!write(6,*) 'eindex: ',my_id,eindex(1:nel_inner)
 	!write(6,*) 'eindex before: ',my_id,eindex(nel_inner+1:nel_local)
@@ -584,20 +610,80 @@
 	  end do
 	end if
 
-	write(my_unit,*) 'debug id_elem: ',my_id
-	do i=1,nel_local
-	  write(my_unit,*) i,eindex(i),id_elem(:,i)
-	end do
-	!write(6,*) 'eindex after: ',my_id,eindex(nel_inner+1:nel_local)
+!	-----------------------------------------------------
+!	check computed element index
+!	-----------------------------------------------------
 
-	if( nel_unique + id /= nel_local ) then
-	  stop 'error stop adjust_indices: internal error (3)'
+	do i=1,nel_local
+	  n = id_elem(0,i)
+	  if( .not. ( any(id_elem(1:3,i) == my_id ) ) ) goto 99
+	  if( n == 1 ) then
+	    if( id_elem(1,i) /= my_id ) goto 99
+	    if( any(id_elem(2:3,i) /= -1 ) ) goto 99
+	  else if( n == 2 ) then
+	    if( any(id_elem(1:2,i) == -1 ) ) goto 99
+	    if( id_elem(3,i) /= -1 ) goto 99
+	  else if( n == 3 ) then
+	    if( any(id_elem(1:3,i) == -1 ) ) goto 99
+	  else
+	    goto 99
+	  end if
+	end do
+
+	iu = 400+my_id
+	iu = 0
+	if( iu > 0 ) then
+	write(iu,*) '========================================'
+	write(iu,*) 'adjust_indices'
+	write(iu,*) '========================================'
+	write(iu,*) 'item index for color',my_id
+	write(iu,*) 'border nodes',nkn_inner,nkn_unique,nkn_local
+	write(iu,*) 'inner nodes'
+	bwrite = .false.
+	do k=1,nkn_local
+	  if( k > nkn_inner ) bwrite = .true.
+	  if( k <= nkn_inner .and. id_node(k) /= my_id ) goto 98
+	  if( bwrite ) write(iu,*) k,id_node(k)
+	  if( k == nkn_inner ) write(iu,*) 'unique nodes'
+	  if( k == nkn_unique ) write(iu,*) 'outer nodes'
+	end do
+	write(iu,*) 'border elements',nel_inner,nel_unique,nel_local
+	write(iu,*) 'inner elements'
+	bwrite = .false.
+	do ie=1,nel_local
+	  if( ie > nel_inner ) bwrite = .true.
+	  if( ie <= nel_inner ) then
+	    if( id_elem(1,ie) /= my_id .or. 
+     +			any(id_elem(2:3,ie)/=-1) ) goto 98
+	  end if
+	  if( bwrite ) write(iu,*) ie,id_elem(:,ie)
+	  if( ie == nel_inner ) write(iu,*) 'unique elements'
+	  if( ie == nel_unique ) write(iu,*) 'outer elements'
+	end do
+	flush(iu)
 	end if
+
+	!write(my_unit,*) 'debug id_elem: ',my_id
+	!do i=1,nel_local
+	!  write(my_unit,*) i,eindex(i),id_elem(:,i)
+	!end do
+
+	call shympi_syncronize
+	!write(6,*) 'finished running adjust_indices'
+	!flush(6)
 
 !	-----------------------------------------------------
 !	end of routine
 !	-----------------------------------------------------
 
+	return
+   98	continue
+	stop 'error 400'
+   99	continue
+	write(6,*) 'error in element index: '
+	write(6,*) my_id,nel_inner,nel_unique,nel_local,nel
+	write(6,*) i,id_elem(:,i)
+	stop 'error stop adjust_indices: internal error (7)'
 	end
 
 !*****************************************************************
@@ -612,7 +698,7 @@
 	integer n_g		!global number of items
 	integer n_l		!local number of items (return)
 	integer items(n_g)	!color of items
-	integer index(n_g)	!index of local nodes (return)
+	integer index(n_g)	!index of items (return)
 
 	integer i,k,n
 
@@ -783,6 +869,12 @@
 	call mpi_sort_index(n_lk,n_le)
 
 !	----------------------------------
+!	final check
+!	----------------------------------
+
+	call check_global_indices(n_lk,n_le)
+
+!	----------------------------------
 !	end routine
 !	----------------------------------
 
@@ -816,6 +908,9 @@
 !	----------------------------------
 !	compute max values which are still not available
 !	----------------------------------
+
+	!write(6,*) 'n_lk,n_le',n_lk,n_le
+	!write(6,*) 'nkn_domains: ',size(nkn_domains)
 
         call shympi_gather(n_lk,nkn_domains)
         call shympi_gather(n_le,nel_domains)
@@ -944,6 +1039,121 @@
 	write(6,*) 'nel_domains: ',nel_domains
 	write(6,*) n_lk,n_le
 	stop 'error stop make_inttern2global_index: ip == 0'
+	end
+
+!*****************************************************************
+
+	subroutine check_global_indices(n_lk,n_le)
+
+	use shympi
+
+	implicit none
+
+	integer n_lk,n_le
+
+	logical bstop
+	integer ia,id,k,ie
+	integer iu,idiff
+
+	iu = 444 + my_id
+	idiff = 0
+	bstop = .false.
+
+	ia = my_id + 1
+
+	do k=1,n_lk
+	  if( ip_int_node(k) /= ip_int_nodes(k,ia) ) then
+	    write(iu,*) 'node differences: ',k,ip_int_node(k)
+     +				,ip_int_nodes(k,ia)
+	    idiff = idiff + 1
+	    bstop = .true.
+	  end if
+	end do
+
+	do ie=1,n_le
+	  if( ip_int_elem(ie) /= ip_int_elems(ie,ia) ) then
+	    write(iu,*) 'elem differences: ',ie,ip_int_elem(ie)
+     +				,ip_int_elems(ie,ia)
+	    idiff = idiff + 1
+	    bstop = .true.
+	  end if
+	end do
+	
+	if( bstop ) then
+	  write(6,*) n_lk,n_le,my_id,idiff
+	  write(6,*) 'more info in files 444+'
+	  stop 'error stop check_global_indices: inconsistency'
+	end if
+
+	end
+
+!*****************************************************************
+
+	subroutine handle_partition(area_node)
+
+	use basin
+	use shympi
+
+	implicit none
+
+	integer area_node(nkn)
+
+	integer nparts
+	integer nnp,nep
+	integer nmin,nmax
+	integer area_elem(nel)
+	integer ierr1,ierr2
+
+	ierr1 = 0
+	ierr2 = 0
+
+	call basin_get_partition(nkn,nel,nnp,nep,area_node,area_elem)
+
+	nnp = nnp + 1
+	nparts = n_threads
+ 
+	if( .not. bmpi ) then
+	  stop 'error stop handle_partition: internal error (1)'
+	end if
+
+	if( nnp == 1 ) then
+	  if( shympi_is_master() ) then
+	    write(6,*) 'no partitiones contained in basin...'
+	    write(6,*) 'we will do partitioning for domains: ',nparts
+	  end if
+	  call do_partition(nkn,nel,nen3v,nparts,area_node,area_elem)
+	  call check_partition(area_node,area_elem,ierr1,ierr2)
+	  area_node = area_node - 1	!gives back 1-nparts
+	else if( nnp == nparts ) then
+	  if( shympi_is_master() ) then
+	    write(6,*) 'partitiones contained in basin: ',nnp
+	    write(6,*) 'using these partitiones...'
+	  end if
+	else
+	  if( shympi_is_master() ) then
+	    write(6,*) 'partitiones contained in basin: ',nnp
+	    write(6,*) 'partitiones required: ',nparts
+	    stop 'error stop handle_partition: domains not compatible'
+	  end if
+	end if
+
+	if( shympi_is_master() ) then
+	  nmin = minval(area_node)
+	  nmax = maxval(area_node)
+
+	  !write(6,*) nkn,nel
+	  !write(6,*) nnp,nep
+	  !write(6,*) nmin,nmax
+	  write(6,*) 'domains: ',nmin,nmax
+
+	  call info_partition(nparts,area_node)
+	end if
+
+	if( ierr1 /= 0 .or. ierr2 /= 0 ) then
+	  write(6,*) 'error in partitioning: ',ierr1,ierr2
+	  stop 'error stop handle_partition: partitioning error'
+	end if
+
 	end
 
 !*****************************************************************

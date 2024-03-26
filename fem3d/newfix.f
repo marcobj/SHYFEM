@@ -67,6 +67,8 @@ c 05.12.2017	ggu	changed VERS_7_5_39
 c 03.04.2018	ggu	changed VERS_7_5_43
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
+c 03.06.2022	ggu	prepared for mpi (not yet ready)
+c 09.05.2023    lrp     introduce top layer index variable
 c
 c*****************************************************************
 
@@ -77,12 +79,13 @@ c initialization of bclfix routines
 	use mod_bclfix
 	use mod_internal
 	use basin
+	use shympi
 
         implicit none 
 
 	real tnudge	!relaxation time for nudging [s]
 
-        integer ie,l,i,ii,k,n,nn,nf
+        integer ie,l,i,ii,k,n,nn,nf,ie_mpi
 	integer ibc,nodes
 	integer nbc
 	integer iflag(nkn)
@@ -124,14 +127,16 @@ c------------------------------------------------------------------
 
 	  do i=1,nodes
 	    k = kbnds(ibc,i)
-	    iflag(k) = 1
+	    if( k > 0 ) iflag(k) = 1
 	  end do
 
 	  !------------------------------------------------------------------
 	  ! set up ielfix and tnudgev/iuvfix
 	  !------------------------------------------------------------------
 
-	  do ie=1,nel
+	  do ie_mpi=1,nel
+
+	    ie = ip_sort_elem(ie_mpi)
 
 	    n = 0
 	    do ii=1,3
@@ -208,6 +213,7 @@ c fix or nudge  velocities on open boundaries
 	use mod_hydro
 	use levels
 	use basin, only : nkn,nel,ngr,mbw
+	use shympi
 
         implicit none 
 
@@ -216,8 +222,8 @@ c fix or nudge  velocities on open boundaries
 	real tnudge	!relaxation time for nudging [s]
 	real tramp	!time for smooth init
 
-        integer ie,l,i,k,ii,n
-	integer lmax
+        integer ie,l,i,k,ii,n,ie_mpi
+	integer lmax,lmin
 	integer nbc
         real u(nlvdi),v(nlvdi)
         real h,t
@@ -232,9 +238,7 @@ c fix or nudge  velocities on open boundaries
 
 	integer nbnds
 
-	integer icall
-	save icall
-	data icall /0/
+	integer, save :: icall = 0
 
         if( icall .eq. -1 ) return
 
@@ -290,14 +294,16 @@ c------------------------------------------------------------------
         end if
 
 c------------------------------------------------------------------
-c nudge of fix velocities in elements
+c nudge or fix velocities in elements
 c------------------------------------------------------------------
 
-	do ie=1,nel
+	do ie_mpi=1,nel
+	  ie = ip_sort_elem(ie_mpi)
 	  n = ielfix(0,ie)
 	  if( n .gt. 0 ) then
 
 	    lmax = ilhv(ie)
+            lmin = jlhv(ie)
 
 	    do l=1,lmax
 	      u(l) = 0.
@@ -306,13 +312,13 @@ c------------------------------------------------------------------
 
 	    do i=1,n
 	      k = ielfix(i,ie)
-	      do l=1,lmax
+	      do l=lmin,lmax
 	        u(l) = u(l) + ubound(l,k)
 	        v(l) = v(l) + vbound(l,k)
 	      end do
 	    end do
 
-	    do l=1,lmax
+	    do l=lmin,lmax
 	      u(l) = u(l) / n
 	      v(l) = v(l) / n
 	    end do
@@ -320,7 +326,7 @@ c------------------------------------------------------------------
 	    tnudge = tnudgev(ie)
 
 	    if (iuvfix(ie) .eq. 1 ) then	!fix velocities
-              do l=1,lmax
+              do l=lmin,lmax
                 h = hdeov(l,ie)
                 ulnv(l,ie) = u(l)*alpha
                 vlnv(l,ie) = v(l)*alpha
@@ -328,7 +334,7 @@ c------------------------------------------------------------------
                 vtlnv(l,ie) = vlnv(l,ie)*h
               end do
 	    else if( tnudge > 0 ) then		!nudge velocities
-	      do l=1,lmax
+	      do l=lmin,lmax
                 h = hdeov(l,ie)
                 uexpl = (ulnv(l,ie)-u(l))*alpha*h/tnudge
                 vexpl = (vlnv(l,ie)-v(l))*alpha*h/tnudge
@@ -349,3 +355,4 @@ c------------------------------------------------------------------
         end
 
 c*****************************************************************
+

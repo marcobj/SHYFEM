@@ -74,6 +74,10 @@
 ! 25.06.2021	ggu	populate_strings() before plotutil_init()
 ! 25.06.2021	ggu	in plot_lgr_file() call shympi_init() after basin init
 ! 21.10.2021	ggu	fixed for vertical velocity as overlay
+! 03.05.2023	ggu	introduced belem (bug fix)
+! 22.05.2023	ggu	get_layer_thickness() was missing an argument
+! 26.07.2023	lrp	introduce zstar in shyplot
+! 28.09.2023    lrp     bug fix for zstar (forgotten parameter)
 !
 ! notes :
 !
@@ -732,7 +736,7 @@
 	integer, allocatable :: ivars(:)
 	character*80, allocatable :: strings(:)
 
-	logical bhydro,bscalar,bsect,bvect,bvel,bcycle
+	logical bhydro,bscalar,bsect,bvect,bvel,bcycle,belem
 	logical bregplot,bregdata
 	logical btime
 	integer nx,ny
@@ -755,6 +759,7 @@
 	character*80 basnam,simnam,varline
 	real rnull
 	real cmin,cmax,cmed,vtot
+        real simpar(3),rzmov
 	real dx,dy
 	double precision dtime
 	double precision atime
@@ -801,6 +806,7 @@
 	call populate_strings
 
 	call shy_get_params(id,nkn,nel,npr,nlv,nvar)
+        call shy_get_simpar(id,simpar)
 	call shy_get_ftype(id,ftype)
 
 	if( .not. bquiet ) call shy_info(id)
@@ -870,12 +876,13 @@
 	allocate(ivars(nvar),strings(nvar))
 
 	!--------------------------------------------------------------
-	! set up aux arrays, sigma info and depth values
+	! set up aux arrays, sigma/z info and depth values
 	!--------------------------------------------------------------
 
 	call shyutil_init(nkn,nel,nlv)
 
 	call init_sigma_info(nlv,hlv)
+        call init_rzmov_info(nlv,nint(simpar(3)),hlv,rzmov)
 
 	call shy_make_area
 	call outfile_make_depth(nkn,nel,nen3v,hm3v,hev,hkv)
@@ -936,7 +943,7 @@
 	 ! read new data set
 	 !--------------------------------------------------------------
 
-	 call read_records(id,dtime,nvar,nndim,nlvdi,idims
+	 call read_records(id,dtime,bhydro,nvar,nndim,nlvdi,idims
      +				,cv3,cv3all,ierr)
 
          if(ierr.ne.0) exit
@@ -1002,10 +1009,11 @@
 	      write(6,*) 'n,nkn,nel: ',n,nkn,nel
 	      stop 'error stop: n'
 	 end if
+	 belem = ( n == nel )		!works because no MPI
 
 	 cv3(:,:) = cv3all(:,:,iv)
 	 if( b2d ) then
-	    call shy_make_vert_aver(idims(:,iv),nndim,cv3,cv2)
+	    call shy_make_vert_aver(idims(:,iv),belem,nndim,cv3,cv2)
 	 else if( lmax == 1 ) then
 	   cv2(:) = cv3(1,:)
 	 else
@@ -1022,7 +1030,7 @@
 	 end do
 
 	 call make_vertical_velocity
-	 call extlev(layer,nlvdi+1,n,il,wauxv,wsnv)	!average over layer
+	 call extlev(layer,nlvdi+1,nkn,il,wauxv,wsnv)	!average over layer
 
 	 !------------------------------------------
 	 ! from here plotting
@@ -1111,6 +1119,7 @@
 	use elabtime
 	use shyfile
 	use shyutil
+	use shympi
 
         use basin
         use levels
@@ -1153,6 +1162,8 @@
 
 	integer getisec
 	real getpar
+
+        !call shympi_init(.false.)
 
         !--------------------------------------------------------------
         ! set command line parameters
@@ -1266,7 +1277,7 @@
 	  end if
 
           call makehev(hev)
-          call makehkv(hkv)
+          if( .not. bregdata ) call makehkv(hkv)
           call allocate_2d_arrays
 	end if
 
@@ -2068,7 +2079,7 @@ c*****************************************************************
 	  if( h < -990. ) h = hlv(lm)
 	  !if( h == -1. ) h = 1.
 	  if( h+z<zeps ) z = zeps-h
-          call get_layer_thickness(lm,nsigma,hsigma
+	  call get_layer_thickness(lm,1,nsigma,0,hsigma,0.
      +                          ,z,h,hlv,hl)
 
 	  vacu = 0.

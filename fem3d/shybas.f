@@ -71,6 +71,9 @@ c 12.12.2020    ggu     compute transport CFL
 c 22.04.2021    ggu     initialize levels for bounds check
 c 10.11.2021    ggu     avoid warning for stack size
 c 16.02.2022    ggu     new call to basboxgrd() to re-create grd file from index
+c 12.10.2022    ggu     new routine code_count called with -detail
+c 12.01.2023    ggu     correct statistics of area also for lat/lon
+c 29.01.2023    ggu     more on correct area computation (eliminated areatr)
 c
 c todo :
 c
@@ -139,7 +142,7 @@ c-----------------------------------------------------------------
 
 	if( .not. bquiet ) then
 	  call bas_info
-	  call basstat(bnomin)
+	  call basstat(bnomin,bdetail)
 	  if( barea ) call basstat_area
 	  call bas_stabil
 	end if
@@ -182,7 +185,7 @@ c-----------------------------------------------------------------
 	if( bunique ) call write_grd_with_unique_depth !for sigma levels
 	if( bdelem ) call write_grd_with_elem_depth !for zeta levels
 	if( bnpart ) call write_nodal_partition(bwrite)	!nodal partition
-	if( lfile /= ' ' ) call bas_partition		!creates partition file
+	if( lfile /= ' ' ) call bas_partition(lfile)	!creates partition file
 	if( bgr3 ) call write_gr3_from_bas
 	if( bmsh ) call write_msh_from_bas
 
@@ -340,7 +343,7 @@ c info on element number
 	integer eext,eint
 	integer ipext,ieext,ieint
 	logical bloop
-	real areatr
+	real area_elem
 
 	belem = .false.
 	bloop = .true.
@@ -377,7 +380,7 @@ c info on element number
            write(6,3000) ieext(ie)
      +                  ,(ipext(nen3v(ii,ie)),ii=1,3)
      +                  ,(hm3v(ii,ie),ii=1,3)
-     +                  ,areatr(ie)
+     +                  ,area_elem(ie)
      +                  ,iarv(ie)
            write(6,*)
 	end if
@@ -457,7 +460,7 @@ c computes area and volume of area code ia
 	double precision a,atot,vtot,h
 	real hk
 	real, parameter :: hflag = -999.
-	real areatr
+	real area_elem
 
 	na = 0
 	atot = 0.
@@ -466,7 +469,7 @@ c computes area and volume of area code ia
 	do ie=1,nel
 	  if( ia /= iarv(ie) ) cycle
 	  na = na + 1
-	  a = areatr(ie)
+	  a = area_elem(ie)
 	  atot = atot + a
           h = 0.
 	  bflag = .false.
@@ -487,7 +490,7 @@ c computes area and volume of area code ia
 
 c*****************************************************************
 
-	subroutine basstat(bnomin)
+	subroutine basstat(bnomin,bdetail)
 
 c writes statistics on basin
 
@@ -497,6 +500,7 @@ c writes statistics on basin
 	implicit none
 
 	logical bnomin		!do not compute minimum distance
+	logical bdetail		!write details on area and node code
 
 	integer ie,ii,k,ii1
 	integer imin,imax
@@ -515,7 +519,7 @@ c writes statistics on basin
 	real, parameter :: hflag = -999.
         integer i,k1,k2,km1,km2
 
-	real areatr,area_elem
+	real area_elem
 
 c-----------------------------------------------------------------
 c area code
@@ -531,6 +535,8 @@ c-----------------------------------------------------------------
 
 	write(6,*) 'Area code min/max:      ',imin,imax
 
+	if( bdetail ) call code_count(imax,nel,iarv)
+
 	imin = iarnv(1)
 	imax = imin
 
@@ -540,6 +546,8 @@ c-----------------------------------------------------------------
 	end do
 
 	write(6,*) 'Node code min/max:      ',imin,imax
+
+	if( bdetail ) call code_count(imax,nkn,iarnv)
 
 c-----------------------------------------------------------------
 c node numbers
@@ -573,7 +581,6 @@ c-----------------------------------------------------------------
 c area
 c-----------------------------------------------------------------
 
-	amin = areatr(1)
 	amin = area_elem(1)
 	amax = amin
 	atot = 0.
@@ -582,7 +589,6 @@ c-----------------------------------------------------------------
         vptot = 0.
 
 	do ie=1,nel
-	  area = areatr(ie)
 	  area = area_elem(ie)
 	  atot = atot + area
 	  amin = min(amin,area)
@@ -795,7 +801,7 @@ c writes frequency distribution of depth
 	double precision, allocatable :: freqa(:)
 	double precision, allocatable :: freqv(:)
 
-	real areatr
+	real area_elem
 
 c-----------------------------------------------------------------
 c area code
@@ -830,7 +836,7 @@ c-----------------------------------------------------------------
 
 	do ie=1,nel
 	  h = hev(ie)
-	  area = areatr(ie)
+	  area = area_elem(ie)
 	  vol = area * h
 	  ih = (hmax-h)/dh
 	  if( ih .lt. 0 .or. ih .gt. imax ) then
@@ -874,7 +880,7 @@ c*******************************************************************
 
         function areatr(ie)
 
-c determination of area of element
+c determination of area of element (not working for lat/lon)
 c
 c ie            number of element (internal)
 c areatr        element area (return value)
@@ -1150,7 +1156,6 @@ c writes statistics on grid quality
 	integer iangle(0:18)
 
 	integer ieext,ipext
-	real areatr
 
 c-----------------------------------------------------------------
 c initialization
@@ -1210,7 +1215,7 @@ c-----------------------------------------------------------------
 	end do
 
 	do ie=1,nel
-	  area = 4.*ev(10,ie)
+	  !area = 4.*ev(10,ie)
 	  do ii=1,3
 	    k = nen3v(ii,ie)
 	    a = ev(10+ii,ie)
@@ -1292,7 +1297,6 @@ c writes statistics on basin
         integer icount(ndim)
         integer count(nkn)
 
-        real areatr
         integer ipext
 
         eps = 1.e-5
@@ -1769,6 +1773,36 @@ c****************************************************************
 !-------------------------------------------------------------
 ! end of routine
 !-------------------------------------------------------------
+
+	end
+
+c****************************************************************
+
+	subroutine code_count(imax,n,iarray)
+
+	implicit none
+
+	integer imax,n
+	integer iarray(n)
+
+	integer i,ia,ic
+	integer, allocatable :: count(:)
+
+	allocate(count(0:imax))
+	count = 0
+
+	write(6,*) '  details:'
+	write(6,*) '       code       count'
+
+	do i=1,n
+	  ia = iarray(i)
+	  count(ia) = count(ia) + 1
+	end do
+
+	do ia=0,imax
+	  ic = count(ia)
+	  write(6,*) ia,ic
+	end do
 
 	end
 

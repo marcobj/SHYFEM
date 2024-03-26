@@ -37,6 +37,12 @@ c 10.11.2021	ggu	avoid warning for stack size
 c 10.02.2022	ggu	better error message for not connected domain
 c 16.02.2022	ggu	new routine basboxgrd()
 c 09.03.2022	ggu	write also file index_sections.grd for the sections
+c 10.05.2022	ggu	write element types on external element numbers
+c 10.05.2022	ggu	new routine sort_multiple_sections() for predictability
+c 18.05.2022	ggu	some more checks in sort_multiple_sections()
+c 08.06.2022	ggu	save external nodes in basboxgrd for grd_write_item()
+c 16.06.2022	ggu	write coloring errors to grd files
+c 13.07.2022	ggu	forgot setting listold(0,:)
 c
 c****************************************************************
 
@@ -63,6 +69,7 @@ c reads grid with box information and writes index file boxes.txt
 	integer nlkdi
 	logical bstop
 
+	logical, parameter :: bnew = .true.	!new version of boxes.txt
 	integer, parameter :: nbxdim = 100	!max number of boxes
 	integer, parameter :: nlbdim = 250	!max number of boundary nodes
 
@@ -77,7 +84,7 @@ c-----------------------------------------------------------------
 c check if we have read a bas file and not a grd file
 c-----------------------------------------------------------------
 
-        if( .not. breadbas ) then
+        if( .not. breadbas .and. .not. bnew ) then
           write(6,*) 'for -box we need a bas file'
           stop 'error stop basbox: need a bas file'
         end if
@@ -99,11 +106,13 @@ c-----------------------------------------------------------------
 
 	open(69,file='boxes.txt',form='formatted',status='unknown')
 
-	call write_boxes(nbxdim,nlbdim,nbox,nblink,boxinf)
+	call write_boxes(nbxdim,nlbdim,nbox,nblink,boxinf,bnew)
 	call sort_boxes(nbxdim,nlbdim,nbox,nblink,boxinf,neib
      +			,iaux1,iaux2)
 
 	close(69)
+ 
+	call make_line_boxes
 
 c-----------------------------------------------------------------
 c end of routine
@@ -196,6 +205,7 @@ c there are nblink(ib) node pairs in boxinf, so n=1,nblink(ib)
 
 		call count_sections(nf,iaux2,ns)
 		call invert_list(nf,iaux2)
+		call sort_multiple_sections(ns,nf,iaux2,ipv)
 		!write(66,*) ns,nf,ib,ibn
 		!write(66,*) (ipv(iaux2(i)),i=1,nf)
 
@@ -212,6 +222,131 @@ c there are nblink(ib) node pairs in boxinf, so n=1,nblink(ib)
 	write(6,*) 'total number of sections: ',id
 	write(6,*) 'total number of nodes in sections: ',nt
 	write(6,*) 'total number of needed nodes in sections: ',ntt
+
+	end
+
+c*******************************************************************
+
+	subroutine sort_multiple_sections(ns,nf,list,ipv)
+
+! sorts multiple section from one box to another to be predictable
+
+	implicit none
+
+	integer ns,nf
+	integer list(nf)
+	integer ipv(*)
+
+	integer, allocatable :: listold(:,:)
+	integer, allocatable :: listnew(:,:)
+	integer, allocatable :: listaux(:,:)
+
+	logical bdebug
+	integer kint,kext,kmax
+	integer is,ie,isect,n,i,id,nn
+	integer nns,nnn
+	integer ismax,nsect
+
+	if( ns <= 1 ) return	!just one section
+
+	bdebug = .true.
+	bdebug = .false.
+
+	call list_get_number_of_blocks(nf,list,nns,nnn)
+	if( nns /= ns ) stop 'error stop sort_multiple_sections: (1)'
+
+	allocate(listold(0:nf,ns))
+	allocate(listnew(0:nf,ns))
+	allocate(listaux(0:nf,ns))
+
+	listold = 0
+	listnew = 0
+	listaux = 0
+
+	if( bdebug ) then
+	write(6,*) '==========================='
+	write(6,*) '---------- listorig -----------'
+	write(6,*) ns,nf
+	write(6,*) list(1:nf)
+	end if
+
+	id = 0
+	i = 1
+	do while( i .le. nf )
+	  is = i
+	  do while( i .le. nf .and. list(i) .gt. 0 )	!FIXME - read past end of array
+	    i = i + 1
+	  end do
+	  ie = i - 1
+	  id = id + 1
+	  nn = ie - is + 1
+	  listold(1:nn,id) = list(is:ie)
+	  listold(0,id) = nn
+	  i = i + 1
+	end do
+
+	call list_split_blocks(ns,nf,nf,list,listaux)
+
+	if( bdebug ) then
+	write(6,*) '---------- listold -----------'
+	do isect=1,ns
+	  write(6,*) isect,listold(0,isect)
+	  write(6,*) listold(1:nf,isect)
+	end do
+	end if
+
+	if( any( listaux /= listold ) ) then
+	  write(6,*) '---------- listaux -----------'
+	  do isect=1,ns
+	    write(6,*) isect,listaux(0,isect)
+	    write(6,*) listaux(1:nf,isect)
+	  end do
+	  stop 'error stop sort_multiple_sections: listaux/=listold (3)'
+	end if
+	if( id /= ns ) then
+	  stop 'error stop sort_multiple_sections: (2)'
+	end if
+
+	nsect = ns
+	do while( nsect > 0 )
+	  ismax = 0
+	  kmax = 0
+	  do is=1,nsect
+	    kint = listold(1,is)
+	    kext = ipv(kint)
+	    if( kext > kmax ) then
+	      kmax = kext
+	      ismax = is
+	    end if
+	  end do
+	  listnew(:,nsect) = listold(:,ismax)
+	  listold(:,ismax) = listold(:,nsect)
+	  nsect = nsect - 1
+	end do
+
+	if( bdebug ) then
+	write(6,*) '---------- listnew -----------'
+	do isect=1,ns
+	  write(6,*) listnew(1:nf,isect)
+	end do
+	end if
+
+	is = 1
+	do isect=1,ns
+	  do i=1,nf
+	    if( listnew(i,isect) == 0 ) exit
+	  end do
+	  n = i - 1
+	  ie = is + n - 1
+	  list(is:ie) = listnew(1:n,isect)
+	  list(ie+1) = 0
+	  is = ie + 2
+	end do
+	  
+	if( bdebug ) then
+	write(6,*) '---------- listfinal -----------'
+	write(6,*) list(1:nf)
+	end if
 
 	end
 
@@ -303,12 +438,16 @@ c*******************************************************************
 
 	subroutine write_section(n,list,id,ib,ibn,ipv)
 
+! nodes of section are written as external numbers
+
 	implicit none
 
-	integer n
-	integer list(n)
-	integer id,ib,ibn
-	integer ipv(*)
+	integer n		!total number of nodes in section
+	integer list(n)		!node numbers of section (internal)
+	integer id		!id of section (consecutive)
+	integer ib		!first box number (from-box)
+	integer ibn		!second box number (to-box)
+	integer ipv(*)		!external node numbers
 
 	integer i,j,is,ie,nn
 
@@ -316,7 +455,7 @@ c*******************************************************************
 	i = 1
 	do while( i .le. n )
 	  is = i
-	  do while( list(i) .gt. 0 )
+	  do while( list(i) .gt. 0 )	!FIXME - read past end of array
 	    i = i + 1
 	  end do
 	  ie = i - 1
@@ -353,7 +492,9 @@ c*******************************************************************
 
 c*******************************************************************
 
-	subroutine write_boxes(nbxdim,nlbdim,nbox,nblink,boxinf)
+	subroutine write_boxes(nbxdim,nlbdim,nbox,nblink,boxinf,bnew)
+
+! in new version external element numbers are written
 
 	use basin
 
@@ -362,9 +503,14 @@ c*******************************************************************
 	integer nbxdim,nlbdim,nbox
 	integer nblink(nbxdim)
 	integer boxinf(3,nlbdim,nbxdim)
+	logical bnew				!new version of boxes.txt
 
 	integer ib,n,i,ii,ie
 	integer nu
+
+	integer, parameter :: idbox = 473226
+	integer, parameter :: ftype = 9
+	integer, parameter :: nversbox = 3
 
 	nu = 0
 
@@ -379,11 +525,16 @@ c*******************************************************************
 	  end if
 	end do
 
-	!write(67,*) nel,nbox,nu
-	!write(67,*) (iarv(ie),ie=1,nel)
-
-	write(69,*) nel,nbox,nu
-	write(69,'((8i9))') (iarv(ie),ie=1,nel)
+	if( bnew ) then
+	  write(69,*) idbox,ftype,nversbox
+	  write(69,*) nel,nbox,nu
+	  do ie=1,nel
+	    write(69,*) ipev(ie),iarv(ie)
+	  end do
+	else
+	  write(69,*) nel,nbox,nu
+	  write(69,'((8i9))') (iarv(ie),ie=1,nel)
+	end if
 
 	end
 
@@ -467,7 +618,7 @@ c sets up box index
 	    ian = 0
 	    if( ien .gt. 0 ) ian = iarv(ien)
 	    if( ian .gt. nbxdim ) goto 99
-	    if( ien .gt. 0 .and. ian .ne. ia ) then  !neigbor is diff box
+	    if( ien .gt. 0 .and. ian .ne. ia ) then  !neighbor is diff box
 	      i1 = mod(ii,3) + 1
 	      i2 = mod(ii+1,3) + 1
 	      n = nblink(ia) + 1
@@ -512,16 +663,17 @@ c checks if all boxes are connected
 
 	implicit none
 
-	integer ie
-	integer i,j,nc,ic,nt,nnocol
+	integer ie,k,ii
+	integer i,j,nc,ic,nt,nnocol,icerror
 	integer icol,ierr,icolmax
 	integer nmin,nmax
 	integer icolor(nel)
 	integer icon(nel)
 	integer list(3,nel)	!insert not connected areas in this list
 
-	integer ieext
+	integer ieext,ipext
 
+	icerror = 0
 	ic = 0
 	ierr = 0
 	icolmax = 0
@@ -548,11 +700,16 @@ c checks if all boxes are connected
 	  end if
 	end do
 
+! list(1,i)	area code
+! list(2,i)	total number of elements
+! list(3,i)	one element index
+
 	if( ierr > 0 ) then	!here error treatment for not connected areas
 	 do i=1,ic
 	  icol = list(1,i)
 	  do j=i+1,ic
 	    if( list(1,j) == icol ) then
+		icerror = icerror + 1
 		write(6,*) 'not connected area found ',icol
 	        write(6,*) 'area            elements'
      +		// '   elem number (int)'
@@ -563,6 +720,12 @@ c checks if all boxes are connected
 	        if( list(2,i) > list(2,j) ) ie = list(3,j)
 	        write(6,*) 'not connected area contains element (int/ext)'
      +			,ie,ieext(ie)
+	        write(6,*) 'coordinates of element are: '
+		do ii=1,3
+		  k = nen3v(ii,ie)
+		  write(6,*) ii,ipext(k),xgv(k),ygv(k)
+		end do
+	        call write_grd_error(icerror,list(3,i),list(3,j))
 	    end if
 	  end do
 	 end do
@@ -604,7 +767,11 @@ c checks if all boxes are connected
 	end if
 
 	if( nel .ne. nt ) goto 98
-	if( ierr .gt. 0 ) stop 'error stop check_box_connection: errors'
+	if( ierr .gt. 0 ) then
+	  write(6,*) 'There were errors: ',icerror
+	  write(6,*) 'files are in error_*.grd'
+	  stop 'error stop check_box_connection: errors'
+	end if
 
  1123	format(i5,3i20)
 	return
@@ -699,7 +866,8 @@ c area code 0 is not allowed !!!!
 	integer is,nnodes,ib1,ib2
 	integer k,kext,i
 	integer nout
-	integer, allocatable :: ibox(:),icount(:),nodes(:),used(:)
+	integer, allocatable :: ibox(:),icount(:)
+	integer, allocatable :: extnodes(:),nodes(:),used(:)
 	real x,y
 	real, parameter :: flag = -999.
 	character*80 file
@@ -770,7 +938,7 @@ c area code 0 is not allowed !!!!
 	open(nout,file=file,status='unknown',form='formatted')
 	write(6,*) 'reading sections of index file...'
 
-	allocate(nodes(nkn),used(nkn))
+	allocate(extnodes(nkn),nodes(nkn),used(nkn))
 	used = 0
 	iline = 0
 
@@ -778,23 +946,22 @@ c area code 0 is not allowed !!!!
 	  read(1,*) is,nnodes,ib1,ib2
 	  if( is == 0 ) exit
 	  write(6,*) is,nnodes,ib1,ib2
-	  read(1,*) (nodes(i),i=1,nnodes)
+	  read(1,*) (extnodes(i),i=1,nnodes)
 	  iline = iline + 1
 	  itype = iline
 	  do i=1,nnodes
-	    nodes(i) = ipint(nodes(i))	!nodes are external numbers!!!!
+	    nodes(i) = ipint(extnodes(i))	!nodes are external numbers!!!!
 	  end do
 	  do i=1,nnodes
 	    k = nodes(i)
-	    kext = ipv(k)
+	    kext = extnodes(i)
 	    if( used(k) /= 0 ) cycle	!do not write nodes more than once
 	    used(k) = 1
 	    x = xgv(k)
 	    y = ygv(k)
 	    call grd_write_node(nout,kext,0,x,y,flag)
 	  end do
-          call grd_write_item(nout,3,iline,itype,nnodes,
-     +                          nodes,ipv,flag)
+          call grd_write_item(nout,3,iline,itype,nnodes,extnodes,flag)
 	end do
 
 	close(nout)
@@ -814,4 +981,395 @@ c area code 0 is not allowed !!!!
 	end
 
 !*******************************************************************
+
+	subroutine write_grd_error(icerror,ie1,ie2)
+
+	use basin
+
+	implicit none
+
+	integer icerror,ie1,ie2
+
+	integer i,k,ie
+	integer nc1,nc2,icol1,icol2,ic1,ic2,ic0
+	integer inext(nkn)
+	integer ieext(nel)
+	integer intype(nkn)
+	integer ietype(nel)
+	integer icon(nel)
+	character*80 text,file,string
+
+	text  = 'coloring'
+	write(string,'(i3)') icerror
+	do i=1,3
+	  if( string(i:i) == ' ' ) string(i:i) = '0'
+	end do
+	file = 'error_' // trim(string) // '.grd'
+	write(6,*) 'writing file: ',trim(file)
+
+        do k=1,nkn
+          inext(k) = ipv(k)
+        end do
+        do ie=1,nel
+          ieext(ie) = ipev(ie)
+        end do
+
+	icon = 0
+	!iarv = 1
+	call color_box_area(ie1,icon,icol1,nc1)
+	ic1 = count( icon == icol1 )
+	where( icon == icol1 ) icon = icol1+1
+	!iarv = 2
+	call color_box_area(ie2,icon,icol2,nc2)
+	ic2 = count( icon == icol2 )
+	write(6,*) 'coloring 1: ',ie1,nc1,icol1,ic1,nel
+	write(6,*) 'coloring 2: ',ie2,nc2,icol2,ic2,nel
+	ic0 = count( icon == 0 )
+	write(6,*) 'coloring 0: ',ic0,nel
+	where( icon == 0 ) icon = -1
+
+	intype = 0
+	ietype = icon
+
+	call write_grd_file(file,text,nkn,nel,xgv,ygv,nen3v
+     +                  ,inext,ieext,intype,ietype)
+
+	end
+
+!*****************************************************************
+
+	subroutine make_line_boxes
+
+! creates lines of boxes from box type of elements
+
+	use basin
+	use mod_geom
+
+	implicit none
+
+	logical binsert,bdebug,bfound,bterminal
+	integer ie,ii,ia,ien,ian,nbox,nmax,ntot,it
+	integer i,ibase,nc,ic,ncc,iline,itot,icum
+	integer ii1,ii2,k1,k2
+	integer istart,iend
+	integer iu,iu1
+	integer, allocatable :: ncount(:)
+	integer, allocatable :: icount(:)
+	integer, allocatable :: ibound(:,:)
+	integer, allocatable :: istartend(:,:)
+	integer, allocatable :: icouples(:,:)
+	integer, allocatable :: iorder(:)
+	integer, allocatable :: line_nodes(:)
+	integer, allocatable :: iuse(:)
+	character*10 string
+	character*80 header
+	character*80 file1,file2
+
+	bdebug = .true.
+	bdebug = .false.
+	bterminal = .false.
+
+	write(6,*) 'creating edge list of boxes'
+
+	file1 = 'line_boxes.grd'
+	file2 = 'line_boxes.txt'
+
+! count number of boxes
+
+	nbox = 0
+	do ie=1,nel
+	  ia = iarv(ie)
+	  if( ia > nbox ) nbox = ia
+	end do
+	if( nbox /= maxval(iarv) ) stop 'internal error 7'
+	if( 1 /= minval(iarv) ) stop 'internal error 8'
+
+	allocate(ncount(nbox))
+	allocate(icount(0:nbox))
+	ncount = 0
+
+! count number of edges for each box
+
+	do ie=1,nel
+	  ia = iarv(ie)
+	  do ii=1,3
+	    ien = ieltv(ii,ie)
+	    if( ien > 0 ) then
+	      ian = iarv(ien)
+	      if( ia /= ian ) then
+		ncount(ia) = ncount(ia) + 1
+	        !write(6,*) ' c   ',ie,ien,ia,ian
+	      end if
+	    else
+	      ncount(ia) = ncount(ia) + 1	!is boundary side
+	    end if
+	  end do
+	end do
+
+! get cumulative index for insertion of edges
+
+	nmax = 0
+	ntot = 0
+	write(6,*) 'nbox = ',nbox
+	icount(0) = 0
+	do ia=1,nbox
+	  nmax = max(nmax,ncount(ia))
+	  ntot = ntot + ncount(ia)
+	  icount(ia) = icount(ia-1) + ncount(ia)
+	  write(6,*) ia,ncount(ia)
+	end do
+
+	write(6,*) 'nmax = ',nmax
+	write(6,*) 'ntot = ',ntot
+
+! retrieve edges (node numbers) and put into icouples
+
+	ncount = 0
+	allocate(icouples(2,ntot))
+
+	do ie=1,nel
+	  ia = iarv(ie)
+	  do ii=1,3
+	    binsert = .false.
+	    ien = ieltv(ii,ie)
+	    if( ien > 0 ) then
+	      ian = iarv(ien)
+	      if( ia /= ian ) then
+	        binsert = .true.
+	      end if
+	    else
+	      binsert = .true.
+	    end if
+	    if( binsert ) then		! edge found
+	      ncount(ia) = ncount(ia) + 1
+	      it = icount(ia-1) + ncount(ia)
+	      ii1 = 1 + mod(ii,3)
+	      ii2 = 1 + mod(ii1,3)
+	      k1 = nen3v(ii1,ie)
+	      k2 = nen3v(ii2,ie)
+	      icouples(1,it) = k1
+	      icouples(2,it) = k2
+	    end if
+	  end do
+	end do
+
+! run over boxes and compute ordered list of nodes
+! ibound is aux array that contains unordered edges of box
+
+	allocate(ibound(2,nmax))
+	allocate(istartend(2,nmax))
+	allocate(iorder(nmax))
+	allocate(line_nodes(nmax))
+	allocate(iuse(nkn))
+	iuse = 0
+
+	iu = 88
+	open(iu,file=file1,status='unknown',form='formatted')
+	open(iu+1,file=file2,status='unknown',form='formatted')
+	write(iu+1,*) nbox
+
+	header = '   ibox  iline istart   iend   itot   icum     nc'
+	if( bterminal ) write(6,'(a)') header
+
+	do ia=1,nbox
+	  ibase = icount(ia-1)
+	  nc = ncount(ia)
+	  ibound(:,1:nc) = icouples(:,ibase+1:ibase+nc)
+
+	  call order_edges(nc,ibound,iorder,iline,istartend)
+
+	  icum = 0
+	  do i=1,iline
+	    itot = istartend(2,i) - istartend(1,i) + 1
+	    icum = icum + itot
+	    if( bterminal ) then
+	      write(6,'(7i7)') ia,i,istartend(:,i),itot,icum,nc
+	    end if
+	  end do
+	  if( icum /= nc ) stop 'error stop intern 11'
+
+	  istart = istartend(1,1)
+	  iend = istartend(2,1)
+	  if( iline > 1 ) then
+	    call find_outer_line(iline,istartend,istart,iend)
+	  end if
+	  itot = iend - istart + 1
+	  if( iline > 1 .and. bterminal ) then
+	    write(6,*) 'outerline: ',istart,iend,itot
+	  end if
+	  line_nodes(1:itot) = iorder(istart:iend)
+
+	  call write_line(iu,ia,itot,line_nodes,nkn,iuse)
+	end do
+
+	write(6,*) 'lines have been written to files:'
+	write(6,*) trim(file1)
+	write(6,*) trim(file2)
+
+	end
+
+!*****************************************************************
+
+	subroutine order_edges(ncc,ibound,iorder,iline,istartend)
+
+! takes a list of edges (ibound) and creates continuous ordered list
+! more than one line can be found (islands)
+! in iline is total number of lines found
+! in istartend are indices of start and end of lines in iorder
+
+	implicit none
+
+	integer ncc		  ! total number of edges
+	integer ibound(2,ncc)	  ! edges
+	integer iorder(ncc)	  ! ordered nodes
+	integer iline		  ! total number of lines found (return)
+	integer istartend(2,ncc)  ! start and end of line in iorder (return)
+
+	logical bdebug,bfound	
+	integer icum,nc,i
+	integer ic,icstart,icend,ictot
+
+	bdebug = .false.
+
+	if( bdebug ) then
+	  write(6,*) 'original'
+	  do i=1,nc
+	    write(6,*) i,ibound(:,i)
+	  end do
+	  write(6,*) 'ordering'
+	end if
+
+	iorder = 0
+	icum = 0
+
+	nc = ncc
+	ic = 0
+	iline = 0
+
+	do while( nc > 0 ) 
+
+	  ic = ic + 1
+	  icstart = ic
+	  iorder(ic) = ibound(2,1)
+	  if( bdebug ) write(6,*) ic,nc,ibound(:,1)
+	  ibound(:,1) = ibound(:,nc)
+	  nc = nc - 1
+
+	  do while( nc > 0 )
+	    bfound = .false.
+	    do i=1,nc
+	      if( ibound(1,i) == iorder(ic) ) then
+		bfound = .true.
+	        ic = ic + 1
+		if( bdebug ) write(6,*) ic,nc,ibound(:,i)
+	        if( ic > ncc ) stop 'error stop intern 4'
+	        iorder(ic) = ibound(2,i)
+	  	ibound(:,i) = ibound(:,nc)
+		exit
+	      end if
+	    end do
+	    if( bfound ) then
+	      nc = nc - 1
+	    else
+	      exit
+	    end if
+	  end do
+
+	  iline = iline + 1
+	  icend = ic
+	  ictot = icend - icstart + 1
+	  icum = icum + ictot
+	  istartend(1,iline) = icstart
+	  istartend(2,iline) = icend
+	  !write(6,'(7i6)') ncc,nc,ic,ictot,icum,iline
+	end do
+
+	end
+
+!*****************************************************************
+
+	subroutine find_outer_line(iline,istartend,istart,iend)
+
+! returns line with maximum nodes
+!
+! could not be outer line
+! real program should test inclusion of lines into others
+
+	implicit none
+
+	integer iline
+	integer istartend(2,iline)
+	integer istart,iend
+
+	integer il,imax,i,itot
+
+	il = 0
+	imax = 0
+	do i=1,iline
+	  itot = istartend(2,i) - istartend(1,i) + 1
+	  if( itot > imax ) then
+	    imax = itot
+	    il = i
+	  end if
+	end do
+
+	istart = istartend(1,il)
+	iend = istartend(2,il)
+
+	!itot = istartend(2,il) - istartend(1,il) + 1
+	!write(6,*) 'outerline: ',il,itot
+
+	end
+
+!*****************************************************************
+
+	subroutine write_line(iu,ia,itot,line_nodes,n,iuse)
+
+	use basin
+
+	implicit none
+
+	integer iu
+	integer ia
+	integer itot
+	integer line_nodes(itot)
+	integer n
+	integer iuse(n)
+
+	integer iu1,i,k
+	integer is,ie
+	real x,y
+
+	iu = 88
+	iu1 = iu + 1
+
+	write(iu1,*) ia,itot
+
+	do i=1,itot
+	  k = line_nodes(i)
+	  x = xgv(k)
+	  y = ygv(k)
+	  if( iuse(k) == 0 ) then
+	    write(iu,'(i1,2i8,2e16.8)') 1,k,ia,x,y
+	  end if
+	  iuse(k) = iuse(k) + 1
+	  write(iu1,*) i,x,y
+	end do
+
+	write(iu,'(i1,3i8)') 3,ia,ia,itot+1	!first node twice
+	
+	ie = 0
+	do
+	  is = ie + 1
+	  if( is > itot ) exit
+	  ie = ie + 10
+	  if( ie > itot ) ie = itot
+	  write(iu,'(10i8)') line_nodes(is:ie)
+	  !write(6,*) 'line: ',ia,is,ie
+	end do
+	write(iu,'(10i8)') line_nodes(1:1)	!close line
+
+	end
+
+!*****************************************************************
 

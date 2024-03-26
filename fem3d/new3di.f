@@ -269,6 +269,14 @@ c 30.03.2021	ggu	copy to old into shyfem routine
 c 30.04.2021    clr&ggu adapted for petsc solver
 c 31.05.2021    ggu	eleminated bug for closing in hydro_transports_final()
 c 17.07.2021    ggu	introduced ifricv and call to turbine()
+c 07.04.2022    ggu	ie_mpi introduced in computing vertical velocities
+c 10.04.2022    ggu	ie_mpi introduced for trans, debug code, hydro_debug()
+c 18.05.2022    ggu	cpu_time routines introduced
+c 08.06.2022    ggu	debug routines inserted (ggu_vertical)
+c 11.10.2022    ggu	debug section inserted in wlnv computing
+c 02.05.2023    ggu     fix mpi bug for nlv==1
+c 09.05.2023    lrp     introduce top layer index variable
+c 08.06.2023    ggu     new zeta_debug(), cleaned, call to compute_dry_elements
 c
 c******************************************************************
 
@@ -303,7 +311,6 @@ c administrates one hydrodynamic time step for system to solve
 	real dzeta(nkn)
 	double precision dtime
 
-	integer iround
 	real getpar
 	logical bnohyd
 
@@ -330,14 +337,6 @@ c-----------------------------------------------------------------
 	  call system_set_explicit
 	else if( azpar == 1. .and. ampar == 0. ) then
 	  call system_set_explicit
-	else if( shympi_is_parallel() ) then
-	  !if( shympi_is_master() ) then
-	  !  write(6,*) 'system is not solved explicitly'
-	  !  write(6,*) 'cannot solve semi-implicitly with MPI'
-	  !  write(6,*) 'azpar,ampar: ',azpar,ampar
-	  !  write(6,*) 'please use azpar=1 and ampar=0'
-	  !end if
-	  !call shympi_stop('no semi-implicit solution')
 	end if
 
 c-----------------------------------------------------------------
@@ -345,15 +344,11 @@ c dry areas
 c-----------------------------------------------------------------
 
 	iw=0
-	call sp136(iw)
+	call close_handle(iw)
 
 c-----------------------------------------------------------------
-c copy variables to old time level
+c set diffusivity
 c-----------------------------------------------------------------
-
-	!call copy_uvz		!copies uvz to old time level
-	!call nonhydro_copy	!copies non hydrostatic pressure terms
-	!call copy_depth	!copies layer depth to old
 
 	call set_diffusivity	!horizontal viscosity/diffusivity (needs uvprv)
 
@@ -375,6 +370,8 @@ c-----------------------------------------------------------------
 
 	  iloop = iloop + 1
 
+	  call compute_dry_elements(iloop)
+
 	  call hydro_transports		!compute intermediate transports
 
 	  call setnod			!set info on dry nodes
@@ -383,17 +380,17 @@ c-----------------------------------------------------------------
 
 	  call system_init		!initializes matrix
 	  call hydro_zeta(rqv)		!assemble system matrix for z
+	  call cpu_time_start(3)
 	  call system_solve(nkn,znv)	!solves system matrix for z
+	  call cpu_time_end(3)
 	  call system_get(nkn,znv)	!copies solution to new z
 
-	  if(trim(solver_type) /= 'PETSc')then
+	  if( trim(solver_type) /= 'PETSc' ) then
             call shympi_exchange_2d_node(znv)
           endif
 
 	  call setweg(1,iw)		!controll intertidal flats
-	  !write(6,*) 'hydro: iw = ',iw,iloop,my_id
 	  iw = shympi_sum(iw)
-	  !if( iw > 0 .and. shympi_is_parallel() ) goto 99
 	  if( iw == 0 ) exit
 
 	end do
@@ -423,7 +420,6 @@ c-----------------------------------------------------------------
 
 	call hydro_vertical(dzeta)		!compute vertical velocities
 
-	!if (bnohyd) call nh_handle_output(dtime)
 	if (bnohyd .or. (iwvel .eq. 1)) then
 	  call nh_handle_output(dtime)!DWNH
 	end if
@@ -446,7 +442,6 @@ c some checks
 c-----------------------------------------------------------------
 
 	call vol_mass(1)		!computes and writes total volume
-	if( bdebout ) call debug_output(dtime)
 	call mass_conserve		!check mass balance
 
 c-----------------------------------------------------------------
@@ -503,7 +498,7 @@ c semi-implicit scheme for 3d model
 	logical bdebug
 	integer ie,i,j,j1,j2,n,m,kk,l,k,ie_mpi
 	integer ngl
-	integer ilevel
+	integer ilevel,jlevel
 	integer ju,jv
         integer nel_loop
 
@@ -539,7 +534,7 @@ c semi-implicit scheme for 3d model
 c	data amatr / 2.,1.,1.,1.,2.,1.,1.,1.,2. /	!original
 	data amatr / 4.,0.,0.,0.,4.,0.,0.,0.,4. /	!lumped
 
-        integer locsps,loclp,iround
+        integer locsps,loclp
 	real getpar
 	!logical iskbnd,iskout,iseout
 	logical iskbnd,iseout
@@ -551,7 +546,7 @@ c-------------------------------------------------------------
 c initialization
 c-------------------------------------------------------------
 
-	bcolin=iround(getpar('iclin')).ne.0
+	bcolin=nint(getpar('iclin')).ne.0
 
 	call getazam(azpar,ampar)
 	az=azpar
@@ -565,6 +560,7 @@ c-------------------------------------------------------------
 c-------------------------------------------------------------
 c loop over elements
 c-------------------------------------------------------------
+
         if(trim(solver_type)=='PETSc')then
           nel_loop=nel_unique
         else
@@ -604,6 +600,7 @@ c	------------------------------------------------------
 	!end if
 
 	ilevel=ilhv(ie)
+	jlevel=jlhv(ie)
 	aj=ev(10,ie)
         afix=1-iuvfix(ie)      !chao dbf
 
@@ -617,7 +614,7 @@ c	------------------------------------------------------
 	dbc = 0.
 	dcb = 0.
 	dcc = 0.
-	do l=1,ilevel			!ASYM_OPSPLT
+	do l=jlevel,ilevel			!ASYM_OPSPLT
 	  jv=l+l
 	  ju=jv-1
 	  dbb = dbb + ddxv(ju,ie)
@@ -635,7 +632,7 @@ c	------------------------------------------------------
 	uhat = 0.
 	vhat = 0.
 
-	do l=1,ilevel
+	do l=jlevel,ilevel
 	  uold = uold + utlov(l,ie)
 	  vold = vold + vtlov(l,ie)
 	  uhat = uhat + utlnv(l,ie)
@@ -909,7 +906,7 @@ c local
 	integer kn(3)
 	integer kk,ii,l,ju,jv,ierr
 	integer ngl,mbb
-	integer ilevel,ier,ilevmin
+	integer ilevel,jlevel,ier,ilevmin
 	integer lp,lm
 	integer k1,k2,k3,k
         integer imin,imax
@@ -955,7 +952,7 @@ c-----------------------------------------
 	double precision ppx,ppy
 c-----------------------------------------
 c function
-	integer locssp,iround
+	integer locssp
 
         real epseps
         parameter (epseps = 1.e-6)
@@ -979,6 +976,7 @@ c dimensions of vertical system
 c-------------------------------------------------------------
 
 	ilevel=ilhv(ie)
+	jlevel=jlhv(ie)
 	!ilevmin=ilmv(ie)
 	ngl=2*ilevel
 	mbb=2
@@ -1080,7 +1078,7 @@ c-------------------------------------------------------------
 	k1 = nen3v(1,ie)
 	k2 = nen3v(2,ie)
 	k3 = nen3v(3,ie)
-	do l=0,ilevel
+	do l=jlevel-1,ilevel
 	    vis = vismol
 	    vis = vis + (visv(l,k1)+visv(l,k2)+visv(l,k3))/3.
 	    vis = vis + (vts(l,k1)+vts(l,k2)+vts(l,k3))/3.
@@ -1099,15 +1097,20 @@ c vvi/vvip/vvim		transport in y in i/i+1/i-1 layer
 c
 c in case of a layer that does not exist (i-1 of first layer) give any
 c ...value because the corrisponding a/b/c will be 0
+c
+c l starts from 1: for practical implementation reasons
+c we keep in the matrix removed top layers (with identity sub-matrix)
+c For such layers, momentum update is fake: IU=0 -> U=0  
+c By the way the solution is unused
 c-------------------------------------------------------------
 
 	do l=1,ilevel
 
-	bfirst = l .eq. 1
+	bfirst = l .eq. jlevel
 	blast  = l .eq. ilevel
 	
 	lp = min(l+1,ilevel)
-	lm = max(l-1,1)
+	lm = max(l-1,jlevel)
 
 	uui = utlov(l,ie)
 	uuip = utlov(lp,ie)
@@ -1353,7 +1356,7 @@ c-------------------------------------------------------------
 	if( afix /= 0. ) then
 	  dtafix = dt * afix
 	  !ierr = ieee_handler( 'set', 'exception', SIGFPE_IGNORE )
-	  do l=1,ilevel
+	  do l=jlevel,ilevel
 	    utlnv(l,ie) = utlov(l,ie) - dtafix * rvec(2*l-1)
 	    vtlnv(l,ie) = vtlov(l,ie) - dtafix * rvec(2*l)
 	  end do
@@ -1453,7 +1456,7 @@ c post processing of time step
 
 	logical bcolin,bdebug
 	integer ie,ii,l,kk,ie_mpi
-	integer ilevel
+	integer ilevel,jlevel
 	integer ju,jv
         integer afix            !chao dbf
 	real dt,azpar,ampar
@@ -1463,14 +1466,13 @@ c post processing of time step
 	double precision du,dv
 	double precision rfix,rcomp
 c function
-	integer iround
 	real getpar
 
 c-------------------------------------------------------------
 c initialize
 c-------------------------------------------------------------
 
-	bcolin=iround(getpar('iclin')).ne.0	! linearized conti
+	bcolin=nint(getpar('iclin')).ne.0	! linearized conti
 	bdebug = .false.
 
 	call get_timestep(dt)
@@ -1486,10 +1488,10 @@ c-------------------------------------------------------------
 
 	do ie_mpi=1,nel
 
-	ie = ie_mpi
 	ie = ip_sort_elem(ie_mpi)
 
 	ilevel=ilhv(ie)
+	jlevel=jlhv(ie)
 
 	rcomp = rcomputev(ie)		!use terms in element
         afix = 1 - iuvfix(ie)       	!chao dbf
@@ -1513,7 +1515,7 @@ c	------------------------------------------------------
 c	new transports from u/v hat variable
 c	------------------------------------------------------
 
-	do l=1,ilevel
+	do l=jlevel,ilevel
 
 	  jv=l+l
 	  ju=jv-1
@@ -1532,7 +1534,7 @@ c	------------------------------------------------------
 
 	um = 0.
 	vm = 0.
-	do l=1,ilevel
+	do l=jlevel,ilevel
 	  um = um + utlnv(l,ie)
 	  vm = vm + vtlnv(l,ie)
 	end do
@@ -1580,6 +1582,7 @@ c vv            aux array for area
 	use mod_bound_geom
 	use mod_geom_dynamic
 	use mod_bound_dynamic
+	use mod_layer_thickness
 	use mod_hydro_vel
 	use mod_hydro
 	use evgeom
@@ -1593,9 +1596,10 @@ c arguments
 	real dzeta(nkn)
 c local
 	logical debug
-	integer k,ie,ii,kk,l,lmax
-	integer ilevel
+	integer k,ie,ii,kk,l,lmax,lmin,ie_mpi
+	integer ilevel,jlevel
         integer ibc,ibtyp
+	integer kext,kint
 	real aj,wbot,wdiv,ff,atop,abot,wfold
 	real b,c
 	real am,az,azt,azpar,ampar
@@ -1607,16 +1611,16 @@ c local
 c statement functions
 
 	logical is_zeta_bound
+	integer ipint
 	real volnode
 
-	!logical isein
-        !isein(ie) = iwegv(ie).eq.0
+	kint = 0
 
 c 2d -> nothing to be done
 
 	dzeta = 0.
 	wlnv = 0.
-	if( nlvdi == 1 ) return
+	if( nlv_global == 1 ) return	!MPI_bug
 
 c initialize
 
@@ -1635,11 +1639,13 @@ c
 c f(ii) > 0 ==> flux into node ii
 c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 
-	do ie=1,nel
+	do ie_mpi=1,nel
+         ie = ip_sort_elem(ie_mpi)
 	 !if( isein(ie) ) then		!FIXME
 	  aj=4.*ev(10,ie)		!area of triangle / 3
 	  ilevel = ilhv(ie)
-	  do l=1,ilevel
+	  jlevel = jlhv(ie)
+	  do l=jlevel,ilevel
 	    do ii=1,3
 		kk=nen3v(ii,ie)
 		b = ev(ii+3,ie)
@@ -1676,10 +1682,16 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
+	  lmin = jlhkv(k)
 	  wlnv(lmax,k) = 0.
-	  debug = k .eq. 0
+	  debug = k .eq. kint
+	  if( debug ) then
+	    write(670,*) '----------------------'
+	    write(670,*) va(lmin:lmax,k)
+	    write(670,*) vf(lmin:lmax,k)
+	  end if
 	  abot = 0.
-	  do l=lmax,1,-1
+	  do l=lmax,lmin,-1
 	    atop = va(l,k)
             voln = volnode(l,k,+1)
             volo = volnode(l,k,-1)
@@ -1690,11 +1702,16 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	    !wlnv(l-1,k) = wlnv(l,k) + (wdiv-dvdt+wfold)/az
 	    wlnv(l-1,k) = wlnv(l,k) + wdiv - dvdt
 	    abot = atop
-	    if( debug ) write(6,*) k,l,wdiv,wlnv(l,k),wlnv(l-1,k)
+	    if( debug ) then
+		write(670,*) k,l
+		write(670,*) wdiv,dvdt,voln,volo
+		write(670,*) wlnv(l,k),wlnv(l-1,k)
+		write(670,*) hdknv(l,k),hdkov(l,k)
+	    end if
 	  end do
-	  dz = dt * wlnv(0,k) / va(1,k)
+	  dz = dt * wlnv(lmin-1,k) / va(lmin,k)
 	  dzmax = max(dzmax,abs(dz))
-	  wlnv(0,k) = 0.	! ensure no flux across surface - is very small
+	  wlnv(lmin-1,k) = 0.	! ensure no flux across surface - is very small
 	  dzeta(k) = dz
 	end do
 
@@ -1702,12 +1719,13 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-	  debug = k .eq. 0
-	  do l=2,lmax
+	  lmin = jlhkv(k)
+	  debug = k .eq. kint
+	  do l=lmin+1,lmax
 	    atop = va(l,k)
 	    if( atop .gt. 0. ) then
 	      wlnv(l-1,k) = wlnv(l-1,k) / atop
-	      if( debug ) write(6,*) k,l,atop,wlnv(l-1,k)
+	      if( debug ) write(670,*) k,l,atop,wlnv(l-1,k)
 	    end if
 	  end do
 	end do
@@ -1831,4 +1849,207 @@ c*******************************************************************
 	end
 
 c*******************************************************************
+
+	subroutine hydro_debug(iwhat)
+
+	use mod_internal
+	use mod_depth
+	use mod_hydro_baro
+	use mod_hydro
+	use evgeom
+	use levels
+	use basin
+	use shympi
+
+	implicit none
+
+	integer iwhat
+	integer iedbg,iudbg,ie,lmax
+	double precision du,dv
+
+	integer ieint
+
+	iedbg = 5215
+	iudbg = 530 + my_id
+	ie = ieint(iedbg)
+	if( ie == 0 ) return
+
+	lmax = ilhv(ie)
+	write(iudbg,*) '============================'
+	write(iudbg,*) iwhat
+	write(iudbg,*) '============================'
+	write(iudbg,*) my_id,nel,ie,iedbg,lmax
+	write(iudbg,*) utlnv(1:lmax,ie)
+	write(iudbg,*) vtlnv(1:lmax,ie)
+	write(iudbg,*) unv(ie),vnv(ie)
+	du = unv(ie)
+	dv = vnv(ie)
+	write(iudbg,*) du,dv
+
+	end
+
+c******************************************************************
+
+	subroutine test_nan(kn,hia,hik)
+
+	use shympi
+
+	implicit none
+
+	integer kn(3)
+	real hia(3,3)
+	real hik(3)
+
+	logical bdebug
+	integer i,ks
+
+	ks = 1333
+	bdebug = .false.
+
+	do i=1,3
+	  if( kn(i) == ks ) bdebug = .true.
+	end do
+	if( my_id /= 2 ) bdebug = .false.
+	if( bdebug ) then
+	  write(6,*) 'kn = ',ks,' my_id = ',my_id
+	  write(6,*) 'hia',hia
+	  write(6,*) 'hik',hik
+	end if
+
+	end
+
+c******************************************************************
+c******************************************************************
+c******************************************************************
+
+	subroutine zeta_debug(iloop,iwhat,dtime)
+
+	use shympi
+	use shympi_debug
+	use basin
+	use levels
+	use mod_hydro
+	use mod_geom_dynamic
+	use mod_bound_dynamic
+	use mod_diff_visc_fric
+
+	implicit none
+
+	integer iloop
+	integer iwhat
+	double precision dtime
+
+	integer iu,k,ie,iext,lmax
+	real rnode(nkn)
+	real relem(nel)
+	double precision daux
+
+	integer ieint
+
+	real, allocatable :: raux(:,:)
+
+	if( dtime < 28700 ) return
+	if( dtime > 28700 ) return
+	!return
+
+	allocate(raux(nlvdi,nel))
+
+	iu = 555
+
+	call debug_test_node_array(iu,iloop,iwhat,znv)
+	call debug_test_node_array(iu,iloop,iwhat,rqv)
+	call debug_test_node_array(iu,iloop,iwhat,rqdsv)
+	
+	call debug_test_elem_array(iu,iloop,iwhat,3,zenv)
+	
+	rnode = inodv
+	call debug_test_node_array(iu,iloop,iwhat,rnode)
+
+	relem = iwegv
+	call debug_test_elem_array(iu,iloop,iwhat,1,relem)
+	relem = iwetv
+	call debug_test_elem_array(iu,iloop,iwhat,1,relem)
+
+	iu = 580 + my_id
+	iext = 10066
+	ie = ieint(iext)
+	if( ie > 0 ) then
+	lmax = ilhv(ie)
+	write(iu,*) iext,ie,lmax,iloop,iwhat
+	write(iu,*) id_elem(:,ie)
+	write(iu,1000) utlnv(1:lmax,ie)
+	write(iu,1000) vtlnv(1:lmax,ie)
+	flush(iu)
+ 1000	format(10e16.8)
+	end if
+
+	daux = dtime - 50 + 10*iloop + iwhat
+	call shympi_write_debug_time(daux)
+        call shympi_write_debug_elem('utlnv',utlnv)
+        call shympi_write_debug_elem('vtlnv',vtlnv)
+        !call shympi_write_debug_elem('fxv',fxv)
+        !call shympi_write_debug_elem('fyv',fyv)
+        call shympi_write_debug_elem('rfricv',rfricv)
+        call shympi_write_debug_elem('rcdv',rcdv)
+        call shympi_write_debug_elem('bnstressv',bnstressv)
+
+	call shympi_write_debug_final
+
+	end
+
+c******************************************************************
+
+	subroutine debug_test_node_array(iu,iloop,iwhat,ra)
+
+	use shympi
+	use basin
+
+	implicit none
+
+	integer iu,iloop,iwhat
+	real ra(nkn)
+
+	integer ng,i
+	real, allocatable :: rag(:)
+
+	iu = iu + 1
+
+	ng = nkn_global
+	allocate(rag(ng))
+	call shympi_l2g_array(ra,rag)
+
+	do i=1,ng
+	  write(iu,*) i,iloop,iwhat,rag(i)
+	end do
+
+	end
+
+c******************************************************************
+
+	subroutine debug_test_elem_array(iu,iloop,iwhat,ifix,ra)
+
+	use shympi
+	use basin
+
+	implicit none
+
+	integer iu,iloop,iwhat,ifix
+	real ra(ifix,nel)
+
+	integer ng,i
+	real, allocatable :: rag(:,:)
+
+	iu = iu + 1
+
+	ng = nel_global
+	allocate(rag(ifix,ng))
+	call shympi_l2g_array(ifix,ra,rag)
+
+	do i=1,ng
+	  write(iu,*) i,iloop,iwhat,rag(:,i)
+	end do
+
+	end
+
+c******************************************************************
 

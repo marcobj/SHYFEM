@@ -24,18 +24,20 @@
 !
 !--------------------------------------------------------------------------
 
-c revision log :
-c
-c 20.07.2018	ccf	from scratch
-c 25.10.2018	ggu	changed VERS_7_5_51
-c 14.02.2019	ggu	changed VERS_7_5_56
-c 16.02.2019	ggu	changed VERS_7_5_60
-c 29.01.2020	ggu	old call to nc_output_record_reg() substituted
-c 26.06.2021	ggu	better output to terminal
-c 21.03.2022	ggu	compute density by type (blgtype)
-c 23.03.2022	ggu	bug fixes
-c
-c**************************************************************
+! revision log :
+!
+! 20.07.2018	ccf	from scratch
+! 25.10.2018	ggu	changed VERS_7_5_51
+! 14.02.2019	ggu	changed VERS_7_5_56
+! 16.02.2019	ggu	changed VERS_7_5_60
+! 29.01.2020	ggu	old call to nc_output_record_reg() substituted
+! 26.06.2021	ggu	better output to terminal
+! 21.03.2022	ggu	compute density by type (blgtype)
+! 23.03.2022	ggu	bug fixes
+! 03.05.2022    ggu     use new option -nlgtype
+! 28.04.2023    ggu     update function calls for belem
+
+!**************************************************************
 
 	subroutine lgrelab
 
@@ -240,8 +242,13 @@ c--------------------------------------------------------------
           boutput = blgdens
           b2d = blg2d
 	  if( blgtype ) then	!compute density type per type
-            call lgr_compute_nvar(iu,nn,ncust,nvar)
-	    write(6,*) 'different types found: ',nvar
+	    if( nlgtype == 0 ) then
+              call lgr_compute_nvar(iu,nn,ncust,nvar)
+	      write(6,*) 'different types found: ',nvar
+	    else
+	      nvar = nlgtype
+	      write(6,*) 'using total number of types: ',nvar
+	    end if
             allocate(ivars(nvar))
 	    do i=1,nvar
 	      ivars(i) = 1000 + i
@@ -584,6 +591,7 @@ c***************************************************************
 	real				:: xp,x1,x2,x3,x4
 	real				:: yp,y1,y2,y3,y4
 	real				:: dx,dy 
+	logical, parameter		:: belem = .false.
 	integer				:: n,m,ix,iy
         character*60 string
 	integer iunit,ncid,nvers,var_id
@@ -746,12 +754,14 @@ c---------------------------------------------------------
 c---------------------------------------------------------
 c write to file
 c---------------------------------------------------------
+
         call shyelab_header_output(idout,ftype,dtime,nvar)
 
         if( outformat == 'shy' .or. outformat == 'native' ) then
 	  do i=1,nvar
 	    ivar = ivars(i)
-            call shy_write_output_record(idout,dtime,ivar,n,m
+            call shy_write_output_record(idout,dtime,ivar
+     +                        ,belem,n,m
      +                        ,lmax,nlvdi,density(:,:,i))
 	  end do
         else if( outformat == 'gis' ) then

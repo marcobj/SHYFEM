@@ -374,6 +374,16 @@ c 27.05.2021	ggu	version 7.5.71	3rd wave Covid edition
 c 15.03.2022	ggu	version 7.5.72	Ides of March edition
 c 22.03.2022	ggu	version 7.5.73	Schnucki edition
 c 26.03.2022	ggu	version 7.5.74
+c 09.04.2022	ggu	version 7.5.75  Istanbul I edition
+c 12.04.2022	ggu	version 7.5.77  Istanbul II edition bis
+c 06.05.2022	ggu	version 7.5.78  WW3 edition
+c 19.05.2022	ggu	version 7.5.79  Istanbul III edition
+c 19.05.2022	ggu	version 7.5.80  Istanbul III edition bis
+c 04.12.2022	ggu	version 7.5.81  Malta edition
+c 04.12.2022	ggu	version 7.5.82  Malta edition bis
+c 24.03.2023	ggu	version 7.5.83  Pre-Istanbul23 edition
+c 25.09.2023	ggu	version 7.5.84  Pre-community edition
+c 06.03.2024	ggu	version 7.5.85  This is the end edition
 c
 c*****************************************************************
 
@@ -383,9 +393,9 @@ c*****************************************************************
 
 c DOCS	START	P_version
 c
-c \newcommand{\VERSION}{7.5.74}
-c \newcommand{\version}{7\_5\_74}
-c \newcommand{\COMMIT}{2022-03-26}
+c \newcommand{\VERSION}{7.5.85}
+c \newcommand{\version}{7\_5\_85}
+c \newcommand{\COMMIT}{2024-03-06}
 c
 c DOCS	END
 
@@ -393,8 +403,8 @@ c DOCS	END
 
 	logical, save		:: bshort = .false.
 
-        character*10, parameter :: version = '7.5.74'
-        character*10, parameter :: commit  = '2022-03-26'
+        character*10, parameter :: version = '7.5.85'
+        character*10, parameter :: commit  = '2024-03-06'
         character*17, parameter :: text    = 'SHYFEM VERSION = '
 
         character*40, parameter :: string = text//version//'  '//commit
@@ -402,7 +412,7 @@ c DOCS	END
 	character*50, parameter :: acronym =
      +	    	'System of HydrodYnamic Finite Element Modules'
 	character*50, parameter :: copyright =
-     +		'Copyright (C) The Shyfem Team 1985-2022'
+     +		'Copyright (C) The Shyfem Team 1985-2024'
 
 !=================================================================
 	end module shyfem_version

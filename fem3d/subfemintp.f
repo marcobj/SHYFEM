@@ -100,6 +100,15 @@
 ! 17.11.2021    ggu     iff_interpolate renamed to iff_final_time_interpolate
 ! 17.11.2021    ggu     bflow added to trace calls
 ! 17.11.2021    dbf     bug fix in iff_init -> BC handling was wrong
+! 28.03.2022    ggu     minor changes in iff_print_info()
+! 29.04.2022    ggu     in iff_interpolate_vertical_int() skip ipl==0
+! 16.06.2022    ggu     use condense_valid_coordinates() before interpolating
+! 01.12.2022    ggu     use recollocate_nodes() for placing values
+! 03.12.2022    ggu     some debug code, bug fix GORO
+! 27.04.2023    ggu     avoid creating automatic temporary array
+! 09.05.2023    lrp     introduce top layer index variable
+! 22.05.2023    ggu     new routine iff_ts_intp1()
+! 05.06.2023    lrp     introduce z-star
 !
 !****************************************************************
 !
@@ -235,6 +244,7 @@
 	real, save, allocatable :: hlv_fem(:)
 
 	logical, save :: bdebug_internal = .false.
+	logical, save :: bdebugs = .false.
 	integer, parameter :: iflow = 0			!unit for flow output
 	logical, save :: bflow = (iflow/=0)		!traces flow of calls
 
@@ -251,8 +261,9 @@
 	integer id,ids,ide,iu
 	logical debug
 	integer ilast,ifirst
-	character*38 name
-	character*80 descrp
+	integer, parameter :: name_length = 37
+	character(len=name_length) :: name
+	character*80 descrp,format
 
 	type(info), pointer :: p
 
@@ -270,19 +281,22 @@
 	  ide = idp
 	end if
 
+	write(format,'(a,i2,a)') '(6i5,1x,a10,1x,a',name_length,')'
+	!write(6,*) format
+	!format='(6i5,1x,a10,1x,a',itoa(name_length),')'
 	write(iu,*) 'iff_print_info:'
 	write(iu,1010)
 	do id=ids,ide
 	  p => pinfo(id)
 	  ilast = len_trim(pinfo(id)%file)
-	  ifirst = max(1,ilast-38+1)
+	  ifirst = max(1,ilast-name_length+1)
 	  name = pinfo(id)%file(ifirst:ilast)
 	  descrp = pinfo(id)%descript
 	  descrp = p%descript
-	  write(iu,1000) id,pinfo(id)%ibc
+	  write(iu,format) id,pinfo(id)%ibc
      +			,pinfo(id)%iunit,pinfo(id)%nvar
      +			,pinfo(id)%nintp,pinfo(id)%iformat
-     +			,descrp(1:10),name
+     +			,descrp(1:10),trim(name)
 	end do
 
 	if( .not. debug ) return
@@ -313,7 +327,7 @@
 
 	return
  1010	format('   id  ibc unit nvar intp form descript   file')
- 1000	format(6i5,1x,a10,1x,a38)
+ 1000	format(6i5,1x,a10,1x,a50)
 	end subroutine iff_print_info
 
 !****************************************************************
@@ -678,7 +692,7 @@
 	boperr = iformat == iform_error_opening		!error opening
 	berror = iformat == iform_error			!error file
 
-	if( bdebug_internal ) write(6,*) 'np,nexp: ',np,nexp
+	if( bdebug_internal ) write(6,*) 'iff_init np,nexp: ',np,nexp
 
 	id0 = 0
 	if( boperr ) then	!see if we can take data from other file
@@ -742,7 +756,7 @@
 	! get data description and allocate data structure
 	!---------------------------------------------------------
 
-	if( bdebug_internal ) write(6,*) 'breg = ',breg
+	if( bdebug_internal ) write(6,*) 'iff_init breg = ',breg
 
 	if( nexp > 0 
      +		.and. nexp /= nkn_fem .and. nexp /= nel_fem) then
@@ -1090,7 +1104,10 @@ c	 3	time series
 		pinfo(id)%nintp = 0
 		pinfo(id)%ilast = 1
 		call iff_allocate_fem_data_structure(id)
-		if( bdebug_internal ) call iff_print_file_info(id)
+		if( bdebug_internal ) then
+		  write(6,*) 'iff_populate_records'
+		  call iff_print_file_info(id)
+		end if
                 call iff_space_interpolate(id,1,dtime)
 		call iff_close_file(id)
         end if
@@ -1476,15 +1493,22 @@ c	 3	time series
 
 ! writes info on boundary data
 
+	use shympi
+
 	integer id
 
-	integer nintp,np,nexp,lexp,ip,lmax
+	integer nintp,np,nexp,lexp,ip,lmax,node,ks,kse
 	integer ivar,nvar,ireg
 	integer l,j,lfem,ipl
 	integer iu
 
+	integer ipext,ipint
+
 	iu = 6
-	iu = 654
+	iu = 760 + my_id
+
+	kse = 26398
+	ks = ipint(kse)
 
         nintp = pinfo(id)%nintp
         nvar = pinfo(id)%nvar
@@ -1506,13 +1530,17 @@ c	 3	time series
 	      do ip=1,nexp
 		ipl = ip
 		if( nexp /= nkn_fem ) ipl = pinfo(id)%nodes(ip)
+		if( ipl <= 0 ) cycle
 		lfem = ilhkv_fem(ipl)
-	        write(iu,*) 'node = ',ip,lfem,lexp
-	        write(iu,*) (pinfo(id)%data(l,ip,ivar,j),l=1,lexp)
+	        !write(iu,*) 'node = ',ip,lfem,lexp,ipl,kse
+	        write(iu,*) (pinfo(id)%data(l,ip,ivar,j),l=1,1)
+	        !write(iu,*) (pinfo(id)%data(l,ip,ivar,j),l=1,lexp)
 	      end do
 	    end do
 	  end do
 	  write(iu,*) 'end info_on_data: data -----------'
+
+	flush(iu)
 
 	end subroutine iff_info_on_data
 
@@ -1524,6 +1552,8 @@ c	 3	time series
 
 c interpolates in space all variables in data set id
 
+	use shympi
+
 	integer id
 	integer iintp
 	double precision dtime
@@ -1531,10 +1561,11 @@ c interpolates in space all variables in data set id
 	integer nintp,np,nexp,lexp,ip,lmax
 	integer ivar,nvar,ireg
 	integer l,j,lfem,ipl
+	integer iu
 	logical bts,bdebug
 
+	bdebug = id == 5 .and. my_id == 2
 	bdebug = .false.
-	!bdebug = id == 6
 
         pinfo(id)%time(iintp) = dtime
 
@@ -1552,7 +1583,9 @@ c interpolates in space all variables in data set id
 
 	if( ireg > 0 ) then
 	  if( lmax > 1 ) then				!file has 3D data
-	    if( bdebug_internal ) write(6,*) 'ggguuu iintp = ',iintp
+	    if( bdebug_internal ) then
+	      write(6,*) 'iff_space_interpolate iintp = ',iintp
+	    end if
 	    call iff_handle_regular_grid_3d(id,iintp)
 	  else						!file has 2D data
 	    call iff_handle_regular_grid_2d(id,iintp)
@@ -1577,23 +1610,27 @@ c interpolates in space all variables in data set id
 	end if
 
 	if( bdebug ) then
-	  write(6,*) 'iff_space_interpolate: data ---------------'
-	  write(6,*) np
-	  call iff_write_dtime('time = ',dtime)
+	  if( lexp == 0 ) lexp = 1
+	  iu = 456
+	  write(iu,*) 'iff_space_interpolate: data ---------------'
+	  write(iu,*) 'np = ',np,ireg,lmax
+	  write(iu,*) 'time = ',dtime
 	  do j=1,nintp
-	    write(6,*) 'iintp = ',j
+	    write(iu,*) 'iintp = ',j
 	    do ivar=1,nvar
 	      write(6,*) 'ivar = ',ivar
 	      do ip=1,nexp
 		ipl = ip
 		if( nexp /= nkn_fem ) ipl = pinfo(id)%nodes(ip)
+		if( ipl <= 0 ) cycle
 		lfem = ilhkv_fem(ipl)
-	        write(6,*) 'node = ',ip,lfem,lexp
-	        write(6,*) (pinfo(id)%data(l,ip,ivar,j),l=1,lexp)
+	        write(iu,*) 'node = ',ip,lfem,lexp
+	        write(iu,*) (pinfo(id)%data(l,ip,ivar,j),l=1,lexp)
 	      end do
 	    end do
 	  end do
-	  write(6,*) 'end iff_space_interpolate: data -----------'
+	  write(iu,*) 'end iff_space_interpolate: data -----------'
+	  flush(iu)
 	end if
 
 	return
@@ -1622,6 +1659,8 @@ c interpolates in space all variables in data set id
 
 ! data in file is 2D -> interpolate and distribute levels
 
+	use shympi
+
 	integer id
 	integer iintp
 
@@ -1635,6 +1674,8 @@ c interpolates in space all variables in data set id
 	real, allocatable :: data(:,:,:)
 
 	bdebug = .true.
+	bdebug = id == 5 .and. my_id == 2
+	!bdebug = id == 5 .and. my_id == 3
 	bdebug = .false.
 
 	nx = nint(pinfo(id)%regpar(1))
@@ -1704,7 +1745,7 @@ c interpolates in space all variables in data set id
 
 	!if( ierr /= 0 ) stop
 
-	if( bdebug ) then
+	if( .false. .and. bdebug ) then
 	  write(166,*) '2d interpolation: ',nvar,lexp,nexp
 	  do ivar=1,nvar
 	    write(166,*) trim(pinfo(id)%strings_file(ivar))
@@ -1731,6 +1772,7 @@ c interpolates in space all variables in data set id
 	write(6,*) 'imode =  ',imode
 	write(6,*) 'id =  ',id
 	write(6,*) 'ivar =  ',ivar
+	write(6,*) 'nexp =  ',nexp,nkn_fem,nel_fem
 	write(6,*) 'string =  ',trim(pinfo(id)%strings_file(ivar))
 	write(6,*) 'bneedall =  ',bneedall
 	stop 'error stop iff_handle_regular_grid_2d: reg interpolate'
@@ -1742,28 +1784,36 @@ c interpolates in space all variables in data set id
 
 ! data in file is 3D -> interpolate all levels
 
+	use shympi
+
 	integer id
 	integer iintp
 
 	logical bneedall,bdebug
 	integer ivar,nvar
 	integer nx,ny
-	integer nexp,lexp
+	integer nexp,lexp,nc,norig
 	integer np,ip,l,lmax,nstride
 	integer llev(3)
-	integer ierr
+	integer ierr,iu,i
 	real x0,y0,dx,dy,flag
 	real, allocatable :: fr(:,:)
 	real, allocatable :: data(:,:,:)
+	real, allocatable :: data_aux(:,:)
 	real, allocatable :: data2dreg(:)
 	real, allocatable :: data2dfem(:)
 	real, allocatable :: hfem(:)
 	real, allocatable :: xp(:),yp(:)
+	integer, allocatable :: nodesc(:)
+	integer, allocatable :: ipg(:)
 
 	!integer get_max_node_level,k
 
 	bdebug = .true.
 	bdebug = .false.
+
+	iu = 760 + my_id
+	bdebug = ( id == 7 )
 
         nvar = pinfo(id)%nvar
 
@@ -1781,23 +1831,32 @@ c interpolates in space all variables in data set id
 	bneedall = pinfo(id)%bneedall
 	pinfo(id)%flag = flag		!use this in time_interpolate
 
-	if( bdebug_internal ) write(6,*) 'nexp = ',nexp
+	if( bdebug_internal ) then
+	  write(6,*) 'iff_handle_regular_grid_3d nexp = ',nexp
+	end if
 
 	if( np /= nx*ny ) goto 95
 	if( lexp == 0 ) lexp = 1
 
 	allocate(fr(4,nexp))
 	allocate(data(lmax,nexp,nvar))
+	allocate(data_aux(lmax,nvar))
 	allocate(data2dreg(np),data2dfem(nexp))
 	allocate(hfem(nexp))
 	allocate(xp(nexp),yp(nexp))
+	allocate(nodesc(nexp))
+	allocate(ipg(nexp))
 
+	norig = nexp
 	if( nexp == nkn_fem ) then
 	  call bas_get_node_coordinates(xp,yp)
 	else if( nexp == nel_fem ) then
 	  call bas_get_elem_coordinates(xp,yp)
 	else if( allocated(pinfo(id)%nodes) ) then
-	  call bas_get_special_coordinates(nexp,pinfo(id)%nodes,xp,yp)
+	  call condense_valid_coordinates(nexp,pinfo(id)%nodes
+     +					,nc,nodesc,ipg)
+	  nexp = nc
+	  call bas_get_special_coordinates(nexp,nodesc,xp,yp)
 	else
 	  goto 98
 	end if
@@ -1806,12 +1865,16 @@ c interpolates in space all variables in data set id
 	call setregextend( .true. )
 
 	call intp_reg_setup_fr(nx,ny,x0,y0,dx,dy,nexp,xp,yp,fr,ierr)
-	if( ierr /= 0 ) stop 'error stop intp_reg_setup_fr: depth'
+	if( ierr /= 0 ) then
+	  write(6,*) 'intp_reg_setup_fr: ',nexp,nkn_fem,nel_fem,ierr
+	  stop 'error stop intp_reg_setup_fr: depth'
+	end if
 
 	ierr = 0
 	!if( bdebug ) ierr = -1
 	call intp_reg_intp_fr(nx,ny,flag,pinfo(id)%hd_file
      +            ,nexp,fr,hfem,ierr)	!interpolate depth from reg to fem
+	call recollocate_nodes(norig,nexp,ipg,hfem)
 
 	ierr = 0	!ignore error from depth interpolation
 	if( ierr /= 0 ) then
@@ -1829,20 +1892,41 @@ c interpolates in space all variables in data set id
 	    call intp_reg_intp_fr(nx,ny,flag,data2dreg
      +                          ,nexp,fr,data2dfem,ierr)
 	    if( ierr /= 0 ) goto 99
+	    call recollocate_nodes(norig,nexp,ipg,data2dfem)
 	    data(l,:,ivar) = data2dfem
 	  end do
 	end do
 
 	! data has values on same levels as regular file
+	! we have to interpolate on the model layers
+	! this is done in iff_interpolate_vertical_int
+	! there we also copy the data to pinfo(id)%data
 
-	if( bdebug_internal ) write(6,*) '++++ ',nexp,iintp,lmax
+	nexp = norig		!bug fix GORO
+
+	if( bdebug_internal ) then
+	  write(6,*) 'iff_handle_regular_grid_3d +++ ',nexp,iintp,lmax
+	end if
+	if( bdebugs .and .bdebug ) then
+	  write(iu,*) 'iff_handle_regular_grid_3d +++ ',nexp,iintp,lmax
+	  write(iu,*) data(1,:,1)
+	end if
 
 	do ip=1,nexp
+	  if( bdebugs .and .bdebug ) then
+	    write(iu,*) 'xxxxxxxxx',data(1,ip,1)
+	  end if
+	  data_aux = data(:,ip,:)
 	  call iff_interpolate_vertical_int(id,iintp
-     +				,lmax,hfem(ip),data(:,ip,:),ip)
+     +				,lmax,hfem(ip),data_aux,ip)
 	end do
 
-	if( bdebug ) then
+	if( bdebug .and. bdebugs ) then
+	  write(iu,*) 'data on nodes after vertical intp',nexp
+	  write(iu,*) data(1,:,1)
+	end if
+
+	if( .false. .and. bdebug ) then
 	  llev = (/1,1,1/)
 	  if( lexp > 1 ) llev = (/1,(lexp+1)/2,lexp/)
 	  write(166,*) '3d interpolation: ',nvar,lexp,nexp
@@ -1957,14 +2041,14 @@ c interpolates in space all variables in data set id
 
 	integer id
 	integer iintp
-	real data(pinfo(id)%nvar)
+	real, intent(in) :: data(pinfo(id)%nvar)
 	integer ip_to
 
 	integer lfem,l,ipl,lexp
 	integer ivar,nvar
 	real value
 
-        nvar = pinfo(id)%nvar
+        nvar  = pinfo(id)%nvar
 	lexp = pinfo(id)%lexp
 
 	if( lexp <= 1 ) then		!2D
@@ -2020,12 +2104,12 @@ c interpolates in space all variables in data set id
 	integer ip_to
 
 	logical bdebug
-	integer l
+	integer l,lmin
 	integer ivar,nvar
-	integer nsigma
+	integer nsigma,nadapt
 	double precision acum,htot
 	real z
-	real hsigma
+	real hsigma,hadapt
 	real value,hlayer
 	real hl(pinfo(id)%lmax)
 
@@ -2037,10 +2121,13 @@ c interpolates in space all variables in data set id
 	if( h < -990. ) h = pinfo(id)%hlv_file(lmax)	!take from hlv array
 	if( h < 0. ) h = 1.				!hlv is sigma -> any h
 	z = 0.
-
+	lmin=1						!file layer structure: lmin   always ==1
+	nadapt=0					!file layer structure: nadapt always == 0
+	hadapt=0.			
 	call compute_sigma_info(lmax,pinfo(id)%hlv_file,nsigma,hsigma)
-	call get_layer_thickness(lmax,nsigma,hsigma,z,h
-     +					,pinfo(id)%hlv_file,hl)
+	call get_layer_thickness(lmax,lmin,nsigma,nadapt,
+     +				 hsigma,hadapt,z,h,pinfo(id)%hlv_file,hl)
+
 
 	do ivar=1,nvar
 	  acum = 0.
@@ -2095,21 +2182,23 @@ c global lmax and lexp are > 1
 
 c global lmax and lexp are > 1
 
+	use shympi
+
 	integer id
 	integer iintp
 	integer lmax
 	real h		!depth of data to be interpolated
-	real data(pinfo(id)%lmax,pinfo(id)%nvar)
+	real, intent(in) :: data(pinfo(id)%lmax,pinfo(id)%nvar)
 	integer ip_to
 
 	logical bcenter,bcons
-	integer l,ipl,lfem
+	integer l,ipl,lfem,lmin
 	integer ivar,nvar
-	integer nsigma
+	integer nsigma,nadapt
 	integer iu
 	double precision acum,htot
 	real z,hfem,hfile
-	real hsigma
+	real hsigma,hadapt
 	real value,hlayer
 	real hl(pinfo(id)%lmax)
 	real hz_file(0:pinfo(id)%lmax+1)
@@ -2122,16 +2211,23 @@ c global lmax and lexp are > 1
 	bcenter = .false.
 	bcons = .false.
 	bdebug = .true.
-	bdebug = .false.
 	!bdebug = ip_to == 100
-	iu = 66
+	iu = 760 + my_id
+	bdebug = ( bdebugs .and. id == 7 )
+	bdebug = .false.
 	!bdebug = id == 8 .and. ip_to == 50
 	!if( bdebug ) write(6,*) 'debugging ',id,ip_to
 
         nvar = pinfo(id)%nvar
 
+	if( bdebug ) then
+	  write(iu,*) 'yyyyyyyyyyyyyyyy'
+	  write(iu,*) lmax,pinfo(id)%lmax,pinfo(id)%nvar,data(1,1)
+	end if
+
 	ipl = ip_to
 	if( pinfo(id)%nexp /= nkn_fem ) ipl = pinfo(id)%nodes(ip_to)
+	if( ipl <= 0 ) return	!node not in domain
 	lfem = ilhkv_fem(ipl)
 
 	if( lmax <= 1 ) then
@@ -2149,15 +2245,21 @@ c global lmax and lexp are > 1
 	if( hfile < -990. ) hfile = pinfo(id)%hlv_file(lmax) !take from hlv
 	if( hfile == -1. ) hfile = hfem 		!hlv is sigma -> hfem
 
+	!write(6,*) 'ggu: ',lmax,lfem,ipl,hfem,hfile
+
+	lmin=1						!file layer structure: lmin always 1
+	nadapt=0					!file layer structure: nadapt always 0
+	hadapt=0.			
 	call compute_sigma_info(lmax,pinfo(id)%hlv_file,nsigma,hsigma)
-	call get_layer_thickness(lmax,nsigma,hsigma,z,hfile
-     +					,pinfo(id)%hlv_file,hl)
+	call get_layer_thickness(lmax,lmin,nsigma,nadapt,
+     +				 hsigma,hadapt,z,hfile,pinfo(id)%hlv_file,hl)
 	call get_depth_of_layer(bcenter,lmax,z,hl,hz_file(1))
 	hz_file(0) = z
 
 	call compute_sigma_info(lfem,hlv_fem,nsigma,hsigma)
-	call get_layer_thickness(lfem,nsigma,hsigma,z,hfem
-     +					,hlv_fem,hl_fem)
+	call compute_zadapt_info(z,hlv_fem,nsigma,lfem,lmin,nadapt,hadapt)
+	call get_layer_thickness(lfem,lmin,nsigma,nadapt,
+     +				 hsigma,hadapt,z,hfem,hlv_fem,hl_fem)
 	call get_depth_of_layer(bcenter,lfem,z,hl_fem,hz_fem(1))
 	hz_fem(0) = z
 
@@ -2199,6 +2301,8 @@ c global lmax and lexp are > 1
 
 	subroutine iff_time_interpolate(id,itact,ivar,ndim,ldim,value)
 
+	use shympi
+
 	integer id
 	double precision itact
 	integer ivar
@@ -2206,19 +2310,22 @@ c global lmax and lexp are > 1
 	integer ldim		!vertical dimension of value
 	real value(ldim,ndim)
 
-	integer iv,nvar,iformat
+	integer iv,nvar,iformat,iu
 	integer nintp,lexp,nexp
 	integer ilast,ifirst
 	double precision it,itlast,itfirst
 	double precision atime
 	character*20 aline
-	logical bok
+	logical bok,bdebug
 	double precision t,tc
 
 	if( bflow ) then
 	  write(iflow,*) 'iff: iff_time_interpolate: '
      +				,id,ivar,itact
 	end if
+
+	bdebug = ( id == 7 )
+	iu = 760 + my_id
 
 	!---------------------------------------------------------
 	! set up parameters
@@ -2264,6 +2371,16 @@ c global lmax and lexp are > 1
 	!---------------------------------------------------------
 	! do the interpolation
 	!---------------------------------------------------------
+
+	if( bdebug_internal ) then
+	  call shympi_barrier
+	  write(6,*) 'qqqqqqqqq ',ivar,id,ndim,ldim
+	  flush(6)
+	end if
+
+	if( bdebug .and. bdebugs ) then
+	  write(iu,*) 'ggguuu before time interpolation',ivar
+	end if
 
 	if( ivar .eq. 0 ) then
 	  do iv=1,nvar
@@ -2351,10 +2468,13 @@ c this routine determines if new data has to be read from file
 
 c this routine reads and space interpolates new data - no parallel execution
 
+	use shympi
+
 	integer id
 	double precision t		!time for which to interpolate
 
 	logical bok
+	logical bdebug
 	integer ilast,nintp
 	double precision itlast,it
 	double precision tc		!check time
@@ -2362,6 +2482,10 @@ c this routine reads and space interpolates new data - no parallel execution
 	if( bflow ) then
 	  write(iflow,*) 'iff: iff_read_and_interpolate: ',id,t
 	end if
+
+	bdebug = id == 7 .and. my_id == 0
+	!bdebug = .true.
+	bdebug = .false.
 
 	bok = .true.
         nintp = pinfo(id)%nintp
@@ -2372,6 +2496,9 @@ c this routine reads and space interpolates new data - no parallel execution
 	tc = tcomp(t,nintp,ilast,pinfo(id)%time)
 
         do while( tc < t )
+	  if( bdebug ) then
+	    write(6,*) 'iff_read_and_interpolate: ',tc,t,ilast
+	  end if
           bok = iff_read_next_record(id,it)
 	  if( .not. bok ) exit
 	  if( it <= itlast ) goto 99
@@ -2403,6 +2530,8 @@ c this routine reads and space interpolates new data - no parallel execution
 
 c does the final interpolation in time
 
+	use shympi
+
 	integer id
 	double precision t
 	integer ivar
@@ -2410,15 +2539,17 @@ c does the final interpolation in time
 	integer ldim		!vertical dimension of value
 	real value(ldim,ndim)
 
-	integer nintp,lexp,nexp,ilast
+	integer nintp,lexp,nexp,ilast,node,nn
 	logical bonepoint,bconst,bnodes,b2d,bmulti,bflag
 	integer ipl,lfem,i,l,ip,j,iflag
 	real val,tr,flag
 	double precision time(pinfo(id)%nintp)
+	double precision, parameter :: zero = 0.0d+0
 	!real time(pinfo(id)%nintp)
 	real vals(pinfo(id)%nintp)
 	double precision rd_intp_neville
 	real intp_neville
+	character*80 string
 
         nintp = pinfo(id)%nintp
         lexp = max(1,pinfo(id)%lexp)
@@ -2433,6 +2564,7 @@ c does the final interpolation in time
 
 	tr = t		!real version of t
 	iflag = 0
+	nn = 0
 
 	if( bconst .or. bonepoint ) then
 	  if( bconst ) then
@@ -2456,14 +2588,18 @@ c does the final interpolation in time
 	  end do
 	else
 	  time = pinfo(id)%time
+	  value = -888.
+	  if( bdebugs ) call iff_debug(id,zero,'before ttt')
 	  do i=1,nexp
+	    ipl = i
+	    if( nexp /= nkn_fem .and. nexp /= nel_fem ) then
+	      ipl = pinfo(id)%nodes(i)
+	    end if
+	    if( ipl <= 0 ) cycle
+	    nn = nn + 1
 	    if( b2d ) then
 	      lfem = 1
 	    else
-	      ipl = i
-	      if( nexp /= nkn_fem .and. nexp /= nel_fem ) then
-		ipl = pinfo(id)%nodes(i)
-	      end if
 	      lfem = ilhkv_fem(ipl)
 	    end if
 	    val = -888.		!just for check
@@ -2474,6 +2610,15 @@ c does the final interpolation in time
 	        vals(j) = pinfo(id)%data(l,i,ivar,j)
 	        if( vals(j) == flag ) bflag = .true.
 	      end do
+	      if( bdebug_internal ) then
+	        if( id == 5 ) then
+	          node = pinfo(id)%nodes(i)
+		  write(6,*) 'yyyyyyyyyyy 1',i,l,lfem,nintp,node
+		  write(6,*) 'yyyyyyyyyyy 2',t
+		  write(6,*) 'yyyyyyyyyyy 3',time
+	  	  write(6,*) 'yyyyyyyyyyy 4',vals
+	        end if
+	      end if
 	      if( .not. bflag ) val = rd_intp_neville(nintp,time,vals,t)
 	      value(l,i) = val
 	      if( val == flag ) iflag = iflag + 1
@@ -2483,6 +2628,13 @@ c does the final interpolation in time
 	      if( val == flag ) iflag = iflag + 1
 	    end do
 	  end do
+	end if
+
+	if( bdebug_internal ) then
+	  string = pinfo(id)%descript
+	  write(6,'(a,a,5i5)') 'xxxxxx end of interpolation: '
+     +				,trim(string)
+     +				,my_id,nn,nexp,ivar,id
 	end if
 
 	if( iflag > 0 .and. pinfo(id)%bneedall ) then
@@ -2695,30 +2847,42 @@ c does the final interpolation in time
 
 	subroutine iff_debug(id,dtime,text)
 
+	use shympi
+
 	integer id
 	double precision dtime
 	character*(*) text
 
-	integer ilast,nintp
+	logical balloc
+	integer ilast,nintp,naux
 	double precision dtact
-	integer, save :: iu = 678
+	integer iu
 
 	return
-	if( id <= 0 ) return
 
-	if( id /= 5 ) return
+	iu = 760 + my_id
+	if( id <= 0 ) return
+	if( id /= 7 ) return
+	!if( my_id /= 2 ) return
 
 	call get_act_dtime(dtact)
 	write(iu,*) '-----------------------------------------'
 	write(iu,*) id,nint(dtime),nint(dtact),'   ',trim(text)
 	ilast = pinfo(id)%ilast
 	nintp = pinfo(id)%nintp
-	write(iu,*) '       ',ilast,nintp
-	if( allocated(pinfo(id)%time) ) then
+	balloc = ( allocated(pinfo(id)%time) )
+	naux = 0
+	if( balloc ) naux = size(pinfo(id)%time)
+	write(iu,*) '       ',ilast,nintp,naux
+	if( balloc ) then
 	  write(iu,*) '       ',nint(pinfo(id)%time)
 	else
 	  write(iu,*) '       ','not allocated'
 	end if
+
+	call iff_info_on_data(id)
+
+	flush(iu)
 
 	end subroutine iff_debug
 
@@ -2778,9 +2942,17 @@ c opens and inititializes file
 	double precision dtime
         real values(*)            !interpolated values
 
-	integer ldim,ndim,ivar,nvar
+	real valaux(1,1)
+	integer ldim,ndim,ivar,nvar,nsize
 
 	nvar = iff_get_nvar(id)
+	!nsize = size(values)
+	nsize = nvar		!HACK
+
+	if( nvar > nsize ) then
+	  write(6,*) 'nvar,nsize: ',nvar,nsize
+	  stop 'error stop iff_ts_intp: nvar>nsize'
+	end if
 
 	ldim = 1
 	ndim = 1
@@ -2790,10 +2962,43 @@ c opens and inititializes file
 	end if
 
 	do ivar=1,nvar
-	  call iff_time_interpolate(id,dtime,ivar,ndim,ldim,values(ivar))
+	  call iff_time_interpolate(id,dtime,ivar,ndim,ldim,valaux)
+	  values(ivar) = valaux(1,1)
 	end do
 
         end
+
+!****************************************************************
+
+        subroutine iff_ts_intp1(id,dtime,value)
+
+	use intp_fem_file
+
+	implicit none
+
+	integer id
+	double precision dtime
+        real value            !interpolated value
+
+	integer ldim,ndim,ivar
+	real valaux(1,1)
+
+	ldim = 1
+	ndim = 1
+	ivar = 1
+
+        if( iff_must_read(id,dtime) ) then
+          call iff_read_and_interpolate(id,dtime)
+	end if
+
+	call iff_time_interpolate(id,dtime,ivar,ndim,ldim,valaux)
+	value = valaux(1,1)
+
+        end
+
+!****************************************************************
+!****************************************************************
+!****************************************************************
 
 !****************************************************************
 ! next are dummy routines that can be deleted somewhen...

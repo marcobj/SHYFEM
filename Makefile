@@ -32,13 +32,16 @@ include ./Rules.make
 
 #---------------------------------------------------------------
 
-RULES_MAKE_EXPECTED = 1.8
+RULES_MAKE_EXPECTED = 1.10
 RULES_MAKE_COMPATIBILITY = RULES_MAKE_OK
 ifneq ($(RULES_MAKE_VERSION),"0.0")
   ifneq ($(RULES_MAKE_VERSION),$(RULES_MAKE_EXPECTED))
     RULES_MAKE_COMPATIBILITY = RULES_MAKE_NOT_COMPATIBLE
   endif
 endif
+
+useX11 = false
+useX11 = true
 
 #---------------------------------------------------------------
 
@@ -67,6 +70,10 @@ FEMUTIL   = $(REGRESSDIR) femdoc fembin femlib femanim
 FEMOPT    = femgotm femersem
 FEMEXTRA  = 
 PARAMDIRS = fem3d femplot femadj #femspline
+
+ifeq ($(useX11),false)
+  FEMGRID = 
+endif
 
 SPECIAL   = Makefile Rules.make README CHANGES
 SPECIAL   = Makefile Rules.make \
@@ -158,6 +165,7 @@ depend:
 
 directories:
 	@-mkdir -p tmp arc
+	@-mkdir -p $(HOME)/tmp
 	@-mkdir -p femlib/mod
 	@if [ ! -f ./tmp/Makefile ]; then cp ./femdummy/Makefile ./tmp; fi
 	@if [ ! -f ./arc/Makefile ]; then cp ./femdummy/Makefile ./arc; fi
@@ -346,7 +354,7 @@ help_dev:
 	@echo "help_dev           this screen"
 	@echo "test_compile       compiles model with different configs"
 	@#echo "test_stable        compiles stable model with different configs"
-	@echo "regress            runs regression tests"
+	@echo "regress [np=#]     runs regression tests (mpi for np>0)"
 	@echo "compile_regress    compiles model and runs regression tests"
 	@echo "check_var          does various checks on distribution"
 	@#echo "stable             makes stable distribution of last version"
@@ -382,10 +390,15 @@ check_var:
 
 regress:
 	if [ -d $(REGRESSDIR) ]; then SHYFEMDIR=$(PWD); \
-		cd $(REGRESSDIR); make regress; fi
+		cd $(REGRESSDIR); make regress np=$(np); fi
 
 revision:
 	 $(FEMBIN)/revision_last.sh
+
+test_mpi:
+	@cd femcheck/parallel; make mpi
+	
+#------------------------------------------------------------
 
 rules_save:
 	mkdir -p arc/rules
@@ -403,6 +416,23 @@ rules_new:
 
 rules_diff:
 	@-diff femcheck/rules/Rules.dist ./Rules.make || true
+
+rules_std:
+	fembin/rules.sh std
+
+rules_mpi:
+	fembin/rules.sh mpi
+
+rules_omp:
+	fembin/rules.sh omp
+
+rules_petsc:
+	fembin/rules.sh petsc
+
+rules_intel:
+	fembin/rules.sh intel
+
+#------------------------------------------------------------
 
 dist: cleandist
 	mkdir -p arc/rules
@@ -477,6 +507,13 @@ check_server:
 
 show_server:
 	@femcheck/servers/check_server.sh -show $(FORTRAN_COMPILER)
+
+#---------------------------------------------------------------
+# special ggu
+#---------------------------------------------------------------
+
+nompi:
+	cd fem3d; make nompi
 
 #---------------------------------------------------------------
 # check if routines are executable

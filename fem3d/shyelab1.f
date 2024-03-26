@@ -72,6 +72,12 @@
 ! 22.07.2019    ggu     new routines for handling time step check
 ! 28.01.2020    ggu     new code for vorticity
 ! 13.06.2020    ggu     use standard routines to set depth
+! 21.12.2022    ggu     new options -rmin,-rmax,-rfreq implemented
+! 10.03.2023    ggu     map renamed to influencemap
+! 28.04.2023    ggu     update function calls for belem
+! 07.06.2023    ggu     array simpar introduced
+! 20.07.2023    lrp     new paramter nzadapt
+! 29.09.2023    ggu     new atime0out for correct concatenating of files
 !
 !**************************************************************
 
@@ -109,7 +115,7 @@
 	real, allocatable :: sv(:,:)
 	real, allocatable :: dv(:,:)
 
-	logical bhydro,bscalar
+	logical bhydro,bscalar,belem
 	logical blastrecord,bforce,btskip
 	integer nwrite,nwtime,nread,nelab,nrec,nin,nold,ndiff
 	integer nvers
@@ -129,13 +135,14 @@
 	character*20 aline
 	real rnull
 	real cmin,cmax,cmed,cstd,atot,vtot
+	real simpar(3),rzmov
 	double precision dtime,dtstart,dtnew,ddtime
 	double precision atfirst,atlast
-	double precision atime,atstart,atnew,atold
+	double precision atime,atstart,atnew,atold,atime0out
 
- 	!logical, parameter :: bmap = .false.
  	real, parameter :: pthresh = 30.
- 	real, parameter :: cthresh = 20.
+ 	real, parameter :: cthresh = 0.1
+ 	!real, parameter :: cthresh = 20.
  	!real, parameter :: cthresh = 0.
 
 	integer iapini,i
@@ -193,6 +200,7 @@
 	!--------------------------------------------------------------
 
 	call shy_get_params(id,nkn,nel,npr,nlv,nvar)
+        call shy_get_simpar(id,simpar)
 	call shy_get_ftype(id,ftype)
 
 	if( .not. bquiet ) call shy_info(id)
@@ -255,12 +263,13 @@
 	end if
 
 	!--------------------------------------------------------------
-	! set up aux arrays, sigma info and depth values
+	! set up aux arrays, sigma/z info and depth values
 	!--------------------------------------------------------------
 
 	call shyutil_init(nkn,nel,nlv)
 
 	call init_sigma_info(nlv,hlv)
+	call init_rzmov_info(nlv,nint(simpar(3)),hlv,rzmov)
 
 	call shy_make_area
 	!call shy_check_area
@@ -318,6 +327,7 @@
 
 	call shy_get_date(id,date,time)
 	call elabtime_date_and_time(date,time)
+	atime0out = atime00
 	call elabtime_set_minmax(stmin,stmax)
 	call elabtime_set_inclusive(binclusive)
 	
@@ -336,7 +346,7 @@
 	ftype_out = ftype
 	if( bsumvar ) then
 	  call shyelab_init_output(id,idout,ftype,1,(/10/))
-	else if( bmap ) then
+	else if( binfluencemap ) then
 	  call shyelab_init_output(id,idout,ftype,1,(/75/))
 	else if( bvorticity ) then
 	  if( ftype /= 1 ) goto 70
@@ -369,12 +379,14 @@
 	 ! read new data set
 	 !--------------------------------------------------------------
 
-	 call read_records(id,dtime,nvar,nndim,nlvdi,idims
+	 call read_records(id,dtime,bhydro,nvar,nndim,nlvdi,idims
      +				,cv3,cv3all,ierr)
 
          if(ierr.ne.0) then	!EOF - see if we have to read another file
 	   if( ierr > 0 .or. atstart == -1. ) exit
 	   call open_new_file(ifile,id,atstart)
+	   call shy_get_date(id,date,time)
+	   call elabtime_date_and_time(date,time)
 	   if( .not. bsilent ) call shy_write_filename(id)
 	   cycle
 	 end if
@@ -389,7 +401,7 @@
 	 !--------------------------------------------------------------
 
 	 if( bdiff ) then
-	   call read_records(iddiff,ddtime,nvar,nndim,nlvdi,idims
+	   call read_records(iddiff,ddtime,bhydro,nvar,nndim,nlvdi,idims
      +				,cv3,cv3diff,ierr)
 	   if( ierr /= 0 ) goto 62
 	   !if( dtime /= ddtime ) goto 61
@@ -423,6 +435,12 @@
 	 if( elabtime_over_time(atime,atnew,atold) ) exit
 	 if( .not. elabtime_in_time(atime,atnew,atold) ) cycle
 
+         if( nread > rmax .and. rmax > 0 ) exit
+         if( nread < rmin ) cycle
+         if( mod(nread-rmin,rfreq) /= 0 ) cycle
+
+	 nelab = nelab + 1
+
 	 call shy_make_zeta(ftype)
 	 call shy_make_volume		!comment for constant volume
 
@@ -430,6 +448,7 @@
 	 ! initialize record header for output
 	 !--------------------------------------------------------------
 
+	 dtime = atime - atime0out
 	 call shyelab_header_output(idout,ftype,dtime,nvar)
 
 	 it = dtime
@@ -447,9 +466,9 @@
 	  ivar = idims(4,iv)
 	  nn = n * m
 
-	  cv3(:,:) = cv3all(:,:,iv)
+	  belem = ( bhydro .and. iv > 1 )
 
-	  if( iv == 1 ) nelab = nelab + 1
+	  cv3(:,:) = cv3all(:,:,iv)
 
 	  if( bverb .and. iv == 1 ) then
 	    call shy_write_time(.true.,dtime,atime,0)
@@ -465,13 +484,15 @@
 	  end if
 
 	  if( b2d ) then
-	    call shy_make_vert_aver(idims(:,iv),nndim,cv3,cv2)
-	    call shyelab_record_output(id,idout,dtime,ivar,iv,n,m
+	    call shy_make_vert_aver(idims(:,iv),belem,nndim,cv3,cv2)
+	    call shyelab_record_output(id,idout,dtime,ivar,iv
+     +						,belem,n,m
      +						,1,1,cv2)
-	  else if( bsumvar .or. bmap .or. bvorticity ) then
+	  else if( bsumvar .or. binfluencemap .or. bvorticity ) then
 	    ! only write at end of loop over variables
 	  else
-	    call shyelab_record_output(id,idout,dtime,ivar,iv,n,m
+	    call shyelab_record_output(id,idout,dtime,ivar,iv
+     +						,belem,n,m
      +						,lmax,nlvdi,cv3)
 	  end if
 
@@ -494,11 +515,13 @@
      +                  ,znv,uprv,vprv,sv,dv)
 	 end if
 
-	 if( bmap ) then
+	 if( binfluencemap ) then
            ivar = 75
 	   iv = 1
-           call comp_map(nlvdi,nkn,nvar,pthresh,cthresh,cv3all,cv3)
-	   call shyelab_record_output(id,idout,dtime,ivar,iv,n,m
+           call comp_influence_map(nlvdi,nkn,nvar,pthresh,cthresh
+     +					,cv3all,cv3)
+	   call shyelab_record_output(id,idout,dtime,ivar,iv
+     +						,belem,n,m
      +						,lmax,nlvdi,cv3)
 	 end if
 
@@ -506,7 +529,8 @@
            ivar = 19
 	   iv = 1
            call compute_vorticity(nndim,cv3all,cv3)
-	   call shyelab_record_output(id,idout,dtime,ivar,iv,nkn,1
+	   call shyelab_record_output(id,idout,dtime,ivar,iv
+     +						,belem,nkn,1
      +						,lmax,nlvdi,cv3)
 	 end if
 
@@ -539,9 +563,11 @@
      +			,idims,threshold,cv3,boutput,bverb)
 	      n = idims(1,iv)
 	      m = idims(2,iv)
+	      belem = ( bhydro .and. iv > 1 )
 	      lmax = idims(3,iv)
 	      ivar = idims(4,iv)
-	      call shyelab_record_output(id,idout,dtime,ivar,iv,n,m
+	      call shyelab_record_output(id,idout,dtime,ivar,iv
+     +						,belem,n,m
      +						,lmax,nlvdi,cv3)
 	    end if
 	   end do
@@ -560,16 +586,16 @@
 	call dts_format_abs_time(atlast,aline)
 	write(6,*) 'last time record:  ',aline
 
-	!call shyelab_get_nwrite(nwrite,nwtime)
+	call shyelab_get_nwrite(nwrite,nwtime)
 	call handle_timestep_last(bcheckdt)
 
 	write(6,*)
 	write(6,*) ifile, ' file(s) read'
 	!write(6,*) nrec,  ' data records read'
 	write(6,*) nread, ' time records read'
-	!write(6,*) nelab, ' time records elaborated'
+	write(6,*) nelab, ' time records elaborated'
 	!write(6,*) nwrite,' data records written'
-	!write(6,*) nwtime,' time records written'
+	if( nwtime > 0 ) write(6,*) nwtime,' time records written'
 	write(6,*)
 
 	end if
@@ -723,6 +749,7 @@
 	real sv(nlvdi,nkn)
 	real dv(nlvdi,nkn)
 
+	logical, parameter :: belem = .false.
 	integer, save :: icall = 0
 	integer, save :: idz,idu,idv,ids,idd
 
@@ -735,11 +762,11 @@
 	  icall = 1
 	end if
 
-	call shy_write_output_record(idz,dtime,1,nkn,1,1,1,znv)
-	call shy_write_output_record(idu,dtime,2,nkn,1,nlv,nlv,uprv)
-	call shy_write_output_record(idv,dtime,2,nkn,1,nlv,nlv,vprv)
-	call shy_write_output_record(ids,dtime,6,nkn,1,nlv,nlv,sv)
-	call shy_write_output_record(idd,dtime,7,nkn,1,nlv,nlv,dv)
+	call shy_write_output_record(idz,dtime,1,belem,nkn,1,1,1,znv)
+	call shy_write_output_record(idu,dtime,2,belem,nkn,1,nlv,nlv,uprv)
+	call shy_write_output_record(idv,dtime,2,belem,nkn,1,nlv,nlv,vprv)
+	call shy_write_output_record(ids,dtime,6,belem,nkn,1,nlv,nlv,sv)
+	call shy_write_output_record(idd,dtime,7,belem,nkn,1,nlv,nlv,dv)
 
 	end
 
@@ -871,7 +898,7 @@
 
 !***************************************************************
 
-        subroutine comp_map(nlvddi,nkn,nvar,pt,ct,cvv,valri)
+        subroutine comp_influence_map(nlvddi,nkn,nvar,pt,ct,cvv,valri)
 
 c compute dominant discharge and put index in valri (custom routine)
 

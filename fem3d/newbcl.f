@@ -32,8 +32,8 @@ c
 c contents :
 c
 c subroutine barocl(mode)		amministrates the baroclinic time step
-c subroutine rhoset_shell		sets rho iterating to real solution
-c subroutine rhoset(resid)		computes rhov and bpresv
+c subroutine rhoset_shell(iterwant)	sets rho iterating to real solution
+c subroutine rhoset(resid)		computes rhov
 c subroutine convectivecorr             convective adjustment
 c subroutine getts(l,k,t,s)             accessor routine to get T/S
 c
@@ -154,6 +154,11 @@ c 27.03.2020	ggu	cleaned new nudging routines
 c 17.09.2020    ggu     renamed sigma to sigma_stp
 c 24.03.2021    ggu     more diagnostic output in ts_dia()
 c 31.05.2021    ggu     changes in ts_dia(), debug section
+c 09.04.2022    ggu     new iterwant in rhoset_shell for mpi
+c 15.10.2022	ggu	bug fix: rhov was recomputed after restart
+c 15.10.2022	ggu	bpresv deleted
+c 02.04.2023	ggu	min/max of T/S computed correctly for mpi
+c 09.05.2023    lrp     introduce top layer index variable
 c
 c notes :
 c
@@ -197,6 +202,7 @@ c
 	use mod_hydro
 	use levels
 	use basin
+	use shympi
 
 	implicit none
 c
@@ -258,7 +264,7 @@ c	real sigma
 	double precision theatconv1,theatconv2,theatqfl1,theatqfl2
 c save
 	logical, save :: badvect,bobs,bbarcl,bdiag
-        integer, save :: ninfo = 0
+        integer, save :: iuinfo = 0
 	integer, save :: ibarcl
         integer, save :: itemp,isalt,irho
 	real, save :: difmol
@@ -287,6 +293,8 @@ c initialization
 c----------------------------------------------------------
 
 	if(icall.eq.0) then	!first time
+
+		call shympi_bdebug('initalizing barocl')
 
 		ibarcl=iround(getpar('ibarcl'))
 		if(ibarcl.le.0) icall = -1
@@ -364,18 +372,18 @@ c		--------------------------------------------
      +					,cdef,idsalt)
 
 c		--------------------------------------------
-c		initialize rhov, bpresv
+c		initialize rhov
 c		--------------------------------------------
 
-c		rhov depends on bpresv and viceversa
+c		rhov depends on pressure and viceversa
 c		-> we iterate to the real solution
 
-		rhov = 0.		!rhov is rho^prime => 0
-		bpresv = 0.
-
-		!call ts_dia('init before rhoset_shell')
-		call rhoset_shell
-		!call ts_dia('init after rhoset_shell')
+		if( .not. rst_use_restart(3) ) then   !no restart of rho values
+		  rhov = 0.		!rhov is rho^prime => 0
+		  !call ts_dia('init before rhoset_shell')
+		  call rhoset_shell(3)
+		  !call ts_dia('init after rhoset_shell')
+		end if
 
 c		--------------------------------------------
 c		initialize output files
@@ -384,8 +392,11 @@ c		--------------------------------------------
 		call bcl_open_output(da_out,itemp,isalt,irho)
 		call bcl_write_output(dtime0,da_out,itemp,isalt,irho)
 
-                call getinfo(ninfo)
+		if( shympi_is_master() ) then
+                  call getinfo(iuinfo)
+		end if
 
+		call shympi_bdebug('finished initalizing barocl')
 	end if
 
 	icall=icall+1
@@ -478,15 +489,23 @@ c----------------------------------------------------------
           if( itemp .gt. 0 ) then
   	    call tsmass(tempv,+1,nlvdi,ttot) 
       	    call conmima(nlvdi,tempv,tmin,tmax)
+	    tmin = shympi_min(tmin)
+	    tmax = shympi_max(tmax)
 !$OMP CRITICAL
-  	    write(ninfo,*) 'temp: ',aline,ttot,tmin,tmax
+	    if( iuinfo > 0 ) then
+  	      write(iuinfo,*) 'temp: ',aline,ttot,tmin,tmax
+	    end if
 !$OMP END CRITICAL
 	  end if
           if( isalt .gt. 0 ) then
   	    call tsmass(saltv,+1,nlvdi,stot) 
        	    call conmima(nlvdi,saltv,smin,smax)
+	    smin = shympi_min(smin)
+	    smax = shympi_max(smax)
 !$OMP CRITICAL
-  	    write(ninfo,*) 'salt: ',aline,stot,smin,smax
+	    if( iuinfo > 0 ) then
+  	      write(iuinfo,*) 'salt: ',aline,stot,smin,smax
+	    end if
 !$OMP END CRITICAL
 	  end if
 	end if
@@ -498,7 +517,7 @@ c----------------------------------------------------------
 	call compute_heat_flux
 
 c----------------------------------------------------------
-c compute rhov and bpresv
+c compute rhov
 c----------------------------------------------------------
 
 	call ts_dia('normal before rhoset_shell')
@@ -507,7 +526,7 @@ c----------------------------------------------------------
 	call rhoset1
 	rho_aux2 = rhov
 	rhov = rho_aux1
-	call rhoset_shell
+	call rhoset_shell(1)
 	!call ts_dia('normal after rhoset_shell')
 
 c----------------------------------------------------------
@@ -548,14 +567,19 @@ c********************************************************
 c********************************************************
 c********************************************************
 
-	subroutine rhoset_shell
+	subroutine rhoset_shell(iterwant)
 
 c sets rho iterating to real solution
 
+	use mod_ts
+	use shympi
+
 	implicit none
 
+	integer iterwant	!want these iterations, if 0 do as needed
+
 	logical biter
-	integer itermax,iter
+	integer itermax,iter,iu
 	real eps,resid,resid_old
 
 	itermax = 10
@@ -570,6 +594,10 @@ c sets rho iterating to real solution
 	  resid_old = resid
           call rhoset(resid)
 	  iter = iter + 1
+	  if( iterwant > 0 ) then 		!impose number of iterations
+	    if( iter .lt. iterwant ) cycle	!must do more
+	    if( iter .ge. iterwant ) exit	!finished
+	  end if
 	  if( resid .lt. eps ) biter = .false.
 	  if( abs(resid-resid_old) .lt. eps ) biter = .false.
 	  if( iter .gt. itermax ) biter = .false.
@@ -582,23 +610,28 @@ c sets rho iterating to real solution
 	  call tsrho_check
 	end if
 
+	!iu = 666+my_id
+	!write(iu,*) my_id,iter
+	!flush(iu)
+
+	call shympi_exchange_3d_node(rhov)
+
 	end
 
 c********************************************************
 
 	subroutine rhoset(resid)
 
-c computes rhov and bpresv
+c computes rhov
 c
 c 1 bar = 100 kPascal ==> factor 1.e-5
-c pres = rho0*g*(zeta-z) + bpresv
-c with bpresv = int_{z}^{zeta}(g*rho_prime)dz
+c pres = rho0*g*(zeta-z) + presbc
+c with presbc = int_{z}^{zeta}(g*rho_prime)dz
 c and rho_prime = rho - rho_0 = sigma - sigma_0
 c
-c in bpresv() is bpresv as defined above
 c in rhov()   is rho_prime (=sigma_prime)
 c
-c brespv() and rhov() are given at node and layer interface
+c presbc and rhov() are given at node and layer center
 
 	use mod_layer_thickness
 	use mod_ts
@@ -613,7 +646,7 @@ c common
 
 c local
 	logical bdebug,debug,bsigma
-	integer k,l,lmax
+	integer k,l,lmax,lmin
 	integer nresid,nsigma
 	real sigma0,rho0,pres,hsigma
 	real depth,hlayer,hh
@@ -640,9 +673,10 @@ c functions
 	do k=1,nkn
 	  depth = 0.
 	  presbc = 0.
+	  lmin = jlhkv(k)
 	  lmax = ilhkv(k)
 
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    bsigma = l .le. nsigma
 
 	    hlayer = hdkov(l,k)
@@ -666,7 +700,6 @@ c functions
 	    dresid = dresid + (rhov(l,k)-rhop)**2
 
 	    rhov(l,k) = rhop
-	    bpresv(l,k) = presbc
 
 	    depth = depth + hh
 	    presbc = presbc + dpresc		!baroclinic pres. (bottom-lay.)
@@ -682,17 +715,16 @@ c********************************************************
 
 	subroutine rhoset1
 
-c computes rhov and bpresv
+c computes rhov
 c
 c 1 bar = 100 kPascal ==> factor 1.e-5
-c pres = rho0*g*(zeta-z) + bpresv
-c with bpresv = int_{z}^{zeta}(g*rho_prime)dz
+c pres = rho0*g*(zeta-z) + presbc
+c with presbc = int_{z}^{zeta}(g*rho_prime)dz
 c and rho_prime = rho - rho_0 = sigma - sigma_0
 c
-c in bpresv() is bpresv as defined above
 c in rhov()   is rho_prime (=sigma_prime)
 c
-c brespv() and rhov() are given at node and layer interface
+c presbc and rhov() are given at node and layer center
 
 	use mod_layer_thickness
 	use mod_ts
@@ -764,7 +796,6 @@ c functions
 	    dresid = dresid + (rhov(l,k)-rhop)**2
 
 	    rhov(l,k) = rhop
-	    bpresv(l,k) = presbc
 
 	    depth = depth + hh
 	    presbc = presbc + dpresc		!baroclinic pres. (bottom-lay.)
@@ -1017,6 +1048,8 @@ c*******************************************************************
 
 c initialization of T/S from file
 
+	use shympi
+
 	implicit none
 
 	double precision dtime
@@ -1040,6 +1073,7 @@ c initialization of T/S from file
 	  call ts_open(string,tempf,dtime,nkn,nlv,id)
           call ts_next_record(dtime,id,nlvddi,nkn,nlv,tempv)
 	  call ts_file_close(id)
+	  call shympi_exchange_3d_node(tempv)
           write(6,*) 'temperature initialized from file ',trim(tempf)
 	end if
 
@@ -1050,6 +1084,7 @@ c initialization of T/S from file
 	  call ts_open(string,saltf,dtime,nkn,nlv,id)
           call ts_next_record(dtime,id,nlvddi,nkn,nlv,saltv)
 	  call ts_file_close(id)
+	  call shympi_exchange_3d_node(saltv)
           write(6,*) 'salinity initialized from file ',trim(saltf)
 	end if
 

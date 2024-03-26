@@ -123,6 +123,9 @@ c 15.07.2021	ggu	do not set it (for climatological runs)
 c 16.02.2022	ggu	cosmetic changes
 c 20.03.2022	ggu	eliminated convert_time -> convert_time_d
 c 21.03.2022	ggu	bug in set_timestep: dtmin is real, now use ddtmin as dp
+c 28.03.2022	ggu	bug fix: ddtmin was not saved
+c 02.04.2023    ggu     only master writes to iuinfo
+c 12.12.2023    ggu     introduced dtmax (maximum time to run to)
 c
 c**********************************************************************
 c**********************************************************************
@@ -156,6 +159,10 @@ c prints time after time step
 	integer (kind=MyLongIntType) :: inttime
 
 	integer, save :: icall = 0
+	integer, save :: iuinfo = 0
+	real cpu_time_new
+	real, save :: cpu_time_old = 0.
+	real, parameter :: cpu_time_max = 1.	!max seconds before flush
 
 c---------------------------------------------------------------
 c set parameters and compute percentage of simulation
@@ -163,6 +170,8 @@ c---------------------------------------------------------------
 
 	if( icall .eq. 0 ) then
           isplit = nint(dgetpar('itsplt'))
+	  call cpu_time(cpu_time_old)
+          call getinfo(iuinfo)  !unit number of info file
 	end if
 
         naver = 20
@@ -250,6 +259,17 @@ c---------------------------------------------------------------
 	    frac(i-1:i) = '1/'
             write(6,1006) dline,frac,niter,nits,perc
 	  end if
+
+c---------------------------------------------------------------
+c flush if maximum time has passed
+c---------------------------------------------------------------
+
+	call cpu_time(cpu_time_new)
+	if( cpu_time_new - cpu_time_old > cpu_time_max ) then
+	  cpu_time_old = cpu_time_new
+	  flush(6)
+	  if( iuinfo > 0 ) flush(iuinfo)
+	end if
 
 c---------------------------------------------------------------
 c end of routine
@@ -443,13 +463,15 @@ c********************************************************************
 c********************************************************************
 c********************************************************************
 
-        subroutine set_timestep
+        subroutine set_timestep(dtmax)
 
 c controls time step and adjusts it
 
 	use shympi
 
         implicit none
+
+        double precision :: dtmax	!maximum time for run (normally dtend)
 
 	include 'femtime.h'
 
@@ -459,7 +481,8 @@ c controls time step and adjusts it
         integer istot,iss
 	integer idta(n_threads)
         double precision dt,dtnext,atime,ddts,dtsync,dtime,dt_recom
-        double precision dtmax,ddtmin
+        double precision, save :: ddtmin
+        double precision :: dtbest
 	real dtr,dtaux
         real ri,rindex,rindex1,sindex
 	real perc,rmax
@@ -467,7 +490,7 @@ c controls time step and adjusts it
 
         real, save :: cmax,tfact,dtmin,zhpar
         integer, save :: idtsync,isplit,idtmin
-        integer, save :: iuinfo
+        integer, save :: iuinfo = 0
         integer, save :: icall = 0
 
 	double precision dgetpar
@@ -494,7 +517,9 @@ c controls time step and adjusts it
 	  call convert_time_d('idtmin',ddtmin)
 	  idtmin = nint(ddtmin)
 
-          call getinfo(iuinfo)  !unit number of info file
+	  if( shympi_is_master() ) then
+            call getinfo(iuinfo)  !unit number of info file
+	  end if
 
         end if
 
@@ -570,7 +595,9 @@ c----------------------------------------------------------------------
 
         dtaux = 0.
         if( rindex > 0 ) dtaux = cmax / rindex  ! maximum allowed time step
-        write(iuinfo,*) 'stability_hydro: ',rindex,dtaux,dt
+        if( iuinfo > 0 ) then
+	  write(iuinfo,*) 'stability_hydro: ',rindex,dtaux,dt
+	end if
 
 	if( dt <= 0 ) then
 	  write(6,*) 'dt is negative after setting'
@@ -604,16 +631,16 @@ c----------------------------------------------------------------------
 c	syncronize time step
 c----------------------------------------------------------------------
 
-	dtmax = dt
+	dtbest = dt
 	dtime = t_act
 	dtsync = idts
         call sync_step(dtanf,dtsync,dtime,dt,bsync)
 
 	if( dt <= 0 ) stop 'error stop set_timestep: dt<=0'
 
-	if( dtime .gt. dtend ) then	!sync with end of sim
-	  dt = dtend - t_act
-	  dtime = dtend
+	if( dtime .gt. dtmax ) then	!sync with end of sim
+	  dt = dtmax - t_act
+	  dtime = dtmax
 	  bsync = .true.
 	end if
 
@@ -621,9 +648,9 @@ c----------------------------------------------------------------------
 
 	if( dt <= 0 ) then
 	  write(6,*) 'dt is negative after syncronize'
-	  write(6,*) dtmax
+	  write(6,*) dtbest
 	  write(6,*) dtime,t_act
-	  write(6,*) dtanf,dtend
+	  write(6,*) dtanf,dtend,dtmax
 	  write(6,*) dtr,isplit,idtfrac,dt_orig
 	  write(6,*) dt,cmax,rindex,cmax/rindex
 	  write(6,*) dtnext,bsync
@@ -640,19 +667,22 @@ c----------------------------------------------------------------------
 
         ri = dt*rindex
 
-        if( dt .lt. dtmin .and. .not. bsync ) then    !should never happen
+	!write(6,*) bsync
+	!write(6,*) dt
+	!write(6,*) ddtmin
+        if( dt .lt. ddtmin .and. .not. bsync ) then    !should never happen
 	  dtr = dt
           call error_stability(dtr,rindex)
-          write(6,*) 'dt is less than dtmin'
+          write(6,*) 'dt is less than ddtmin'
           !write(6,*) it,itanf,mod(it-itanf,idtorig)
           !write(6,*) idtnew,idtdone,idtrest,idtorig
           write(6,*) idtorig
           write(6,*) idts,idtsync
-          write(6,*) dtime,dt,dtmin
+          write(6,*) dtime,dt,ddtmin
           write(6,*) isplit,istot
           write(6,*) cmax,rindex,ri
 	  write(6,*) 'possible computed time step:  dt = ',dt
-	  write(6,*) 'minimum time step allowed: dtmin = ',dtmin
+	  write(6,*) 'minimum time step allowed: ddtmin = ',ddtmin
 	  write(6,*) 'please lower dtmin in parameter input file'
           stop 'error stop set_timestep: time step too small'
         end if
@@ -686,13 +716,16 @@ c----------------------------------------------------------------------
 	iss = 0
 	if( bsync ) iss = 1
 
-	if(shympi_is_master()) then
+	if( iuinfo > 0 ) then
           write(iuinfo,1004) 'timestep: ',aline_act
      +				,t_act,istot,iss,dt,perc
+	  flush(iuinfo)	
 	end if
 
+	call shympi_barrier
+
 	if( bsync .or. mod(icall,50) == 0 ) then
-	  flush(iuinfo)
+	  if( iuinfo > 0 ) flush(iuinfo)
 	  flush(6)
 	end if
 

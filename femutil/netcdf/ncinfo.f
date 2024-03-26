@@ -45,7 +45,7 @@ C**************************************************************************
 
         integer ncid
 
-        integer nvars, ngatts, idunlim
+        integer nvars, natts, ngatts, idunlim
         integer nc,ia,varid,attid
 
 	integer nt,nx,ny,nz
@@ -98,10 +98,10 @@ C**************************************************************************
 ! dimensions and coordinates
 !---------------------------------------------------------------------
 
-	!call ncnames_init
-	call get_dims_and_coords(ncid,bverbose
-     +				,nt,nx,ny,nz
-     +				,tcoord,xcoord,ycoord,zcoord)
+!	call ncnames_init
+!	call get_dims_and_coords(ncid,bverbose
+!     +				,nt,nx,ny,nz
+!     +				,tcoord,xcoord,ycoord,zcoord)
 
 !---------------------------------------------------------------------
 ! print info on variables and attributes
@@ -115,8 +115,11 @@ C**************************************************************************
 	    call ncf_var_inf(ncid,varid,vitem)
 	    call ncf_print_variable(vitem)
 	    if( bverbose ) then
-	      call ncf_print_attribute_header(ncid,varid)
-	      call ncf_print_attributes(ncid,vitem)
+	      call ncf_natts(vitem,natts)
+	      if( natts > 0 ) then
+	        call ncf_print_attribute_header(ncid,varid)
+	        call ncf_print_attributes(ncid,vitem)
+	      end if
 	    end if
 	  end do
 	end if
@@ -126,10 +129,10 @@ C**************************************************************************
 !---------------------------------------------------------------------
 
 	if( variable /= ' ' ) then
-	  call ncf_get_variable(nitem,variable,varid)
+	  call ncf_var_id(ncid,variable,varid)
 	  if( varid > 0 ) then
 	    if( attribute /= ' ' ) then
-	      call ncf_get_attribute(nitem,varid,attribute,attid)
+	      call ncf_att_id(ncid,varid,attribute,attid)
 	      if( bwrite ) then
 	        write(6,*) 'varid = ',varid,'  attid = ',attid
 	      end if
@@ -176,70 +179,6 @@ C**************************************************************************
 !---------------------------------------------------------------------
 ! end of routine
 !---------------------------------------------------------------------
-
-	end
-
-!*********************************************************************
-
-	subroutine ncf_get_variable(nitem,varname,varid)
-
-! find variable with name varname and return id varid, if not found return -1
-
-	use ncf
-
-	implicit none
-
-	type(nc_item) :: nitem
-	character*(*) varname
-	integer varid
-
-	integer ncid
-	integer nvars
-	type(var_item) :: vitem
-
-	ncid = nitem%ncid
-	nvars = nitem%nvars
-
-	do varid=1,nvars
-	  call ncf_var_inf(ncid,varid,vitem)
-	  if( varname == vitem%name ) exit
-	end do
-
-	if( varid > nvars ) varid = -1
-
-	end
-
-!*********************************************************************
-
-	subroutine ncf_get_attribute(nitem,varid,attname,attid)
-
-! find attribute with name attname and return id attid, if not found return -1
-
-	use ncf
-
-	implicit none
-
-	type(nc_item) :: nitem
-	integer varid
-	character*(*) attname
-	integer attid
-
-	integer ncid
-	integer nvars
-	type(var_item) :: vitem
-	type(att_item) :: aitem
-
-	ncid = nitem%ncid
-
-	call ncf_var_inf(ncid,varid,vitem)
-	nvars = vitem%natts
-
-	do attid=1,nvars
-	  call ncf_att_inf(ncid,varid,attid,aitem)
-	  if( attname == aitem%name ) exit
-	end do
-
-	if( attid > nvars ) attid = -1
 
 	end
 

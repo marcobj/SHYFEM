@@ -40,6 +40,8 @@
 ! 18.03.2020	ggu&laa	better writing of scalar values
 ! 13.06.2020	ggu	bug fix in write_nodes_hydro_fem()
 ! 25.06.2021	ggu	better legend for node profiles
+! 09.05.2023    lrp     introduce top layer index variable
+! 05.06.2023    lrp     introduce z-star
 !
 !***************************************************************
 
@@ -47,11 +49,12 @@
 
 	use elabutil
 	use basin
+	use levels
 	use mod_depth
 
 	implicit none
 
-	integer j,ki,ke
+	integer j,ki,ke,lmax
 	integer nodes_dummy(1)
 
           if( bnodes ) then
@@ -92,7 +95,8 @@
 	    do j=1,nnodes
 	      ki = nodesi(j)
 	      ke = nodese(j)
-	      write(6,*) j,ke,xgv(ki),ygv(ki),hkv(ki)
+	      lmax = ilhkv(ki)
+	      write(6,*) j,ke,xgv(ki),ygv(ki),hkv(ki)!,lmax
 	    end do
 	  end if
 
@@ -944,9 +948,9 @@
         real hlv(lmax)
 
         logical bcenter
-        integer l
-        integer nlvaux,nsigma
-        real hsigma
+        integer l,lmin
+        integer nlvaux,nsigma,nadapt
+        real hsigma,hadapt
         real uv
         real hd(lmax)
         real hl(lmax)
@@ -958,7 +962,11 @@
 
         bcenter = .true.        !depth at center of layer
         call get_sigma_info(nlvaux,nsigma,hsigma)
-        call get_layer_thickness(lmax,nsigma,hsigma,z,h,hlv,hd)
+
+	call compute_zadapt_info(z,hlv,nsigma,lmax,lmin,nadapt,hadapt)
+        call get_layer_thickness(lmax,lmin,nsigma,nadapt,
+     +                           hsigma,hadapt,z,h,hlv,hd)
+
         call get_depth_of_layer(bcenter,lmax,z,hd,hl)
 
         !write(iu,'(a20,5i10)') dline,j,ke,ki,lmax,ivar
@@ -989,9 +997,9 @@
         real hlv(lmax)
 
         logical bcenter
-        integer l
-        integer nlvaux,nsigma
-        real hsigma
+        integer l,lmin
+        integer nlvaux,nsigma,nadapt
+        real hsigma,hadapt
         real uv,dir
         real hd(lmax)
         real hl(lmax)
@@ -1005,7 +1013,9 @@
 
         bcenter = .true.        !depth at center of layer
         call get_sigma_info(nlvaux,nsigma,hsigma)
-        call get_layer_thickness(lmax,nsigma,hsigma,z,h,hlv,hd)
+        call compute_zadapt_info(z,hlv,nsigma,lmax,lmin,nadapt,hadapt)	
+        call get_layer_thickness(lmax,lmin,nsigma,nadapt,
+     +                           hsigma,hadapt,z,h,hlv,hd)
         call get_depth_of_layer(bcenter,lmax,z,hd,hl)
 
         write(iu,'(a)') header1

@@ -181,6 +181,15 @@ c 04.07.2019	ggu	setweg & setznv introduced before make_new_depth
 c 05.06.2020	ggu	bug fix: set_area was not called (MPI_SET_AREA)
 c 30.03.2021	ggu	in set_mass_flux() use new time step data
 c 31.03.2021	ggu	some debug code (iudbg)
+c 11.04.2022	ggu	mpi handling of zconst
+c 02.05.2022	ggu	exchange mfluxv, rqdsv, rqv (maybe not needed)
+c 03.05.2022	ggu	do not exchange rqv, lots of debug code
+c 11.10.2022	ggu	make_new_depth substituted with initialize_layer_depth
+c 16.12.2022	ggu	no tilting for mpi -> error
+c 01.02.2023	ggu	rflux introduced for double BC
+c 01.04.2023	ggu	handle new boundary type 5
+c 09.05.2023    lrp     introduce top layer index variable
+c 18.12.2023    ggu     new routine get_discharge_3d()
 c
 c***************************************************************
 
@@ -215,7 +224,7 @@ c		2 : read in b.c.
 	logical bimpose
 	integer kranf,krend,k,kn
 	integer ibc,ibtyp
-        integer nk,i,kk,kindex,iv,iw
+        integer nk,i,kk,kindex,iv,iw,kext
         integer nsize,il
         integer iunrad,ktilt
 	integer ip,l,lmax,ivar
@@ -224,7 +233,7 @@ c		2 : read in b.c.
 	integer id,intpol,nvar,ierr
 	integer iudbg
 	double precision dtime0,dtime,ddtime
-	real rw,zconst,aux
+	real rw,zconst,aux,rval
 	real dt
 	real conz,temp,salt
 	real conzdf,tempdf,saltdf
@@ -233,6 +242,7 @@ c	real dz
 	real getpar,rwint
 	real conz3,temp3,salt3
 	real tramp,alpha
+	real rmin,rmax
 	character*80 zfile
 	logical, save ::  bdebug = .false.
 	real, parameter :: zflag = -999.
@@ -362,6 +372,8 @@ c	-----------------------------------------------------
 	ibc = shympi_min(ibc)	!choose boundary with minimum index
 	if( ibc > nbc ) ibc = 0
 
+	call shympi_barrier
+
 	if( zconst /= zflag ) then
 	  !use this value
 	else if( ibc > 0 ) then
@@ -371,9 +383,21 @@ c	-----------------------------------------------------
 	  call iff_read_and_interpolate(id,dtime)
 	  call iff_time_interpolate(id,dtime,ivar,nk,lmax,rwv2)
 	  call adjust_bound(id,ibc,dtime,nk,rwv2)
-	  zconst = rwv2(1)
+	  if( ibtyp == 1 ) then
+	    zconst = rwv2(1)
+	  else
+	    zconst = flag
+	  end if
 	else
 	  zconst = 0.
+	end if
+
+	zconst = shympi_max(zconst)	!choose highest value
+
+	write(6,*) 'zconst = ',zconst,flag,zflag
+
+	if( zconst == flag .or. zconst == zflag ) then
+	  stop 'error stop sp111: error in zconst'
 	end if
 
 	call putpar('zconst',zconst)
@@ -388,7 +412,7 @@ c	-----------------------------------------------------
 	call setznv		!adjusts znv
 
 	call set_area		!initializes area	!bugfix MPI_SET_AREA
-	call make_new_depth	!initializes layer thickness
+	call initialize_layer_depth
 
 	call init_uvt		!initializes utlnv, vtlnv
 	call init_z0		!initializes surface and bottom roughness
@@ -426,6 +450,7 @@ c	initialize node vectors with boundary conditions
 c	-----------------------------------------------------
 
 	do k=1,nkn
+          rwv2(k)=0.
           rzv(k)=flag
           rqv(k)=0.	!$$rqv1 !$$close1	[m**3/s]
           rqpsv(k)=0.	!fluxes - point sources [m**3/s]
@@ -433,6 +458,8 @@ c	-----------------------------------------------------
           ruv(k)=0.	!momentum input
           rvv(k)=0.
 	end do
+
+	rflux = 0.	!flux values for every boundary node
 
 c	-----------------------------------------------------
 c	loop over boundaries
@@ -455,6 +482,7 @@ c	-----------------------------------------------------
           call get_bnd_par(ibc,'tramp',tramp)
 	  id = ids(ibc)
 
+	  !write(6,*) 'qqqq: ',ibc,id,ibtyp,my_id
 	  if( ibtyp .eq. 0 ) cycle
 	  if( id .le. 0 ) cycle
 
@@ -463,9 +491,20 @@ c	-----------------------------------------------------
 	  rmu = 0.
 	  rmv = 0.
 
+	  bdebug = (id == 5 .and. ibc == 1 )
+	  bdebug = .false.
+	  if( bdebug ) then
+	    write(6,*) 'qqqq: ',my_id,ibc,id,ibtyp,nk
+	  end if
+	  if( bdebug ) write(6,*) 'interpolating zeta...',ibc,my_id
+
 	  call iff_read_and_interpolate(id,dtime)
 	  call iff_time_interpolate(id,dtime,ivar,nk,lmax,rwv2)
 	  call adjust_bound(id,ibc,dtime,nk,rwv2)
+	  rmin = minval(rwv2)
+	  rmax = maxval(rwv2)
+	  !write(6,*) 'boundary values min/max: ',ibc,my_id,rmin,rmax
+	  if( bdebug ) write(6,*) 'end interp. zeta...',ibc,my_id
 
 	  if( abs(ibtyp) == 1 ) call setbnds(ibc,rwv2(1))	!for closure
 
@@ -484,8 +523,16 @@ c	-----------------------------------------------------
 	  do i=1,nk
 
              kn = kbnds(ibc,i)
+	     kindex = kbndind(ibc,i)
 	     rw = rwv2(i)
+
+	     if( bdebug ) then
+	       kext = ipext(kn)
+	       !write(6,*) 'qqqqq',my_id,ibc,i,kn,rw
+	       write(6,*) 'qqqqq',my_id,ibc,i,kn,kext
+	     end if
 	     !write(6,*) ibc,i,kn,ipext(kn),rw
+
 	     if( kn <= 0 ) cycle
 
 	     if(ibtyp.eq.1) then		!z boundary
@@ -493,13 +540,18 @@ c	-----------------------------------------------------
                rzv(kn) = rw
 	     else if(ibtyp.eq.2) then		!q boundary
 	       call level_flux(dtime,levflx,kn,rw)	!zeta to flux
-	       kindex = kbndind(ibc,i)
-               rqpsv(kn)=alpha*rw*rrv(kindex)	!BUGFIX 21-08-2002, RQVDT
+               rval=alpha*rw*rrv(kindex)
+               rqpsv(kn) = rqpsv(kn) + rval	!BUGFIX 21-08-2002, RQVDT
+	       rflux(kindex) = rval
              else if(ibtyp.eq.3) then		!$$ibtyp3 - volume inlet
-               rqpsv(kn) = alpha*rw
+               rval = alpha*rw
+               rqpsv(kn) = rqpsv(kn) + rval
+	       rflux(kindex) = rval
              else if(ibtyp.eq.4) then		!momentum input
 	       ruv(kn) = rmu
 	       rvv(kn) = rmv
+             else if(ibtyp.eq.5) then		!fix scalar value, no flux
+	       !nothing
              else if(ibtyp.eq.31) then		!zero gradient for z
                ! already done...
 	       call get_bnd_ipar(ibc,'ktilt',ktilt)
@@ -528,11 +580,6 @@ c	       call zspeci(ibtyp,kranf,krend,rw)	!for radiation...
 	  end do
 
 	end do
-
-	!write(99,*) '======================================'
-	!write(99,*) ' it = ',it
-	!write(99,*) '======================================'
-	!call iff_print_info(12,0,.true.)
 
 c	-----------------------------------------------------
 c	tilting
@@ -727,6 +774,7 @@ c**************************************************************
 
 c tilting of boundary surface due to Coriolis acceleration - needs ktilt
 c
+c this routine is only used if ztilt == 0
 c if ztilt is given then z_tilt() is used to tilt water level
 c if ktilt is not given nothing is tilted
 
@@ -809,6 +857,8 @@ c**************************************************************
 
 	subroutine init_tilt(ibc)
 
+	use shympi
+
 c finds tilting node in boundary node list
 
 	implicit none
@@ -822,12 +872,22 @@ c finds tilting node in boundary node list
 	integer ibtyp
 
 	integer ipext,iround,kbnd,itybnd
+	real ztilt
 
         ibtyp = itybnd(ibc)
 	if( ibtyp <= 0 ) return
 
+	call get_bnd_par(ibc,'ztilt',ztilt)
 	call get_bnd_ipar(ibc,'ktilt',ktilt)
-	if(ktilt.le.0) return
+
+	if( ztilt /= 0. .or. ktilt > 0 ) then
+	  if( shympi_is_parallel() ) then
+            call shympi_syncronize
+            stop 'error stop init_tilt: tilting not ready for mpi'
+	  end if
+	end if
+
+	if(ktilt.le.0) return	! no need to find node
 
 	call kanfend(ibc,kranf,krend)
 
@@ -980,21 +1040,23 @@ c*******************************************************************
 c sets up (water) mass flux array mfluxv (3d) and rqv (vertically integrated)
 
 	use mod_bound_dynamic
+	use mod_bound_geom
 	use mod_hydro
 	use levels
 	use basin, only : nkn,nel,ngr,mbw
+	use shympi
 
 	implicit none
 
 	logical debug,bdebug
-	integer i,k,l,lmin,lmax,nk,ibc,mode,iu
+	integer i,k,l,lmin,lmax,nk,ibc,mode,iu,kindex
 	integer ibtyp,levmax,levmin
 	integer nbc
 	double precision dtime
-	real flux,vol,voltot,fluxtot,fluxnode
-	real vols(nkn)
+	real flux,vol,voltot,fluxtot,fluxnode,rval
+	real vols(nlv)
 
-	integer nkbnds,kbnds,nbnds
+	integer nkbnds,kbnds,nbnds,kbndind
 	real volnode		!function to compute volume of node
 
 c------------------------------------------------------------------
@@ -1034,12 +1096,13 @@ c------------------------------------------------------------------
 
 	  do i=1,nk
             k = kbnds(ibc,i)
+	    kindex = kbndind(ibc,i)
 	    if( k <= 0 ) cycle
 	    bdebug = ( debug .and. k == 3239 ) 
 	    lmax = ilhkv(k)
 	    if( levmax .gt. 0 ) lmax = min(lmax,levmax)
 	    if( levmax .lt. 0 ) lmax = min(lmax,lmax+1+levmax)
-	    lmin = 1
+	    lmin = jlhkv(k)
 	    if( levmin .gt. 0 ) lmin = max(lmin,levmin)
 	    if( levmin .lt. 0 ) lmin = max(lmin,lmax+1+levmin)
 
@@ -1054,10 +1117,13 @@ c------------------------------------------------------------------
 
 	    if( voltot .le. 0. ) goto 99
 
-	    flux = rqpsv(k)
+	    !flux = rqpsv(k)
+	    flux = rflux(kindex)
 	    if(bdebug) write(iu,*) '   ',k,lmin,lmax,flux,voltot
 	    do l=lmin,lmax
-	      mfluxv(l,k) = flux * vols(l) / voltot
+	      rval = flux * vols(l) / voltot
+	      !mfluxv(l,k) = rval
+	      mfluxv(l,k) = mfluxv(l,k) + rval
 	    end do
 	  end do
 
@@ -1068,10 +1134,14 @@ c add distributed sources
 c------------------------------------------------------------------
 
 	do k=1,nkn
-	  mfluxv(1,k) = mfluxv(1,k) + rqdsv(k)	!rain, evaporation
+	  lmin = jlhkv(k)
+	  mfluxv(lmin,k) = mfluxv(lmin,k) + rqdsv(k)	!rain, evaporation
 	  !lmax = ilhkv(k)
 	  !mfluxv(lmax,k) = gwf		!here distributed ground water flow
 	end do
+
+	call shympi_exchange_3d_node(mfluxv)
+	call shympi_exchange_2d_node(rqdsv)
 
 c------------------------------------------------------------------
 c compute total flux for check and integrate flux into rqv
@@ -1081,7 +1151,8 @@ c------------------------------------------------------------------
 	do k=1,nkn
 	  fluxnode = 0.
 	  lmax = ilhkv(k)
-	  do l=1,lmax
+	  lmin = jlhkv(k)
+	  do l=lmin,lmax
 	    flux = mfluxv(l,k)
 	    !if( debug .and. flux .gt. 0. ) write(6,*) '  flux: ',k,l,flux
 	    fluxnode = fluxnode + flux
@@ -1090,6 +1161,8 @@ c------------------------------------------------------------------
 	  fluxtot = fluxtot + fluxnode
 	end do
 
+	!call shympi_exchange_2d_node(rqv)
+	
 	if( debug ) write(iu,*) '  total flux: ',fluxtot
 
 c------------------------------------------------------------------
@@ -1143,17 +1216,19 @@ c adjusts mass flux for dry nodes
 
 c**********************************************************************
 
-	subroutine make_scal_flux(what,r3v,scal,sflux,sconz,ssurf)
+	subroutine make_scal_flux(what,iter,r3v,scal,sflux,sconz,ssurf)
 
 c computes scalar flux from fluxes and concentrations
 
 	use mod_bound_dynamic
 	use levels
 	use basin, only : nkn,nel,ngr,mbw
+	use shympi
 
 	implicit none
 
 	character*(*) what
+	integer iter
 	real r3v(nlvdi,nkn)	!concentration for boundary condition
 	real scal(nlvdi,nkn)	!concentration of scalar
 	real sflux(nlvdi,nkn)	!mass flux for each finite volume (return)
@@ -1162,26 +1237,32 @@ c computes scalar flux from fluxes and concentrations
 
 	include 'mkonst.h'
 
-
-	integer k,l,lmax,ks
+	logical bdebug
+	integer iunit
+	integer k,l,lmax,lmin,ks
 	real flux,conz
 	real surf_flux
 	real getpar
+	integer ipext
 
 	ks = 2827
 	ks = 2757
 	ks = 2831
+	ks = 6651
 	ks = -1
 	!ks = nint(getpar('kref'))	!not working - here global, but local
+	bdebug = .false.
 
 	do k=1,nkn
+	  bdebug = ( ipext(k) == ks )
 	  lmax = ilhkv(k)
+	  lmin = jlhkv(k)
 	  surf_flux = rqdsv(k)
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    sflux(l,k) = 0.
 	    sconz(l,k) = 0.
 	    flux = mfluxv(l,k)
-	    if( l .eq. 1 ) flux = flux - surf_flux	!without surface flux
+	    if( l .eq. lmin ) flux = flux - surf_flux	!without surface flux
 	    conz = r3v(l,k)
 	    if( flux .ne. 0. .or. conz .ne. flag ) then
 	      if( flux .ne. 0. .and. conz .eq. flag ) goto 99
@@ -1193,13 +1274,23 @@ c computes scalar flux from fluxes and concentrations
 	    end if
 	  end do
 	  conz = ssurf
-	  if( ssurf .le. -990 ) conz = scal(1,k)
-	  if( ssurf .le. -5555 ) conz = scal(1,k) - 10000. - ssurf !diff
-	  sflux(1,k) = sflux(1,k) + surf_flux * conz
+	  if( ssurf .le. -990 ) conz = scal(lmin,k)
+	  if( ssurf .le. -5555 ) conz = scal(lmin,k) - 10000. - ssurf !diff
+	  sflux(lmin,k) = sflux(lmin,k) + surf_flux * conz
 	  ! next should be sconz(1,k) = conz if surf_flux is eliminated
 	  !sconz(1,k) = 0.
-	  if( mfluxv(1,k) .ne. 0 ) then
-	    sconz(1,k) = sflux(1,k) / mfluxv(1,k)
+	  if( mfluxv(lmin,k) .ne. 0 ) then
+	    sconz(lmin,k) = sflux(lmin,k) / mfluxv(lmin,k)
+	  end if
+	  if( bdebug ) then
+	    iunit = 730 + my_id
+	    write(iunit,*) '---------- scal_flux = ',what
+	    write(iunit,*) iter,ks,k,lmax
+	    write(iunit,*) 'scal: ',scal(:,k)
+	    write(iunit,*) 'r3v: ',r3v(:,k)
+	    write(iunit,*) 'sconz: ',sconz(:,k)
+	    write(iunit,*) 'sflux: ',sflux(:,k)
+	    write(iunit,*) 'mfluxv: ',mfluxv(:,k)
 	  end if
 	end do
 
@@ -1229,7 +1320,7 @@ c**********************************************************************
 	real sflux(nlvdi,nkn)	!scalar flux
 	real sconz(nlvdi,nkn)	!concentration for each finite volume
 
-	integer k,l,lmax
+	integer k,l,lmax,lmin
 	integer ifemop
 	real qtot,stot
 	double precision dtime
@@ -1244,9 +1335,10 @@ c**********************************************************************
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
+	  lmin = jlhkv(k)
 	  stot = 0.
 	  qtot = 0.
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    qtot = qtot + mfluxv(l,k)
 	    stot = stot + mfluxv(l,k) * sconz(l,k)
 	  end do
@@ -1275,7 +1367,7 @@ c checks scalar flux
 
 	include 'mkonst.h'
 
-	integer k,l,lmax,ks
+	integer k,l,lmax,lmin,ks
 	real cconz,qflux,mflux
 	double precision dtime
 
@@ -1285,7 +1377,8 @@ c checks scalar flux
 
         do k=1,nkn
           lmax = ilhkv(k)
-          do l=1,lmax
+	  lmin = jlhkv(k)
+          do l=lmin,lmax
             cconz = sconz(l,k)         !concentration has been passed
             qflux = mfluxv(l,k)
             if( qflux .lt. 0. ) cconz = scal(l,k)
@@ -1608,16 +1701,17 @@ c returns discharge through boundary ibc for points sources
 c for z-boundaries 0 is returned
 
 	use mod_bound_dynamic
+	use mod_bound_geom
 
 	implicit none
 
 	real get_discharge
 	integer ibc
 
-	integer itype,nk,i,k
+	integer itype,nk,i,k,kindex
 	real acc
 
-	integer itybnd,nkbnds,kbnds
+	integer itybnd,nkbnds,kbnds,kbndind
 
 	get_discharge = 0.
 
@@ -1628,11 +1722,98 @@ c for z-boundaries 0 is returned
         nk = nkbnds(ibc)
         do i=1,nk
           k = kbnds(ibc,i)
-	  acc = acc + rqpsv(k)
+	  kindex = kbndind(ibc,i)
+	  !acc = acc + rqpsv(k)
+	  acc = acc + rflux(kindex)
         end do
 
 	get_discharge = acc
 
+	end
+
+c**********************************************************************
+
+	subroutine get_discharge_3d(ibc,flux3d,flux2d)
+
+	use levels
+	use mod_bound_dynamic
+	use mod_bound_geom
+
+	implicit none
+
+	integer ibc
+	real flux3d(nlvdi)
+	real flux2d
+
+	integer mode,nk
+	integer ibtyp,levmin,levmax
+	integer l,lmax,lmin
+	integer i,k,kindex
+	double precision vol,voltot,vols(nlvdi),flux,rval
+	double precision flux3dacum(nlvdi)
+	double precision flux2dacum
+
+	integer nkbnds,kbnds,nbnds,kbndind
+	real volnode		!function to compute volume of node
+
+	mode = +1
+	flux3dacum = 0.
+	flux2dacum = 0.
+
+          nk = nkbnds(ibc)
+	  call get_bnd_ipar(ibc,'ibtyp',ibtyp)
+	  call get_bnd_ipar(ibc,'levmin',levmin)
+	  call get_bnd_ipar(ibc,'levmax',levmax)
+
+	  if( ibtyp .lt. 2 .or. ibtyp .gt. 3 ) nk = 0		!skip
+
+	  do i=1,nk
+            k = kbnds(ibc,i)
+	    kindex = kbndind(ibc,i)
+	    if( k <= 0 ) cycle
+
+	    lmax = ilhkv(k)
+	    if( levmax .gt. 0 ) lmax = min(lmax,levmax)
+	    if( levmax .lt. 0 ) lmax = min(lmax,lmax+1+levmax)
+	    lmin = jlhkv(k)
+	    if( levmin .gt. 0 ) lmin = max(lmin,levmin)
+	    if( levmin .lt. 0 ) lmin = max(lmin,lmax+1+levmin)
+
+	    if( lmin .gt. lmax ) goto 98
+
+	    voltot = 0.
+	    do l=lmin,lmax
+	      vol = volnode(l,k,mode)
+	      vols(l) = vol
+	      voltot = voltot + vol
+	    end do
+
+	    if( voltot .le. 0. ) goto 99
+
+	    flux = rflux(kindex)
+	    flux2dacum = flux2dacum + flux
+	    do l=lmin,lmax
+	      rval = flux * vols(l) / voltot
+	      flux3dacum(l) = flux3dacum(l) + rval
+	    end do
+	  end do
+
+	flux3d = flux3dacum
+	flux2d = flux2dacum
+
+	return
+   98	continue
+	write(6,*) 'lmin > lmax'
+   99	continue
+	write(6,*) 'ibc = ',ibc
+	write(6,*) 'i = ',i
+	write(6,*) 'k = ',k
+	write(6,*) 'ilhkv(k) = ',ilhkv(k)
+	write(6,*) 'levmin = ',levmin
+	write(6,*) 'levmax = ',levmax
+	write(6,*) 'lmin = ',lmin
+	write(6,*) 'lmax = ',lmax
+	stop 'error stop get_discharge_3d: voltot = 0'
 	end
 
 c**********************************************************************

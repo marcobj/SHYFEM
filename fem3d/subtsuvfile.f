@@ -57,6 +57,8 @@ c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
 c 14.02.2020	ggu	new routine ts_file_exists()
 c 04.03.2020	ggu	iunit converted to id
+c 05.04.2022	ggu	in tracer_init_file only set existing layers
+c 27.10.2022	ggu	tracer_init_file also working for 2d arrays
 c
 c*******************************************************************	
 c*******************************************************************	
@@ -110,6 +112,7 @@ c*******************************************************************
 
 	subroutine ts_next_record(dtime,id,nlvddi,nkn,nlv,value)
 
+        use levels, only : ilhkv
 	use intp_fem_file
 
 	implicit none
@@ -122,6 +125,7 @@ c*******************************************************************
 	real value(nlvddi,nkn)
 
 	integer ldim,ndim,ivar
+	integer k,lmax
         real vmin,vmax
 	character*80 string
 
@@ -137,6 +141,11 @@ c--------------------------------------------------------------
 
 	call iff_read_and_interpolate(id,dtime)
 	call iff_time_interpolate(id,dtime,ivar,ndim,ldim,value)
+
+	do k=1,nkn
+	  lmax = ilhkv(k)
+	  value(lmax+1:nlvddi,k) = 0
+	end do
 
 c--------------------------------------------------------------
 c some statistics
@@ -312,6 +321,8 @@ c*******************************************************************
 
 c initialization of tracer from file
 
+        use levels, only : ilhkv
+
         implicit none
 
 	character*(*) what
@@ -325,12 +336,18 @@ c initialization of tracer from file
         real val(nlvddi,nkn,nvar)
 
         integer id,iv
+	integer k,l,lmax
         character*80 file
 
         call getfnm(file_init,file)
 
 	do iv=1,nvar
-          val(:,:,iv) = val0(iv)
+	  do k=1,nkn
+            lmax = min(nlvddi,ilhkv(k))
+            do l=1,lmax
+              val(l,k,iv) = val0(iv)
+	    end do
+	  end do
 	end do
 
         if( file == ' ' ) return

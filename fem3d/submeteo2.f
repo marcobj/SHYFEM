@@ -100,6 +100,10 @@ c 03.06.2021	mbj	added Hersbach wind stress formulation
 c 26.01.2022	ggu	bug in short name of icecover fixed
 c 01.02.2022	ggu	automatically convert cloudcover from % to fraction
 c 21.03.2022	ggu	new calls for write in debug mode
+c 03.06.2022	ggu	in meteo_convert_heat_data() save read vapor to array
+c 08.07.2022	ggu	avoid divide by zero when computing dice
+c 06.12.2022	ggu	rfact for rain introduced
+c 02.04.2023    ggu     only master writes to iuinfo
 c
 c notes :
 c
@@ -206,6 +210,12 @@ c		an easy way to exclude strong wind gusts that might
 c		blow up the simulation. Use with caution. 
 c		(Default -1, no limitation)
 c
+c |rfact|	Precipitation (rain) has to be given in mm/day. If the
+c		input data is in a different unit, |rfact| specifies 
+c		the conversion factor. E.g., if the data is in mm/hour,
+c		|rfact = 24| converts it to mm/day.
+c		(Default 1)
+c
 c DOCS  END
 
 !================================================================
@@ -242,6 +252,7 @@ c DOCS  END
 	real, save :: pfact = 1.
 	real, save :: wfact = 1.
 	real, save :: sfact = 1.
+	real, save :: rfact = 1. !factor for rain if other units than mm/day
 
 	logical, save :: has_pressure = .false.
 
@@ -928,6 +939,7 @@ c DOCS  END
 	character*60 string
 
         logical string_is_this_short
+	real getpar
 
 !	---------------------------------------------------------
 !	check nvar and get parameters
@@ -937,6 +949,8 @@ c DOCS  END
 	  write(6,*) 'no support for nvar = ',nvar
 	  stop 'error stop meteo_set_rain_data: rain'
 	end if
+
+        rfact = nint(getpar('rfact'))
 
 !	---------------------------------------------------------
 !	handle rain
@@ -991,11 +1005,13 @@ c convert rain from mm/day to m/s
 	real r(n)
 
 	integer i
-        real zconv
-        parameter( zconv = 1.e-3 / 86400. )
+	real fact
+        real, parameter :: zconv = 1.e-3 / 86400.	!convert mm/day to m/s
+
+	fact = zconv * rfact				!rfact is extra factor
 
 	do i=1,n
-	  r(i) = r(i) * zconv
+	  r(i) = r(i) * fact
 	end do
 
 	end subroutine meteo_convert_rain_data
@@ -1093,6 +1109,7 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 
 	use evgeom
 	use basin
+	use shympi
 
 	integer id
 	integer n
@@ -1103,11 +1120,14 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 	double precision dacu,dice,darea,area
 	character*20 aline
 
-	integer, save :: ninfo = 0
+	integer, save :: iuinfo = 0
 	real, parameter :: flag = -999.
 	logical, parameter :: ballcover = .false.  !cover whole area with ice
 
-	if( ninfo == 0 ) call getinfo(ninfo)
+        if( iuinfo == 0 ) then
+          iuinfo = -1
+          if(shympi_is_master()) call getinfo(iuinfo)
+        end if
 
 	nflag = 0
 	nice = 0
@@ -1141,7 +1161,7 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 	    end do
 	  end if
 	end do
-	dice = dice / darea
+	if( darea > 0. ) dice = dice / darea
 
 	dacu = 0.
 	darea = 0.
@@ -1159,7 +1179,10 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 	rarea = dice
 	rnodes = dacu
 	call get_act_timeline(aline)
-	write(ninfo,*) 'ice: ',aline,rarea,rnodes,nflag
+
+	if( iuinfo > 0 ) then
+	  write(iuinfo,*) 'ice: ',aline,rarea,rnodes,nflag
+	end if
 
 	end subroutine meteo_convert_ice_data
 
@@ -1310,6 +1333,11 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 	  call meteo_convert_cloudcover(n,metcc)
 	  call meteo_convert_vapor(ihtype,n
      +			,metaux,mettair,ppv,methum)
+
+	  !if( ihtype == 1 ) methum = metaux	!done in meteo_convert_vapor()
+	  !if( ihtype == 2 ) metwbt = metaux
+	  !if( ihtype == 3 ) metdew = metaux
+	  !if( ihtype == 4 ) metshum = metaux
 	end if
 
 	end subroutine meteo_convert_heat_data

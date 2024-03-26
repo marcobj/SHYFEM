@@ -39,6 +39,14 @@
 ! 11.05.2018	ggu	bug fix in exchange arrays for zeta levels
 ! 16.02.2019	ggu	changed VERS_7_5_60
 ! 22.04.2021	ggu	bug fix in shympi_allgather_*()
+! 02.04.2022	ggu	new routines shympi_rectify_internal_*()
+! 03.04.2022	ggu	new routine shympi_bcast_d_internal()
+! 06.04.2022	ggu	new routines for handling double precision
+! 10.04.2022	ggu	bug fix in shympi_bcast_d_internal() - val was real
+! 01.06.2022	ggu	new routine shympi_gather_d_internal()
+! 09.10.2022	ggu	rectify 3d arrays with nlv+1 (nextra)
+! 27.03.2023	ggu	new routines shympi_receive_internal_*()
+! 13.04.2023	ggu	introduced bnode, belem (distinguish calls to node/elem)
 !
 !******************************************************************
 
@@ -277,6 +285,131 @@
 !******************************************************************
 !******************************************************************
 
+	subroutine shympi_receive_internal_i(id_from,id_to
+     +						,n,val_in,val_out)
+
+	use shympi_aux
+
+	use shympi
+
+	implicit none
+
+	integer id_from,id_to
+	integer n
+	integer val_in(n)
+	integer val_out(n)
+
+	integer tag,ir,id
+	integer ierr
+	integer nb
+	integer status(status_size,2*n_threads)
+	integer request(2*n_threads)
+
+        tag=151
+	ir = 0
+
+cccgguccc!$OMP CRITICAL
+
+	if( my_id == id_to ) then
+	  ir = ir + 1
+	  id = id_from
+          call MPI_Irecv(val_out,n,MPI_INTEGER,id
+     +	          ,tag,MPI_COMM_WORLD,request(ir),ierr)
+	end if
+
+	if( my_id == id_from ) then
+	  ir = ir + 1
+	  id = id_to
+          call MPI_Isend(val_in,n,MPI_INTEGER,id
+     +	          ,tag,MPI_COMM_WORLD,request(ir),ierr)
+	end if
+
+        call MPI_WaitAll(ir,request,status,ierr)
+
+cccgguccc!$OMP END CRITICAL
+
+	end subroutine shympi_receive_internal_i
+
+!******************************************************************
+
+	subroutine shympi_receive_internal_r(id_from,id_to
+     +						,n,val_in,val_out)
+
+	use shympi_aux
+
+	use shympi
+
+	implicit none
+
+	integer id_from,id_to
+	integer n
+	real val_in(n)
+	real val_out(n)
+
+	integer tag,ir,id,iu
+	integer ierr
+	integer nb
+	integer status(status_size,2*n_threads)
+	integer request(2*n_threads)
+
+        tag=152
+	ir = 0
+	ierr = 0
+
+	!iu = 900 + my_id
+	!write(6,*) 'in internal: ',my_id,id_from,id_to,n
+	!write(iu,*) 'in internal: ',my_id,id_from,id_to,n
+	!flush(6)
+	!flush(iu)
+
+cccgguccc!$OMP CRITICAL
+
+	if( my_id == id_to ) then
+	  ir = ir + 1
+	  id = id_from
+          call MPI_Irecv(val_out,n,MPI_REAL,id
+     +	          ,tag,MPI_COMM_WORLD,request(ir),ierr)
+	  !write(iu,*) 'receiving from: ',my_id,id,n
+	end if
+	if( ierr /= 0 ) write(6,*) 'internal error 1: ',ierr
+	!write(iu,*) 'in internal rec: ',my_id
+	!flush(iu)
+
+	if( my_id == id_from ) then
+	  ir = ir + 1
+	  id = id_to
+          call MPI_Isend(val_in,n,MPI_REAL,id
+     +	          ,tag,MPI_COMM_WORLD,request(ir),ierr)
+	  !write(iu,*) 'sending to: ',my_id,id,n
+	end if
+	if( ierr /= 0 ) write(6,*) 'internal error 2: ',ierr
+	!write(iu,*) 'in internal send: ',my_id
+	!flush(iu)
+
+	if( ir > 0 ) then
+          call MPI_WaitAll(ir,request,status,ierr)
+	  if( ierr /= 0 ) write(6,*) 'internal error 3: ',ierr
+	end if
+	!write(iu,*) 'in internal wait: ',my_id
+	!flush(iu)
+
+cccgguccc!$OMP END CRITICAL
+
+	if( ierr > 0 ) then
+	  stop 'error stop shympi_receive_internal: exchange error'
+	end if
+
+	!write(6,*) 'finished internal: ',my_id
+	!write(iu,*) 'finished internal: ',my_id
+	!flush(6)
+	!flush(iu)
+
+	end subroutine shympi_receive_internal_r
+
+!******************************************************************
+!******************************************************************
+!******************************************************************
+
 	subroutine shympi_exchange_internal_i(belem,n0,nlvddi,n,il
      +						,g_in,g_out,val)
 
@@ -466,7 +599,73 @@ cccgguccc!$OMP END CRITICAL
 	integer g_out(n_ghost_max,n_ghost_areas)
 	double precision val(n0:nlvddi,n)
 
-        stop 'error stop shympi_exchange_internal_d: not ready'
+        integer tag,ir,ia,id
+        integer i,k,nc,ierr
+        integer nb
+        integer iout,iin
+        integer nbs(2,n_ghost_areas)
+        integer status(status_size,2*n_threads)
+        integer request(2*n_threads)
+        double precision, allocatable :: buffer_in(:,:)
+        double precision, allocatable :: buffer_out(:,:)
+
+        tag=123
+        ir = 0
+
+        iout = 2
+        iin = 3
+        if( belem ) then
+          iout = 4
+          iin = 5
+        end if
+
+        nb = (nlvddi-n0+1) * n_ghost_max
+        call shympi_alloc_buffer(nb)
+        allocate(buffer_in(nb,n_ghost_areas))
+        allocate(buffer_out(nb,n_ghost_areas))
+
+        do ia=1,n_ghost_areas
+          nc = ghost_areas(iout,ia)
+          call count_buffer(n0,nlvddi,n,nc,il,g_out(:,ia),nb)
+          nbs(1,ia) = nb
+          nc = ghost_areas(iin,ia)
+          call count_buffer(n0,nlvddi,n,nc,il,g_in(:,ia),nb)
+          nbs(2,ia) = nb
+        end do
+
+cccgguccc!$OMP CRITICAL
+
+        do ia=1,n_ghost_areas
+          ir = ir + 1
+          id = ghost_areas(1,ia)
+          nc = ghost_areas(iout,ia)
+          nb = nbs(1,ia)
+          call MPI_Irecv(buffer_out(:,ia),nb,MPI_DOUBLE,id
+     +            ,tag,MPI_COMM_WORLD,request(ir),ierr)
+        end do
+
+        do ia=1,n_ghost_areas
+          ir = ir + 1
+          id = ghost_areas(1,ia)
+          nc = ghost_areas(iin,ia)
+          nb = nbs(2,ia)
+          call to_buffer_d(n0,nlvddi,n,nc,il
+     +          ,g_in(:,ia),val,nb,buffer_in(:,ia))
+          call MPI_Isend(buffer_in(:,ia),nb,MPI_DOUBLE,id
+     +            ,tag,MPI_COMM_WORLD,request(ir),ierr)
+        end do
+
+        call MPI_WaitAll(ir,request,status,ierr)
+
+cccgguccc!$OMP END CRITICAL
+
+        do ia=1,n_ghost_areas
+          id = ghost_areas(1,ia)
+          nc = ghost_areas(iout,ia)
+          nb = nbs(1,ia)
+          call from_buffer_d(n0,nlvddi,n,nc,il
+     +          ,g_out(:,ia),val,nb,buffer_out(:,ia))
+        end do
 
 	end subroutine shympi_exchange_internal_d
 
@@ -486,6 +685,12 @@ cccgguccc!$OMP END CRITICAL
         integer vals(no,n_threads)
 
         integer ierr
+
+	if( n > no ) then
+	  write(6,*) 'n > no... ',n,no
+	  !commenting next statement creates mpi error and backtrace
+	  !stop 'error stop shympi_allgather_i_internal: n > no'
+	end if
 
 	if( bpmpi ) then
           call MPI_ALLGATHER (val,n,MPI_INTEGER
@@ -514,11 +719,14 @@ cccgguccc!$OMP END CRITICAL
 
         integer ierr
 
+	!write(6,*) 'start internal: ',bpmpi,n,no,my_id       !GGURST
+
 	if( bpmpi ) then
           call MPI_ALLGATHER (val,n,MPI_REAL
      +                  ,vals,no,MPI_REAL
      +                  ,MPI_COMM_WORLD,ierr)
-	  call shympi_error('shympi_allgather_i_internal'
+	  !write(6,*) 'finished internal: ',bpmpi,n,no,my_id
+	  call shympi_error('shympi_allgather_r_internal'
      +			,'gather',ierr)
 	else
 	  vals(1:n,1) = val(:)
@@ -545,13 +753,41 @@ cccgguccc!$OMP END CRITICAL
           call MPI_ALLGATHER (val,n,MPI_DOUBLE
      +                  ,vals,no,MPI_DOUBLE
      +                  ,MPI_COMM_WORLD,ierr)
-	  call shympi_error('shympi_allgather_i_internal'
+	  call shympi_error('shympi_allgather_d_internal'
      +			,'gather',ierr)
 	else
 	  vals(1:n,1) = val(:)
 	end if
 
         end subroutine shympi_allgather_d_internal
+
+!******************************************************************
+
+        subroutine shympi_gather_d_internal(n,no,val,vals)
+
+	use shympi_aux
+	use shympi
+
+	implicit none
+
+	integer n,no
+        double precision val(n)
+        double precision vals(no,n_threads)
+
+        integer ierr
+
+	if( bpmpi ) then
+          call MPI_GATHER (val,n,MPI_DOUBLE
+     +                  ,vals,no,MPI_DOUBLE
+     +			,0
+     +                  ,MPI_COMM_WORLD,ierr)
+	  call shympi_error('shympi_gather_d_internal'
+     +			,'gather',ierr)
+	else
+	  vals(1:n,1) = val(:)
+	end if
+
+        end subroutine shympi_gather_d_internal
 
 !******************************************************************
 
@@ -594,6 +830,27 @@ cccgguccc!$OMP END CRITICAL
 	end if
 
         end subroutine shympi_bcast_r_internal
+
+!******************************************************************
+
+        subroutine shympi_bcast_d_internal(n,val)
+
+	use shympi_aux
+	use shympi
+
+	implicit none
+
+	integer n
+        double precision val(n)
+
+        integer ierr
+
+	if( bpmpi ) then
+          call MPI_BCAST(val,n,MPI_DOUBLE,0,MPI_COMM_WORLD,ierr)
+	  call shympi_error('shympi_bcast_d_internal','bcast',ierr)
+	end if
+
+        end subroutine shympi_bcast_d_internal
 
 !******************************************************************
 !******************************************************************
@@ -804,18 +1061,22 @@ cccgguccc!$OMP END CRITICAL
 	real val_in(nlvddi,*)
 	real val_out(nlvddi,n)
 
+	logical bnode,belem
 	integer i,ir,ns,nb,tag,id
 	integer ierr
 	integer ip(0:n_threads)
 	integer req(2*n_threads)
 	integer status(status_size,2*n_threads)
 
-        tag=123
+        tag=131
 	ir = 0
 
-	if( n == nkn_global ) then
+	bnode = ( n == nkn_global )
+	belem = ( n == nel_global )
+
+	if( bnode ) then
 	  ip = nkn_cum_domains
-	else if( n == nel_global ) then
+	else if( belem ) then
 	  ip = nel_cum_domains
 	else
 	  write(6,*) 'n,nkn_global,nel_global: ',n,nkn_global,nel_global
@@ -865,18 +1126,22 @@ cccgguccc!$OMP END CRITICAL
 	integer val_in(nlvddi,*)
 	integer val_out(nlvddi,n)
 
+	logical bnode,belem
 	integer i,ir,ns,nb,tag,id
 	integer ierr
 	integer ip(0:n_threads)
 	integer req(2*n_threads)
 	integer status(status_size,2*n_threads)
 
-        tag=124
+        tag=132
 	ir = 0
 
-	if( n == nkn_global ) then
+	bnode = ( n == nkn_global )
+	belem = ( n == nel_global )
+
+	if( bnode ) then
 	  ip = nkn_cum_domains
-	else if( n == nel_global ) then
+	else if( belem ) then
 	  ip = nel_cum_domains
 	else
 	  write(6,*) 'n,nkn_global,nel_global: ',n,nkn_global,nel_global
@@ -915,6 +1180,8 @@ cccgguccc!$OMP END CRITICAL
 !******************************************************************
 !******************************************************************
 
+! next routines maybe not used... can be deleted...
+
 	subroutine shympi_exchange_array_internal_r(nlin,nlout,nkin,nkout
      +						,val_in,val_out)
 
@@ -928,6 +1195,7 @@ cccgguccc!$OMP END CRITICAL
 	real val_in(nlin,nkin)
 	real val_out(nlout,nkout)
 
+	logical bnode,belem
 	integer i,ir,ns,ne,nb,tag,id,nn,n
 	integer ierr
 	integer ip(0:n_threads)
@@ -935,13 +1203,16 @@ cccgguccc!$OMP END CRITICAL
 	integer status(status_size,2*n_threads)
 	real, allocatable :: valaux(:,:)
 
-        tag=125
+        tag=141
 	ir = 0
 
+	bnode = ( n == nkn_global )
+	belem = ( n == nel_global )
+
 	n = nkout
-	if( n == nkn_global ) then
+	if( bnode ) then
 	  ip = nkn_cum_domains
-	else if( n == nel_global ) then
+	else if( belem ) then
 	  ip = nel_cum_domains
 	else
 	  write(6,*) 'n,nkn_global,nel_global: ',n,nkn_global,nel_global
@@ -1012,6 +1283,7 @@ cccgguccc!$OMP END CRITICAL
 	integer val_in(nlin,nkin)
 	integer val_out(nlout,nkout)
 
+	logical bnode,belem
 	integer i,ir,ns,ne,nb,tag,id,nn,n
 	integer ierr
 	integer ip(0:n_threads)
@@ -1019,13 +1291,16 @@ cccgguccc!$OMP END CRITICAL
 	integer status(status_size,2*n_threads)
 	integer, allocatable :: valaux(:,:)
 
-        tag=126
+        tag=142
 	ir = 0
 
+	bnode = ( n == nkn_global )
+	belem = ( n == nel_global )
+
 	n = nkout
-	if( n == nkn_global ) then
+	if( bnode ) then
 	  ip = nkn_cum_domains
-	else if( n == nel_global ) then
+	else if( belem ) then
 	  ip = nel_cum_domains
 	else
 	  write(6,*) 'n,nkn_global,nel_global: ',n,nkn_global,nel_global
@@ -1084,4 +1359,100 @@ cccgguccc!$OMP END CRITICAL
 !******************************************************************
 !******************************************************************
 
+        subroutine shympi_rectify_internal_r(nv,nh,vals)
+
+	use shympi
+
+        integer nv,nh
+        real vals(nh*nv,n_threads)
+
+	integer ia,ip,it,nlv,nextra
+        real, allocatable :: vaux(:)
+
+        allocate(vaux(nh*nv))
+	!vaux = 0.
+
+	nextra = 0
+        if( nv == nlv_global+1 ) nextra = 1
+
+        do ia=1,n_threads
+          nlv = nlv_domains(ia) + nextra
+          vaux(:) = vals(:,ia)
+          vals(:,ia) = 0.
+          ip = 0
+          it = 0
+          do n=1,nh
+            vals(it+1:it+nlv,ia) = vaux(ip+1:ip+nlv)
+	    ip = ip + nlv
+	    it = it + nv
+          end do
+        end do
+
+	end
+
+!******************************************************************
+
+        subroutine shympi_rectify_internal_i(nv,nh,vals)
+
+	use shympi
+
+        integer nv,nh
+        integer vals(nh*nv,n_threads)
+
+	integer ia,ip,it,nlv,nextra
+        integer, allocatable :: vaux(:)
+
+        allocate(vaux(nh*nv))
+
+	nextra = 0
+        if( nv == nlv_global+1 ) nextra = 1
+
+        do ia=1,n_threads
+          nlv = nlv_domains(ia) + nextra
+          vaux(:) = vals(:,ia)
+          vals(:,ia) = 0.
+          ip = 0
+          it = 0
+          do n=1,nh
+            vals(it+1:it+nlv,ia) = vaux(ip+1:ip+nlv)
+	    ip = ip + nlv
+	    it = it + nv
+          end do
+        end do
+
+	end
+
+!******************************************************************
+
+        subroutine shympi_rectify_internal_d(nv,nh,vals)
+
+	use shympi
+
+        integer nv,nh
+        double precision vals(nh*nv,n_threads)
+
+	integer ia,ip,it,nlv,nextra
+        double precision, allocatable :: vaux(:)
+
+        allocate(vaux(nh*nv))
+
+	nextra = 0
+        if( nv == nlv_global+1 ) nextra = 1
+
+        do ia=1,n_threads
+          nlv = nlv_domains(ia) + nextra
+          vaux(:) = vals(:,ia)
+          vals(:,ia) = 0.
+          ip = 0
+          it = 0
+          do n=1,nh
+            vals(it+1:it+nlv,ia) = vaux(ip+1:ip+nlv)
+	    ip = ip + nlv
+	    it = it + nv
+          end do
+        end do
+
+	end
+
+!******************************************************************
 

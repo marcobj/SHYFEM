@@ -28,14 +28,17 @@
 !
 ! 21.12.2020	clr	original implementation
 ! 20.04.2021	clr	alternative implementation to replace pragma directives use_PETSc/SPK/AmgX
+! 19.05.2022	ggu	beautifying
+! 24.03.2023	clr	bug fix for global pointers (CLR24)
 !
 ! notes :
 !
 ! structure of calls:
-!
+
 !==================================================================
 	module mod_petsc_global
 !==================================================================
+
 #include "petsc/finclude/petsc.h"
         use shympi, only: bmpi,my_id,nkn_global,shympi_barrier
         use petscdm
@@ -79,7 +82,9 @@
 
 
       end subroutine petsc_global_initialize
-!****************************************************
+
+!******************************************************************
+
       subroutine petsc_global_create_setup
 
 	use mod_system
@@ -117,7 +122,7 @@
          endif
       end subroutine petsc_global_create_setup
 
-! ***********************************************************
+!******************************************************************
 
       subroutine petsc_global_close_setup
 #ifdef Verbose
@@ -133,7 +138,7 @@
 
       end subroutine petsc_global_close_setup
 
-! ***********************************************************
+!******************************************************************
 
       subroutine petsc_global_finalize
         PetscBool :: Petsc_is_initialized
@@ -146,14 +151,13 @@
           write(*,*)"PETSc Finalized" 
       end subroutine petsc_global_finalize
 
-! ************************************************************************
+!******************************************************************
 ! compute number or local rows and
 ! create indexes of nodes to reorder matrix/vector rows so that
-! every rank owns a single block of rows containing only its own
-! nodes.
-! ************************************************************************
+! every rank owns a single block of rows containing only its own nodes.
+!******************************************************************
+
       subroutine petsc_create_indexes()
-        use basin, only: ipv ! returns internal global node number
         use shympi
 
         implicit none
@@ -190,7 +194,7 @@
             if(nodes_by_ranks(kk,id)>0) then
               nodes_glob2block(nodes_by_ranks(kk,id))=k
 #ifdef Verbose
-              write(*,'(4(a,i3))')'PETSc rank',my_id,
+              write(6,'(4(a,i8))')'PETSc rank',my_id,
      +              ' take node from id',id,' node glob_int index=',
      +              nodes_by_ranks(kk,id),' -> block index -1 =',k-1
 #endif
@@ -203,11 +207,11 @@
         if(bmpi)then
            do k=1,nkn_local
 #ifdef Verbose
-              write(*,'(4(a,i3))')'rank,',my_id,' shynode ',k,
-     +                  ' (ext ',ipv(k),
-     +                  ') -> block id:',nodes_glob2block(ipv(k))-1
+              write(6,'(3(a,i8),a)')'rank,',my_id,' shynode ',k,
+     +                  ' (ext ',ip_int_node(k),')'
+              flush(6)
 #endif
-              nodes_shy2block(k)=nodes_glob2block(ipv(k))-1
+              nodes_shy2block(k)=nodes_glob2block(ip_int_node(k))-1	!CLR24
            enddo
         else
            do k=1,nkn_local
@@ -238,11 +242,9 @@
 #endif
       end subroutine petsc_create_indexes
 
-
-! ************************************************************************
-! identify the non-zeros of the matrix and the ghost nodes
-! of every process 
-! ************************************************************************
+!******************************************************************
+! identify the non-zeros of the matrix and the ghost nodes of every process 
+!******************************************************************
 
       subroutine petsc_identify_non_zeros_and_ghosts
 
@@ -335,7 +337,7 @@
 #endif
       end subroutine petsc_identify_non_zeros_and_ghosts
 
-! ***********************************************************
+!******************************************************************
 
         subroutine resize_2darray(array,
      +                                news1,news2,default_val)
@@ -362,8 +364,8 @@
      +         tmparray(lbound1:lbound1+mins1,lbound2:lbound2+mins2)
           deallocate(tmparray)
         end subroutine resize_2darray
-!******************************************************************
 
+!******************************************************************
 
 !==================================================================
       end module mod_petsc_global

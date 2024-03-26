@@ -57,6 +57,9 @@ c 14.02.2019	ggu	changed VERS_7_5_56
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 26.05.2020	ggu	rdist is now defined on elements
 c 21.03.2022	ggu	disable writing of dist.shy
+c 28.05.2022	ggu	better error handling in mkdist_new()
+c 12.12.2022	ggu	new routine mkdist_mpi() -> results will change
+c 16.12.2022	ggu	nadist now running with mpi
 c
 c****************************************************************
 
@@ -64,18 +67,17 @@ c****************************************************************
 
 c makes distance array from open boundaries
 c
+c nad of single boundaries can be either 0 or nadist global
+c if nadist is not given, it will be set to maximum of nad on single boundaries
+c
 c rdist is contained between 0 and 1
+c rdist==1 means computation of all terms, rdist=0 excludes non-linear terms
+c
 c if nadist (=d) is not given rdist = 1 (default)
-c otherwise the first d2=d/2 rows of nodes have rdist = 0
-c and then the next ones have rdist = i/d with i = d2+1, d2+d
-c the rest has again rdist = 1
-c
-c example: nadist = d = 4,   d2 = d/2 = 2
-c
-c   row i:   1   2   3   4   5   6   7   8   ...
-c   rdist:   0   0  1/4 2/4 3/4  1   1   1   ...
+
 
 	use basin
+	use shympi
 
 	implicit none
 
@@ -83,17 +85,20 @@ c   rdist:   0   0  1/4 2/4 3/4  1   1   1   ...
 
 c local variables
 
-        integer idist(nkn)
-        real rdist(nkn)
-
-        integer i,k,kk,ie,ii
-        integer nadist,nad
+	logical, parameter :: bwrite = .false.		! write bdist.grd file
+        integer i,k,kk,ie,ii,kext
+        integer nadist,nad,nadmax
         integer ibc,n,itype,nk
 	integer nbc
 	integer ivar
+	integer, allocatable :: nads(:)
+        integer, allocatable :: idist(:)
+        integer, allocatable :: ieaux(:)
+        real, allocatable :: rdist(:)
+
 	real r
 
-	integer iapini,ipint
+	integer iapini,ipint,ipext
         integer nbnds,itybnd,nkbnds,kbnds
         real getpar
 
@@ -101,35 +106,60 @@ c-----------------------------------------------------------------
 c get parameters
 c-----------------------------------------------------------------
 
-        do k=1,nkn
-          rdist(k) = 1.
-          idist(k) = 0
-        end do
+        redist = 1.
 
         nadist = nint(getpar('nadist'))		!global value
 
-c-----------------------------------------------------------------
-c gather open boundary nodes
-c-----------------------------------------------------------------
-
-        n = 0
 	nbc = nbnds()
+	allocate(nads(nbc))
+	do ibc=1,nbc
+	  call get_bnd_ipar(ibc,'nad',nad)	!local value
+	  if( nad < 0 ) nad = nadist
+	  nads(ibc) = nad
+	end do
+	nadmax = maxval(nads)			!maximum of local values
+
+	if( nadmax /= nadist ) then
+	  if( nadmax > 0 .and. nadist > 0 ) goto 99
+	  if( nadist == 0 ) nadist = nadmax
+	end if
+
+	do ibc=1,nbc
+	  nad = nads(ibc)
+	  if( nad > 0 .and. nad /= nadmax ) goto 99
+	end do
+
+	!write(6,*) my_id,nadist,nadmax
+	call shympi_barrier
+	write(6,*) 'using nadist = ',nadist
+	if( nadist == 0 ) return	!noithing to be done
+
+	allocate(idist(nkn))
+	allocate(rdist(nkn))
+
+        idist = 0
+        rdist = 1.
+
+c-----------------------------------------------------------------
+c run over open boundary nodes and set idist
+c-----------------------------------------------------------------
 
         do ibc=1,nbc
           itype = itybnd(ibc)
           if( itype .eq. 1 .or. itype .eq. 2 ) then
             nk = nkbnds(ibc)
-	    call get_bnd_ipar(ibc,'nad',nad)	!local value
-	    if( nad .lt. 0 ) nad = nadist
+	    nad = nads(ibc)
 	    if( nad .gt. 0 ) then
               do i=1,nk
                 k = kbnds(ibc,i)
-                idist(k) = 1			!old version
-                idist(k) = nad
+		kext = ipext(k)
+                if( k > 0 ) idist(k) = nad
               end do
 	    end if
           end if
         end do
+
+c	now idist is either 0 or nad if on boundary and nadist is set
 
 c-----------------------------------------------------------------
 c make distance
@@ -137,17 +167,8 @@ c-----------------------------------------------------------------
 
         write(6,*) 'Making distance rdist'
         !call mkdist(nadist,nkn,idist,rdist)		!old version
-        call mkdist_new(nkn,idist,rdist)
-
-c-----------------------------------------------------------------
-c write dist (nos) file
-c-----------------------------------------------------------------
- 
-	!n = count(idist>0)
-	!if( n > 0 ) then
-	!  ivar = 77
-	!  call scalar_output_once_2d('dist',ivar,rdist)
-	!end if
+        !call mkdist_new(nkn,idist,rdist)		!new non-mpi version
+        call mkdist_mpi(idist,rdist)			!mpi-version
 
 c-----------------------------------------------------------------
 c compute value of rdist on elements
@@ -163,9 +184,27 @@ c-----------------------------------------------------------------
 	end do
 
 c-----------------------------------------------------------------
+c write dist (nos) file
+c-----------------------------------------------------------------
+ 
+	if( bwrite ) then
+	  allocate(ieaux(nel))
+	  ieaux = 0
+	  call write_grd_general('bdist.grd','distance from boundary'
+     +				,idist,ieaux,rdist,redist)
+	end if
+
+c-----------------------------------------------------------------
 c end of routine
 c-----------------------------------------------------------------
 
+	return
+   99	continue
+	write(6,*) 'incongruence in nad values of boundary'
+	write(6,*) 'nadist = ',nadist
+	write(6,*) 'nad values on boundaries: ',nbc
+	write(6,*) nads
+	stop 'error stop shdist: incongruent nadist and local nad values'
         end
 
 c*************************************************************************** 
@@ -175,10 +214,6 @@ c***************************************************************************
 c makes distance array from given nodes
 c
 c can olny deal with one global value
-c
-c rdist of open boundary nodes is 1
-c other nodes are > 1 (integer)
-c example: neibors of rdist=1 nodes have rdist=2 etc.
 
 	use mod_geom
 
@@ -272,11 +307,17 @@ c***************************************************************************
 
 c makes distance array from given nodes
 c
-c can deal with global and local values
+c d = nadist or nad
+c d2=d/2 rows of nodes have rdist = 0
+c and then the next ones have rdist = i/d with i = d2+1, d2+d
+c the rest has again rdist = 1
 c
-c rdist of open boundary nodes is 1
-c other nodes are > 1 (integer)
-c example: neibors of rdist=1 nodes have rdist=2 etc.
+c example: nadist = d = 4,   d2 = d/2 = 2
+c
+c   row i:   1   2   3   4   5   6   7   8   ...
+c   rdist:   0   0  1/4 2/4 3/4  1   1   1   ...
+c
+c routine is too complicated, and cannot deal with mpi
 
 	use mod_geom
 	use shympi
@@ -288,7 +329,7 @@ c example: neibors of rdist=1 nodes have rdist=2 etc.
         real rdist(nkn)
 
 	logical bdebug
-        integer k,kk,ka,i
+        integer k,kk,ka,i,ic
         integer n,na,nanew
         integer idact,idnew,nfound
 	integer nodes(maxlnk)
@@ -298,7 +339,11 @@ c----------------------------------------------------------
 c initialize with first level
 c----------------------------------------------------------
 
-	if( any(idist>0) .and. shympi_is_parallel() ) then
+	ic = count(idist>0)
+	ic = shympi_sum(ic)
+
+	if( ic > 0 .and. shympi_is_parallel() ) then
+	  write(6,*) 'cannot yet handle nadist or nad different from 0'
 	  stop 'error stop mkdist_new: cannot run with mpi'
 	end if
 
@@ -313,7 +358,6 @@ c----------------------------------------------------------
 	do k=1,nkn
 	  if( idist(k) .gt. 0 .and. rdist(k) .eq. -1. ) then
 	    nanew = idist(k)
-	    na = nanew + nanew/2
 	    na = nanew
 	    do ka=1,nkn		!mark first row
 	      if( idist(ka) .eq. nanew 
@@ -362,6 +406,117 @@ c----------------------------------------------------------
 	  write(6,*) 'errors = ',na
 	  stop 'error stop mdist_new: values out of bound'
 	end if
+
+c----------------------------------------------------------
+c end of routine
+c----------------------------------------------------------
+
+        end
+
+c*************************************************************************** 
+
+        subroutine mkdist_mpi(idist,rdist)
+
+c makes distance array from given nodes
+c
+c can deal with global and local values
+c
+c idist is 0 or nad if on boundary and nadist is set
+c first set idist over all nodes
+c then convert idist to rdist
+
+	use basin
+	use mod_geom
+	use shympi
+
+        implicit none
+
+        integer idist(nkn)
+        real rdist(nkn)
+
+	logical bdebug
+        integer k,kk,ka,i,ic,ie,ii
+        integer n,na,nanew,nadmax,nchange,nmax,nmin
+	integer id,nad2
+        integer idact,idnew,nfound,iloop
+	integer nodes(maxlnk)
+	!integer iaux(nkn)
+	integer, allocatable :: iaux(:)
+	real frac
+
+c----------------------------------------------------------
+c initialize with first level
+c----------------------------------------------------------
+
+	allocate(iaux(nkn))
+
+	ic = count(idist>0)
+	ic = shympi_sum(ic)
+
+	nadmax = maxval(idist)
+	nadmax = shympi_max(nadmax)
+	!write(6,*) 'using nadmax = ',nadmax
+
+c----------------------------------------------------------
+c loop on levels and set idist
+c----------------------------------------------------------
+
+	call shympi_barrier
+
+	iloop = 0
+
+	do
+	  iaux = idist
+	  nchange = 0
+	  do ie=1,nel
+	    nmax = 0
+	    nmin = nadmax
+	    do ii=1,3
+	      k = nen3v(ii,ie)
+	      nmax = max(nmax,idist(k))
+	      nmin = min(nmin,idist(k))
+	    end do
+	    if( nmin == 0 .and. nmax > 1 ) then
+	      do ii=1,3
+	        k = nen3v(ii,ie)
+		if( idist(k) == 0 ) iaux(k) = max(iaux(k),nmax-1)
+	      end do
+	      nchange = nchange + 1
+	    end if
+	  end do
+	  idist = iaux
+	  iloop = iloop + 1
+	  !write(6,*) 'changes computing idist: ',my_id,iloop,nchange
+	  if( iloop >= nadmax ) exit
+	  call shympi_exchange_2d_node(idist)
+	end do
+
+	if( nchange /= 0 ) then
+	  stop 'error stop mkdist_mpi: internal error (1)'
+	end if
+
+	call shympi_barrier
+
+c----------------------------------------------------------
+c set real value rdist
+c----------------------------------------------------------
+
+	rdist = 0
+	nad2 = (nadmax+1) / 2
+	frac = 1./(nad2+1)
+
+	do k=1,nkn
+	  id = idist(k)
+	  if( id == 0 ) then
+	    rdist(k) = 0.
+	  else if( id > nad2 ) then
+	    rdist(k) = 1.
+	  else
+	    rdist(k) = id * frac
+	  end if
+	end do
+
+	rdist = 1. - rdist
 
 c----------------------------------------------------------
 c end of routine

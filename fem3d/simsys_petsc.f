@@ -28,6 +28,7 @@
 ! 21.12.2020	clr	original implementation
 ! 13.03.2021	clr&ggu	revised for inclusion into main branch
 ! 20.04.2021	clr	alternative implementation to replace pragma directives use_PETSc/SPK/AmgX
+! 18.05.2022	ggu	beautified
 !
 !******************************************************************
 !
@@ -57,73 +58,72 @@
 ! structure of calls:
 !
 !   shyfem
-!   ├──system_initialize
-!   |   ├──petsc_global_initialize
-!   |   |  └──petsc_initialize
-!   |   ├──petsc_global_create_setup
-!   |   |  ├──petsc_create_indexes
-!   |   |  └──pestc_identify_non_zeros_and_ghosts
-!   |   ├──allocate(zeta_system)
-!   |   ├──zeta_system=petsc_system(PETSc_zeta_config,AmgX_zeta_config)
-!   |   ├──system_zeta%create_objects
-!   |   |  ├──MatCreate, MatSet, ...
-!   |   |  └──VecCreate,VecSet, VecMPISetGhost ...
-!   |   └──petsc_global_close_setup
-!   ├──loop on time
-!   |   └──hydro
-!   |      ├──system_init
-!   |      |     └──reset_zero_entries
-!   |      ├──hydro_zeta
-!   |      |  ├──loop on elements
-!   |      |  |  ├──zeta_system%mat3x3(:,:) = …
-!   |      |  |  ├──zeta_system%vecx3(:) = …
-!   |      |  |  └──zeta_system%add_matvec_values(element_number)
-!   |      |  |      ├──MatSetValues 
-!   |      |  |      └──VecSetValues 
-!   |      |  └──zeta_system%add_full_rhs(length,values(:))
-!   |      |     └──VecSetValue  
-!   |      ├──system_solve
-!   |      |  ├──zeta_system%matvec_assemble
-!   |      |  |     └──Mat/VecAssemblyBegin/End   
-!   |      |  ├──IF (ITER ==1) 
-!   |      |  |     └──zeta_system%init_solver 
-!   |      |  |         └──zeta_system%init_solver_PETSc
-!   |      |  |             ├──KSPCreate, KSPSet, KSPGetPC, ...
-!   |      |  |             └──PCSetType, PCFactorSetMatSolverType, ...
-!   |      |  └──zeta_system%solve
-!   |      |     ├──KSPSetOperators
-!   |      |     └──KSPSolve
-!   |      └──system_get
-!   |         └──zeta_system%get_solution
-!   |            └──VecGhostUpdateBegin/End
-!   |                ├──VecGetArrayF90
-!   |                └──VecRestoreArrayReadF90
-!   └──system_finalize
-!       ├──zeta_system%destroy_solver
-!       |   └──zeta_system%destroy_solver_PETSc
-!       |      └──KSPDestroy
-!       ├──zeta_system%destroy_matvecobjects
-!       |   ├──VecDestroy
-!       |   └──MatDestroy
-!       ├──deallocate(zeta_system)
-!       ├──petsc_global_finalize
-!       └──PetscFinalize
-!
+!   +---+ system_initialize
+!   |   +--+ petsc_global_initialize
+!   |   |  +--- petsc_initialize
+!   |   +--+ petsc_global_create_setup
+!   |   |  +--- petsc_create_indexes
+!   |   |  +--- pestc_identify_non_zeros_and_ghosts
+!   |   +--- allocate(zeta_system)
+!   |   +--- zeta_system=petsc_system(PETSc_zeta_config,AmgX_zeta_config)
+!   |   +--+ system_zeta%create_objects
+!   |   |  +--- MatCreate, MatSet, ...
+!   |   |  +--- VecCreate,VecSet, VecMPISetGhost ...
+!   |   +--- petsc_global_close_setup
+!   +---+loop on time
+!   |   +--+ hydro
+!   |      +--+ system_init
+!   |      |  +--- reset_zero_entries
+!   |      +--+ hydro_zeta
+!   |      |  +--+ loop on elements
+!   |      |  |  +--- zeta_system%mat3x3(:,:) = ...
+!   |      |  |  +--- zeta_system%vecx3(:) = ...
+!   |      |  |  +--+ zeta_system%add_matvec_values(element_number)
+!   |      |  |     +--- MatSetValues 
+!   |      |  |     +--- VecSetValues 
+!   |      |  +--- zeta_system%add_full_rhs(length,values(:))
+!   |      |     +--- VecSetValue  
+!   |      +--+ system_solve
+!   |      |  +--+ zeta_system%matvec_assemble
+!   |      |  |  +--- Mat/VecAssemblyBegin/End   
+!   |      |  +--+ IF (ITER ==1) 
+!   |      |  |  +--+ zeta_system%init_solver 
+!   |      |  |     +--+ zeta_system%init_solver_PETSc
+!   |      |  |        +--- KSPCreate, KSPSet, KSPGetPC, ...
+!   |      |  |        +--- PCSetType, PCFactorSetMatSolverType, ...
+!   |      |  +--+ zeta_system%solve
+!   |      |     +--- KSPSetOperators
+!   |      |     +--- KSPSolve
+!   |      +--+ system_get
+!   |         +--+ zeta_system%get_solution
+!   |            +--+ VecGhostUpdateBegin/End
+!   |               +--- VecGetArrayF90
+!   |               +--- VecRestoreArrayReadF90
+!   +--+ system_finalize
+!      +--+ zeta_system%destroy_solver
+!      |  +--+ zeta_system%destroy_solver_PETSc
+!      |     +--- KSPDestroy
+!      +--+ zeta_system%destroy_matvecobjects
+!      |  +--- VecDestroy
+!      |  +--- MatDestroy
+!      +--- deallocate(zeta_system)
+!      +--- petsc_global_finalize
+!      +--- PetscFinalize
 
 !==================================================================
 	module mod_system_global
 !==================================================================
+
 	implicit none
 
 !==================================================================
 	end module mod_system_global
 !==================================================================
 
-
-
 !==================================================================
 	module mod_zeta_system
 !==================================================================
+
 #include "petsc/finclude/petsc.h"
 
        use petscvec
@@ -144,23 +144,26 @@
 
         integer :: petsc_iter
 	character*80 :: solver_type = 'PETSc'
+
 !==================================================================
 	end module mod_zeta_system
 !==================================================================
 
-
 	subroutine system_initialize
 
 ! allocates data structure
-        use mod_zeta_system
-        implicit none
 
+        use mod_zeta_system
+
+        implicit none
 
         write(6,*) '----------------------------------------'
         write(6,*) 'initializing matrix inversion routines'
         write(6,*) 'using PETSC routines '
         write(6,*) '----------------------------------------'
+
         petsc_iter=1
+
         !-------------------------------------------------------------
         ! Initialize Petsc 
         !-------------------------------------------------------------         
@@ -193,12 +196,12 @@
 	subroutine system_init
 
         use mod_zeta_system
+
         implicit none
 
         call zeta_system%reset_zero_entries
 
 	end subroutine system_init
-
 
 !******************************************************************
 
@@ -249,7 +252,7 @@
           write(*,*)'MPI_SOLVER_INIT_TIME=',t_passed
         endif
 
-        write(6,*)'iter is ',petsc_iter
+        !write(6,*)'iter is ',petsc_iter
         petsc_iter = petsc_iter + 1
 
 	t_start = shympi_wtime()
@@ -270,6 +273,7 @@
 ! assembles element matrix into system matrix (3d version)
 
         use mod_zeta_system
+
         implicit none
 
         integer ie
@@ -285,7 +289,9 @@
 ! copies solution back to z
 
         use mod_zeta_system
+
         implicit none
+
 	integer n
 	real z(n)
 
@@ -300,7 +306,9 @@
 ! adds values to right hand side
 
         use mod_zeta_system
+
         implicit none
+
 	real dt
 	integer n
 	real array(n)
@@ -350,6 +358,7 @@
 	stop 'error stop system_adjust_3d: not yet implemented'
 
         end subroutine system_adjust_matrix_3d
+
 !******************************************************************
 
         subroutine system_get_3d(n,nlvdi,nlv,z)
@@ -369,14 +378,18 @@
 
        subroutine system_finalize
 
-        use mod_zeta_system
+       use mod_zeta_system
+
        implicit none
 
+       write(*,*)'finilizing PETSC solver'
        call zeta_system%destroy_solver
        call zeta_system%destroy_matvecobjects
        deallocate(zeta_system)
        call petsc_global_finalize
+       write(*,*)'PETSC solver finalized'
 
        end subroutine system_finalize
+
 !******************************************************************
 
