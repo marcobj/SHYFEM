@@ -31,6 +31,9 @@ copy3="Copyright (c) 1998-2002 Georg Umgiesser - ISDGM/CNR"
 copy4="e-mail: georg@isdgm.ve.cnr.it"
 
 ######################################################### help - usage
+#
+script=$(realpath $0)
+FEMBIN=$(dirname $script)
 
 Copy()
 {
@@ -338,8 +341,8 @@ if [ $eps = "YES" ]; then
     [ $quiet = "NO" ] && echo "$psfile  ->  $epsfile"
 
     #ps2eps $psfile -o$epsfile  2> /dev/null
-    gps2eps $psfile > $epsfile
-    psresetbb.sh $epsfile
+    $FEMBIN/gps2eps $psfile > $epsfile
+    $FEMBIN/psresetbb.sh $epsfile
     auxfiles="$auxfiles $epsfile"
   done
   newfiles=$auxfiles

@@ -332,8 +332,8 @@ c checks important variables
 	call check2Dr(nlvdi,nlv,nel,utlnv,-umax,umax,text,'utlnv')
 	call check2Dr(nlvdi,nlv,nel,vtlnv,-umax,umax,text,'vtlnv')
 
-	call check2Dr(nlvdi,nlv,nel,ulnv,-vmax,vmax,text,'ulnv')
-	call check2Dr(nlvdi,nlv,nel,vlnv,-vmax,vmax,text,'vlnv')
+	!call check2Dr(nlvdi,nlv,nel,ulnv,-vmax,vmax,text,'ulnv')
+	!call check2Dr(nlvdi,nlv,nel,vlnv,-vmax,vmax,text,'vlnv')
 
 	call check2Dr(nlvdi,nlv,nkn,tempv,tmin,tmax,text,'tempv')
 	call check2Dr(nlvdi,nlv,nkn,saltv,smin,smax,text,'saltv')

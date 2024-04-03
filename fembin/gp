@@ -54,7 +54,6 @@ version=2.01
 ######################################################### defaults
 
 FEMDIR=${SHYFEMDIR:=$HOME/shyfem}
-FEMDIR=$HOME/shyfem
 
 fembin=$FEMDIR/fembin
 
