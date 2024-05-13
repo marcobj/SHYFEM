@@ -112,7 +112,7 @@
 
 	call levels_init(nknr,nelr,nlvr)
 	nlv = nlvr
-	call rst_get_vertical(nkn,nel,nlv,hlv,ilhv,ilhkv)
+	!call rst_get_vertical(nkn,nel,nlv,hlv,ilhv,ilhkv)
 	call shympi_set_hlv(nlv,hlv)
 
 !-------------------------------------------------------------------
