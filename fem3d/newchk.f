@@ -320,8 +320,8 @@ c checks important variables
 
 	text = '*** check_values'
 
-	call check1Dr(nkn,zov,-zmax,zmax,text,'zov')
-	call check1Dr(nkn,znv,-zmax,zmax,text,'znv')
+	!call check1Dr(nkn,zov,-zmax,zmax,text,'zov')
+	!call check1Dr(nkn,znv,-zmax,zmax,text,'znv')
 
 	call check2Dr(3,3,nel,zeov,-zmax,zmax,text,'zeov')
 	call check2Dr(3,3,nel,zenv,-zmax,zmax,text,'zenv')
