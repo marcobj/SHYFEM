@@ -897,7 +897,7 @@ c*****************************************************************
 	call ncnames_add_coord('z','eta values on full',bclip)
 	call ncnames_add_coord('z','tcell zstar depth')
 	call ncnames_add_coord('z','ocean_s_coordinate_g1')
-	call ncnames_add_coord('z','Vertical T levels')
+	call ncnames_add_coord('z','Vertical T levels',bclip)
 	!call ncnames_add_coord('z','S-coordinate at RHO-points')
 
 	end subroutine ncnames_add_coordinates
